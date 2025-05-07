@@ -380,9 +380,9 @@ const AskAI = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
-      text: `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 180px;">
-        <h1 style="font-size: 2.5rem; font-weight: 700; text-align: center; font-family: 'Inter', sans-serif; margin-bottom: 0.5rem;">What can I do for you?</h1>
-        <div style="font-size: 1rem; color: #aaa; text-align: center; font-family: 'Inter', sans-serif;">Ask me anything about Kenyan governance, elections, or civic education.</div>
+      text: `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 180px;" class="welcome-container">
+        <h1 style="font-size: 1.5rem; font-weight: 600; text-align: center; font-family: 'Inter', sans-serif; margin-bottom: 0.5rem;" class="welcome-heading">What can I do for you?</h1>
+        <div style="font-size: 0.875rem; text-align: center; font-family: 'Inter', sans-serif;" class="welcome-subtext">Ask me anything about Kenyan governance, elections, or civic education.</div>
       </div>`,
       isUser: false,
       id: generateUniqueId(),

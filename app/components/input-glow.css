@@ -135,4 +135,21 @@
   .input-active::before {
     opacity: 0.6 !important;
   }
+}
+
+/* Add these classes for the welcome message */
+.welcome-heading {
+  color: #1a1a1a;
+}
+
+.welcome-subtext {
+  color: #4a5568;
+}
+
+.dark .welcome-heading {
+  color: #ffffff;
+}
+
+.dark .welcome-subtext {
+  color: #d1d5db;
 } 
