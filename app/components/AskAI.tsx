@@ -2016,11 +2016,34 @@ const AskAI = () => {
                           </div>
                         )}
                       
-                        <div className={`text-white font-light drop-shadow-sm relative z-10 ${!message.text.includes('What can I do for you?') ? '' : 'w-full'}`}>
+                        <div className={`${!message.text.includes('What can I do for you?') ? 'text-gray-800 dark:text-gray-200 pl-10' : ''} relative z-10`}>
                           {index === 0 ? (
                             <div dangerouslySetInnerHTML={{ __html: message.text }} />
+                          ) : message.type === 'research' && message.researchData ? (
+                            showTypingEffect && !message.isTypingComplete ? (
+                              <TypewriterEffect 
+                                text={message.text} 
+                                onComplete={() => handleTypingComplete(message.id)}
+                              />
+                            ) : (
+                              <ResearchOutput 
+                                research={message.researchData} 
+                                isTypingComplete={message.isTypingComplete || false}
+                                onTopicClick={handleTopicClick}
+                              />
+                            )
                           ) : (
-                            message.text
+                            showTypingEffect && !message.isTypingComplete ? (
+                              <TypewriterEffect 
+                                text={message.text} 
+                                onComplete={() => handleTypingComplete(message.id)}
+                              />
+                            ) : (
+                              <div 
+                                className="prose prose-sm dark:prose-invert max-w-none"
+                                dangerouslySetInnerHTML={{ __html: processMarkdown(message.text) }}
+                              />
+                            )
                           )}
                         </div>
                       </div>
