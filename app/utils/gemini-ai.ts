@@ -50,6 +50,11 @@ export async function getConversationHistory(): Promise<ConversationTurn[]> {
  */
 export async function generateAIResponse(userMessage: string, signal?: AbortSignal): Promise<string> {
   try {
+    if (!GEMINI_API_KEY) {
+      console.error('Gemini API key is missing');
+      throw new Error('API key is missing');
+    }
+
     // Get history for context
     let conversationHistory = await getConversationHistory();
     
