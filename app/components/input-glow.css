@@ -1,0 +1,138 @@
+/* RGB Glow effect for input container edges only */
+.input-glow-container {
+  position: relative;
+  z-index: 1;
+  transition: all 0.3s ease;
+}
+
+/* Create the edge glow using a double approach */
+.input-glow-container::before {
+  content: "";
+  position: absolute;
+  inset: -2px; /* Shorthand for top/right/bottom/left */
+  z-index: -1;
+  border-radius: 1rem;
+  border: 3px solid transparent;
+  background: linear-gradient(
+    45deg,
+    #ff0080,
+    #ff8c00,
+    #ffed00,
+    #00ff80,
+    #00cfff,
+    #cc4cfa,
+    #7b00ff,
+    #ff0080
+  ) border-box;
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  background-size: 400% 400%;
+  filter: blur(3px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  animation: glow-animation 12s linear infinite;
+}
+
+.input-glow-container:hover::before,
+.input-glow-container:focus-within::before,
+.input-glow-container.input-active::before {
+  opacity: 0.65;
+}
+
+/* Add pulsing effect when active */
+.input-active::before {
+  animation: glow-animation 12s linear infinite, pulse-glow 3s ease-in-out infinite;
+}
+
+/* Enhanced focus effect */
+.input-focused::before {
+  opacity: 0.75 !important;
+  filter: blur(3.5px);
+  animation: glow-animation 8s linear infinite !important;
+}
+
+@keyframes glow-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse-glow {
+  0% {
+    filter: blur(3px);
+    opacity: 0.65;
+  }
+  50% {
+    filter: blur(4px);
+    opacity: 0.75;
+  }
+  100% {
+    filter: blur(3px);
+    opacity: 0.65;
+  }
+}
+
+/* Gemini-style animation when submitting */
+@keyframes submit-pulse {
+  0% {
+    filter: blur(3px);
+    opacity: 0.65;
+  }
+  50% {
+    filter: blur(5px);
+    opacity: 0.8;
+  }
+  100% {
+    filter: blur(3px);
+    opacity: 0.65;
+  }
+}
+
+/* Adjust opacity for dark mode */
+@media (prefers-color-scheme: dark) {
+  .input-glow-container:hover::before,
+  .input-glow-container:focus-within::before,
+  .input-glow-container.input-active::before {
+    opacity: 0.75;
+  }
+  
+  .input-active::before {
+    opacity: 0.8;
+  }
+  
+  .input-focused::before {
+    opacity: 0.85 !important;
+  }
+}
+
+/* Additional styling for true Gemini-like experience */
+.input-glow-container:focus-within {
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Add subtle inner glow for an even more futuristic look */
+.input-glow-container {
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Avoid too strong glow on mobile devices */
+@media (max-width: 768px) {
+  .input-glow-container::before {
+    filter: blur(2.5px);
+    border-width: 2px;
+  }
+  
+  .input-focused::before,
+  .input-active::before {
+    opacity: 0.6 !important;
+  }
+} 

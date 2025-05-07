@@ -1,0 +1,56 @@
+/* Sidebar styling for collapsed state */
+
+/* Hide scrollbar in collapsed sidebar */
+.sidebar-collapsed .sidebar-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar-collapsed .sidebar-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Add spacing between items in collapsed sidebar */
+.sidebar-collapsed .sidebar-item {
+  margin-bottom: 10px;
+}
+
+/* Make icons larger in collapsed sidebar */
+.sidebar-collapsed .sidebar-icon {
+  font-size: 1.25rem;
+}
+
+/* Nice tooltip for collapsed sidebar items */
+.sidebar-collapsed [data-tooltip] {
+  position: relative;
+}
+
+.sidebar-collapsed [data-tooltip]:hover::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(17, 24, 39, 0.9);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  opacity: 1;
+}
+
+.sidebar-collapsed [data-tooltip]:hover::after {
+  content: '';
+  position: absolute;
+  left: 58px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent rgba(17, 24, 39, 0.9) transparent transparent;
+  z-index: 1000;
+  opacity: 1;
+} 
