@@ -73,6 +73,7 @@ import {
 import axios from 'axios';
 import Confetti from 'react-confetti';
 import { useWindowSize } from 'react-use';
+import FuturisticLoader from './FuturisticLoader';
 
 // Use the ResearchResponse type as DeepResearchResponse for all references
 type DeepResearchResponse = ResearchResponse;
@@ -379,7 +380,10 @@ const AskAI = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
-      text: "Hello! 👋 Welcome to Kiongozi Platform. I'm your AI assistant ready to help with questions about Kenyan governance, elections, and civic education. What would you like to learn about today?",
+      text: `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 180px;">
+        <h1 style="font-size: 2.5rem; font-weight: 700; text-align: center; font-family: 'Inter', sans-serif; margin-bottom: 0.5rem;">What can I do for you?</h1>
+        <div style="font-size: 1rem; color: #aaa; text-align: center; font-family: 'Inter', sans-serif;">Ask me anything about Kenyan governance, elections, or civic education.</div>
+      </div>`,
       isUser: false,
       id: generateUniqueId(),
       type: 'chat',
@@ -406,6 +410,7 @@ const AskAI = () => {
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [showTopicsDropdown, setShowTopicsDropdown] = useState(false); // New state for topics dropdown
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1164,7 +1169,17 @@ const AskAI = () => {
     );
   };
 
+  useEffect(() => {
+    // Hide loader after topics are loaded and a short delay for smoothness
+    if (!isLoadingTopics) {
+      const timer = setTimeout(() => setShowLoader(false), 900);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingTopics]);
+
   return (
+    <>
+      {showLoader && <FuturisticLoader />}
     <section className={`w-full h-full flex flex-col ${darkMode ? 'dark' : ''}`} suppressHydrationWarning>
       {/* Sidebar */}
       <AnimatePresence>
@@ -1998,32 +2013,11 @@ const AskAI = () => {
                           {/* Removed the Kiongozi AI text label */}
                         </div>
                       
-                        <div className="text-gray-800 dark:text-gray-200 pl-10">
-                          {message.type === 'research' && message.researchData ? (
-                            showTypingEffect && !message.isTypingComplete ? (
-                              <TypewriterEffect 
-                                text={message.text} 
-                                onComplete={() => handleTypingComplete(message.id)}
-                              />
+                          <div className="text-white font-light drop-shadow-sm relative z-10" style={{ width: '100%' }}>
+                            {index === 0 ? (
+                              <div dangerouslySetInnerHTML={{ __html: message.text }} />
                             ) : (
-                              <ResearchOutput 
-                                research={message.researchData!} 
-                                isTypingComplete={message.isTypingComplete || false}
-                                onTopicClick={handleTopicClick}
-                              />
-                            )
-                          ) : (
-                            showTypingEffect && !message.isTypingComplete ? (
-                              <TypewriterEffect 
-                                text={message.text} 
-                                onComplete={() => handleTypingComplete(message.id)}
-                              />
-                            ) : (
-                              <div 
-                                className="prose prose-sm dark:prose-invert max-w-none sm:text-base"
-                                dangerouslySetInnerHTML={{ __html: processMarkdown(message.text) }}
-                              />
-                            )
+                              message.text
                           )}
                         </div>
                     </div>
@@ -2615,6 +2609,7 @@ const AskAI = () => {
         }
       `}</style>
     </section>
+    </>
   );
 };
 
