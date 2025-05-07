@@ -2000,27 +2000,30 @@ const AskAI = () => {
                       </div>
                     ) : (
                       <div className="w-full">
-                        <div className="flex items-start mb-2">
-                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden flex items-center justify-center mr-3">
-                            <Image 
-                              src="/images/ai-head-icon.svg"
-                              alt="Kiongozi AI"
-                              width={28}
-                              height={28}
-                              className="w-full h-full"
-                            />
-                        </div>
-                          {/* Removed the Kiongozi AI text label */}
-                        </div>
+                        {/* Only show the AI icon and header for non-welcome messages */}
+                        {!message.text.includes('What can I do for you?') && (
+                          <div className="flex items-start mb-2">
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden flex items-center justify-center mr-3">
+                              <Image 
+                                src="/images/ai-head-icon.svg"
+                                alt="Kiongozi AI"
+                                width={28}
+                                height={28}
+                                className="w-full h-full"
+                              />
+                            </div>
+                            {/* Removed the Kiongozi AI text label */}
+                          </div>
+                        )}
                       
-                          <div className="text-white font-light drop-shadow-sm relative z-10" style={{ width: '100%' }}>
-                            {index === 0 ? (
-                              <div dangerouslySetInnerHTML={{ __html: message.text }} />
-                            ) : (
-                              message.text
+                        <div className={`text-white font-light drop-shadow-sm relative z-10 ${!message.text.includes('What can I do for you?') ? '' : 'w-full'}`}>
+                          {index === 0 ? (
+                            <div dangerouslySetInnerHTML={{ __html: message.text }} />
+                          ) : (
+                            message.text
                           )}
                         </div>
-                    </div>
+                      </div>
                     )}
                   </motion.div>
                 ))}
