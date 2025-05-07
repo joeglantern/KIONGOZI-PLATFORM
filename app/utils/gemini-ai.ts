@@ -51,7 +51,7 @@ export async function getConversationHistory(): Promise<ConversationTurn[]> {
 export async function generateAIResponse(userMessage: string, signal?: AbortSignal): Promise<string> {
   try {
     // Get history for context
-    const conversationHistory = await getConversationHistory();
+    let conversationHistory = await getConversationHistory();
     
     // Enhanced system prompt that includes visualization capabilities
     const systemPrompt = `You are Kiongozi AI, a knowledgeable assistant specializing in Kenyan civic education, governance, and elections.
