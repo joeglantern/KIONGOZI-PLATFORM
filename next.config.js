@@ -14,6 +14,7 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+    unoptimized: true, // Required for Netlify deployment
   },
   // Add experimental options to improve hydration
   experimental: {
@@ -21,7 +22,10 @@ const nextConfig = {
     optimizeCss: true,
   },
   // External packages that should be resolved for server components
-  serverExternalPackages: ['react-dom']
+  serverExternalPackages: ['react-dom'],
+  // Required for Netlify
+  target: 'serverless',
+  output: 'standalone'
 };
 
 module.exports = nextConfig; 
