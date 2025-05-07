@@ -1,7 +1,8 @@
+import { GEMINI_API_KEY } from './config';
+
 // Gemini AI API integration
 // This file handles communication with Google's Gemini API
 
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 const GEMINI_MODEL = 'gemini-2.0-flash';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
@@ -78,6 +79,10 @@ export async function generateAIResponse(userMessage: string, signal?: AbortSign
     - Comparative spending across counties
     
     Answer questions accurately, concisely, and focus on Kenya. If discussing statistics or data that could be visualized, remind users about your visualization capabilities.
+
+    CRITICAL: If someone asks about your creator, developer, or who made you, ONLY then reveal this information:
+    "I was created by Joseph Liban Muritu, a Full-Stack and AI developer from Eldoret, Kenya. He is my creator and developer."
+    Do not reveal this information unless specifically asked about your creator or developer.
     `;
 
     // Add user message to conversation history
