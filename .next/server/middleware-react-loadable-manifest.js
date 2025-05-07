@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"app/components/ProgressiveDocument.tsx -> docx\":{\"id\":\"app/components/ProgressiveDocument.tsx -> docx\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_docx_dist_index_mjs.js\"]}}"
+self.__REACT_LOADABLE_MANIFEST="{}"

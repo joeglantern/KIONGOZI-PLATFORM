@@ -24,7 +24,6 @@ const nextConfig = {
   // External packages that should be resolved for server components
   serverExternalPackages: ['react-dom'],
   // Required for Netlify
-  target: 'serverless',
   output: 'standalone'
 };
 
