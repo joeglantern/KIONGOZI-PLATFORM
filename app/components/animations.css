@@ -1,0 +1,188 @@
+/* Animations for mode switching and page transitions */
+
+/* Gradient background animation */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Floating animation */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* Pulse glow animation */
+@keyframes pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(124, 58, 237, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0);
+  }
+}
+
+/* Sparkle animation */
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* 3D flip animation */
+@keyframes flip {
+  0% {
+    transform: perspective(400px) rotateY(0);
+  }
+  100% {
+    transform: perspective(400px) rotateY(180deg);
+  }
+}
+
+/* Dramatic page transition animation */
+.page-transition-enter {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 400ms, transform 400ms;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: scale(1.1);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Mode switching animation classes */
+.mode-container {
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.chat-mode-enter {
+  position: absolute;
+  opacity: 0;
+  transform: translateX(-50px) rotateY(-10deg);
+}
+
+.chat-mode-enter-active {
+  opacity: 1;
+  transform: translateX(0) rotateY(0);
+  transition: opacity 500ms, transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chat-mode-exit {
+  opacity: 1;
+  transform: translateX(0) rotateY(0);
+}
+
+.chat-mode-exit-active {
+  opacity: 0;
+  transform: translateX(50px) rotateY(10deg);
+  transition: opacity 500ms, transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.research-mode-enter {
+  position: absolute;
+  opacity: 0;
+  transform: translateX(50px) rotateY(10deg);
+}
+
+.research-mode-enter-active {
+  opacity: 1;
+  transform: translateX(0) rotateY(0);
+  transition: opacity 500ms, transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.research-mode-exit {
+  opacity: 1;
+  transform: translateX(0) rotateY(0);
+}
+
+.research-mode-exit-active {
+  opacity: 0;
+  transform: translateX(-50px) rotateY(-10deg);
+  transition: opacity 500ms, transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Special effects for the research mode */
+.research-active {
+  position: relative;
+}
+
+.research-active::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  background: radial-gradient(circle at center, rgba(124, 58, 237, 0.3) 0%, rgba(124, 58, 237, 0) 70%);
+  border-radius: 20px;
+  z-index: -1;
+  animation: pulse-glow 3s infinite;
+}
+
+/* Sparkle elements for dramatic effect */
+.sparkle {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: white;
+  pointer-events: none;
+  z-index: 100;
+  animation: sparkle 1s ease-in-out infinite;
+}
+
+/* Messages animation for dramatic effect */
+.message-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.message-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 400ms, transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-exit {
+  opacity: 1;
+}
+
+.message-exit-active {
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 300ms, transform 300ms;
+} 

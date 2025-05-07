@@ -1,0 +1,339 @@
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.5);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.7);
+}
+
+/* Existing animations can remain below */
+
+/* Chat UI Animations and Custom Styles */
+
+/* Dark mode support */
+:root {
+  --primary-glow: rgba(14, 165, 233, 0.3);
+  --secondary-glow: rgba(168, 85, 247, 0.3);
+}
+
+.dark {
+  --primary-glow: rgba(14, 165, 233, 0.2);
+  --secondary-glow: rgba(168, 85, 247, 0.2);
+}
+
+/* Input highlight animation */
+@keyframes highlight-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+.highlight-input {
+  transition: all 0.3s ease;
+}
+
+.highlight-input:focus {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Add the highlight-pulse class */
+.highlight-input.highlight-pulse {
+  animation: highlight-pulse 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Message fade animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.fade-in {
+  animation: fade-in 0.3s forwards;
+}
+
+.fade-out {
+  animation: fade-out 0.3s forwards;
+}
+
+/* Glowing shadows */
+.shadow-glow {
+  box-shadow: 0 0 20px var(--primary-glow), 
+              0 0 30px var(--secondary-glow);
+}
+
+.shadow-glow-sm {
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+
+/* Button hover effects */
+.btn-hover-effect {
+  transition: all 0.3s ease;
+}
+
+.btn-hover-effect:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 
+              0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Glass morphism */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-effect {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(30, 41, 59, 0.2);
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 20px;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.5);
+}
+
+/* Custom scrollbar for document */
+.custom-scrollbar-dark::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar-dark::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.5);
+  border-radius: 20px;
+}
+
+/* Floating animation */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.floating {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Blinking cursor animation */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Add styles for modern text-highlight animation (latest ChatGPT style) */
+.text-highlight {
+  position: relative;
+  display: inline-block;
+  color: var(--primary-color, #6366f1);
+  font-weight: 500;
+  animation: text-pulse 1.5s infinite;
+}
+
+@keyframes text-pulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+/* Remove old cursor styles since we now use word highlighting */
+.typewriter-cursor {
+  display: none;
+}
+
+/* Sentiment-Adaptive Styling Animations */
+
+/* Message background animation with sentiment color */
+@keyframes sentiment-bg-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sentiment-bg {
+  animation: sentiment-bg-fade-in 0.5s ease-in-out;
+}
+
+/* Accent color glow for important sentiment terms */
+.sentiment-accent {
+  position: relative;
+}
+
+.sentiment-accent::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.3;
+  border-radius: 1px;
+}
+
+/* Sentiment intensity animations */
+.sentiment-high-intensity {
+  font-weight: 500;
+}
+
+.sentiment-high-intensity .sentiment-accent::after {
+  opacity: 0.5;
+  height: 3px;
+}
+
+/* Animated document section transitions */
+@keyframes section-appear {
+  from { 
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.document-section-appear {
+  animation: section-appear 0.4s ease-out;
+}
+
+/* Document updated notification */
+@keyframes update-pulse {
+  0% { background-color: rgba(79, 70, 229, 0.2); }
+  50% { background-color: rgba(79, 70, 229, 0); }
+  100% { background-color: rgba(79, 70, 229, 0); }
+}
+
+.document-section-updated {
+  animation: update-pulse 1.5s ease-in-out;
+}
+
+/* Subtle background colors for different sentiment types */
+.bg-sentiment-positive {
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+.bg-sentiment-negative {
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.bg-sentiment-urgent {
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.bg-sentiment-informative {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.bg-sentiment-curious {
+  background-color: rgba(139, 92, 246, 0.05);
+}
+
+.bg-sentiment-technical {
+  background-color: rgba(75, 85, 99, 0.05);
+}
+
+.bg-sentiment-formal {
+  background-color: rgba(107, 114, 128, 0.05);
+}
+
+.bg-sentiment-calming {
+  background-color: rgba(14, 165, 233, 0.05);
+}
+
+/* Dark mode sentiment backgrounds */
+.dark .bg-sentiment-positive {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.dark .bg-sentiment-negative {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.dark .bg-sentiment-urgent {
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+.dark .bg-sentiment-informative {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.dark .bg-sentiment-curious {
+  background-color: rgba(139, 92, 246, 0.1);
+}
+
+.dark .bg-sentiment-technical {
+  background-color: rgba(75, 85, 99, 0.1);
+}
+
+.dark .bg-sentiment-formal {
+  background-color: rgba(107, 114, 128, 0.1);
+}
+
+.dark .bg-sentiment-calming {
+  background-color: rgba(14, 165, 233, 0.1);
+}
+
+/* Fix for send button movement when active */
+.send-button-active {
+  position: relative;
+  transform: none !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  translate: none !important;
+  scale: none !important;
+  margin: 0 !important;
+  padding: 0.5rem !important;
+  animation: none !important;
+} 
