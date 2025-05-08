@@ -280,6 +280,8 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
             .replace(/\*\*/g, '')
             .replace(/\*/g, '')
             .replace(/`/g, '')
+            .replace(/_/g, '')
+            .replace(/#/g, '')
             .trim();
           setNewTitle(currentDocument.title);
           documentChanged = true;
@@ -348,11 +350,13 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
     const relatedTopics = message.researchData?.relatedTopics || [];
     if (relatedTopics.length > 0) {
       const newKeywords = relatedTopics.map(topic => 
-        // Clean emojis and formatting
-        topic.replace(/^[🔍📊🌐⚖️📚💡🧩🔄]\s*/, '')
+        // Clean emojis and formatting more thoroughly
+        topic.replace(/^[🔍📊🌐⚖️📚💡🧩🔄📈🏛️📝🗂️]\s*/, '')
              .replace(/\*\*/g, '')
              .replace(/\*/g, '')
              .replace(/`/g, '')
+             .replace(/_/g, '')
+             .replace(/#/g, '')
              .trim()
       );
       
@@ -413,12 +417,18 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
           .replace(/\*\*/g, '')
           .replace(/\*/g, '')
           .replace(/`/g, '')
-          .replace(/_/g, '');
+          .replace(/_/g, '')
+          .replace(/#/g, '');
         content = contentParts.join(':').trim();
       } else {
         // Use first few words as topic if no colon
         const words = point.split(' ');
-        topic = words.slice(0, Math.min(5, words.length)).join(' ');
+        topic = words.slice(0, Math.min(5, words.length)).join(' ')
+          .replace(/\*\*/g, '')
+          .replace(/\*/g, '')
+          .replace(/`/g, '')
+          .replace(/_/g, '')
+          .replace(/#/g, '');
         content = point;
       }
       
@@ -723,10 +733,10 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
     return (
       <div className="fixed bottom-32 left-0 right-0 z-20 px-4">
         <div 
-          className={`relative w-full max-w-3xl mx-auto mb-4 rounded-xl overflow-hidden shadow-lg p-4 ${
+          className={`relative w-full max-w-3xl mx-auto mb-4 rounded-xl overflow-hidden shadow-lg p-5 ${
             darkMode 
-              ? 'bg-gray-800 border border-gray-700' 
-              : 'bg-white border border-gray-200'
+              ? 'bg-gray-800/95 backdrop-blur-sm border border-indigo-800/30' 
+              : 'bg-white/95 backdrop-blur-sm border border-indigo-200'
           }`}
         >
           {/* Close button for prompt */}
@@ -743,9 +753,14 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
           </button>
           
           <div className="flex items-center space-x-3 mb-3">
-            <FiFileText size={20} className="text-indigo-500" />
+            <div className="relative flex items-center justify-center h-7 w-7">
+              <FiFileText size={18} className="absolute text-indigo-500 dark:text-indigo-400" />
+              <svg className="h-full w-full text-indigo-500/20 dark:text-indigo-400/30" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            </div>
             <h3 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Create Research Document
+              Create Canvas Document
             </h3>
           </div>
           
@@ -767,13 +782,12 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
                 toggleDocumentGeneration(true);
                 setShowPrompt(false);
               }}
-              className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+              className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
             >
-              Yes, create document
+              Yes, create canvas
             </button>
             
             <button
-              // Use the improved dismissPrompt function
               onClick={dismissPrompt}
               className={`px-4 py-2 rounded-md text-sm font-medium ${
                 darkMode 
@@ -799,15 +813,20 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
     return (
       <button
         onClick={() => setIsExpanded(true)}
-        className={`inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-full px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium transition-all ${
+        className={`inline-flex items-center justify-center gap-1.5 rounded-full pl-2 pr-3 py-1.5 text-xs font-medium transition-all shadow-sm hover:shadow ${
           darkMode 
-            ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' 
-            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+            ? 'bg-indigo-600/20 text-indigo-200 hover:bg-indigo-600/30 border border-indigo-500/30' 
+            : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
         }`}
         title="Open research document"
       >
-        <FiFileText size={14} className="text-indigo-400" />
-        <span className="whitespace-nowrap text-xs sm:text-sm">My Document</span>
+        <div className="relative flex items-center justify-center h-5 w-5">
+          <FiFileText size={14} className="absolute text-indigo-400 dark:text-indigo-300" />
+          <svg className="h-full w-full text-indigo-500/20 dark:text-indigo-400/30" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10" />
+          </svg>
+        </div>
+        <span className="whitespace-nowrap">Canvas</span>
       </button>
     );
   }
@@ -815,31 +834,40 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
   // When expanded, show the full document
   return (
     <div 
-      className="fixed inset-0 z-30 flex items-center justify-center p-4 sm:px-4 sm:py-12 bg-black/30 backdrop-blur-sm overscroll-none"
+      className="fixed inset-0 z-30 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overscroll-none"
       onClick={() => setIsExpanded(false)}
     >
-      <div 
+      <motion.div 
         ref={documentRef}
-        className={`relative w-full max-w-2xl mx-auto rounded-xl overflow-hidden shadow-xl transition-all duration-300 ${
+        className={`relative w-full max-w-2xl mx-auto rounded-xl overflow-hidden shadow-2xl ${
           darkMode 
-            ? 'bg-gray-800 border border-gray-700' 
+            ? 'bg-gray-900 border border-gray-700' 
             : 'bg-white border border-gray-200'
-        } max-h-[90vh] sm:max-h-[80vh] flex flex-col`}
-        onClick={(e) => e.stopPropagation()} // Prevent document clicks from closing
+        } max-h-[90vh] flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
-        {/* Mobile-friendly header with collapse button */}
+        {/* Header with modern design */}
         <div 
-          className={`flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 ${
-            darkMode ? 'bg-gray-800' : 'bg-white'
-          } border-b ${
-            darkMode ? 'border-gray-700' : 'border-gray-200'
+          className={`flex items-center justify-between px-4 py-3 ${
+            darkMode ? 'bg-gray-800/80' : 'bg-white'
+          } backdrop-blur-sm border-b ${
+            darkMode ? 'border-gray-700/70' : 'border-gray-200'
           }`}
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <FiFileText 
-              size={16} 
-              className="text-indigo-500 dark:text-indigo-400 flex-shrink-0" 
-            />
+            <div className="relative flex items-center justify-center h-6 w-6">
+              <FiFileText 
+                size={16} 
+                className="absolute text-indigo-500 dark:text-indigo-400" 
+              />
+              <svg className="h-full w-full text-indigo-500/20 dark:text-indigo-400/30" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            </div>
             
             {editingTitle ? (
               <form 
@@ -856,16 +884,16 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
                   value={newTitle}
                   onChange={handleTitleChange}
                   onBlur={handleTitleSubmit}
-                  className={`w-full px-2 py-1 rounded border ${
+                  className={`w-full px-2 py-1.5 rounded-md border ${
                     darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      ? 'bg-gray-700/70 border-gray-600 text-white' 
                       : 'bg-gray-50 border-gray-300 text-gray-900'
-                  } focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                  } focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm`}
                 />
               </form>
             ) : (
               <div className="flex items-center gap-1 min-w-0 flex-1">
-                <h3 className={`font-medium text-sm md:text-base truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                <h3 className={`font-medium text-sm truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   {document.title}
                 </h3>
                 <button
@@ -881,33 +909,26 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
             )}
           </div>
           
-          <div className="flex items-center gap-1 sm:gap-2 ml-2 flex-shrink-0">
-            <div className="hidden sm:flex items-center text-xs text-gray-500 dark:text-gray-400">
-              <FiClock size={10} className="mr-1" />
-              <span className="text-xs">Auto-updating</span>
+          <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+            <div className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 text-xs rounded-full bg-indigo-100/70 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+              <FiClock size={10} />
+              <span>Auto-updating</span>
             </div>
             
-            <motion.div 
-              className="flex items-center gap-1"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
-            >
+            <div className="flex items-center gap-1">
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
                   handleCopy();
                 }}
-                className={`p-1 sm:p-1.5 rounded-lg ${
+                className={`p-1.5 rounded-md ${
                   darkMode 
-                    ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
-                    : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
-                }`}
+                    ? 'hover:bg-gray-700 text-gray-400 hover:text-indigo-300 hover:bg-indigo-900/20' 
+                    : 'hover:bg-indigo-50 text-gray-500 hover:text-indigo-700'
+                } transition-colors`}
                 title="Copy document"
-                aria-label="Copy document"
               >
-                <FiCopy size={14} className="sm:hidden" />
-                <FiCopy size={16} className="hidden sm:block" />
+                <FiCopy size={16} />
               </button>
               
               <button 
@@ -915,31 +936,27 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
                   e.stopPropagation();
                   handleDownload();
                 }}
-                className={`p-1 sm:p-1.5 rounded-lg ${
+                className={`p-1.5 rounded-md ${
                   darkMode 
-                    ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
-                    : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
-                }`}
+                    ? 'hover:bg-gray-700 text-gray-400 hover:text-indigo-300 hover:bg-indigo-900/20' 
+                    : 'hover:bg-indigo-50 text-gray-500 hover:text-indigo-700'
+                } transition-colors`}
                 title="Download as DOCX"
-                aria-label="Download as DOCX"
               >
-                <FiDownload size={14} className="sm:hidden" />
-                <FiDownload size={16} className="hidden sm:block" />
+                <FiDownload size={16} />
               </button>
-            </motion.div>
+            </div>
             
             <button
               onClick={() => setIsExpanded(false)}
-              className={`flex items-center justify-center p-1.5 sm:p-2 rounded-md ${
+              className={`flex items-center justify-center p-1.5 rounded-md ${
                 darkMode 
-                  ? 'bg-gray-700 text-white hover:bg-gray-600' 
+                  ? 'bg-gray-700/70 text-white hover:bg-gray-700' 
                   : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-              }`}
+              } transition-colors`}
               title="Collapse document"
-              aria-label="Collapse document"
             >
-              <FiX size={14} className="sm:hidden" />
-              <FiChevronDown size={16} className="hidden sm:block" />
+              <FiX size={16} />
             </button>
           </div>
         </div>
@@ -963,27 +980,27 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
               e.stopPropagation();
             }
           }}
-          className={`p-3 sm:p-4 overflow-y-auto flex-1 isolate overscroll-contain ${
-            darkMode ? 'custom-scrollbar-dark' : 'custom-scrollbar'
+          className={`p-5 overflow-y-auto flex-1 isolate overscroll-contain ${
+            darkMode ? 'custom-scrollbar-dark bg-gray-900' : 'custom-scrollbar bg-gray-50/50'
           }`}
         >
           {/* Keywords section */}
           {document.keywords.length > 0 && (
-            <div className="mb-3 sm:mb-4">
-              <h4 className={`text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            <div className="mb-5">
+              <h4 className={`text-xs uppercase tracking-wider font-medium mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Keywords
               </h4>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              <div className="flex flex-wrap gap-2">
                 {document.keywords.map((keyword, index) => (
                   <span 
                     key={index}
-                    className={`text-xs px-2 py-0.5 sm:py-1 rounded-full ${
+                    className={`text-xs px-3 py-1.5 rounded-full ${
                       darkMode 
-                        ? 'bg-gray-700 text-gray-300 border border-gray-600' 
-                        : 'bg-gray-100 text-gray-800 border border-gray-200'
+                        ? 'bg-indigo-900/30 text-indigo-300 border border-indigo-800/50 hover:bg-indigo-900/40 transition-colors' 
+                        : 'bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition-colors'
                     }`}
                   >
-                    {keyword}
+                    {keyword.replace(/[*_`]/g, '')}
                   </span>
                 ))}
               </div>
@@ -991,41 +1008,56 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
           )}
           
           {/* Document sections */}
-          <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-6">
             {document.sections.map((section, index) => (
-              <div key={index} className="border-b pb-3 sm:pb-4 last:border-b-0 last:pb-0 dark:border-gray-700">
-                <h3 className={`text-base sm:text-lg font-medium mb-1.5 sm:mb-2 ${
-                  darkMode ? 'text-white' : 'text-gray-900'
+              <div 
+                key={index} 
+                className={`border-b last:border-b-0 pb-6 last:pb-0 ${
+                  darkMode ? 'border-gray-800' : 'border-gray-200/70'
+                }`}
+              >
+                <h3 className={`text-lg font-semibold mb-3 ${
+                  darkMode ? 'text-indigo-300' : 'text-indigo-700'
                 }`}>
-                  {section.title}
+                  {section.title.replace(/[*_`#]/g, '')}
                 </h3>
                 <div 
                   className={`prose prose-sm max-w-none ${
-                    darkMode ? 'prose-invert' : ''
+                    darkMode ? 'prose-invert prose-headings:text-indigo-300 prose-a:text-indigo-400' : 'prose-headings:text-indigo-700 prose-a:text-indigo-600'
                   }`}
                   dangerouslySetInnerHTML={{ 
                     __html: section.content
-                      // Better bold handling
-                      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                      // Better italic handling
-                      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                      // Remove all markdown artifacts before processing
+                      .replace(/\\(.)/g, '$1') // Remove escape characters
+                      // Process formatting with improved capture groups and handling
+                      .replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>') // Bold and italic
+                      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
+                      .replace(/\*([^*]+)\*/g, '<em>$1</em>') // Italic
+                      .replace(/__([^_]+)__/g, '<strong>$1</strong>') // Bold (underscore)
+                      .replace(/_([^_]+)_/g, '<em>$1</em>') // Italic (underscore)
                       // Format code inline with better styling
-                      .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-mono text-sm">$1</code>')
-                      // Format headings with proper spacing
-                      .replace(/^###\s+(.*?)$/gm, '<h3 class="text-lg font-semibold mt-3 sm:mt-4 mb-1.5 sm:mb-2">$1</h3>')
-                      .replace(/^##\s+(.*?)$/gm, '<h2 class="text-xl font-bold mt-4 sm:mt-5 mb-2 sm:mb-3">$1</h2>')
-                      // Format lists with proper spacing
-                      .replace(/^- (.*?)$/gm, '<li class="ml-4 sm:ml-5">$1</li>')
-                      .replace(/^(\d+)\. (.*?)$/gm, '<li class="ml-4 sm:ml-5">$2</li>')
-                      // Handle quotes
-                      .replace(/^> (.*?)$/gm, '<blockquote class="pl-3 sm:pl-4 py-1 border-l-4 border-gray-300 dark:border-gray-600 my-2 sm:my-3 italic">$1</blockquote>')
-                      // Format paragraphs
-                      .replace(/\n\n/g, '</p><p class="mb-2 sm:mb-3">')
+                      .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 font-mono text-xs text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50">$1</code>')
+                      // Format headings with proper spacing and styling
+                      .replace(/^###\s+(.*?)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-indigo-700 dark:text-indigo-300">$1</h3>')
+                      .replace(/^##\s+(.*?)$/gm, '<h2 class="text-xl font-bold mt-5 mb-3 text-indigo-700 dark:text-indigo-300">$1</h2>')
+                      .replace(/^#\s+(.*?)$/gm, '<h1 class="text-2xl font-bold mt-5 mb-3 text-indigo-700 dark:text-indigo-300">$1</h1>')
+                      // Format lists with better styling and handling
+                      .replace(/^- (.*?)$/gm, '<li class="ml-5 mb-1 flex items-start"><span class="inline-block w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400 mt-1.5 mr-2 flex-shrink-0"></span><span>$1</span></li>')
+                      .replace(/^(\d+)\.\s+(.*?)$/gm, '<li class="ml-5 mb-1 flex items-start"><span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-xs font-medium text-indigo-700 dark:text-indigo-300 mr-2 flex-shrink-0">$1</span><span>$2</span></li>')
+                      // Wrap lists in ul/ol tags - using multiple replacements instead of 's' flag
+                      .replace(/(<li class="ml-5 mb-1 flex items-start"><span class="inline-block[^<]*<\/span><span>[^<]*<\/span><\/li>)(<li class="ml-5 mb-1 flex items-start"><span class="inline-block[^<]*<\/span><span>[^<]*<\/span><\/li>)*/g, '<ul class="my-3 space-y-1">$&</ul>')
+                      .replace(/(<li class="ml-5 mb-1 flex items-start"><span class="inline-flex[^<]*<\/span><span>[^<]*<\/span><\/li>)(<li class="ml-5 mb-1 flex items-start"><span class="inline-flex[^<]*<\/span><span>[^<]*<\/span><\/li>)*/g, '<ol class="my-3 space-y-1">$&</ol>')
+                      // Handle quotes with improved styling
+                      .replace(/^>\s+(.*?)$/gm, '<blockquote class="pl-4 py-2 border-l-4 border-indigo-300 dark:border-indigo-700 my-3 italic text-gray-700 dark:text-gray-300 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-r">$1</blockquote>')
+                      // Handle links with better formatting
+                      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-indigo-600 dark:text-indigo-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
+                      // Format paragraphs with better spacing and text color
+                      .replace(/\n\n/g, '</p><p class="mb-3 text-gray-800 dark:text-gray-200 leading-relaxed">')
                       // Wrap everything in paragraph tags if not already wrapped
-                      .replace(/^[\s\S]+?(?:<\/p>|$)/, '<p class="mb-2 sm:mb-3">$&')
+                      .replace(/^[\s\S]+?(?:<\/p>|$)/, '<p class="mb-3 text-gray-800 dark:text-gray-200 leading-relaxed">$&')
                   }}
                 />
-                <div className="mt-1.5 sm:mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                <div className="mt-3 text-xs text-indigo-500 dark:text-indigo-400 flex items-center">
                   <FiClock size={10} className="mr-1" />
                   <span>Updated {timeAgo(section.lastUpdated)}</span>
                 </div>
@@ -1041,14 +1073,14 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white py-2 px-4 rounded-lg flex items-center"
+              className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white py-2 px-4 rounded-lg flex items-center shadow-lg"
             >
               <FiCheckCircle className="mr-2" />
               {copySuccess}
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
     </div>
   );
 };
