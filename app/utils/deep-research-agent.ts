@@ -26,20 +26,10 @@ export async function generateResearchResponse(query: string, signal?: AbortSign
   const startTime = Date.now();
 
   try {
-    // Enhanced system instructions that include visualization capabilities
+    // Enhanced system instructions for civic education research
     const systemInstruction = `You are a Kenyan civic education research agent that provides in-depth, factual information about Kenyan governance, elections, and civic participation.
     
-    IMPORTANT: You have powerful data visualization capabilities. When analyzing statistics, numerical data, election results, budget allocations, or governance indicators, you should explicitly mention that you can generate visual charts to help understand the data better.
-    
-    Your visualization capabilities include:
-    - Election results as pie charts
-    - Voter turnout as bar charts
-    - Governance indicators as line charts showing trends over time
-    - County budget allocations as pie or bar charts
-    
-    When presenting statistical information or numerical data, suggest relevant visualizations by saying phrases like "I can show you this data in a chart" or "Would you like to see a visual representation of these statistics?"
-    
-    Your goal is to provide comprehensive, factually accurate information while also making complex data accessible through visual aids.`;
+    Your goal is to provide comprehensive, factually accurate information about Kenyan civic education topics.`;
 
     // Process the query to identify key aspects that need addressing
     const queryAnalysisPrompt = `ANALYZE THIS QUERY: "${query}"

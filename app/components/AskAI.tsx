@@ -58,22 +58,16 @@ import './chat-animations.css';
 import './animations.css';
 import '../sidebar.css';
 import './input-glow.css'; // Add this line for our new CSS
+import './send-effects.css';
 import ResearchOutput from './ResearchOutput';
 import PageTransition from './PageTransition';
 import TopicSelectionModal from './TopicSelectionModal';
 import ProgressiveDocument from './ProgressiveDocument';
-import ChartDisplay from './ChartDisplay';
-import { 
-  identifyChartRequest, 
-  getElectionChart, 
-  getGovernanceChart, 
-  getCountyBudgetChart,
-  ChartResponse
-} from './ChartService';
 import axios from 'axios';
 import Confetti from 'react-confetti';
 import { useWindowSize } from 'react-use';
 import FuturisticLoader from './FuturisticLoader';
+import { supabase, getSupabase, getSupabaseAsync } from '../utils/supabaseClient';
 
 // Use the ResearchResponse type as DeepResearchResponse for all references
 type DeepResearchResponse = ResearchResponse;
@@ -93,7 +87,6 @@ export interface Message {
   type?: 'chat' | 'research';
   researchData?: DeepResearchResponse; // Use the imported type
   isTypingComplete?: boolean;
-  chartData?: ChartResponse; // Add chart data support
 }
 
 // Article information for research view
@@ -376,7 +369,7 @@ const ModeSwitcher = ({ mode, setMode }: { mode: 'chat' | 'research', setMode: R
   );
 };
 
-const AskAI = () => {
+const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInitialLoader = false }: { conversationId?: string, overrideContent?: React.ReactNode, hideInput?: boolean, disableInitialLoader?: boolean }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -402,6 +395,8 @@ const AskAI = () => {
   const [showModeChangeAnimation, setShowModeChangeAnimation] = useState(false);
   const previousMode = useRef(mode);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [autoCollapseOnMouseLeave, setAutoCollapseOnMouseLeave] = useState(true);
+  const [hasFirstUserMessage, setHasFirstUserMessage] = useState(false);
   const [topics, setTopics] = useState<TopicCategory[]>([]);
   const [isLoadingTopics, setIsLoadingTopics] = useState(false);
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
@@ -410,7 +405,12 @@ const AskAI = () => {
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [showTopicsDropdown, setShowTopicsDropdown] = useState(false); // New state for topics dropdown
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [showLoader, setShowLoader] = useState(true);
+  const [showLoader, setShowLoader] = useState(disableInitialLoader ? false : true);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userInitials, setUserInitials] = useState<string>('KC');
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId ?? null);
+  const [recentConversations, setRecentConversations] = useState<Array<{ id: string; title: string; updated_at: string }>>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -499,6 +499,80 @@ const AskAI = () => {
       return () => clearTimeout(timer);
     }
   }, [topics, selectedTopicIds]);
+
+  // Load messages if a conversationId is provided
+  useEffect(() => {
+    (async () => {
+      if (!currentConversationId) return;
+      try {
+        let token = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
+        if (!token) {
+          try {
+            const s = supabase || getSupabase();
+            const { data } = await s.auth.getSession();
+            token = data.session?.access_token || '';
+          } catch {
+            try {
+              const s2 = await getSupabaseAsync();
+              const { data } = await s2.auth.getSession();
+              token = data.session?.access_token || '';
+            } catch {}
+          }
+        }
+        if (!token) return;
+        const res = await fetch(`/api-proxy/chat/conversations/${currentConversationId}/messages?limit=100&offset=0`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          cache: 'no-store'
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const items = Array.isArray(json.data) ? json.data : [];
+        const mapped: Message[] = items.map((m: any) => ({
+          id: generateUniqueId(),
+          text: String(m.text || ''),
+          isUser: !!m.is_user,
+          type: (m.type === 'research' ? 'research' : 'chat'),
+          researchData: m.research_data || undefined,
+          isTypingComplete: true,
+        }));
+        setMessages(mapped.length ? mapped : []);
+        setHasFirstUserMessage(mapped.some((m) => m.isUser));
+        // collapse sidebar for reading larger history on load
+        if (mapped.length > 0) setIsSidebarCollapsed(true);
+      } catch {}
+    })();
+  }, [currentConversationId]);
+
+  // Load recent conversations list for sidebar
+  useEffect(() => {
+    (async () => {
+      try {
+        let token = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
+        if (!token) {
+          try {
+            const s = supabase || getSupabase();
+            const { data } = await s.auth.getSession();
+            token = data.session?.access_token || '';
+          } catch {
+            try {
+              const s2 = await getSupabaseAsync();
+              const { data } = await s2.auth.getSession();
+              token = data.session?.access_token || '';
+            } catch {}
+          }
+        }
+        if (!token) return;
+        const res = await fetch(`/api-proxy/chat/conversations?limit=20&offset=0`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          cache: 'no-store'
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setRecentConversations(list);
+      } catch {}
+    })();
+  }, [hasFirstUserMessage, currentConversationId]);
   
   // Function to refresh topics with new AI-generated ones
   const refreshTopics = async () => {
@@ -603,10 +677,29 @@ const AskAI = () => {
       isTypingComplete: true
     };
     
-    // Check if this is a chart-related request
-    const chartRequest = identifyChartRequest(input.trim());
+    // Persist to API if token available (await to capture conversation id)
+    try {
+      const token = (window as any)?.supabaseToken;
+      if (token) {
+        const res = await fetch('/api-proxy/chat/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ text: userMessage.text, ...(currentConversationId ? { conversation_id: currentConversationId } : {}) })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const convId = json?.data?.conversation_id as string | undefined;
+          if (convId && !currentConversationId) setCurrentConversationId(convId);
+        }
+      }
+    } catch {}
     
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => {
+      if (!hasFirstUserMessage) setHasFirstUserMessage(true);
+      // Auto-collapse topics after first user message to give room to history
+      if (!isSidebarCollapsed) setIsSidebarCollapsed(true);
+      return [...prev, userMessage]
+    });
     setInput('');
     setIsLoading(true);
     setIsGenerating(true);
@@ -616,92 +709,51 @@ const AskAI = () => {
       const controller = new AbortController();
       setAbortController(controller);
       
-      // Try to fetch chart data if this is a chart request
-      let chartData: ChartResponse | undefined;
-      if (chartRequest.type) {
-        try {
-          switch (chartRequest.type) {
-            case 'election':
-              chartData = await getElectionChart(
-                chartRequest.params.year, 
-                chartRequest.params.chartType as 'presidential' | 'turnout',
-                darkMode ? 'dark' : 'light'
-              );
-              break;
-            case 'governance':
-              chartData = await getGovernanceChart(
-                chartRequest.params.indicator,
-                darkMode ? 'dark' : 'light'
-              );
-              break;
-            case 'budget':
-              chartData = await getCountyBudgetChart(
-                chartRequest.params.county,
-                darkMode ? 'dark' : 'light'
-              );
-              break;
-          }
-        } catch (error) {
-          console.error("Error generating chart:", error);
-        }
-      }
+
       
       if (mode === 'chat') {
         try {
           // Get the AI response
           const aiResponse = await generateAIResponse(userMessage.text, controller.signal);
           
-          // Enhance the response with chart acknowledgment if a chart was generated
-          let enhancedResponse = aiResponse;
-          if (chartData) {
-            // Check if the response already mentions visualization or chart
-            const visualTerms = ['chart', 'visual', 'graph', 'visualization', 'display', 'shown below', 'as you can see'];
-            const alreadyMentionsVisual = visualTerms.some(term => 
-              aiResponse.toLowerCase().includes(term)
-            );
-            
-            if (!alreadyMentionsVisual) {
-              // Add a sentence acknowledging the chart with more specific context
-              if (chartData.chart_type === 'pie') {
-                if (chartRequest.type === 'election' && chartRequest.params.chartType === 'presidential') {
-                  enhancedResponse = `${aiResponse}\n\nI've created a pie chart visualizing the presidential election results, showing the percentage of votes received by each candidate.`;
-                } else if (chartRequest.type === 'budget') {
-                  enhancedResponse = `${aiResponse}\n\nI've created a pie chart showing the budget allocation breakdown by sector for ${chartRequest.params.county} County.`;
-                } else {
-                  enhancedResponse = `${aiResponse}\n\nI've created a pie chart to help visualize this data distribution for you.`;
-                }
-              } else if (chartData.chart_type === 'bar') {
-                if (chartRequest.type === 'election' && chartRequest.params.chartType === 'turnout') {
-                  enhancedResponse = `${aiResponse}\n\nI've included a bar chart showing voter turnout percentages across different regions of Kenya in the ${chartRequest.params.year} election.`;
-                } else {
-                  enhancedResponse = `${aiResponse}\n\nI've included a bar chart below to better illustrate these comparative statistics.`;
-                }
-              } else if (chartData.chart_type === 'line') {
-                if (chartRequest.type === 'governance') {
-                  enhancedResponse = `${aiResponse}\n\nI've generated a line chart showing the trend of governance ${chartRequest.params.indicator === 'all' ? 'indicators' : `${chartRequest.params.indicator} indicator`} over time from 2018 to 2023.`;
-                } else {
-                  enhancedResponse = `${aiResponse}\n\nI've generated a line chart to help you understand how these values have changed over time.`;
-                }
-              } else {
-                enhancedResponse = `${aiResponse}\n\nI've generated a visualization to help you understand these numbers better.`;
-              }
-            }
-          }
-          
           // Add the response message
           const aiMessage: Message = {
-            text: enhancedResponse,
+            text: aiResponse,
             isUser: false,
             id: generateUniqueId(),
             type: 'chat',
-            isTypingComplete: !showTypingEffect,
-            chartData: chartData // Add chart data if available
+            isTypingComplete: !showTypingEffect
           };
           
           setMessages(prev => [...prev, aiMessage]);
           if (showTypingEffect) {
             setTypingMessageId(aiMessage.id);
           }
+
+          // Persist assistant message to DB
+          try {
+            let token = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
+            if (!token) {
+              try {
+                const s = supabase || getSupabase();
+                const { data } = await s.auth.getSession();
+                token = data.session?.access_token || '';
+              } catch {
+                try {
+                  const s2 = await getSupabaseAsync();
+                  const { data } = await s2.auth.getSession();
+                  token = data.session?.access_token || '';
+                } catch {}
+              }
+            }
+            if (token && currentConversationId) {
+              await fetch('/api-proxy/chat/message', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ conversation_id: currentConversationId, text: aiResponse, type: 'chat' })
+              });
+            }
+          } catch {}
         } catch (error) {
           if (!(error instanceof DOMException && error.name === 'AbortError')) {
             console.error('Error in chat mode:', error);
@@ -720,64 +772,45 @@ const AskAI = () => {
         try {
           const researchData = await generateResearchResponse(userMessage.text, controller.signal);
           
-          // Enhance the response with chart acknowledgment if a chart was generated
-          let enhancedSummary = researchData.summary;
-          if (chartData) {
-            // Check if the response already mentions visualization or chart
-            const visualTerms = ['chart', 'visual', 'graph', 'visualization', 'display', 'shown below', 'as you can see'];
-            const alreadyMentionsVisual = visualTerms.some(term => 
-              researchData.summary.toLowerCase().includes(term)
-            );
-            
-            if (!alreadyMentionsVisual) {
-              // Add a sentence acknowledging the chart with specific details
-              if (chartData.chart_type === 'pie') {
-                if (chartRequest.type === 'election' && chartRequest.params.chartType === 'presidential') {
-                  enhancedSummary = `${researchData.summary}\n\nI've included a pie chart visualizing the presidential election results, showing the percentage of votes received by each candidate.`;
-                } else if (chartRequest.type === 'budget') {
-                  enhancedSummary = `${researchData.summary}\n\nI've included a pie chart showing the budget allocation breakdown by sector for ${chartRequest.params.county} County.`;
-                } else {
-                  enhancedSummary = `${researchData.summary}\n\nI've included a pie chart to help visualize this data distribution for you.`;
-                }
-              } else if (chartData.chart_type === 'bar') {
-                if (chartRequest.type === 'election' && chartRequest.params.chartType === 'turnout') {
-                  enhancedSummary = `${researchData.summary}\n\nI've included a bar chart showing voter turnout percentages across different regions of Kenya in the ${chartRequest.params.year} election.`;
-                } else {
-                  enhancedSummary = `${researchData.summary}\n\nI've included a bar chart below to better illustrate these comparative statistics.`;
-                }
-              } else if (chartData.chart_type === 'line') {
-                if (chartRequest.type === 'governance') {
-                  enhancedSummary = `${researchData.summary}\n\nI've generated a line chart showing the trend of governance ${chartRequest.params.indicator === 'all' ? 'indicators' : `${chartRequest.params.indicator} indicator`} over time from 2018 to 2023.`;
-                } else {
-                  enhancedSummary = `${researchData.summary}\n\nI've generated a line chart to help you understand how these values have changed over time.`;
-                }
-              } else {
-                enhancedSummary = `${researchData.summary}\n\nI've also included a visualization below to help illustrate this data.`;
-              }
-            }
-          }
-          
-          // Create an enhanced research data object with the modified summary
-          const enhancedResearchData = {
-            ...researchData,
-            summary: enhancedSummary
-          };
-          
           // Add the research response
           const researchMessage: Message = {
-            text: enhancedSummary,
+            text: researchData.summary,
             isUser: false,
             id: generateUniqueId(),
             type: 'research',
-            researchData: enhancedResearchData,
-            isTypingComplete: !showTypingEffect,
-            chartData: chartData // Add chart data if available
+            researchData: researchData,
+            isTypingComplete: !showTypingEffect
           };
           
           setMessages(prev => [...prev, researchMessage]);
           if (showTypingEffect) {
             setTypingMessageId(researchMessage.id);
           }
+
+          // Persist assistant research message to DB
+          try {
+            let token = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
+            if (!token) {
+              try {
+                const s = supabase || getSupabase();
+                const { data } = await s.auth.getSession();
+                token = data.session?.access_token || '';
+              } catch {
+                try {
+                  const s2 = await getSupabaseAsync();
+                  const { data } = await s2.auth.getSession();
+                  token = data.session?.access_token || '';
+                } catch {}
+              }
+            }
+            if (token && currentConversationId) {
+              await fetch('/api-proxy/chat/message', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ conversation_id: currentConversationId, text: researchData.summary, type: 'research', research_data: researchData })
+              });
+            }
+          } catch {}
         } catch (error) {
           if (!(error instanceof DOMException && error.name === 'AbortError')) {
             console.error('Error in research mode:', error);
@@ -851,7 +884,7 @@ const AskAI = () => {
       setTimeout(() => {
         setMessages([
           {
-            text: "Hello! 👋 Welcome to Kiongozi Platform. I'm your AI assistant ready to help with questions about Kenyan governance, elections, and civic education. I can create visualizations and charts for statistics, election results, and budget data. Just ask me to show or visualize any information you're interested in. What would you like to learn about today?",
+            text: "Hello! 👋 Welcome to Kiongozi Platform. I'm your AI assistant ready to help with questions about Kenyan governance, elections, and civic education. What would you like to learn about today?",
             isUser: false,
             id: generateUniqueId(),
             type: 'chat',
@@ -863,7 +896,7 @@ const AskAI = () => {
     } else {
       setMessages([
         {
-          text: "Hello! 👋 Welcome to Kiongozi Platform. I'm your AI assistant ready to help with questions about Kenyan governance, elections, and civic education. I can create visualizations and charts for statistics, election results, and budget data. Just ask me to show or visualize any information you're interested in. What would you like to learn about today?",
+          text: "Hello! 👋 Welcome to Kiongozi Platform. I'm your AI assistant ready to help with questions about Kenyan governance, elections, and civic education. What would you like to learn about today?",
           isUser: false,
           id: generateUniqueId(),
           type: 'chat',
@@ -1117,6 +1150,46 @@ const AskAI = () => {
     }
   }, []);
 
+  // Load Supabase user (if configured) to show profile avatar
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!supabase) return;
+        const { data } = await supabase.auth.getUser();
+        const email = data.user?.email ?? null;
+        setUserEmail(email);
+        if (email) {
+          const namePart = email.split('@')[0] || 'kc';
+          const initials = namePart
+            .split(/[._-]/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(s => s[0]?.toUpperCase() || '')
+            .join('') || 'KC';
+          setUserInitials(initials);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const handleSignIn = async () => {
+    try {
+      if (!supabase) return;
+      await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+    } catch {}
+  };
+
+  const handleSignOut = async () => {
+    try {
+      if (!supabase) return;
+      await supabase.auth.signOut();
+      setUserEmail(null);
+      setUserInitials('KC');
+      (window as any).supabaseToken = '';
+      setProfileMenuOpen(false);
+    } catch {}
+  };
+
   // Add effect to close tools menu when clicking outside
   useEffect(() => {
     if (!showToolsMenu) return;
@@ -1135,58 +1208,27 @@ const AskAI = () => {
     };
   }, [showToolsMenu]);
 
-  // Add a component to suggest chart-related questions
-  const VisualizationSuggestions = ({ onQuestionClick }: { onQuestionClick: (question: string) => void }) => {
-    const suggestions = [
-      "Show me the 2022 presidential election results",
-      "Display voter turnout by region in 2017",
-      "Visualize governance indicators over time",
-      "Show Nairobi county budget allocation"
-    ];
-
-    return (
-      <div className="mb-5 p-4 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 dark:from-indigo-900/40 dark:to-purple-900/40 rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-md">
-        <div className="flex items-center mb-3">
-          <span className="text-xl mr-2">📊</span>
-          <h3 className="text-base sm:text-lg text-indigo-800 dark:text-indigo-300 font-medium">Discover data visualizations!</h3>
-        </div>
-        <p className="text-sm text-indigo-700 dark:text-indigo-400 mb-3">
-          I can create interactive charts and graphs to help you understand Kenyan civic data. Try asking:
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {suggestions.map((suggestion, idx) => (
-            <button
-              key={idx}
-              onClick={() => onQuestionClick(suggestion)}
-              className="text-left p-3 bg-indigo-600/80 hover:bg-indigo-500 text-white rounded-lg transition-all duration-200 hover:shadow-md flex items-center transform hover:translate-y-[-2px]"
-            >
-              <span className="mr-2">📊</span>
-              <span className="flex-1">{suggestion}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   useEffect(() => {
-    // Hide loader after topics are loaded and a short delay for smoothness
+    if (disableInitialLoader) {
+      setShowLoader(false);
+      return;
+    }
     if (!isLoadingTopics) {
       const timer = setTimeout(() => setShowLoader(false), 900);
       return () => clearTimeout(timer);
     }
-  }, [isLoadingTopics]);
+  }, [isLoadingTopics, disableInitialLoader]);
 
   return (
     <>
       {showLoader && <FuturisticLoader />}
-    <section className={`w-full h-full flex flex-col ${darkMode ? 'dark' : ''}`} suppressHydrationWarning>
+    <section className={`w-full min-h-screen flex flex-col ${darkMode ? 'dark' : ''}`} suppressHydrationWarning>
       {/* Sidebar */}
       <AnimatePresence>
         {showSidebar && (
           <>
           <motion.div 
-              className={`flex flex-col ${isSidebarCollapsed ? 'w-[60px] sidebar-collapsed' : 'w-[280px]'} ${
+              className={`group flex flex-col ${isSidebarCollapsed ? 'w-[60px] sidebar-collapsed' : 'w-[280px]'} ${
               darkMode 
                 ? 'bg-gradient-to-b from-gray-900 to-gray-950 text-white border-r border-gray-800' 
                 : 'bg-gradient-to-b from-gray-100 to-gray-200 text-gray-800 border-r border-gray-300'
@@ -1195,6 +1237,8 @@ const AskAI = () => {
             animate={{ x: 0 }}
             exit={{ x: -280 }}
             transition={{ ease: "easeInOut", duration: 0.3 }}
+            onMouseEnter={() => { if (isSidebarCollapsed) setIsSidebarCollapsed(false); }}
+            onMouseLeave={() => { if (autoCollapseOnMouseLeave) setIsSidebarCollapsed(true); }}
           >
             {/* Logo and title in sidebar */}
             <div className={`p-3 border-b ${darkMode ? 'border-gray-800' : 'border-gray-300'} flex items-center ${isSidebarCollapsed ? 'justify-center' : ''}`}>
@@ -1214,8 +1258,8 @@ const AskAI = () => {
                   </span>
                 )}
                 </div>
-                
-                {/* Dark mode toggle - added more margin */}
+              {/* theme toggle in header when expanded; moved to collapsed rail when collapsed */}
+              {!isSidebarCollapsed && (
                 <div className="flex items-center ml-auto">
                 <button 
                   onClick={toggleDarkMode}
@@ -1223,12 +1267,12 @@ const AskAI = () => {
                     darkMode 
                       ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
                       : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                    } transition-colors ${isSidebarCollapsed ? 'sidebar-item' : ''}`}
-                  data-tooltip={isSidebarCollapsed ? (darkMode ? "Light Mode" : "Dark Mode") : undefined}
+                      } transition-colors`}
                 >
-                  {darkMode ? <FiSun className={isSidebarCollapsed ? 'sidebar-icon' : ''} /> : <FiMoon className={isSidebarCollapsed ? 'sidebar-icon' : ''} />}
+                    {darkMode ? <FiSun /> : <FiMoon />}
                 </button>
               </div>
+              )}
             </div>
             
               {/* Rest of sidebar content ... */}
@@ -1265,7 +1309,7 @@ const AskAI = () => {
                 <div>
               <motion.button 
                     className={`flex items-center gap-3 w-full ${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} transition-colors duration-200`}
-                onClick={() => setIsTopicModalOpen(true)}
+                    onClick={() => setShowTopicsDropdown(prev => !prev)}
                     whileHover={{ x: 3 }}
                     whileTap={{ scale: 0.98 }}
               >
@@ -1273,11 +1317,88 @@ const AskAI = () => {
                     {!isSidebarCollapsed && <span className="text-sm font-medium">Topics</span>}
               </motion.button>
                 </div>
+
+                {/* Chats link */}
+                <div>
+                  <motion.a
+                    href="/chats"
+                    className={`flex items-center gap-3 w-full ${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} transition-colors duration-200`}
+                    whileHover={{ x: 3 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <LuSquareLibrary size={18} />
+                    {!isSidebarCollapsed && <span className="text-sm font-medium">Chats</span>}
+                  </motion.a>
+                </div>
+
+                {/* Recent conversations */}
+                {!isSidebarCollapsed && recentConversations.length > 0 && (
+                  <div>
+                    <div className={`text-xs uppercase ${darkMode ? 'text-gray-500' : 'text-gray-500'} mb-2`}>Recent</div>
+                    <div className="space-y-1.5">
+                      {recentConversations.slice(0, 10).map((c) => (
+                        <Link key={c.id} href={`/chats/${c.id}`} className={`${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} block truncate px-2 py-1 rounded-md hover:bg-gray-200/40 dark:hover:bg-gray-800/60`}>
+                          {c.title || 'Untitled conversation'}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+
+            {showTopicsDropdown && (
+              <div
+                className={`${darkMode ? 'bg-gray-900/90 border-gray-800' : 'bg-white/95 border-gray-200'} mt-2 mx-3 p-3 rounded-xl border shadow-lg z-40`}
+                style={{ backdropFilter: 'blur(6px)' }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} text-sm font-semibold`}>Suggested topics</h4>
+                  <button
+                    onClick={() => setShowTopicsDropdown(false)}
+                    className={`${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {isSidebarCollapsed ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {filteredTopics.slice(0, 9).map((topic, idx) => (
+                      <button
+                        key={idx}
+                        className={`${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'} p-2 rounded-lg flex items-center justify-center transition-colors`}
+                        title={topic.title}
+                        onClick={() => {
+                          setInput((topic as any).questions?.[0] || `Tell me about ${topic.title}`);
+                          setShowTopicsDropdown(false);
+                        }}
+                      >
+                        <span className="text-xl" aria-label={topic.title}>{topic.emoji}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+                    {filteredTopics.slice(0, 20).map((topic, idx) => (
+                      <button
+                        key={idx}
+                        className={`${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-100' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'} w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2`}
+                        onClick={() => {
+                          setInput((topic as any).questions?.[0] || `Tell me about ${topic.title}`);
+                          setShowTopicsDropdown(false);
+                        }}
+                      >
+                        <span className="text-lg" aria-hidden>{topic.emoji}</span>
+                        <span className="text-sm font-medium">{topic.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Topics section */}
-            <div className={`flex-grow overflow-y-auto px-3 py-2 ${isSidebarCollapsed ? 'scrollbar-none space-y-4' : 'sidebar-scrollbar'}`}>
+            <div className={`hidden flex-grow overflow-y-auto px-3 py-2 ${isSidebarCollapsed ? 'scrollbar-none space-y-4' : 'sidebar-scrollbar'}`}>
               {!isSidebarCollapsed && (
               <div className="flex items-center justify-between mb-3">
                   <h3 className={`${
@@ -1472,22 +1593,53 @@ const AskAI = () => {
             </div>
             
             {/* User info with copyright */}
-            <div className={`p-3 border-t ${darkMode ? 'border-gray-800' : 'border-gray-300'} ${isSidebarCollapsed ? 'text-center' : ''}`}>
-              <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center sidebar-item' : ''} gap-2 py-2 px-3 rounded-lg ${
-                darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-300'
-              } transition-colors`} data-tooltip={isSidebarCollapsed ? "Kenyan Citizen" : undefined}>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-white">
-                    <FiUser className={`${isSidebarCollapsed ? 'sidebar-icon' : ''}`} />
+            <div className={`relative p-3 mt-auto border-t ${darkMode ? 'border-gray-800' : 'border-gray-300'} ${isSidebarCollapsed ? 'text-center' : ''}`}>
+              <button
+                onClick={() => setProfileMenuOpen(p => !p)}
+                className={`flex items-center ${isSidebarCollapsed ? 'justify-center sidebar-item' : ''} gap-2 py-2 px-3 rounded-lg ${
+                  darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'
+                } transition-colors w-full`}
+                title={userEmail || 'Profile'}
+              >
+                <div
+                  onClick={() => {
+                    if (userEmail) setProfileMenuOpen((p) => !p);
+                    else window.location.href = '/login';
+                  }}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-gray-300 text-gray-800'} cursor-pointer`}
+                >
+                  {userInitials}
                 </div>
                 {!isSidebarCollapsed && (
-                  <span className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} text-sm`}>Kenyan Citizen</span>
+                  <div className="flex flex-col items-start">
+                    <span className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} text-sm`}>{userEmail || 'Sign in'}</span>
+                    <span className={`${darkMode ? 'text-gray-500' : 'text-gray-500'} text-xs`}>Profile</span>
+                  </div>
                 )}
+              </button>
+
+              {profileMenuOpen && (
+                <div className={`absolute ${isSidebarCollapsed ? 'left-1/2 -translate-x-1/2' : 'left-3'} bottom-14 z-50 min-w-[220px] rounded-lg border shadow-lg ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+                  <div className="px-3 py-2 text-sm">
+                    <div className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} font-medium`}>{userEmail || 'Guest'}</div>
+                    <div className={`${darkMode ? 'text-gray-500' : 'text-gray-500'} text-xs`}>Signed {userEmail ? 'in' : 'out'}</div>
               </div>
-              {!isSidebarCollapsed && (
-                <div className={`${darkMode ? 'text-gray-500' : 'text-gray-600'} text-xs text-center mt-3`}>
-                  © {new Date().getFullYear()} • Kiongozi Platform
+                  <div className={`${darkMode ? 'border-gray-800' : 'border-gray-200'} border-t`} />
+                  {userEmail ? (
+                    <>
+                      <button onClick={() => (window.location.href = '/chats')} className={`w-full text-left px-3 py-2 text-sm ${darkMode ? 'hover:bg-gray-800 text-gray-200' : 'hover:bg-gray-100 text-gray-800'}`}>My chats</button>
+                    <button onClick={handleSignOut} className={`w-full text-left px-3 py-2 text-sm ${darkMode ? 'hover:bg-gray-800 text-gray-200' : 'hover:bg-gray-100 text-gray-800'}`}>Sign out</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => (window.location.href = '/login')} className={`w-full text-left px-3 py-2 text-sm ${darkMode ? 'hover:bg-gray-800 text-gray-200' : 'hover:bg-gray-100 text-gray-800'}`}>Sign in</button>
+                      <button onClick={() => (window.location.href = '/signup')} className={`w-full text-left px-3 py-2 text-sm ${darkMode ? 'hover:bg-gray-800 text-gray-200' : 'hover:bg-gray-100 text-gray-800'}`}>Sign up</button>
+                    </>
+                  )}
                 </div>
               )}
+
+              {/* Footer copyright removed as requested */}
             </div>
           </motion.div>
             
@@ -1525,36 +1677,9 @@ const AskAI = () => {
         )}
       </AnimatePresence>
 
-      {/* Collapsed sidebar toggle button - when sidebar is collapsed */}
-      {showSidebar && isSidebarCollapsed && (
-        <div 
-          className="hidden md:block fixed z-40 mt-3"
-          style={{ 
-            left: '60px', 
-            transform: 'translateX(-50%)', 
-            top: '0px',
-            width: '28px',
-            height: '28px'
-          }}
-        >
-          <button 
-            onClick={toggleSidebar}
-            className={`flex items-center justify-center p-1 rounded-full shadow-md ${
-              darkMode 
-                ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700' 
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-700 border border-gray-300'
-            } transition-colors`}
-            style={{ width: '28px', height: '28px' }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-              <line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" strokeWidth="2"/>
-              <circle cx="6" cy="8" r="1" fill="currentColor"/>
-              <circle cx="6" cy="16" r="1" fill="currentColor"/>
-            </svg>
-          </button>
-        </div>
-      )}
+      {/* Keep only the hover-to-expand behavior; remove extra floating rail variations */}
+
+      {/* Removed floating topic emojis when sidebar is collapsed to avoid overlaying main content */}
 
       {/* Main Chat Area */}
       <div 
@@ -1566,135 +1691,19 @@ const AskAI = () => {
         suppressHydrationWarning
       >
         {/* Floating control bar - visible on all screen sizes when sidebar is hidden */}
+        {/* Removed the alternate floating control bar when sidebar is hidden */}
+
+        {/* Mobile toggle buttons */}
         {!showSidebar && (
-          <div className="flex fixed top-4 left-4 z-30 items-center gap-2 bg-white dark:bg-gray-800 rounded-lg p-1 shadow-md transition-all duration-300">
+          <div className="md:hidden fixed top-4 left-4 z-30">
             <motion.button
-              className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-all duration-200"
+              className="p-2.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full shadow-lg transition-all duration-200"
               onClick={toggleSidebar}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               title="Show sidebar"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-                <line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" strokeWidth="2"/>
-                <circle cx="6" cy="8" r="1" fill="currentColor"/>
-                <circle cx="6" cy="16" r="1" fill="currentColor"/>
-              </svg>
-            </motion.button>
-            
-            <motion.button
-              className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-all duration-200"
-              onClick={startNewChat}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              title="New chat"
-            >
-              <FiPlusCircle size={20} />
-            </motion.button>
-            
-            <div className="relative">
-              <motion.button
-                className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-all duration-200"
-                onClick={() => setShowTopicsDropdown(!showTopicsDropdown)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                title="Topics"
-              >
-                <FiMessageSquare size={20} />
-              </motion.button>
-              
-              {/* Topics dropdown menu - remains the same */}
-              {showTopicsDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-64 max-h-96 overflow-y-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg z-50 border border-gray-200 dark:border-gray-700">
-                  {/* existing dropdown content */}
-                  <div className="p-2 sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Topics</span>
-                    <button
-                      className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                      onClick={() => setShowTopicsDropdown(false)}
-                    >
-                      <FiX size={16} />
-                    </button>
-                  </div>
-                  
-                  <div className="p-2">
-                    {isLoadingTopics ? (
-                      // Loading skeleton
-                      <div className="animate-pulse space-y-2">
-                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    ) : (
-                      <>
-                        {filteredTopics.filter(topic => topic.selected !== false).map((topic) => {
-                          const isExpanded = expandedSidebarTopic === topic.id;
-                          
-                          return (
-                            <div key={topic.id} className="mb-1">
-                              <button
-                                onClick={(event) => toggleExpandTopic(topic.id, event)}
-                                className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                                  isExpanded 
-                                    ? 'bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' 
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                }`}
-                              >
-                                <div className="flex items-center">
-                                  <span className="mr-2">{topic.emoji}</span>
-                                  <span>{topic.title}</span>
-                                </div>
-                                <FiChevronDown
-                                  className={`transition-transform ${isExpanded ? 'transform rotate-180' : ''}`}
-                                  size={14}
-                                />
-                              </button>
-                              
-                              {isExpanded && (
-                                <div className="ml-2 pl-2 border-l-2 border-gray-200 dark:border-gray-700 mt-1 space-y-1">
-                                  {topic.questions.map((question, idx) => (
-                                    <button
-                                      key={idx}
-                                      onClick={() => {
-                                        handleQuestionClick(question);
-                                        setShowTopicsDropdown(false);
-                                      }}
-                                      className="text-left text-xs w-full py-1.5 px-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
-                                    >
-                                      {question}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <motion.button
-              className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-all duration-200"
-              onClick={clearChat}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              title="Clear chat"
-            >
-              <FiTrash2 size={20} />
-            </motion.button>
-            
-            <motion.button
-              className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-all duration-200"
-              onClick={toggleDarkMode}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              title={darkMode ? "Light mode" : "Dark mode"}
-            >
-              {darkMode ? <FiSun size={20} /> : <FiMoon size={20} />}
+              <FiMenu size={22} />
             </motion.button>
           </div>
         )}
@@ -1719,85 +1728,58 @@ const AskAI = () => {
 
         {/* Remove the top mini header for mobile as we now have floating controls */}
 
-        {/* Messages Area with decorative elements - Removed PageTransition to keep all in the same screen */}
+        {/* Messages Area with decorative elements or overridden content */}
         <div className="relative w-full h-full overflow-hidden">
-          <div 
-            ref={chatContainerRef}
-            className={`flex-grow overflow-y-auto custom-scrollbar h-[calc(100vh-160px)] sm:h-[calc(100vh-150px)] md:h-[calc(100vh-130px)] p-4 sm:px-6 sm:py-6 pt-16 sm:pt-16 md:pt-6 ${
-              mode === 'research' && docGenEnabled ? 'pb-48' : 'pb-32'
-            } space-y-6 sm:space-y-8 transition-all duration-500`}
-          >
             {/* Decorative background elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
               <div className="absolute top-20 left-[10%] w-64 h-64 rounded-full bg-primary-200/10 dark:bg-primary-900/10 blur-3xl"></div>
               <div className="absolute bottom-40 right-[5%] w-80 h-80 rounded-full bg-secondary-200/10 dark:bg-secondary-900/10 blur-3xl"></div>
-              <div className="absolute top-1/3 right-1/4 w-40 h-40 rounded-full bg-blue-200/10 dark:bg-blue-900/10 blur-2xl"></div>
-              
-              {/* Mode-specific decorative elements */}
-              {mode === 'research' && (
+            <div className={`absolute top-1/3 right-1/4 w-40 h-40 rounded-full bg-blue-200/10 dark:bg-blue-900/10 blur-2xl ${hasFirstUserMessage ? 'opacity-30' : 'opacity-100'}`}></div>
+            {mode === 'research' ? (
                 <>
                   <motion.div
                     className="absolute top-[10%] right-[10%] w-32 h-32 rounded-full bg-gradient-to-r from-indigo-500/10 to-purple-500/10 z-0 pointer-events-none"
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.3, 0.7, 0.3],
-                    }}
-                    transition={{
-                      duration: 8,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.7, 0.3] }}
+                  transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
                   />
                   <motion.div
                     className="absolute bottom-[15%] left-[15%] w-24 h-24 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 z-0 pointer-events-none"
-                    animate={{
-                      scale: [1, 1.3, 1],
-                      opacity: [0.2, 0.6, 0.2],
-                    }}
-                    transition={{
-                      duration: 10,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: 1,
-                    }}
+                  animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.6, 0.2] }}
+                  transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
                   />
                 </>
-              )}
-              
-              {mode === 'chat' && (
+            ) : (
                 <>
                   <motion.div
                     className="absolute top-[20%] left-[5%] w-16 h-16 rounded-lg bg-gradient-to-r from-primary-500/10 to-secondary-500/10 z-0 pointer-events-none"
-                    animate={{
-                      rotate: [0, 45, 0],
-                      opacity: [0.2, 0.5, 0.2],
-                    }}
-                    transition={{
-                      duration: 12,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
+                  animate={{ rotate: [0, 45, 0], opacity: [0.2, 0.5, 0.2] }}
+                  transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
                   />
                   <motion.div
                     className="absolute bottom-[30%] right-[8%] w-20 h-20 rounded-full bg-gradient-to-r from-secondary-500/10 to-primary-500/10 z-0 pointer-events-none"
-                    animate={{
-                      y: [0, -15, 0],
-                      opacity: [0.1, 0.4, 0.1],
-                    }}
-                    transition={{
-                      duration: 8,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: 2,
-                    }}
+                  animate={{ y: [0, -15, 0], opacity: [0.1, 0.4, 0.1] }}
+                  transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
                   />
                 </>
               )}
             </div>
             
-            <div className="w-full max-w-3xl mx-auto pt-3 sm:pt-6 px-1 sm:px-4 relative z-10">
-              {/* Welcome message with category buttons - now shown with the initial message */}
-              {messages.length <= 1 && messages.every(m => !m.isUser) && (
+          {overrideContent ? (
+            <div className={`flex-grow overflow-y-auto custom-scrollbar h-[calc(100vh-160px)] sm:h-[calc(100vh-150px)] md:h-[calc(100vh-130px)] p-4 sm:px-6 sm:py-6 pt-16 sm:pt-16 md:pt-6 ${mode === 'research' && docGenEnabled ? 'pb-48' : 'pb-32'} transition-all duration-500`}>
+              <div className="w-full max-w-4xl mx-auto relative z-10">
+                {overrideContent}
+              </div>
+            </div>
+          ) : (
+            <div 
+              ref={chatContainerRef}
+              className={`flex-grow overflow-y-auto custom-scrollbar h-[calc(100vh-160px)] sm:h-[calc(100vh-150px)] md:h-[calc(100vh-130px)] p-4 sm:px-6 sm:py-6 pt-16 sm:pt-16 md:pt-6 ${
+                mode === 'research' && docGenEnabled ? 'pb-48' : 'pb-32'
+              } space-y-6 sm:space-y-8 transition-all duration-500`}
+            >
+            <div className={`w-full ${hasFirstUserMessage ? 'max-w-4xl' : 'max-w-3xl'} mx-auto pt-3 sm:pt-6 px-1 sm:px-4 relative z-10`}>
+              {/* Welcome message with category buttons - show only before first user message */}
+              {!hasFirstUserMessage && messages.length <= 1 && messages.every(m => !m.isUser) && (
                 <motion.div
                   className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg"
                   initial={{ opacity: 0, y: 20 }}
@@ -2076,6 +2058,7 @@ const AskAI = () => {
                 <div ref={messagesEndRef} />
               </div>
           </div>
+          )}
         </div>
         
         {/* Progressive Document for research mode - Now moved to input area */}
@@ -2088,6 +2071,7 @@ const AskAI = () => {
         )} */}
         
         {/* Input area with mode switcher - redesigned for better centering in chat area */}
+        {!hideInput && (
         <div className={`fixed bottom-0 left-0 right-0 pb-6 pt-2 z-10 bg-gradient-to-t from-gray-50 to-transparent dark:from-gray-900 dark:to-transparent ${
           mode === 'research' && docGenEnabled ? 'pb-20' : 'pb-6'
         }`}>
@@ -2327,6 +2311,7 @@ const AskAI = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Mode change animation overlay - disabled to keep all modes in the same screen */}
@@ -2341,299 +2326,7 @@ const AskAI = () => {
         onClose={() => setIsTopicModalOpen(false)}
       />
       
-      {/*component to create the futuristic glow effect */}
-      <style jsx global>{`
-        /* Button container positioning - this never changes */
-        .absolute.right-3.bottom-3 {
-          position: absolute !important;
-          width: 36px !important;
-          height: 36px !important;
-        }
-        
-        /* Basic button styling */
-        .absolute.right-3.bottom-3 button {
-          transition: background-color 0.2s ease;
-        }
-        
-        /* Hover effect for non-active button only */
-        .absolute.right-3.bottom-3 button:not(.send-button-active):hover {
-          background-color: #4b5563;
-        }
-        
-        .dark .absolute.right-3.bottom-3 button:not(.send-button-active):hover {
-          background-color: #374151;
-        }
-        
-        /* Active state styling */
-        .send-button-active {
-          position: relative;
-          overflow: hidden;
-          background: linear-gradient(135deg, #4f46e5, #7c3aed);
-          transition: all 0.3s ease;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-          z-index: 1;
-        }
-        
-        .send-button-active:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-          background: linear-gradient(135deg, #4338ca, #6d28d9);
-        }
-        
-        /* Futuristic glow effect */
-        .send-button-active::before {
-          content: '';
-          position: absolute;
-          inset: -4px;
-          background: conic-gradient(
-            from 0deg at 50% 50%,
-            #4f46e5,
-            #7c3aed,
-            #8b5cf6,
-            #a855f7,
-            #d946ef,
-            #ec4899,
-            #f43f5e,
-            #ef4444,
-            #f43f5e,
-            #ec4899,
-            #d946ef,
-            #a855f7,
-            #8b5cf6,
-            #7c3aed,
-            #4f46e5
-          );
-          border-radius: 8px;
-          -webkit-mask: 
-            linear-gradient(#fff 0 0) content-box, 
-            linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          opacity: 0.8;
-          filter: blur(4px);
-          animation: rotate 6s linear infinite, pulse-glow 3s ease infinite;
-          z-index: -1;
-          transform-origin: center;
-        }
-        
-        /* Outer glow */
-        .send-button-active::after {
-          content: '';
-          position: absolute;
-          inset: -2px;
-          background: radial-gradient(circle at center, rgba(99, 102, 241, 0.8), transparent 70%);
-          border-radius: 8px;
-          opacity: 0;
-          filter: blur(10px);
-          animation: pulse-halo 2s ease infinite;
-          z-index: -2;
-        }
-        
-        .dark .send-button-active::before {
-          filter: blur(4px) brightness(1.3);
-        }
-        
-        .dark .send-button-active::after {
-          background: radial-gradient(circle at center, rgba(139, 92, 246, 0.9), transparent 70%);
-          filter: blur(8px) brightness(1.2);
-        }
-        
-        @keyframes rotate {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
-        }
-        
-        @keyframes pulse-glow {
-          0% {
-            opacity: 0.4;
-            transform: scale(0.97);
-            filter: blur(3px) brightness(0.9);
-          }
-          50% {
-            opacity: 1;
-            transform: scale(1.02);
-            filter: blur(5px) brightness(1.2);
-          }
-          100% {
-            opacity: 0.4;
-            transform: scale(0.97);
-            filter: blur(3px) brightness(0.9);
-          }
-        }
-        
-        @keyframes pulse-halo {
-          0% {
-            opacity: 0;
-            transform: scale(0.9);
-            filter: blur(8px) brightness(0.8);
-          }
-          30% {
-            opacity: 0.7;
-            transform: scale(1.1);
-            filter: blur(12px) brightness(1.3);
-          }
-          70% {
-            opacity: 0.5;
-            transform: scale(1.05);
-            filter: blur(10px) brightness(1.1);
-          }
-          100% {
-            opacity: 0;
-            transform: scale(0.9);
-            filter: blur(8px) brightness(0.8);
-          }
-        }
-        
-        /* Additional glow effect for the button itself */
-        .send-button-active {
-          animation: button-pulse 2.5s ease-in-out infinite;
-        }
-        
-        @keyframes button-pulse {
-          0%, 100% {
-            box-shadow: 0 0 5px rgba(99, 102, 241, 0.5), 0 0 10px rgba(168, 85, 247, 0.3);
-          }
-          50% {
-            box-shadow: 0 0 15px rgba(99, 102, 241, 0.7), 0 0 25px rgba(168, 85, 247, 0.5);
-          }
-        }
-        
-        /* Enhanced hover state */
-        .send-button-active:hover {
-          transform: translateY(-1px);
-          animation: button-pulse-hover 1.5s ease-in-out infinite;
-        }
-        
-        @keyframes button-pulse-hover {
-          0%, 100% {
-            box-shadow: 0 0 10px rgba(99, 102, 241, 0.6), 0 0 20px rgba(168, 85, 247, 0.4);
-          }
-          50% {
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.8), 0 0 30px rgba(168, 85, 247, 0.6);
-          }
-        }
-        
-        /* Send button style */
-        .send-button-active {
-          position: relative;
-          overflow: hidden;
-          transition: all 0.3s ease;
-          box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
-        }
-        
-        .send-button-active:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
-        }
-        
-        .send-button-active::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
-          transition: all 0.3s ease;
-          z-index: 0;
-        }
-        
-        /* Dark mode adjustments */
-        .dark .send-button-active::before {
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
-        }
-        
-        /* User message bubble with custom shape */
-        .message-bubble-user {
-          position: relative;
-          border-radius: 18px 18px 4px 18px;
-          transition: all 0.3s ease;
-          overflow: hidden;
-        }
-        
-        /* Animated gradient background */
-        .message-bubble-user::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-size: 200% 200%;
-          opacity: 0.8;
-          background-image: linear-gradient(
-            -45deg, 
-            rgba(99, 102, 241, 0.8),
-            rgba(139, 92, 246, 0.8),
-            rgba(124, 58, 237, 0.9),
-            rgba(99, 102, 241, 0.8)
-          );
-          animation: gradient-shift 8s ease infinite;
-          z-index: 0;
-        }
-        
-        /* Stylized chat bubble tail */
-        .message-bubble-user::after {
-          content: "";
-          position: absolute;
-          bottom: -4px;
-          right: -8px;
-          width: 24px;
-          height: 24px;
-          background: linear-gradient(225deg, var(--tw-gradient-stops));
-          background-image: linear-gradient(225deg, #6366f1, #8b5cf6);
-          clip-path: polygon(100% 0, 0 0, 100% 100%);
-        }
-        
-        /* Animation for new messages */
-        .animate-in {
-          animation: message-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          transform-origin: bottom right;
-        }
-        
-        /* Interactive hover effect */
-        .message-bubble-user:hover {
-          transform: translateY(-2px) scale(1.01);
-          box-shadow: 0 8px 24px rgba(79, 70, 229, 0.2);
-        }
-        
-        /* Add light shine effect on hover */
-        .message-bubble-user:hover::before {
-          animation: gradient-shift 4s ease infinite;
-        }
-        
-        /* Animation keyframes */
-        @keyframes gradient-shift {
-          0%, 100% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-        }
-        
-        @keyframes message-pop {
-          0% {
-            opacity: 0;
-            transform: scale(0.8) translateY(10px);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        
-        /* Dark mode enhancements */
-        .dark .message-bubble-user {
-          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3), 
-                     0 0 8px rgba(124, 58, 237, 0.3);
-        }
-        
-        .dark .message-bubble-user::after {
-          background-image: linear-gradient(225deg, #4f46e5, #7c3aed);
-        }
-      `}</style>
+      {/* Global styles moved to imported './send-effects.css' */}
     </section>
     </>
   );

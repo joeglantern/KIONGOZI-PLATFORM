@@ -21,8 +21,7 @@ const nextConfig = {
     // This makes Next.js ignore certain properties during hydration to avoid mismatches
     optimizeCss: true,
   },
-  // External packages that should be resolved for server components
-  serverExternalPackages: ['react-dom'],
+  // Removed invalid key serverExternalPackages for Next 14
   // Required for Netlify
   output: 'standalone'
 };
