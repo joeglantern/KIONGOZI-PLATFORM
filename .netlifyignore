@@ -1,0 +1,21 @@
+# Exclude backend server code from frontend build
+api-server/
+supabase/
+.env.local
+.env.local.bak
+
+# Exclude development and documentation files
+*.log
+*.pdf
+*.md
+completed_work.log
+COMPLETED_WORK.*
+ROADMAP.*
+Kiongozi_Platform_Roadmap.*
+
+# Exclude cursor-specific files
+.cursor/
+.cursorignore
+
+# Exclude backup files
+*.bak
