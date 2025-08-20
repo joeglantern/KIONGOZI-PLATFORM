@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import dynamic from 'next/dynamic'
+
+const SupabaseTokenBridge = dynamic(() => import('./supabase-token-bridge'), { ssr: false })
 
 export const metadata: Metadata = {
   title: 'Kiongozi Platform',
@@ -21,6 +24,7 @@ export default function RootLayout({
         <link rel="icon" href="/images/ai-head-icon.svg" type="image/svg+xml" />
       </head>
       <body className="min-h-screen" suppressHydrationWarning>
+        <SupabaseTokenBridge />
         {children}
       </body>
     </html>
