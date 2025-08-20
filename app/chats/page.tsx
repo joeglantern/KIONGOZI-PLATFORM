@@ -11,25 +11,27 @@ export default function ChatsPage() {
   const [items, setItems] = useState<Conversation[]>([]);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string>('');
 
   const load = async () => {
     setLoading(true);
     const url = `/api-proxy/chat/conversations${q ? `?q=${encodeURIComponent(q)}` : ''}`;
-    let token = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
+    let currentToken = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
     try {
-      if (!token) {
+      if (!currentToken) {
         const s = supabase || getSupabase();
         const { data } = await s.auth.getSession();
-        token = data.session?.access_token || '';
+        currentToken = data.session?.access_token || '';
       }
     } catch {
       try {
         const s = await getSupabaseAsync();
         const { data } = await s.auth.getSession();
-        token = data.session?.access_token || '';
+        currentToken = data.session?.access_token || '';
       } catch {}
     }
-    const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    setToken(currentToken);
+    const res = await fetch(url, { headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {} });
     const json = await res.json();
     setItems(json.data || []);
     setLoading(false);
