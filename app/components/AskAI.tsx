@@ -408,6 +408,8 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
   const [showLoader, setShowLoader] = useState(disableInitialLoader ? false : true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userFirstName, setUserFirstName] = useState<string | null>(null);
+  const [userLastName, setUserLastName] = useState<string | null>(null);
   const [userInitials, setUserInitials] = useState<string>('KC');
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId ?? null);
   const [recentConversations, setRecentConversations] = useState<Array<{ id: string; title: string; updated_at: string }>>([]);
@@ -1157,16 +1159,39 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
         if (!supabase) return;
         const { data } = await supabase.auth.getUser();
         const email = data.user?.email ?? null;
+        const userId = data.user?.id ?? null;
         setUserEmail(email);
-        if (email) {
+        
+        if (userId) {
+          // Fetch profile data from profiles table
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, email')
+            .eq('id', userId)
+            .single();
+            
+          if (profile) {
+            setUserFirstName(profile.first_name);
+            setUserLastName(profile.last_name);
+            if (profile.email) setUserEmail(profile.email);
+            
+            // Create initials from names if available, otherwise from email
+            let initials = 'KC';
+            if (profile.first_name && profile.last_name) {
+              initials = (profile.first_name[0] + profile.last_name[0]).toUpperCase();
+            } else if (profile.first_name) {
+              initials = profile.first_name.slice(0, 2).toUpperCase();
+            } else if (email) {
           const namePart = email.split('@')[0] || 'kc';
-          const initials = namePart
+              initials = namePart
             .split(/[._-]/)
             .filter(Boolean)
             .slice(0, 2)
             .map(s => s[0]?.toUpperCase() || '')
             .join('') || 'KC';
+            }
           setUserInitials(initials);
+          }
         }
       } catch {}
     })();
@@ -1184,6 +1209,8 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
       if (!supabase) return;
       await supabase.auth.signOut();
       setUserEmail(null);
+      setUserFirstName(null);
+      setUserLastName(null);
       setUserInitials('KC');
       (window as any).supabaseToken = '';
       setProfileMenuOpen(false);
@@ -1603,26 +1630,47 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
               >
                 <div
                   onClick={() => {
-                    if (userEmail) setProfileMenuOpen((p) => !p);
-                    else window.location.href = '/login';
-                  }}
+                  if (userEmail || userFirstName) setProfileMenuOpen((p) => !p);
+                  else window.location.href = '/login';
+                }}
                   className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-gray-300 text-gray-800'} cursor-pointer`}
                 >
                   {userInitials}
                 </div>
                 {!isSidebarCollapsed && (
                   <div className="flex flex-col items-start">
-                    <span className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} text-sm`}>{userEmail || 'Sign in'}</span>
-                    <span className={`${darkMode ? 'text-gray-500' : 'text-gray-500'} text-xs`}>Profile</span>
+                    <span className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} text-sm font-medium`}>
+                      {userFirstName && userLastName 
+                        ? `${userFirstName} ${userLastName}`
+                        : userFirstName 
+                        ? userFirstName
+                        : userEmail || 'Sign in'
+                      }
+                    </span>
+                    <span className={`${darkMode ? 'text-gray-500' : 'text-gray-500'} text-xs`}>
+                      {userEmail && (userFirstName || userLastName) ? userEmail : 'Profile'}
+                    </span>
                   </div>
                 )}
               </button>
 
               {profileMenuOpen && (
                 <div className={`absolute ${isSidebarCollapsed ? 'left-1/2 -translate-x-1/2' : 'left-3'} bottom-14 z-50 min-w-[220px] rounded-lg border shadow-lg ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
-                  <div className="px-3 py-2 text-sm">
-                    <div className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} font-medium`}>{userEmail || 'Guest'}</div>
-                    <div className={`${darkMode ? 'text-gray-500' : 'text-gray-500'} text-xs`}>Signed {userEmail ? 'in' : 'out'}</div>
+                  <div className="px-4 py-3">
+                    <div className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} font-semibold text-sm`}>
+                      {userFirstName && userLastName 
+                        ? `${userFirstName} ${userLastName}`
+                        : userFirstName 
+                        ? userFirstName
+                        : userEmail || 'Guest'
+                      }
+                    </div>
+                    {userEmail && (userFirstName || userLastName) && (
+                      <div className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-xs mt-0.5`}>{userEmail}</div>
+                    )}
+                    <div className={`${darkMode ? 'text-gray-500' : 'text-gray-500'} text-xs mt-1`}>
+                      {userEmail ? 'Signed in' : 'Not signed in'}
+                    </div>
               </div>
                   <div className={`${darkMode ? 'border-gray-800' : 'border-gray-200'} border-t`} />
                   {userEmail ? (

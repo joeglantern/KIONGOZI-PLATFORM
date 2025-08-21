@@ -7,6 +7,8 @@ import dynamic from "next/dynamic";
 const PasswordInput = dynamic(() => import("../components/PasswordInput"), { ssr: false });
 
 export default function SignupPage() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,12 +22,21 @@ export default function SignupPage() {
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!firstName || !lastName || !email || !password) return;
     try {
       setLoading(true);
       setMessage("");
       const s = supabase || getSupabase();
-      const { data, error } = await s.auth.signUp({ email, password });
+      const { data, error } = await s.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          }
+        }
+      });
       if (error) throw error;
       setMessage("Check your email to confirm your account.");
     } catch (err: any) {
@@ -56,6 +67,28 @@ export default function SignupPage() {
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Create an account</h1>
         </div>
         <form onSubmit={handleEmailSignup} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+                className="w-full rounded-xl px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
+                required
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+                className="w-full rounded-xl px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
+                required
+              />
+            </div>
+          </div>
           <div>
             <input
               type="email"
@@ -69,8 +102,8 @@ export default function SignupPage() {
           <PasswordInput value={password} onChange={setPassword} />
           <button
             type="submit"
-            disabled={loading || !email || !password}
-            className={`w-full rounded-full py-3 ${loading || !email || !password ? "bg-gray-300 dark:bg-gray-700 cursor-not-allowed" : "bg-gray-900 dark:bg-white text-white dark:text-gray-900"}`}
+            disabled={loading || !firstName || !lastName || !email || !password}
+            className={`w-full rounded-full py-3 ${loading || !firstName || !lastName || !email || !password ? "bg-gray-300 dark:bg-gray-700 cursor-not-allowed" : "bg-gray-900 dark:bg-white text-white dark:text-gray-900"}`}
           >
             Continue
           </button>
