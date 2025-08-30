@@ -749,13 +749,23 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
               }
             }
             if (token && currentConversationId) {
-              await fetch('/api-proxy/chat/message', {
+              console.log('💾 Saving AI response to database...', { conversation_id: currentConversationId, responseLength: aiResponse.length });
+              const response = await fetch('/api-proxy/chat/message', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ conversation_id: currentConversationId, text: aiResponse, type: 'chat' })
               });
+              if (response.ok) {
+                console.log('✅ AI response saved successfully');
+              } else {
+                console.error('❌ Failed to save AI response:', response.status, await response.text());
+              }
+            } else {
+              console.warn('⚠️  Cannot save AI response - missing token or conversation ID', { hasToken: !!token, conversationId: currentConversationId });
             }
-          } catch {}
+          } catch (error) {
+            console.error('❌ Error saving AI response:', error);
+          }
         } catch (error) {
           if (!(error instanceof DOMException && error.name === 'AbortError')) {
             console.error('Error in chat mode:', error);
@@ -806,13 +816,23 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
               }
             }
             if (token && currentConversationId) {
-              await fetch('/api-proxy/chat/message', {
+              console.log('💾 Saving research response to database...', { conversation_id: currentConversationId, summaryLength: researchData.summary.length });
+              const response = await fetch('/api-proxy/chat/message', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ conversation_id: currentConversationId, text: researchData.summary, type: 'research', research_data: researchData })
               });
+              if (response.ok) {
+                console.log('✅ Research response saved successfully');
+              } else {
+                console.error('❌ Failed to save research response:', response.status, await response.text());
+              }
+            } else {
+              console.warn('⚠️  Cannot save research response - missing token or conversation ID', { hasToken: !!token, conversationId: currentConversationId });
             }
-          } catch {}
+          } catch (error) {
+            console.error('❌ Error saving research response:', error);
+          }
         } catch (error) {
           if (!(error instanceof DOMException && error.name === 'AbortError')) {
             console.error('Error in research mode:', error);

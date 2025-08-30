@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic'
 const SupabaseTokenBridge = dynamic(() => import('./supabase-token-bridge'), { ssr: false })
 
 export const metadata: Metadata = {
-  title: 'Kiongozi Platform',
-  description: 'A civic education platform for Kenyan youth to learn about elections, leadership, and civic duties.',
+  title: 'AI Chatbot',
+  description: 'An AI-powered chatbot for conversations and assistance.',
   icons: {
     icon: '/images/ai-head-icon.svg',
     apple: '/images/ai-head-icon.svg',
