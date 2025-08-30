@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Kiongozi Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background-color: #ffffff;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #000000;
+            padding: 50px 0;
+            text-align: center;
+            border-bottom: 2px solid #f97316;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: #ffffff;
+            border-radius: 8px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .logo svg {
+            width: 30px;
+            height: 30px;
+            fill: #000000;
+        }
+        
+        .brand-name {
+            color: white;
+            font-size: 36px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -1px;
+        }
+        
+        .tagline {
+            color: #9ca3af;
+            font-size: 14px;
+            margin: 8px 0 0;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .content {
+            padding: 50px 40px;
+        }
+        
+        .welcome-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: #000000;
+            margin-bottom: 16px;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+        
+        .welcome-subtitle {
+            font-size: 16px;
+            color: #6b7280;
+            text-align: center;
+            margin-bottom: 50px;
+            line-height: 1.6;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .confirmation-card {
+            background: #f9fafb;
+            border-radius: 0;
+            padding: 40px;
+            margin: 40px 0;
+            border: 1px solid #e5e7eb;
+            border-left: 4px solid #f97316;
+            text-align: center;
+        }
+        
+        .confirmation-text {
+            font-size: 15px;
+            color: #374151;
+            margin-bottom: 35px;
+            line-height: 1.7;
+        }
+        
+        .confirm-button {
+            display: inline-block;
+            background: #000000;
+            color: white;
+            text-decoration: none;
+            padding: 18px 40px;
+            border-radius: 0;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 2px solid #000000;
+        }
+        
+        .confirm-button:hover {
+            background: #f97316;
+            border-color: #f97316;
+            color: white;
+        }
+        
+        .features {
+            margin: 40px 0;
+        }
+        
+        .features-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #000000;
+            margin-bottom: 30px;
+            text-align: left;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            font-size: 15px;
+            color: #374151;
+            padding: 15px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-icon {
+            width: 20px;
+            height: 20px;
+            background: #f97316;
+            border-radius: 0;
+            margin-right: 20px;
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .feature-icon::after {
+            content: "✓";
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .footer {
+            background-color: #000000;
+            padding: 40px;
+            text-align: center;
+            border-top: 2px solid #f97316;
+        }
+        
+        .footer-text {
+            color: #9ca3af;
+            font-size: 13px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .social-links {
+            margin: 25px 0;
+        }
+        
+        .social-link {
+            display: inline-block;
+            margin: 0 15px;
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 13px;
+            padding: 10px 0;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+        
+        .social-link:hover {
+            color: #f97316;
+        }
+        
+        .security-note {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0;
+            border-left: 4px solid #ef4444;
+            padding: 20px;
+            margin: 40px 0;
+            font-size: 13px;
+            color: #374151;
+            text-align: left;
+        }
+        
+        .security-icon {
+            display: inline-block;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            
+            .footer {
+                padding: 20px;
+            }
+            
+            .welcome-title {
+                font-size: 24px;
+            }
+            
+            .brand-name {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+                    <path d="M9 12l2 2 4-4" stroke="white" stroke-width="2" fill="none"/>
+                </svg>
+            </div>
+            <h1 class="brand-name">Kiongozi</h1>
+            <p class="tagline">AI-Powered Learning Platform</p>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="content">
+            <h2 class="welcome-title">Welcome to Kiongozi</h2>
+            <p class="welcome-subtitle">
+                You're one step away from accessing our professional AI-powered learning platform.
+            </p>
+            
+            <div class="confirmation-card">
+                <p class="confirmation-text">
+                    To complete your registration and secure access to the Kiongozi platform, please verify your email address by clicking the button below.
+                </p>
+                <a href="{{ .ConfirmationURL }}" class="confirm-button">
+                    Verify Email Address
+                </a>
+            </div>
+            
+            <div class="security-note">
+                <span class="security-icon">🔒</span>
+                <strong>Security Notice:</strong> This link will expire in 24 hours for your security. If you didn't create this account, please ignore this email.
+            </div>
+            
+            <div class="features">
+                <h3 class="features-title">Platform Features</h3>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <div class="feature-icon"></div>
+                        Advanced AI-powered learning algorithms
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon"></div>
+                        Professional-grade educational content
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon"></div>
+                        Comprehensive progress analytics
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon"></div>
+                        Enterprise-level security standards
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon"></div>
+                        Global learning community access
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div class="social-links">
+                <a href="#" class="social-link">Support</a>
+                <a href="#" class="social-link">Privacy</a>
+                <a href="#" class="social-link">Terms</a>
+            </div>
+            
+            <p class="footer-text">
+                © 2024 Kiongozi Platform. All rights reserved.<br>
+                Professional AI-powered learning solutions.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
