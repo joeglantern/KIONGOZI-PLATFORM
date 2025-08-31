@@ -28,9 +28,15 @@ interface User {
   last_name?: string;
   full_name?: string;
   role: string;
+  status: string;
+  last_login_at?: string;
+  login_count: number;
   created_at: string;
   updated_at: string;
   totalChats?: number;
+  banned_at?: string;
+  ban_reason?: string;
+  deactivated_at?: string;
 }
 
 export default function UsersPage() {
@@ -40,6 +46,10 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showRoleModal, setShowRoleModal] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -92,8 +102,17 @@ export default function UsersPage() {
   };
 
   const getStatus = (user: User) => {
-    const daysSinceUpdate = Math.floor((Date.now() - new Date(user.updated_at).getTime()) / (1000 * 60 * 60 * 24));
-    return daysSinceUpdate <= 7 ? 'active' : 'inactive';
+    return user.status || 'active';
+  };
+
+  const getStatusDisplayName = (status: string) => {
+    switch (status) {
+      case 'active': return 'Active';
+      case 'inactive': return 'Inactive';
+      case 'banned': return 'Banned';
+      case 'pending': return 'Pending';
+      default: return 'Unknown';
+    }
   };
 
   const getRoleIcon = (role: string) => {
@@ -119,6 +138,7 @@ export default function UsersPage() {
       case 'active': return 'bg-green-100 text-green-800 border-green-200';
       case 'inactive': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'banned': return 'bg-red-100 text-red-800 border-red-200';
+      case 'pending': return 'bg-blue-100 text-blue-800 border-blue-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -129,6 +149,136 @@ export default function UsersPage() {
       case 'inactive': return <User className="w-4 h-4" />;
       case 'banned': return <Ban className="w-4 h-4" />;
       default: return <User className="w-4 h-4" />;
+    }
+  };
+
+  const getCurrentAdminId = () => {
+    // This would normally come from authentication context
+    // For now, we'll try to get the first admin user
+    const adminUser = users.find(u => u.role === 'admin');
+    return adminUser?.id || null;
+  };
+
+  const bulkUserAction = async (action: string, params?: any) => {
+    if (selectedUsers.length === 0) {
+      alert('Please select users first');
+      return;
+    }
+
+    const adminId = getCurrentAdminId();
+    if (!adminId) {
+      alert('Admin authentication required');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const response = await fetch('/api/admin/users/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          userIds: selectedUsers,
+          adminId,
+          params
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`Successfully ${action}ed ${result.summary.successful} users${result.summary.failed > 0 ? `, ${result.summary.failed} failed` : ''}`);
+        setSelectedUsers([]);
+        fetchUsers(); // Refresh user list
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      alert(`Failed to ${action} users: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const editUser = (user: User) => {
+    setEditingUser(user);
+    setShowEditModal(true);
+  };
+
+  const deleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to delete ${userName}? This will permanently delete all their conversations and data. This cannot be undone.`)) {
+      return;
+    }
+
+    const adminId = getCurrentAdminId();
+    if (!adminId) {
+      alert('Admin authentication required');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-id': adminId
+        }
+      });
+
+      if (response.ok) {
+        alert(`User ${userName} deleted successfully`);
+        fetchUsers();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error);
+      }
+    } catch (error: any) {
+      alert(`Failed to delete user: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const changeUserStatus = async (userId: string, action: 'activate' | 'deactivate' | 'ban', reason?: string) => {
+    const adminId = getCurrentAdminId();
+    if (!adminId) {
+      alert('Admin authentication required');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      let endpoint, method, body;
+
+      if (action === 'ban') {
+        endpoint = `/api/admin/users/${userId}/ban`;
+        method = 'POST';
+        body = { adminId, reason: reason || 'Administrative action' };
+      } else {
+        endpoint = `/api/admin/users/${userId}/status`;
+        method = 'POST';
+        body = { action, adminId };
+      }
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(result.message);
+        fetchUsers();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      alert(`Failed to ${action} user: ${error.message}`);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -148,7 +298,10 @@ export default function UsersPage() {
             <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
             <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <button 
+            onClick={() => alert('Add User functionality would integrate with user management system')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
             <Plus className="w-4 h-4" />
             Add User
           </button>
@@ -230,7 +383,10 @@ export default function UsersPage() {
                 <option value="analyst">Analyst</option>
                 <option value="researcher">Researcher</option>
               </select>
-              <button className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <button 
+                onClick={() => alert('Advanced filters would allow filtering by registration date, activity, etc.')}
+                className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
               </button>
@@ -246,13 +402,34 @@ export default function UsersPage() {
                 {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} selected
               </span>
               <div className="flex items-center gap-2">
-                <button className="text-sm text-blue-700 hover:text-blue-800 font-medium transition-colors">
+                <button 
+                  onClick={() => setShowRoleModal(true)}
+                  disabled={actionLoading}
+                  className="text-sm text-blue-700 hover:text-blue-800 font-medium transition-colors disabled:opacity-50"
+                >
                   Change Role
                 </button>
-                <button className="text-sm text-yellow-600 hover:text-yellow-700 font-medium transition-colors">
+                <button 
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to deactivate ${selectedUsers.length} selected users?`)) {
+                      bulkUserAction('deactivate');
+                    }
+                  }}
+                  disabled={actionLoading}
+                  className="text-sm text-yellow-600 hover:text-yellow-700 font-medium transition-colors disabled:opacity-50"
+                >
                   Deactivate
                 </button>
-                <button className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors">
+                <button 
+                  onClick={() => {
+                    const reason = prompt('Reason for banning (optional):');
+                    if (confirm(`Are you sure you want to ban ${selectedUsers.length} selected users?`)) {
+                      bulkUserAction('ban', { reason });
+                    }
+                  }}
+                  disabled={actionLoading}
+                  className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
+                >
                   Ban
                 </button>
               </div>
@@ -331,7 +508,7 @@ export default function UsersPage() {
                           'px-2 py-1 rounded-full text-xs font-medium border',
                           getStatusColor(getStatus(user))
                         )}>
-                          {getStatus(user)}
+                          {getStatusDisplayName(getStatus(user))}
                         </span>
                       </div>
                     </td>
@@ -346,12 +523,46 @@ export default function UsersPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">
-                        <button className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors">
+                        <button 
+                          onClick={() => editUser(user)}
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors"
+                          title="Edit User"
+                          disabled={actionLoading}
+                        >
                           <Edit3 className="w-4 h-4" />
                         </button>
-                        <button className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
+                        <div className="relative group">
+                          <button 
+                            className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors"
+                            title="More Options"
+                            disabled={actionLoading}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                          <div className="absolute right-0 mt-1 hidden group-hover:block bg-white shadow-lg border rounded-lg py-1 z-10 min-w-32">
+                            <button 
+                              onClick={() => changeUserStatus(user.id, 'deactivate')}
+                              className="block w-full text-left px-3 py-1 text-sm hover:bg-gray-100 text-yellow-600"
+                            >
+                              Deactivate
+                            </button>
+                            <button 
+                              onClick={() => {
+                                const reason = prompt('Reason for banning:');
+                                if (reason !== null) changeUserStatus(user.id, 'ban', reason);
+                              }}
+                              className="block w-full text-left px-3 py-1 text-sm hover:bg-gray-100 text-red-600"
+                            >
+                              Ban User
+                            </button>
+                            <button 
+                              onClick={() => deleteUser(user.id, user.name)}
+                              className="block w-full text-left px-3 py-1 text-sm hover:bg-gray-100 text-red-700"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </td>
                   </tr>

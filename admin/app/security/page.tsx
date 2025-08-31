@@ -38,6 +38,7 @@ export default function SecurityPage() {
   const [securityStats, setSecurityStats] = useState<SecurityStats | null>(null);
   const [threatData, setThreatData] = useState<ThreatData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [blockIpForm, setBlockIpForm] = useState({ ip: '', reason: '' });
   const [unblockIpForm, setUnblockIpForm] = useState({ ip: '' });
@@ -45,6 +46,9 @@ export default function SecurityPage() {
 
   useEffect(() => {
     fetchSecurityData();
+    // Auto-refresh security data every 30 seconds
+    const interval = setInterval(fetchSecurityData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchSecurityData = async () => {
@@ -54,8 +58,8 @@ export default function SecurityPage() {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       const [overviewRes, threatsRes] = await Promise.all([
-        fetch('/api/v1/admin/security/overview', { headers }),
-        fetch('/api/v1/admin/security/threats', { headers })
+        fetch('http://localhost:3001/api/v1/admin/security/overview', { headers }),
+        fetch('http://localhost:3001/api/v1/admin/security/threats', { headers })
       ]);
 
       if (overviewRes.ok && threatsRes.ok) {
@@ -63,9 +67,12 @@ export default function SecurityPage() {
         const threats = await threatsRes.json();
         setSecurityStats(overview.data);
         setThreatData(threats.data);
+      } else {
+        throw new Error('Failed to fetch security data from API server');
       }
     } catch (error) {
       console.error('Failed to fetch security data:', error);
+      setError('Could not connect to API server. Make sure it is running on port 3001.');
     } finally {
       setLoading(false);
     }
@@ -73,9 +80,14 @@ export default function SecurityPage() {
 
   const handleBlockIP = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!blockIpForm.ip.trim() || !blockIpForm.reason.trim()) {
+      alert('Please provide both IP address and reason');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/v1/admin/security/block-ip', {
+      const response = await fetch('http://localhost:3001/api/v1/admin/security/block-ip', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,21 +97,28 @@ export default function SecurityPage() {
       });
 
       if (response.ok) {
-        alert('IP blocked successfully');
+        alert(`IP ${blockIpForm.ip} blocked successfully`);
         setBlockIpForm({ ip: '', reason: '' });
-        fetchSecurityData();
+        fetchSecurityData(); // Refresh data
+      } else {
+        throw new Error('Failed to block IP');
       }
     } catch (error) {
       console.error('Failed to block IP:', error);
-      alert('Failed to block IP');
+      alert('Failed to block IP. Make sure the API server is running.');
     }
   };
 
   const handleUnblockIP = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!unblockIpForm.ip.trim()) {
+      alert('Please provide IP address to unblock');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/v1/admin/security/unblock-ip', {
+      const response = await fetch('http://localhost:3001/api/v1/admin/security/unblock-ip', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,13 +128,15 @@ export default function SecurityPage() {
       });
 
       if (response.ok) {
-        alert('IP unblocked successfully');
+        alert(`IP ${unblockIpForm.ip} unblocked successfully`);
         setUnblockIpForm({ ip: '' });
-        fetchSecurityData();
+        fetchSecurityData(); // Refresh data
+      } else {
+        throw new Error('Failed to unblock IP');
       }
     } catch (error) {
       console.error('Failed to unblock IP:', error);
-      alert('Failed to unblock IP');
+      alert('Failed to unblock IP. Make sure the API server is running.');
     }
   };
 
@@ -132,9 +153,19 @@ export default function SecurityPage() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Security Center</h1>
-          <p className="text-gray-600">Monitor and manage platform security</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Security Center</h1>
+            <p className="text-gray-600">Monitor and manage platform security</p>
+          </div>
+          <button 
+            onClick={fetchSecurityData}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            <Activity className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
         {/* Tabs */}
