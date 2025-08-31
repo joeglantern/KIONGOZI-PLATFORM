@@ -166,75 +166,88 @@ export default function AnalyticsPage() {
   };
 
   const fetchAnalyticsData = async () => {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`/api/v1/analytics/user-engagement?timeframe=${timeRange}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      // Transform to legacy format for compatibility
-      setAnalyticsData({
-        chatVolumeData: data.data.dailyEngagement.map((day: any) => ({
-          name: new Date(day.date).toLocaleDateString(),
-          date: day.date,
-          chats: day.sessions,
-          users: day.activeUsers,
-          messages: day.sessions * 3 // Estimate
-        })),
-        responseTimeData: [],
-        userGrowthData: [],
-        userActivityData: [
-          { name: 'Active', value: data.data.summary.activeUsers, color: '#3B82F6' },
-          { name: 'Total', value: data.data.summary.totalUsers - data.data.summary.activeUsers, color: '#E5E7EB' }
-        ],
-        topicsData: [],
-        summary: {
-          totalConversations: data.data.summary.activeUsers * 5,
-          totalMessages: data.data.summary.activeUsers * 15,
-          totalUsers: data.data.summary.totalUsers,
-          activeUsers: data.data.summary.activeUsers,
-          timeRange: getTimeRangeLabel(timeRange),
-          startDate: new Date(Date.now() - getTimeRangeDays(timeRange) * 24 * 60 * 60 * 1000).toISOString(),
-          endDate: new Date().toISOString()
-        }
-      });
+    try {
+      // Use the existing admin analytics route for overview data
+      const response = await fetch(`/api/admin/analytics?timeRange=${timeRange}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAnalyticsData({
+          chatVolumeData: data.chatVolumeData || [],
+          responseTimeData: data.responseTimeData || [],
+          userGrowthData: data.userGrowthData || [],
+          userActivityData: data.userActivityData || [],
+          topicsData: data.topicsData || [],
+          summary: data.summary || {
+            totalConversations: 0,
+            totalMessages: 0,
+            totalUsers: 0,
+            activeUsers: 0,
+            timeRange: getTimeRangeLabel(timeRange),
+            startDate: new Date(Date.now() - getTimeRangeDays(timeRange) * 24 * 60 * 60 * 1000).toISOString(),
+            endDate: new Date().toISOString()
+          }
+        });
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Failed to fetch analytics data:', error);
+      throw error;
     }
   };
 
   const fetchUserEngagement = async () => {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`/api/v1/analytics/user-engagement?timeframe=${timeRange}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      setUserEngagement(data.data);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`http://localhost:3001/api/v1/analytics/user-engagement?timeframe=${timeRange}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserEngagement(data.data);
+      } else {
+        throw new Error('Failed to fetch user engagement data');
+      }
+    } catch (error) {
+      console.error('Failed to fetch user engagement:', error);
     }
   };
 
   const fetchChatMetrics = async () => {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`/api/v1/analytics/chat-metrics?timeframe=${timeRange}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      setChatMetrics(data.data);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`http://localhost:3001/api/v1/analytics/chat-metrics?timeframe=${timeRange}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setChatMetrics(data.data);
+      } else {
+        throw new Error('Failed to fetch chat metrics data');
+      }
+    } catch (error) {
+      console.error('Failed to fetch chat metrics:', error);
     }
   };
 
   const fetchAIPerformance = async () => {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`/api/v1/analytics/ai-performance?timeframe=${timeRange}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      setAIPerformance(data.data);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`http://localhost:3001/api/v1/analytics/ai-performance?timeframe=${timeRange}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAIPerformance(data.data);
+      } else {
+        throw new Error('Failed to fetch AI performance data');
+      }
+    } catch (error) {
+      console.error('Failed to fetch AI performance:', error);
     }
   };
 
@@ -260,6 +273,44 @@ export default function AnalyticsPage() {
       case '90d': return 90;
       default: return 7;
     }
+  };
+
+  const exportAnalyticsData = () => {
+    if (!analyticsData) return;
+
+    const csvData = [
+      ['Analytics Report - ' + getTimeRangeLabel(timeRange)],
+      ['Generated on: ' + new Date().toLocaleString()],
+      [''],
+      ['Summary'],
+      ['Total Conversations', analyticsData.summary.totalConversations],
+      ['Total Messages', analyticsData.summary.totalMessages],
+      ['Total Users', analyticsData.summary.totalUsers],
+      ['Active Users', analyticsData.summary.activeUsers],
+      [''],
+      ['Daily Data'],
+      ['Date', 'Chats', 'Users', 'Messages'],
+      ...analyticsData.chatVolumeData.map(day => [
+        day.date,
+        day.chats,
+        day.users,
+        day.messages
+      ])
+    ];
+
+    const csvContent = csvData.map(row => 
+      Array.isArray(row) ? row.join(',') : row
+    ).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analytics-${timeRange}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -309,9 +360,12 @@ export default function AnalyticsPage() {
               <option value="7d">Last 7 Days</option>
               <option value="30d">Last 30 Days</option>
             </select>
-            <button className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors w-full sm:w-auto">
+            <button 
+              onClick={exportAnalyticsData}
+              className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors w-full sm:w-auto"
+            >
               <Download className="w-4 h-4" />
-              Export
+              Export CSV
             </button>
           </div>
         </div>

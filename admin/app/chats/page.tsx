@@ -105,11 +105,17 @@ export default function ChatsPage() {
             <p className="text-gray-600">Monitor and manage all chatbot conversations</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <button 
+              onClick={() => alert('Would export chat data to CSV')}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Export</span>
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button 
+              onClick={() => alert('Would create a new chat session')}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">New Chat</span>
             </button>
@@ -130,7 +136,10 @@ export default function ChatsPage() {
               />
             </div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <button 
+                onClick={() => alert('Would show advanced filters for chats (date range, activity status, etc.)')}
+                className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
               </button>
@@ -146,10 +155,20 @@ export default function ChatsPage() {
                 {selectedChats.length} chat{selectedChats.length !== 1 ? 's' : ''} selected
               </span>
               <div className="flex items-center gap-2">
-                <button className="text-sm text-blue-700 hover:text-blue-800 font-medium transition-colors">
+                <button 
+                  onClick={() => alert(`Would archive ${selectedChats.length} selected chats`)}
+                  className="text-sm text-blue-700 hover:text-blue-800 font-medium transition-colors"
+                >
                   Archive
                 </button>
-                <button className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors">
+                <button 
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to delete ${selectedChats.length} selected chats? This cannot be undone.`)) {
+                      alert('Would delete selected chats');
+                    }
+                  }}
+                  className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
+                >
                   Delete
                 </button>
               </div>
@@ -225,10 +244,18 @@ export default function ChatsPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">
-                        <button className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors">
+                        <button 
+                          onClick={() => alert(`Would view chat details for: ${chat.title}`)}
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors"
+                          title="View Chat"
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors">
+                        <button 
+                          onClick={() => alert(`More options for chat: ${chat.title}`)}
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors"
+                          title="More Options"
+                        >
                           <MoreVertical className="w-4 h-4" />
                         </button>
                       </div>

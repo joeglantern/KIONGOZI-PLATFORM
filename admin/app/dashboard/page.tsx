@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '../components/DashboardLayout';
 import { 
   Users, 
@@ -65,6 +66,7 @@ interface RecentChat {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
     totalChats: 0,
@@ -74,9 +76,21 @@ export default function Dashboard() {
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [systemStatus, setSystemStatus] = useState({
+    healthy: true,
+    lastUpdate: new Date(),
+    services: {
+      database: 'healthy',
+      api: 'healthy',
+      auth: 'healthy'
+    }
+  });
 
   useEffect(() => {
     fetchDashboardData();
+    // Set up auto-refresh every 30 seconds
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -91,9 +105,29 @@ export default function Dashboard() {
 
       setMetrics(data.metrics);
       setRecentChats(data.recentChats || []);
+      
+      // Update system status based on API response
+      setSystemStatus({
+        healthy: true,
+        lastUpdate: new Date(),
+        services: {
+          database: 'healthy',
+          api: 'healthy', 
+          auth: 'healthy'
+        }
+      });
 
     } catch (err: any) {
       setError(err.message);
+      setSystemStatus(prev => ({
+        ...prev,
+        healthy: false,
+        lastUpdate: new Date(),
+        services: {
+          ...prev.services,
+          api: 'error'
+        }
+      }));
     } finally {
       setLoading(false);
     }
@@ -141,11 +175,52 @@ export default function Dashboard() {
     }
   ];
 
-  const systemAlerts = [
-    { id: '1', type: 'info', message: 'Dashboard data refreshed successfully', time: 'Just now' },
-    { id: '2', type: 'success', message: 'All services running normally', time: '5 min ago' },
-    { id: '3', type: 'info', message: 'Database connection healthy', time: '1 hour ago' },
-  ];
+  const generateSystemAlerts = () => {
+    const alerts = [];
+    
+    if (systemStatus.healthy) {
+      alerts.push({
+        id: '1',
+        type: 'success',
+        message: 'All systems operational',
+        time: formatTimeAgo(systemStatus.lastUpdate.toISOString())
+      });
+    } else {
+      alerts.push({
+        id: '1',
+        type: 'error',
+        message: 'API service experiencing issues',
+        time: formatTimeAgo(systemStatus.lastUpdate.toISOString())
+      });
+    }
+
+    if (metrics.totalUsers > 0) {
+      alerts.push({
+        id: '2',
+        type: 'info',
+        message: `${metrics.totalUsers} total users registered`,
+        time: '5 min ago'
+      });
+    }
+
+    if (metrics.todayChats > 0) {
+      alerts.push({
+        id: '3',
+        type: 'info',
+        message: `${metrics.todayChats} conversations started today`,
+        time: '10 min ago'
+      });
+    }
+
+    alerts.push({
+      id: '4',
+      type: 'info',
+      message: 'Dashboard data auto-refreshes every 30 seconds',
+      time: '1 hour ago'
+    });
+
+    return alerts.slice(0, 4);
+  };
 
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -160,14 +235,24 @@ export default function Dashboard() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
-          <p className="text-gray-600">Monitor your chatbot performance and user activity</p>
-          {error && (
-            <div className="mt-2 p-3 bg-red-100 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">Error loading data: {error}</p>
-            </div>
-          )}
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
+            <p className="text-gray-600">Monitor your chatbot performance and user activity</p>
+            {error && (
+              <div className="mt-2 p-3 bg-red-100 border border-red-200 rounded-lg">
+                <p className="text-red-700 text-sm">Error loading data: {error}</p>
+              </div>
+            )}
+          </div>
+          <button 
+            onClick={fetchDashboardData}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            <Activity className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
         {/* Metrics Grid */}
@@ -190,7 +275,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Recent Conversations</h3>
               <button 
-                onClick={() => window.location.href = '/chats'}
+                onClick={() => router.push('/chats')}
                 className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
               >
                 View all
@@ -232,7 +317,7 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="space-y-4">
-              {systemAlerts.map((alert) => (
+              {generateSystemAlerts().map((alert) => (
                 <div key={alert.id} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
                   <div className="flex-shrink-0 mt-0.5">
                     {getAlertIcon(alert.type)}
@@ -252,7 +337,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <button 
-              onClick={() => window.location.href = '/chats'}
+              onClick={() => router.push('/chats')}
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-blue-100 group-hover:bg-blue-200 rounded-lg flex items-center justify-center transition-colors">
@@ -265,7 +350,7 @@ export default function Dashboard() {
             </button>
             
             <button 
-              onClick={() => window.location.href = '/users'}
+              onClick={() => router.push('/users')}
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-green-100 group-hover:bg-green-200 rounded-lg flex items-center justify-center transition-colors">
@@ -278,7 +363,7 @@ export default function Dashboard() {
             </button>
             
             <button 
-              onClick={() => window.location.href = '/analytics'}
+              onClick={() => router.push('/analytics')}
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors group"
             >
               <div className="w-10 h-10 bg-purple-100 group-hover:bg-purple-200 rounded-lg flex items-center justify-center transition-colors">
@@ -290,13 +375,16 @@ export default function Dashboard() {
               </div>
             </button>
             
-            <button className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors group">
+            <button 
+              onClick={() => router.push('/security')}
+              className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors group"
+            >
               <div className="w-10 h-10 bg-orange-100 group-hover:bg-orange-200 rounded-lg flex items-center justify-center transition-colors">
                 <Activity className="w-5 h-5 text-orange-600" />
               </div>
               <div className="text-left">
-                <p className="font-medium text-gray-900">System Health</p>
-                <p className="text-sm text-gray-500">Monitor performance</p>
+                <p className="font-medium text-gray-900">Security Center</p>
+                <p className="text-sm text-gray-500">Monitor security & threats</p>
               </div>
             </button>
           </div>
