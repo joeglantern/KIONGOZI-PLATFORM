@@ -1,7 +1,8 @@
 "use client";
 
 import React from 'react';
-import { Bell, Search, User, Menu } from 'lucide-react';
+import { Search, User, Menu } from 'lucide-react';
+import NotificationCenter from './NotificationCenter';
 
 interface HeaderProps {
   setSidebarOpen: (open: boolean) => void;
@@ -32,10 +33,7 @@ export default function Header({ setSidebarOpen }: HeaderProps) {
       
       <div className="flex items-center gap-4">
         {/* Notifications */}
-        <button className="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
+        <NotificationCenter />
         
         {/* User Menu */}
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">

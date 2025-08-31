@@ -13,7 +13,8 @@ import {
   Bot,
   Activity,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Chats', href: '/chats', icon: MessageSquare },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { name: 'Security', href: '/security', icon: Shield },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Logs', href: '/logs', icon: FileText },
 ];
