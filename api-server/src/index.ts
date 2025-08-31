@@ -1,4 +1,5 @@
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -8,33 +9,55 @@ import rateLimit from 'express-rate-limit';
 // Load environment variables
 dotenv.config();
 
-// Import routes (we'll create these next)
+// Import routes
 import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';
 import healthRoutes from './routes/health';
+import adminSecurityRoutes from './routes/admin-security';
+import notificationRoutes from './routes/notifications';
+import analyticsRoutes from './routes/analytics';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
+import { securityMonitor } from './middleware/securityMonitor';
+import { apiRateLimit, chatRateLimit, authRateLimit } from './middleware/rateLimiter';
+
+// Import services
+import SocketService from './services/socketService';
 
 const app = express();
+const server = createServer(app);
 const PORT = process.env.PORT || 3001;
+
+// Initialize Socket.IO service
+const socketService = new SocketService(server);
+
+// Make socket service available to routes
+app.use((req: any, res, next) => {
+  req.io = socketService.getSocketServer();
+  req.socketService = socketService;
+  next();
+});
 
 // Security middleware
 app.use(helmet());
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3002'],
   credentials: true,
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 
-// Rate limiting
+// Advanced security monitoring
+app.use(securityMonitor.middleware());
+
+// Basic rate limiting as fallback
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '200'),
   message: {
     error: 'Too many requests from this IP, please try again later.'
   },
@@ -57,9 +80,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Health check route
 app.use('/api/v1/health', healthRoutes);
 
-// API routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/chat', chatRoutes);
+// API routes with specific rate limiting
+app.use('/api/v1/auth', authRateLimit.middleware(), authRoutes);
+app.use('/api/v1/chat', chatRateLimit.middleware(), chatRoutes);
+app.use('/api/v1/admin/security', adminSecurityRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
+
+// General API routes
+app.use('/api/v1', apiRateLimit.middleware());
 
 // Root route
 app.get('/', (req, res) => {
@@ -76,10 +105,11 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Kiongozi API Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/api/v1/health`);
+  console.log(`🔌 WebSocket server ready for real-time connections`);
 });
 
 export default app;
