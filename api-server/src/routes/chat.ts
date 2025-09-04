@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { supabaseServiceClient } from '../config/supabase';
+import { generateConversationTitle } from '../utils/titleGenerator';
 
 const router = Router();
 
@@ -24,16 +25,6 @@ async function ensureProfile(userId: string, email?: string) {
   return data;
 }
 
-function composeTitleFrom(text: string): string {
-  const cleaned = text
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/[#*_`>\[\]{}()]/g, '')
-    .trim();
-  const firstSentence = cleaned.split(/[.!?\n]/)[0] || cleaned;
-  const words = firstSentence.split(/\s+/).slice(0, 8);
-  const title = words.join(' ');
-  return title.charAt(0).toUpperCase() + title.slice(1);
-}
 
 // Create or continue a conversation by posting a message
 router.post('/message', authenticateToken, async (req, res) => {
@@ -53,7 +44,8 @@ router.post('/message', authenticateToken, async (req, res) => {
 
     let convId = conversation_id;
     if (!convId) {
-      const title = composeTitleFrom(text).slice(0, 80);
+      // Generate title using GPT or fallback to simple generation
+      const title = await generateConversationTitle(text);
       const { data: conv, error: convErr } = await supabaseServiceClient
         .from('conversations')
         .insert({ user_id: userId, title })
@@ -61,6 +53,27 @@ router.post('/message', authenticateToken, async (req, res) => {
         .single();
       if (convErr) return res.status(500).json({ success: false, error: convErr.message });
       convId = conv.id;
+    } else {
+      // Check if conversation exists, if not create it with the provided ID
+      const { data: existingConv, error: checkErr } = await supabaseServiceClient
+        .from('conversations')
+        .select('id')
+        .eq('id', convId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (checkErr) return res.status(500).json({ success: false, error: checkErr.message });
+      
+      if (!existingConv) {
+        // Conversation doesn't exist, create it with the provided ID and generated title
+        const title = await generateConversationTitle(text);
+        const { data: newConv, error: createErr } = await supabaseServiceClient
+          .from('conversations')
+          .insert({ id: convId, user_id: userId, title })
+          .select('*')
+          .single();
+        if (createErr) return res.status(500).json({ success: false, error: createErr.message });
+      }
     }
 
     const { data: msg, error: msgErr } = await supabaseServiceClient

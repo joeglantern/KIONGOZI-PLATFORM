@@ -32,10 +32,19 @@ export default function ChatsPage() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [selectedChatDetails, setSelectedChatDetails] = useState<any>(null);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [chatsPerPage] = useState(10);
 
   useEffect(() => {
     fetchChats();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when search changes
+  }, [searchTerm]);
 
   const fetchChats = async () => {
     try {
@@ -61,6 +70,31 @@ export default function ChatsPage() {
     return matchesSearch;
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredChats.length / chatsPerPage);
+  const startIndex = (currentPage - 1) * chatsPerPage;
+  const endIndex = startIndex + chatsPerPage;
+  const currentChats = filteredChats.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    setSelectedChats([]); // Clear selected chats when changing pages
+  };
+
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      setSelectedChats([]);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      setSelectedChats([]);
+    }
+  };
+
   const handleSelectChat = (chatId: string) => {
     setSelectedChats(prev => 
       prev.includes(chatId) 
@@ -70,10 +104,18 @@ export default function ChatsPage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedChats.length === filteredChats.length) {
-      setSelectedChats([]);
+    const currentChatIds = currentChats.map(chat => chat.id);
+    const allCurrentSelected = currentChatIds.every(id => selectedChats.includes(id));
+    
+    if (allCurrentSelected) {
+      // Deselect all current page chats
+      setSelectedChats(prev => prev.filter(id => !currentChatIds.includes(id)));
     } else {
-      setSelectedChats(filteredChats.map(chat => chat.id));
+      // Select all current page chats
+      setSelectedChats(prev => {
+        const uniqueIds = Array.from(new Set([...prev, ...currentChatIds]));
+        return uniqueIds;
+      });
     }
   };
 
@@ -84,6 +126,119 @@ export default function ChatsPage() {
   const getActivityStatus = (updatedAt: string) => {
     const daysSinceUpdate = Math.floor((Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24));
     return daysSinceUpdate <= 1 ? 'active' : daysSinceUpdate <= 7 ? 'recent' : 'inactive';
+  };
+
+  const getCurrentAdminId = () => {
+    // This would normally come from authentication context
+    // For now, we'll use a placeholder - in production this would be from auth
+    return 'admin-id-placeholder';
+  };
+
+  const viewChatDetails = async (chatId: string, chatTitle: string) => {
+    try {
+      setActionLoading(true);
+      const response = await fetch(`/api/admin/chats/${chatId}`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        setSelectedChatDetails(result.conversation);
+        setShowChatModal(true);
+      } else {
+        const error = await response.json();
+        alert(`Failed to load chat details: ${error.error}`);
+      }
+    } catch (error: any) {
+      alert(`Failed to load chat details: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const archiveChats = async (chatIds: string[]) => {
+    const adminId = getCurrentAdminId();
+    try {
+      setActionLoading(true);
+      let successCount = 0;
+      
+      for (const chatId of chatIds) {
+        const response = await fetch(`/api/admin/chats/${chatId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'archive', adminId })
+        });
+        
+        if (response.ok) successCount++;
+      }
+      
+      alert(`Successfully archived ${successCount} out of ${chatIds.length} chats`);
+      setSelectedChats([]);
+      fetchChats();
+    } catch (error: any) {
+      alert(`Failed to archive chats: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const deleteChats = async (chatIds: string[]) => {
+    const adminId = getCurrentAdminId();
+    try {
+      setActionLoading(true);
+      let successCount = 0;
+      
+      for (const chatId of chatIds) {
+        const response = await fetch(`/api/admin/chats/${chatId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adminId })
+        });
+        
+        if (response.ok) successCount++;
+      }
+      
+      alert(`Successfully deleted ${successCount} out of ${chatIds.length} chats`);
+      setSelectedChats([]);
+      fetchChats();
+    } catch (error: any) {
+      alert(`Failed to delete chats: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const exportChatData = () => {
+    try {
+      const csvData = [
+        ['Chat Export - ' + new Date().toLocaleDateString()],
+        ['Generated on: ' + new Date().toLocaleString()],
+        [''],
+        ['ID', 'User', 'Title', 'Created', 'Updated', 'Status'],
+        ...chats.map(chat => [
+          chat.id,
+          chat.user,
+          chat.title,
+          new Date(chat.created_at).toLocaleDateString(),
+          new Date(chat.updated_at).toLocaleDateString(),
+          getActivityStatus(chat.updated_at)
+        ])
+      ];
+
+      const csvContent = csvData.map(row => 
+        Array.isArray(row) ? row.map(field => `"${field}"`).join(',') : row
+      ).join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chats-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      alert(`Failed to export data: ${error.message}`);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -106,15 +261,17 @@ export default function ChatsPage() {
           </div>
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => alert('Would export chat data to CSV')}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={exportChatData}
+              disabled={actionLoading}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export</span>
+              <span className="hidden sm:inline">Export CSV</span>
             </button>
             <button 
-              onClick={() => alert('Would create a new chat session')}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => alert('Chat creation would integrate with the chat system - this opens a new chat interface')}
+              disabled={actionLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">New Chat</span>
@@ -156,18 +313,20 @@ export default function ChatsPage() {
               </span>
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => alert(`Would archive ${selectedChats.length} selected chats`)}
-                  className="text-sm text-blue-700 hover:text-blue-800 font-medium transition-colors"
+                  onClick={() => archiveChats(selectedChats)}
+                  disabled={actionLoading}
+                  className="text-sm text-blue-700 hover:text-blue-800 font-medium transition-colors disabled:opacity-50"
                 >
                   Archive
                 </button>
                 <button 
                   onClick={() => {
                     if (confirm(`Are you sure you want to delete ${selectedChats.length} selected chats? This cannot be undone.`)) {
-                      alert('Would delete selected chats');
+                      deleteChats(selectedChats);
                     }
                   }}
-                  className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
+                  disabled={actionLoading}
+                  className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
                 >
                   Delete
                 </button>
@@ -185,7 +344,7 @@ export default function ChatsPage() {
                   <th className="w-4 p-4">
                     <input
                       type="checkbox"
-                      checked={selectedChats.length === filteredChats.length && filteredChats.length > 0}
+                      checked={currentChats.length > 0 && currentChats.every(chat => selectedChats.includes(chat.id))}
                       onChange={handleSelectAll}
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
@@ -202,9 +361,9 @@ export default function ChatsPage() {
                   <tr><td colSpan={6} className="p-8 text-center text-gray-500">Loading chats...</td></tr>
                 ) : error ? (
                   <tr><td colSpan={6} className="p-8 text-center text-red-500">Error: {error}</td></tr>
-                ) : filteredChats.length === 0 ? (
+                ) : currentChats.length === 0 ? (
                   <tr><td colSpan={6} className="p-8 text-center text-gray-500">No chats found</td></tr>
-                ) : filteredChats.map((chat) => (
+                ) : currentChats.map((chat) => (
                   <tr key={chat.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-4">
                       <input
@@ -245,8 +404,9 @@ export default function ChatsPage() {
                     <td className="p-4">
                       <div className="flex items-center gap-1">
                         <button 
-                          onClick={() => alert(`Would view chat details for: ${chat.title}`)}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors"
+                          onClick={() => viewChatDetails(chat.id, chat.title)}
+                          disabled={actionLoading}
+                          className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
                           title="View Chat"
                         >
                           <Eye className="w-4 h-4" />
@@ -270,25 +430,97 @@ export default function ChatsPage() {
           <div className="border-t border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-500">
-                Showing {filteredChats.length} of {chats.length} chats
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredChats.length)} of {filteredChats.length} chats
               </div>
               <div className="flex items-center gap-2">
-                <button className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                <button 
+                  onClick={prevPage}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Previous
                 </button>
-                <button className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg">
-                  1
-                </button>
-                <button className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                  2
-                </button>
-                <button className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+                  if (page > totalPages) return null;
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => goToPage(page)}
+                      className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                        page === currentPage
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-500 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                
+                <button 
+                  onClick={nextPage}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Next
                 </button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Chat Details Modal */}
+        {showChatModal && selectedChatDetails && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Chat Details</h2>
+                <button 
+                  onClick={() => setShowChatModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[70vh]">
+                <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium text-gray-900">{selectedChatDetails.title}</h3>
+                  <p className="text-sm text-gray-600">
+                    User: {selectedChatDetails.profiles?.full_name || 'Unknown'} ({selectedChatDetails.profiles?.email})
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Created: {new Date(selectedChatDetails.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  {selectedChatDetails.messages?.map((message: any, index: number) => (
+                    <div key={message.id} className={`flex ${message.is_user ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] p-4 rounded-lg ${
+                        message.is_user 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-gray-100 text-gray-900'
+                      }`}>
+                        <div className="text-sm font-medium mb-1 opacity-75">
+                          {message.is_user ? 'User' : 'Assistant'}
+                        </div>
+                        <div className="text-sm whitespace-pre-wrap">{message.text}</div>
+                        <div className="text-xs opacity-75 mt-2">
+                          {new Date(message.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

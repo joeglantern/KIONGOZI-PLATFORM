@@ -100,7 +100,6 @@ export async function PUT(request: NextRequest) {
           .from('system_settings')
           .update({
             setting_value: jsonValue,
-            updated_by: admin_user_id,
             updated_at: new Date().toISOString()
           })
           .eq('category', category)

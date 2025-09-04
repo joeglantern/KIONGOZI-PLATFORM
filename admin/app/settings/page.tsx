@@ -106,11 +106,12 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'general', name: 'General', icon: SettingsIcon },
-    { id: 'chatbot', name: 'Chatbot', icon: Bot },
+    { id: 'ai', name: 'AI/Chat', icon: Bot },
     { id: 'users', name: 'Users', icon: Users },
     { id: 'security', name: 'Security', icon: Shield },
     { id: 'notifications', name: 'Notifications', icon: Bell },
-    { id: 'api', name: 'API', icon: Database },
+    { id: 'analytics', name: 'Analytics', icon: Database },
+    { id: 'chat', name: 'Chat Settings', icon: Bot },
   ];
 
   return (
@@ -217,8 +218,8 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Chatbot Settings */}
-            {activeTab === 'chatbot' && (
+            {/* AI/Chat Settings */}
+            {activeTab === 'ai' && (
               <div className="space-y-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">Chatbot Configuration</h3>

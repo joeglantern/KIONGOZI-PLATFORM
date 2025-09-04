@@ -102,6 +102,9 @@ class SecurityMonitor {
   private isBlockedUserAgent(userAgent: string): boolean {
     if (!userAgent) return true;
     
+    // Allow our official frontend user agent
+    if (userAgent === 'Kiongozi-Frontend/1.0') return false;
+    
     return this.thresholds.blockedUserAgents.some(pattern => 
       pattern.test(userAgent)
     );
@@ -121,6 +124,12 @@ class SecurityMonitor {
   }> {
     const ip = req.ip || 'unknown';
     const userAgent = req.get('User-Agent') || '';
+    
+    // Allow localhost/development requests
+    const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.includes('localhost');
+    if (isLocalhost && process.env.NODE_ENV === 'development') {
+      return { allowed: true, severity: 'low' };
+    }
     
     if (this.thresholds.suspiciousIPs.has(ip)) {
       await this.logSecurityEvent('error', 'BLOCKED_IP', `Request from blacklisted IP: ${ip}`, req);

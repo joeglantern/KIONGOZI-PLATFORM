@@ -34,3 +34,64 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const { email, full_name, first_name, last_name, role, password, adminId } = await request.json();
+
+    if (!email || !full_name || !password) {
+      return NextResponse.json({ error: 'Email, full name, and password are required' }, { status: 400 });
+    }
+
+    // Create auth user first
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true
+    });
+
+    if (authError) {
+      return NextResponse.json({ error: `Failed to create auth user: ${authError.message}` }, { status: 400 });
+    }
+
+    // Create profile
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .insert({
+        id: authUser.user.id,
+        email,
+        full_name,
+        first_name,
+        last_name,
+        role: role || 'user'
+      })
+      .select()
+      .single();
+
+    if (profileError) {
+      // Cleanup: delete auth user if profile creation fails
+      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+      return NextResponse.json({ error: `Failed to create profile: ${profileError.message}` }, { status: 400 });
+    }
+
+    // Log admin action
+    if (adminId) {
+      await supabaseAdmin.rpc('log_admin_action', {
+        admin_id: adminId,
+        target_user_id: profile.id,
+        action_type: 'user_created',
+        action_details: { 
+          email: profile.email,
+          role: profile.role 
+        }
+      });
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      user: profile 
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

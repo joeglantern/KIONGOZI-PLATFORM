@@ -15,7 +15,8 @@ import {
   User,
   UserCheck,
   Ban,
-  Crown
+  Crown,
+  Download
 } from 'lucide-react';
 import clsx from 'clsx';
 // No longer need direct Supabase import
@@ -50,10 +51,26 @@ export default function UsersPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserData, setNewUserData] = useState({
+    email: '',
+    full_name: '',
+    first_name: '',
+    last_name: '',
+    role: 'user',
+    password: ''
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage] = useState(10);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when search or filter changes
+  }, [searchTerm, roleFilter]);
 
   const fetchUsers = async () => {
     try {
@@ -66,6 +83,7 @@ export default function UsersPage() {
       }
 
       setUsers(data.users || []);
+      setTotalUsers(data.count || 0);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -81,6 +99,31 @@ export default function UsersPage() {
     return matchesSearch && matchesRole;
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const startIndex = (currentPage - 1) * usersPerPage;
+  const endIndex = startIndex + usersPerPage;
+  const currentUsers = filteredUsers.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    setSelectedUsers([]); // Clear selected users when changing pages
+  };
+
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      setSelectedUsers([]);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      setSelectedUsers([]);
+    }
+  };
+
   const handleSelectUser = (userId: string) => {
     setSelectedUsers(prev => 
       prev.includes(userId) 
@@ -90,10 +133,18 @@ export default function UsersPage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedUsers.length === filteredUsers.length) {
-      setSelectedUsers([]);
+    const currentUserIds = currentUsers.map(user => user.id);
+    const allCurrentSelected = currentUserIds.every(id => selectedUsers.includes(id));
+    
+    if (allCurrentSelected) {
+      // Deselect all current page users
+      setSelectedUsers(prev => prev.filter(id => !currentUserIds.includes(id)));
     } else {
-      setSelectedUsers(filteredUsers.map(user => user.id));
+      // Select all current page users
+      setSelectedUsers(prev => {
+        const uniqueIds = Array.from(new Set([...prev, ...currentUserIds]));
+        return uniqueIds;
+      });
     }
   };
 
@@ -282,6 +333,87 @@ export default function UsersPage() {
     }
   };
 
+  const exportUserData = () => {
+    try {
+      const csvData = [
+        ['User Export - ' + new Date().toLocaleDateString()],
+        ['Generated on: ' + new Date().toLocaleString()],
+        [''],
+        ['ID', 'Name', 'Email', 'Role', 'Status', 'Created', 'Last Login', 'Login Count'],
+        ...filteredUsers.map(user => [
+          user.id,
+          user.name,
+          user.email,
+          user.role,
+          getStatusDisplayName(getStatus(user)),
+          new Date(user.created_at).toLocaleDateString(),
+          user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never',
+          user.login_count || 0
+        ])
+      ];
+
+      const csvContent = csvData.map(row => 
+        Array.isArray(row) ? row.map(field => `"${field}"`).join(',') : row
+      ).join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      alert(`Failed to export data: ${error.message}`);
+    }
+  };
+
+  const addUser = async () => {
+    try {
+      setActionLoading(true);
+      const adminId = getCurrentAdminId();
+
+      if (!newUserData.email || !newUserData.full_name || !newUserData.password) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newUserData,
+          adminId
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert('User created successfully!');
+        setShowAddUserModal(false);
+        setNewUserData({
+          email: '',
+          full_name: '',
+          first_name: '',
+          last_name: '',
+          role: 'user',
+          password: ''
+        });
+        fetchUsers();
+      } else {
+        const error = await response.json();
+        alert(`Failed to create user: ${error.error}`);
+      }
+    } catch (error: any) {
+      alert(`Failed to create user: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const userCounts = {
     total: users.length,
     active: users.filter(u => getStatus(u) === 'active').length,
@@ -298,13 +430,24 @@ export default function UsersPage() {
             <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
             <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
           </div>
-          <button 
-            onClick={() => alert('Add User functionality would integrate with user management system')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add User
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={exportUserData}
+              disabled={actionLoading}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </button>
+            <button 
+              onClick={() => setShowAddUserModal(true)}
+              disabled={actionLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add User</span>
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -446,7 +589,7 @@ export default function UsersPage() {
                   <th className="w-4 p-4">
                     <input
                       type="checkbox"
-                      checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                      checked={currentUsers.length > 0 && currentUsers.every(user => selectedUsers.includes(user.id))}
                       onChange={handleSelectAll}
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
@@ -464,9 +607,9 @@ export default function UsersPage() {
                   <tr><td colSpan={7} className="p-8 text-center text-gray-500">Loading users...</td></tr>
                 ) : error ? (
                   <tr><td colSpan={7} className="p-8 text-center text-red-500">Error: {error}</td></tr>
-                ) : filteredUsers.length === 0 ? (
+                ) : currentUsers.length === 0 ? (
                   <tr><td colSpan={7} className="p-8 text-center text-gray-500">No users found</td></tr>
-                ) : filteredUsers.map((user) => (
+                ) : currentUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-4">
                       <input
@@ -575,19 +718,42 @@ export default function UsersPage() {
           <div className="border-t border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-500">
-                Showing {filteredUsers.length} of {users.length} users
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} users
               </div>
               <div className="flex items-center gap-2">
-                <button className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                <button 
+                  onClick={prevPage}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Previous
                 </button>
-                <button className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg">
-                  1
-                </button>
-                <button className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                  2
-                </button>
-                <button className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+                  if (page > totalPages) return null;
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => goToPage(page)}
+                      className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                        page === currentPage
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-500 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                
+                <button 
+                  onClick={nextPage}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Next
                 </button>
               </div>
@@ -595,6 +761,115 @@ export default function UsersPage() {
           </div>
         </div>
       </div>
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Add New User</h2>
+              <button 
+                onClick={() => setShowAddUserModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={newUserData.email}
+                  onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="user@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newUserData.full_name}
+                  onChange={(e) => setNewUserData({ ...newUserData, full_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="John Doe"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={newUserData.first_name}
+                    onChange={(e) => setNewUserData({ ...newUserData, first_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="John"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={newUserData.last_name}
+                    onChange={(e) => setNewUserData({ ...newUserData, last_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Doe"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={newUserData.role}
+                  onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                  <option value="moderator">Moderator</option>
+                  <option value="content_editor">Content Editor</option>
+                  <option value="analyst">Analyst</option>
+                  <option value="researcher">Researcher</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={newUserData.password}
+                  onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter password"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addUser}
+                disabled={actionLoading}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Creating...' : 'Create User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
