@@ -39,13 +39,32 @@ class SocketService {
           return next(new Error('Authentication error: No token provided'));
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+        // First try to verify the token using Supabase auth
+        const { data: authData, error: authError } = await supabase.auth.getUser(token);
+        
+        let userId = null;
+        
+        if (!authError && authData?.user) {
+          userId = authData.user.id;
+        } else {
+          // Fallback: try JWT verification
+          try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+            userId = decoded.userId || decoded.sub;
+          } catch (jwtError) {
+            return next(new Error('Authentication error: Invalid token'));
+          }
+        }
+        
+        if (!userId) {
+          return next(new Error('Authentication error: Could not extract user ID'));
+        }
         
         // Get user details from database
         const { data: user, error } = await supabase
           .from('profiles')
           .select('id, role')
-          .eq('id', decoded.userId)
+          .eq('id', userId)
           .single();
 
         if (error || !user) {

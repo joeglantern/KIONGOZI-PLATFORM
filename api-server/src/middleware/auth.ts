@@ -94,3 +94,52 @@ export const optionalAuth = async (
   next();
   return;
 };
+
+export const requireRole = (allowedRoles: string[]) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    // Get user's role from database since JWT might not have latest role
+    if (supabaseUserClient) {
+      try {
+        const { data: profile, error } = await supabaseUserClient
+          .from('profiles')
+          .select('role')
+          .eq('id', req.user.id)
+          .single();
+
+        if (error || !profile) {
+          res.status(403).json({ success: false, error: 'User profile not found' });
+          return;
+        }
+
+        const userRole = profile.role || 'user';
+        
+        if (!allowedRoles.includes(userRole)) {
+          res.status(403).json({ 
+            success: false, 
+            error: 'Insufficient permissions',
+            required: allowedRoles,
+            current: userRole
+          });
+          return;
+        }
+
+        // Update req.user with latest role
+        req.user.role = userRole;
+        next();
+        return;
+      } catch (error) {
+        console.error('Role verification error:', error);
+        res.status(500).json({ success: false, error: 'Role verification failed' });
+        return;
+      }
+    }
+
+    res.status(500).json({ success: false, error: 'Authentication service unavailable' });
+    return;
+  };
+};

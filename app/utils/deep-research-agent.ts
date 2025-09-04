@@ -1,7 +1,7 @@
 // Deep Research Agent API integration
-// This file enhances the Gemini AI with deep research capabilities
+// This file enhances the OpenAI GPT with deep research capabilities
 
-import { generateAIResponse } from './gemini-ai';
+import { generateAIResponse } from './openai-gpt';
 
 // Interface for research response
 export interface ResearchResponse {

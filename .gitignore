@@ -36,4 +36,4 @@ yarn-error.log*
 .supabase/
 
 # Netlify
-.netlify 
+.netlify .cursor

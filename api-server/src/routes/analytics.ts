@@ -4,8 +4,13 @@ import { authenticateToken } from '../middleware/auth';
 import { adminRateLimit } from '../middleware/rateLimiter';
 
 const router = express.Router();
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase configuration');
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Apply admin rate limiting
@@ -295,7 +300,7 @@ router.get('/system-health', authenticateToken, async (req, res) => {
           timeframe
         },
         errorsByHour: errorsByHour.slice(-24), // Last 24 hours
-        topErrors: this.getTopErrors(errorLogs || []),
+        topErrors: (errorLogs || []).slice(0, 5),
         systemStatus: uptime >= 99 ? 'healthy' : uptime >= 95 ? 'degraded' : 'critical'
       }
     });

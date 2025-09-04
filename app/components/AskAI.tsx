@@ -48,12 +48,15 @@ import {
 } from 'react-icons/fi';
 import { LuBrainCircuit, LuSquareLibrary, LuGraduationCap, LuVote } from "react-icons/lu";
 import Image from 'next/image';
-import { generateAIResponse, clearConversationHistory } from '../utils/gemini-ai';
+import { generateAIResponse, clearConversationHistory } from '../utils/openai-gpt';
 import { 
   generateResearchResponse, 
   ResearchResponse 
 } from '../utils/deep-research-agent';
 import { generateTopicCategories, TopicCategory, filterSelectedTopics } from '../utils/topic-generator';
+import CompactArtifact from './artifacts/CompactArtifact';
+import { Artifact } from './artifacts/types';
+import { detectArtifacts } from '../utils/artifact-detector';
 import './chat-animations.css';
 import './animations.css';
 import '../sidebar.css';
@@ -68,6 +71,7 @@ import Confetti from 'react-confetti';
 import { useWindowSize } from 'react-use';
 import FuturisticLoader from './FuturisticLoader';
 import { supabase, getSupabase, getSupabaseAsync } from '../utils/supabaseClient';
+import apiClient from '../utils/apiClient';
 
 // Use the ResearchResponse type as DeepResearchResponse for all references
 type DeepResearchResponse = ResearchResponse;
@@ -79,7 +83,7 @@ const isMobileDevice = () => {
          (typeof window !== 'undefined' && window.innerWidth < 768);
 };
 
-// Extended message interface to support research mode - use the imported type
+// Extended message interface to support research mode and artifacts
 export interface Message {
   text: string;
   isUser: boolean;
@@ -87,6 +91,7 @@ export interface Message {
   type?: 'chat' | 'research';
   researchData?: DeepResearchResponse; // Use the imported type
   isTypingComplete?: boolean;
+  artifacts?: Artifact[]; // New: artifacts detected in the message
 }
 
 // Article information for research view
@@ -407,11 +412,68 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [showLoader, setShowLoader] = useState(disableInitialLoader ? false : true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  
+  // Artifact state variables
+  const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
+  const [showArtifactPanel, setShowArtifactPanel] = useState(false);
+  const [isStreamingArtifact, setIsStreamingArtifact] = useState(false);
+  const [streamingArtifactContent, setStreamingArtifactContent] = useState('');
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userFirstName, setUserFirstName] = useState<string | null>(null);
   const [userLastName, setUserLastName] = useState<string | null>(null);
   const [userInitials, setUserInitials] = useState<string>('KC');
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId ?? null);
+  // Generate a conversation ID immediately for new chats to avoid race conditions
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(() => {
+    // If we have a conversationId prop, use it (for existing conversations)
+    if (conversationId) return conversationId;
+    
+    // For new conversations, generate a UUID immediately
+    const newId = crypto.randomUUID();
+    console.log('🆔 Pre-generated conversation ID for new chat:', newId);
+    return newId;
+  });
+  
+  // Function to reload conversation messages
+  const reloadConversationMessages = useCallback(async () => {
+    if (!currentConversationId) return;
+    try {
+      let token = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
+      if (!token) {
+        try {
+          const s = supabase || getSupabase();
+          const { data } = await s.auth.getSession();
+          token = data.session?.access_token || '';
+        } catch {
+          try {
+            const s2 = await getSupabaseAsync();
+            const { data } = await s2.auth.getSession();
+            token = data.session?.access_token || '';
+          } catch {}
+        }
+      }
+      if (!token) return;
+      
+      const response = await apiClient.getConversationMessages(currentConversationId, { limit: 100, offset: 0 });
+      if (!response.success) return;
+      const items = Array.isArray(response.data) ? response.data : [];
+      
+      // Only update messages if we got data from the database
+      if (items.length > 0) {
+        const mapped: Message[] = items.map((m: any) => ({
+          id: generateUniqueId(),
+          text: String(m.text || ''),
+          isUser: !!m.is_user,
+          type: (m.type === 'research' ? 'research' : 'chat'),
+          researchData: m.research_data || undefined,
+          isTypingComplete: true,
+        }));
+        setMessages(mapped);
+      }
+      // Don't clear messages if we got empty data - keep current UI state
+    } catch (error) {
+      console.error('Error reloading conversation messages:', error);
+    }
+  }, [currentConversationId]);
   const [recentConversations, setRecentConversations] = useState<Array<{ id: string; title: string; updated_at: string }>>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -522,13 +584,10 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
           }
         }
         if (!token) return;
-        const res = await fetch(`/api-proxy/chat/conversations/${currentConversationId}/messages?limit=100&offset=0`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          cache: 'no-store'
-        });
-        if (!res.ok) return;
-        const json = await res.json();
-        const items = Array.isArray(json.data) ? json.data : [];
+        // Use centralized API client
+        const response = await apiClient.getConversationMessages(currentConversationId, { limit: 100, offset: 0 });
+        if (!response.success) return;
+        const items = Array.isArray(response.data) ? response.data : [];
         const mapped: Message[] = items.map((m: any) => ({
           id: generateUniqueId(),
           text: String(m.text || ''),
@@ -564,13 +623,10 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
           }
         }
         if (!token) return;
-        const res = await fetch(`/api-proxy/chat/conversations?limit=20&offset=0`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          cache: 'no-store'
-        });
-        if (!res.ok) return;
-        const json = await res.json();
-        const list = Array.isArray(json.data) ? json.data : [];
+        // Use centralized API client
+        const response = await apiClient.getConversations({ limit: 20, offset: 0 });
+        if (!response.success) return;
+        const list = Array.isArray(response.data) ? response.data : [];
         setRecentConversations(list);
       } catch {}
     })();
@@ -666,10 +722,42 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
     }
   };
 
+
+  // Handle live artifact streaming
+  const handleStartArtifactStreaming = (artifact: Artifact) => {
+    setSelectedArtifact(artifact);
+    setShowArtifactPanel(true);
+    setIsStreamingArtifact(true);
+    setStreamingArtifactContent('');
+  };
+
+  // Update streaming content in real-time
+  const handleUpdateStreamingContent = (content: string) => {
+    setStreamingArtifactContent(content);
+  };
+
+  // Complete streaming
+  const handleCompleteStreaming = () => {
+    setIsStreamingArtifact(false);
+  };
+
+  // Handle updating artifact
+  const handleUpdateArtifact = (updatedArtifact: Artifact) => {
+    // Update the artifact in the messages
+    setMessages(prev => prev.map(message => ({
+      ...message,
+      artifacts: message.artifacts?.map(artifact => 
+        artifact.id === updatedArtifact.id ? updatedArtifact : artifact
+      )
+    })));
+    setSelectedArtifact(updatedArtifact);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!input.trim() || isLoading) return;
+    
     
     const userMessage: Message = {
       text: input.trim(),
@@ -679,23 +767,7 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
       isTypingComplete: true
     };
     
-    // Persist to API if token available (await to capture conversation id)
-    try {
-      const token = (window as any)?.supabaseToken;
-      if (token) {
-        const res = await fetch('/api-proxy/chat/message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ text: userMessage.text, ...(currentConversationId ? { conversation_id: currentConversationId } : {}) })
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const convId = json?.data?.conversation_id as string | undefined;
-          if (convId && !currentConversationId) setCurrentConversationId(convId);
-        }
-      }
-    } catch {}
-    
+    // First, add the user message to UI immediately
     setMessages(prev => {
       if (!hasFirstUserMessage) setHasFirstUserMessage(true);
       // Auto-collapse topics after first user message to give room to history
@@ -706,6 +778,23 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
     setIsLoading(true);
     setIsGenerating(true);
 
+    // Send user message to API (we already have the conversation ID)
+    try {
+      const token = (window as any)?.supabaseToken;
+      if (token && currentConversationId) {
+        console.log('📤 Sending user message to API...', { conversationId: currentConversationId });
+        // Use centralized API client with pre-generated conversation ID
+        const response = await apiClient.sendMessage(userMessage.text, currentConversationId);
+        if (!response.success) {
+          console.error('❌ Failed to send user message:', response.error);
+        }
+      } else {
+        console.warn('⚠️ Cannot send user message - missing token or conversation ID');
+      }
+    } catch (error) {
+      console.error('❌ Error sending user message:', error);
+    }
+
     try {
       // Create a new AbortController for this request
       const controller = new AbortController();
@@ -715,22 +804,102 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
       
       if (mode === 'chat') {
         try {
-          // Get the AI response
-          const aiResponse = await generateAIResponse(userMessage.text, controller.signal);
+          const messageId = generateUniqueId();
+          let streamingContent = '';
+          let detectedArtifacts: Artifact[] = [];
+          let currentStreamingArtifact: Artifact | null = null;
           
-          // Add the response message
+          // Create initial empty message for streaming
           const aiMessage: Message = {
-            text: aiResponse,
+            text: '',
             isUser: false,
-            id: generateUniqueId(),
+            id: messageId,
             type: 'chat',
-            isTypingComplete: !showTypingEffect
+            isTypingComplete: false,
+            artifacts: []
           };
           
           setMessages(prev => [...prev, aiMessage]);
-          if (showTypingEffect) {
-            setTypingMessageId(aiMessage.id);
+          setTypingMessageId(messageId);
+          
+          // Get the AI response with streaming
+          const aiResponse = await generateAIResponse(
+            userMessage.text, 
+            controller.signal,
+            (chunk: string, fullContent: string) => {
+              streamingContent = fullContent;
+              
+              // Update the streaming message
+              setMessages(prev => prev.map(msg => 
+                msg.id === messageId 
+                  ? { ...msg, text: fullContent }
+                  : msg
+              ));
+              
+              // Detect artifacts in the current content
+              const artifactDetection = detectArtifacts(fullContent, messageId.toString(), input);
+              
+              if (artifactDetection.shouldCreateArtifact) {
+                // Create artifact from the detection
+                const newArtifact: Artifact = {
+                  id: `${messageId}-artifact-0`,
+                  type: artifactDetection.type,
+                  title: artifactDetection.title,
+                  content: fullContent,
+                  description: artifactDetection.description,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  version: 1
+                };
+                
+                if (!currentStreamingArtifact || currentStreamingArtifact.id !== newArtifact.id) {
+                  // New artifact detected - start streaming it
+                  currentStreamingArtifact = newArtifact;
+                  handleStartArtifactStreaming(newArtifact);
+                  detectedArtifacts = [newArtifact];
+                } else if (currentStreamingArtifact.content !== newArtifact.content) {
+                  // Update existing artifact content
+                  currentStreamingArtifact = newArtifact;
+                  handleUpdateStreamingContent(newArtifact.content);
+                  detectedArtifacts = [newArtifact];
+                }
+              }
+            }
+          );
+          
+          // Complete streaming
+          handleCompleteStreaming();
+          
+          // Final artifact detection
+          const finalArtifactDetection = detectArtifacts(aiResponse, messageId.toString(), input);
+          
+          // Update the final message with complete content and artifacts
+          let finalArtifacts: Artifact[] = [];
+          if (finalArtifactDetection.shouldCreateArtifact) {
+            finalArtifacts = [{
+              id: `${messageId}-artifact-final`,
+              type: finalArtifactDetection.type,
+              title: finalArtifactDetection.title,
+              content: aiResponse,
+              description: finalArtifactDetection.description,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              version: 1
+            }];
           }
+          
+          setMessages(prev => prev.map(msg => 
+            msg.id === messageId 
+              ? { 
+                  ...msg, 
+                  text: aiResponse,
+                  isTypingComplete: true,
+                  artifacts: finalArtifacts
+                }
+              : msg
+          ));
+          
+          setTypingMessageId(null);
 
           // Persist assistant message to DB
           try {
@@ -750,15 +919,14 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
             }
             if (token && currentConversationId) {
               console.log('💾 Saving AI response to database...', { conversation_id: currentConversationId, responseLength: aiResponse.length });
-              const response = await fetch('/api-proxy/chat/message', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ conversation_id: currentConversationId, text: aiResponse, type: 'chat' })
-              });
-              if (response.ok) {
+              // Use centralized API client
+              const response = await apiClient.saveAssistantMessage(aiResponse, currentConversationId, 'chat');
+              if (response.success) {
                 console.log('✅ AI response saved successfully');
+                // Reload conversation to show updated messages
+                await reloadConversationMessages();
               } else {
-                console.error('❌ Failed to save AI response:', response.status, await response.text());
+                console.error('❌ Failed to save AI response:', response.error, response.details);
               }
             } else {
               console.warn('⚠️  Cannot save AI response - missing token or conversation ID', { hasToken: !!token, conversationId: currentConversationId });
@@ -768,7 +936,7 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
           }
         } catch (error) {
           if (!(error instanceof DOMException && error.name === 'AbortError')) {
-            console.error('Error in chat mode:', error);
+            console.error('❌ Error in chat mode:', error);
             // Add error message
             setMessages(prev => [...prev, {
               text: "I'm sorry, I'm having trouble generating a response. Please try again in a moment.",
@@ -817,15 +985,14 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
             }
             if (token && currentConversationId) {
               console.log('💾 Saving research response to database...', { conversation_id: currentConversationId, summaryLength: researchData.summary.length });
-              const response = await fetch('/api-proxy/chat/message', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ conversation_id: currentConversationId, text: researchData.summary, type: 'research', research_data: researchData })
-              });
-              if (response.ok) {
+              // Use centralized API client
+              const response = await apiClient.saveAssistantMessage(researchData.summary, currentConversationId, 'research', researchData);
+              if (response.success) {
                 console.log('✅ Research response saved successfully');
+                // Reload conversation to show updated messages
+                await reloadConversationMessages();
               } else {
-                console.error('❌ Failed to save research response:', response.status, await response.text());
+                console.error('❌ Failed to save research response:', response.error, response.details);
               }
             } else {
               console.warn('⚠️  Cannot save research response - missing token or conversation ID', { hasToken: !!token, conversationId: currentConversationId });
@@ -1269,7 +1436,7 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
   return (
     <>
       {showLoader && <FuturisticLoader />}
-    <section className={`w-full min-h-screen flex flex-col ${darkMode ? 'dark' : ''}`} suppressHydrationWarning>
+    <div className={`min-h-screen ${darkMode ? 'dark' : ''} flex flex-col`} suppressHydrationWarning>
       {/* Sidebar */}
       <AnimatePresence>
         {showSidebar && (
@@ -2095,6 +2262,32 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
                               />
                             )
                           )}
+                          
+                          {/* Compact Artifacts */}
+                          {message.artifacts && message.artifacts.length > 0 && (
+                            <div className="mt-4">
+                              {message.artifacts.map((artifact) => (
+                                <CompactArtifact
+                                  key={artifact.id}
+                                  artifact={artifact}
+                                  darkMode={darkMode}
+                                  onUpdate={(updatedArtifact) => {
+                                    // Update artifact in message
+                                    setMessages(prev => prev.map(msg =>
+                                      msg.id === message.id
+                                        ? {
+                                            ...msg,
+                                            artifacts: msg.artifacts?.map(a =>
+                                              a.id === updatedArtifact.id ? updatedArtifact : a
+                                            )
+                                          }
+                                        : msg
+                                    ));
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -2395,7 +2588,7 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
       />
       
       {/* Global styles moved to imported './send-effects.css' */}
-    </section>
+    </div>
     </>
   );
 };

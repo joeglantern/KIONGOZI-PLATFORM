@@ -1,7 +1,7 @@
 // AI Topic Generator
 // This file handles generation of AI-suggested topics for the sidebar and initial recommendations
 
-import { generateAIResponse } from './gemini-ai';
+import { generateAIResponse } from './openai-gpt';
 
 // Interface for topic category
 export interface TopicCategory {

@@ -128,11 +128,10 @@ export default function LogsPage() {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'auth': return 'bg-purple-100 text-purple-800';
-      case 'api': return 'bg-blue-100 text-blue-800';
-      case 'chat': return 'bg-green-100 text-green-800';
-      case 'admin': return 'bg-orange-100 text-orange-800';
+      case 'user_management': return 'bg-purple-100 text-purple-800';
+      case 'chat_management': return 'bg-green-100 text-green-800';
       case 'system': return 'bg-gray-100 text-gray-800';
+      case 'general': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -259,11 +258,10 @@ export default function LogsPage() {
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Categories</option>
-                <option value="auth">Authentication</option>
-                <option value="api">API</option>
-                <option value="chat">Chat</option>
-                <option value="admin">Admin</option>
+                <option value="user_management">User Management</option>
+                <option value="chat_management">Chat Management</option>
                 <option value="system">System</option>
+                <option value="general">General</option>
               </select>
               <select
                 value={timeFilter}
