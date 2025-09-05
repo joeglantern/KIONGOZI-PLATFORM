@@ -43,7 +43,7 @@ export default function NotificationCenter() {
     const token = localStorage.getItem('auth_token');
     if (!token) return;
 
-    const socket = io('http://localhost:3001', {
+    const socket = io(process.env.NEXT_PUBLIC_API_BASE?.replace('/api/v1', '') || 'http://localhost:3002', {
       auth: { token },
       transports: ['websocket', 'polling']
     });

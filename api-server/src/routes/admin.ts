@@ -405,6 +405,233 @@ router.get('/dashboard/stats', async (req, res) => {
 });
 
 /**
+ * System Settings Endpoints
+ */
+
+// Get system settings
+router.get('/settings', async (req, res) => {
+  try {
+    const { category } = req.query;
+
+    let query = supabaseServiceClient
+      .from('system_settings')
+      .select('*')
+      .order('category', { ascending: true })
+      .order('setting_key', { ascending: true });
+
+    if (category) {
+      query = query.eq('category', category);
+    }
+
+    const { data: settings, error } = await query;
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch settings',
+        details: error.message
+      });
+    }
+
+    // Group settings by category
+    const groupedSettings: Record<string, any> = {};
+    
+    (settings || []).forEach((setting: any) => {
+      if (!groupedSettings[setting.category]) {
+        groupedSettings[setting.category] = {};
+      }
+      
+      // Parse the JSON value based on data type
+      let value = setting.setting_value;
+      try {
+        if (setting.data_type === 'string') {
+          value = typeof value === 'string' ? value : JSON.parse(value);
+        } else if (setting.data_type === 'number') {
+          value = typeof value === 'number' ? value : parseFloat(JSON.parse(value));
+        } else if (setting.data_type === 'boolean') {
+          value = typeof value === 'boolean' ? value : JSON.parse(value);
+        } else if (setting.data_type === 'json') {
+          value = typeof value === 'object' ? value : JSON.parse(value);
+        }
+      } catch (e) {
+        // If parsing fails, use raw value
+        value = setting.setting_value;
+      }
+
+      groupedSettings[setting.category][setting.setting_key] = {
+        value,
+        description: setting.description,
+        dataType: setting.data_type,
+        isPublic: setting.is_public,
+        updatedAt: setting.updated_at
+      };
+    });
+
+    res.json({
+      success: true,
+      data: { settings: groupedSettings }
+    });
+  } catch (error: any) {
+    console.error('Admin settings fetch error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+// Update system settings
+router.put('/settings', async (req, res) => {
+  try {
+    const { category, settings } = req.body;
+    const adminId = (req as any).user.id;
+
+    if (!category || !settings) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: category, settings'
+      });
+    }
+
+    const updates = [];
+    const errors = [];
+
+    // Update each setting
+    for (const [settingKey, settingData] of Object.entries(settings)) {
+      try {
+        const { value } = settingData as any;
+        
+        // Convert value to JSON for storage
+        let jsonValue = JSON.stringify(value);
+
+        const { error } = await supabaseServiceClient
+          .from('system_settings')
+          .update({
+            setting_value: jsonValue,
+            updated_at: new Date().toISOString(),
+            updated_by: adminId
+          })
+          .eq('category', category)
+          .eq('setting_key', settingKey);
+
+        if (error) {
+          errors.push(`${settingKey}: ${error.message}`);
+        } else {
+          updates.push(settingKey);
+        }
+      } catch (err: any) {
+        errors.push(`${settingKey}: ${err.message}`);
+      }
+    }
+
+    // Log admin action
+    await supabaseServiceClient.rpc('log_admin_action', {
+      admin_id: adminId,
+      target_user_id: null,
+      action_type: 'update_settings',
+      action_details: { 
+        category, 
+        updated_settings: updates,
+        errors: errors.length > 0 ? errors : null
+      }
+    });
+
+    if (errors.length > 0) {
+      return res.status(207).json({
+        success: false,
+        message: `Updated ${updates.length} settings, but encountered ${errors.length} errors`,
+        data: {
+          updated: updates,
+          errors
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully updated ${updates.length} settings`,
+      data: { updated: updates }
+    });
+  } catch (error: any) {
+    console.error('Admin settings update error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+// Create new system setting
+router.post('/settings', async (req, res) => {
+  try {
+    const { 
+      category, 
+      setting_key, 
+      setting_value, 
+      description, 
+      data_type = 'string',
+      is_public = false
+    } = req.body;
+    const adminId = (req as any).user.id;
+
+    if (!category || !setting_key || setting_value === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: category, setting_key, setting_value'
+      });
+    }
+
+    // Convert value to JSON for storage
+    let jsonValue = JSON.stringify(setting_value);
+
+    const { data: setting, error } = await supabaseServiceClient
+      .from('system_settings')
+      .insert({
+        category,
+        setting_key,
+        setting_value: jsonValue,
+        description,
+        data_type,
+        is_public,
+        updated_by: adminId
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create setting',
+        details: error.message
+      });
+    }
+
+    // Log admin action
+    await supabaseServiceClient.rpc('log_admin_action', {
+      admin_id: adminId,
+      target_user_id: null,
+      action_type: 'create_setting',
+      action_details: { category, setting_key, data_type }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Setting created successfully',
+      data: { setting }
+    });
+  } catch (error: any) {
+    console.error('Admin setting creation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+/**
  * System Logs Endpoints
  */
 

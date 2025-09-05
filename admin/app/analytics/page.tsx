@@ -200,7 +200,7 @@ export default function AnalyticsPage() {
   const fetchUserEngagement = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3001/api/v1/analytics/user-engagement?timeframe=${timeRange}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/analytics/user-engagement?timeframe=${timeRange}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -218,7 +218,7 @@ export default function AnalyticsPage() {
   const fetchChatMetrics = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3001/api/v1/analytics/chat-metrics?timeframe=${timeRange}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/analytics/chat-metrics?timeframe=${timeRange}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -236,7 +236,7 @@ export default function AnalyticsPage() {
   const fetchAIPerformance = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3001/api/v1/analytics/ai-performance?timeframe=${timeRange}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/analytics/ai-performance?timeframe=${timeRange}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       

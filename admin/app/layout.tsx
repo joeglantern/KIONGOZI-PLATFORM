@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "./contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Chatbot Admin Dashboard",
-  description: "Professional admin dashboard for chatbot management",
+  title: "Kiongozi Admin Dashboard",
+  description: "Professional admin dashboard for Kiongozi Platform management",
 };
 
 export default function RootLayout({
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

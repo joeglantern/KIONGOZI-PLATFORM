@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, User, Menu, LogOut, Shield, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import NotificationCenter from './NotificationCenter';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
   setSidebarOpen: (open: boolean) => void;
@@ -15,10 +15,7 @@ export default function Header({ setSidebarOpen }: HeaderProps) {
   const [adminUser, setAdminUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  );
+  const { supabase } = useAuth();
 
   useEffect(() => {
     const loadAdminUser = async () => {
@@ -29,7 +26,7 @@ export default function Header({ setSidebarOpen }: HeaderProps) {
             .from('profiles')
             .select('id, email, first_name, last_name, full_name, role, created_at, status')
             .eq('id', session.user.id)
-            .single();
+            .single() as { data: any };
           
           if (profile) {
             setAdminUser({

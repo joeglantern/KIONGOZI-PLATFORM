@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
+import { useAuth } from '../contexts/AuthContext';
+import { createClient } from '@supabase/supabase-js';
 import { 
   Save, 
   Bot, 
@@ -14,12 +16,26 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 
+// Create Supabase client to get session tokens
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 export default function SettingsPage() {
+  const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [settings, setSettings] = useState<Record<string, any>>({});
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return <div className="flex items-center justify-center min-h-screen">Access denied</div>;
+  }
 
   const handleSettingChange = (key: string, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -27,7 +43,18 @@ export default function SettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/admin/settings');
+      // Get the current session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      const response = await fetch('/api/admin/settings', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       const data = await response.json();
       if (data.settings) {
         // Flatten settings for easier form handling
@@ -72,15 +99,23 @@ export default function SettingsPage() {
       });
 
       if (Object.keys(categorySettings).length > 0) {
+        // Get the current session from Supabase
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          throw new Error('No valid session found');
+        }
+
         const response = await fetch('/api/admin/settings', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             category: activeTab,
             settings: categorySettings,
-            admin_user_id: 'temp-admin-id' // TODO: Get from auth context
+            admin_user_id: user.id
           }),
         });
 

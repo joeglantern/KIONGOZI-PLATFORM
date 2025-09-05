@@ -58,7 +58,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { chatI
       .from('conversations')
       .select('title, user_id, profiles!conversations_user_id_fkey(email)')
       .eq('id', chatId)
-      .single();
+      .single() as { data: { title: string | null; user_id: string; profiles: { email: string } | null } | null };
 
     // Delete conversation (cascades to messages)
     const { error } = await supabaseAdmin
