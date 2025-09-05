@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '../components/DashboardLayout';
+import { createClient } from '@supabase/supabase-js';
 import { 
   Users, 
   MessageSquare, 
@@ -15,7 +16,11 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import clsx from 'clsx';
-// No longer need direct Supabase import
+
+// Create Supabase client to get session tokens
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface MetricCardProps {
   title: string;
@@ -96,7 +101,19 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/dashboard');
+      
+      // Get the current session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      const response = await fetch('/api/admin/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (!response.ok) {

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
+import websocketClient from '../utils/websocketClient';
 import { 
   Search, 
   Filter, 
@@ -46,6 +47,12 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Real-time state
+  const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [newLogCount, setNewLogCount] = useState(0);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [levelFilter, setLevelFilter] = useState('all');
@@ -60,6 +67,99 @@ export default function LogsPage() {
   useEffect(() => {
     fetchLogs();
   }, [levelFilter, categoryFilter, timeFilter, searchTerm, currentPage]);
+
+  // WebSocket real-time monitoring setup
+  useEffect(() => {
+    const setupRealTimeMonitoring = async () => {
+      try {
+        setConnectionStatus('connecting');
+        await websocketClient.connect();
+        setConnectionStatus('connected');
+
+        // Handle new log entries
+        const handleNewLog = (logEntry: any) => {
+          const newLog: LogEntry = {
+            id: logEntry.id || Date.now().toString(),
+            timestamp: logEntry.created_at || new Date().toISOString(),
+            level: logEntry.level || 'info',
+            category: logEntry.category || 'general',
+            message: logEntry.message || '',
+            user: logEntry.user,
+            details: logEntry.details
+          };
+
+          // Add to logs if real-time is enabled and matches current filters
+          if (isRealTimeEnabled && matchesFilters(newLog)) {
+            setLogs(prev => {
+              const updated = [newLog, ...prev].slice(0, 1000); // Keep max 1000 logs
+              return updated;
+            });
+            setNewLogCount(prev => prev + 1);
+            
+            // Auto-scroll to new log
+            setTimeout(() => {
+              logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          }
+        };
+
+        // Handle admin events as logs
+        const handleAdminEvent = (event: any) => {
+          const logEntry: LogEntry = {
+            id: event.id || Date.now().toString(),
+            timestamp: event.timestamp || new Date().toISOString(),
+            level: 'info',
+            category: 'admin',
+            message: event.description || event.message || 'Admin action performed',
+            user: event.admin_name,
+            details: event.metadata
+          };
+          handleNewLog(logEntry);
+        };
+
+        // Handle security alerts as error logs
+        const handleSecurityAlert = (alert: any) => {
+          const logEntry: LogEntry = {
+            id: alert.id || Date.now().toString(),
+            timestamp: alert.timestamp || new Date().toISOString(),
+            level: alert.severity === 'critical' ? 'error' : 'warning',
+            category: 'security',
+            message: alert.message || 'Security alert',
+            details: alert.metadata
+          };
+          handleNewLog(logEntry);
+        };
+
+        // Subscribe to events
+        websocketClient.on('admin_event', handleAdminEvent);
+        websocketClient.on('security_alert', handleSecurityAlert);
+        websocketClient.on('system_log', handleNewLog);
+
+        // Subscribe to admin events
+        websocketClient.subscribeToAdminEvents();
+        websocketClient.subscribeToSecurityEvents();
+
+        return () => {
+          websocketClient.off('admin_event', handleAdminEvent);
+          websocketClient.off('security_alert', handleSecurityAlert);
+          websocketClient.off('system_log', handleNewLog);
+        };
+      } catch (error) {
+        console.error('Failed to setup real-time monitoring:', error);
+        setConnectionStatus('disconnected');
+      }
+    };
+
+    setupRealTimeMonitoring();
+  }, [isRealTimeEnabled]);
+
+  // Helper function to check if log matches current filters
+  const matchesFilters = (log: LogEntry): boolean => {
+    if (levelFilter !== 'all' && log.level !== levelFilter) return false;
+    if (categoryFilter !== 'all' && log.category !== categoryFilter) return false;
+    if (searchTerm && !log.message.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    return true;
+  };
 
   const fetchLogs = async () => {
     try {
@@ -162,6 +262,41 @@ export default function LogsPage() {
             <p className="text-gray-600">Monitor system events, errors, and activities</p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Real-time Status Indicator */}
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                connectionStatus === 'connected' ? 'bg-green-500' :
+                connectionStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                'bg-red-500'
+              }`}></div>
+              <span className="text-sm text-gray-600">
+                {connectionStatus === 'connected' ? 'Live' :
+                 connectionStatus === 'connecting' ? 'Connecting...' :
+                 'Offline'}
+              </span>
+            </div>
+
+            {/* Real-time Toggle */}
+            <button 
+              onClick={() => {
+                setIsRealTimeEnabled(!isRealTimeEnabled);
+                if (!isRealTimeEnabled) setNewLogCount(0);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
+                isRealTimeEnabled 
+                  ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100' 
+                  : 'border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <Activity className={`w-4 h-4 ${isRealTimeEnabled ? 'animate-pulse' : ''}`} />
+              {isRealTimeEnabled ? 'Live Mode' : 'Enable Live Mode'}
+              {newLogCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {newLogCount}
+                </span>
+              )}
+            </button>
+
             <button 
               onClick={handleRefresh}
               disabled={loading}
@@ -362,6 +497,8 @@ export default function LogsPage() {
                   </tbody>
                 </table>
               </div>
+              {/* Scroll reference for auto-scroll */}
+              <div ref={logsEndRef} className="h-1"></div>
 
               {/* Pagination */}
               <div className="border-t border-gray-200 p-4">

@@ -58,8 +58,8 @@ export default function SecurityPage() {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       const [overviewRes, threatsRes] = await Promise.all([
-        fetch('http://localhost:3001/api/v1/admin/security/overview', { headers }),
-        fetch('http://localhost:3001/api/v1/admin/security/threats', { headers })
+        fetch(`${process.env.NEXT_PUBLIC_API_BASE}/admin/security/overview`, { headers }),
+        fetch(`${process.env.NEXT_PUBLIC_API_BASE}/admin/security/threats`, { headers })
       ]);
 
       if (overviewRes.ok && threatsRes.ok) {
@@ -87,7 +87,7 @@ export default function SecurityPage() {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/v1/admin/security/block-ip', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/admin/security/block-ip`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +118,7 @@ export default function SecurityPage() {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/v1/admin/security/unblock-ip', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/admin/security/unblock-ip`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

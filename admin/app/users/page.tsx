@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   Search, 
   Filter, 
@@ -41,6 +42,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  const { user, isLoading, supabase } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -64,18 +66,26 @@ export default function UsersPage() {
   const [usersPerPage] = useState(10);
   const [totalUsers, setTotalUsers] = useState(0);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    setCurrentPage(1); // Reset to first page when search or filter changes
-  }, [searchTerm, roleFilter]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/users');
+      setError(null);
+      
+      // Get the current session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      // Make API request with authorization header
+      const response = await fetch('/api/admin/users', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -85,15 +95,55 @@ export default function UsersPage() {
       setUsers(data.users || []);
       setTotalUsers(data.count || 0);
     } catch (err: any) {
+      console.error('Error fetching users:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]); // Depend on supabase instance
+
+  useEffect(() => {
+    if (user && !isLoading) {
+      fetchUsers();
+    }
+  }, [user, isLoading, fetchUsers]);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when search or filter changes
+  }, [searchTerm, roleFilter]);
+
+  // Auth protection
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return <div className="flex items-center justify-center min-h-screen">Access denied</div>;
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <div className="text-red-600 mb-4">Error loading users: {error}</div>
+          <button 
+            onClick={() => {
+              setError(null);
+              fetchUsers();
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const displayName = user.full_name || user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User';
+    const matchesSearch = displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
@@ -224,9 +274,20 @@ export default function UsersPage() {
 
     try {
       setActionLoading(true);
+      
+      // Get the current session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
       const response = await fetch('/api/admin/users/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           action,
           userIds: selectedUsers,
@@ -269,10 +330,19 @@ export default function UsersPage() {
 
     try {
       setActionLoading(true);
+      
+      // Get the current session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
           'x-admin-id': adminId
         }
       });
@@ -312,9 +382,19 @@ export default function UsersPage() {
         body = { action, adminId };
       }
 
+      // Get the current session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
       const response = await fetch(endpoint, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify(body)
       });
 
@@ -380,9 +460,19 @@ export default function UsersPage() {
         return;
       }
 
+      // Get the current session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
       const response = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           ...newUserData,
           adminId

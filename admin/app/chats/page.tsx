@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   Search, 
   Filter, 
@@ -128,11 +129,15 @@ export default function ChatsPage() {
     return daysSinceUpdate <= 1 ? 'active' : daysSinceUpdate <= 7 ? 'recent' : 'inactive';
   };
 
-  const getCurrentAdminId = () => {
-    // This would normally come from authentication context
-    // For now, we'll use a placeholder - in production this would be from auth
-    return 'admin-id-placeholder';
-  };
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return <div className="flex items-center justify-center min-h-screen">Access denied</div>;
+  }
 
   const viewChatDetails = async (chatId: string, chatTitle: string) => {
     try {
@@ -155,7 +160,7 @@ export default function ChatsPage() {
   };
 
   const archiveChats = async (chatIds: string[]) => {
-    const adminId = getCurrentAdminId();
+    const adminId = user.id;
     try {
       setActionLoading(true);
       let successCount = 0;
@@ -181,7 +186,7 @@ export default function ChatsPage() {
   };
 
   const deleteChats = async (chatIds: string[]) => {
-    const adminId = getCurrentAdminId();
+    const adminId = user.id;
     try {
       setActionLoading(true);
       let successCount = 0;
