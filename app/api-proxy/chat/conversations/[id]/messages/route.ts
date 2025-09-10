@@ -7,8 +7,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const auth = req.headers.get('authorization') || '';
     const { searchParams } = new URL(req.url);
     const qp = searchParams.toString();
+    const userAgent = req.headers.get('user-agent') || 'Kiongozi-Frontend/1.0';
     const res = await fetch(`${API_BASE}/chat/conversations/${params.id}/messages${qp ? `?${qp}` : ''}`, {
-      headers: { ...(auth ? { Authorization: auth } : {}) },
+      headers: { 
+        'User-Agent': userAgent,
+        ...(auth ? { Authorization: auth } : {}) 
+      },
       cache: 'no-store'
     });
     const data = await res.text();

@@ -6,10 +6,12 @@ export async function POST(req: NextRequest) {
   try {
     const auth = req.headers.get('authorization') || '';
     const body = await req.json();
+    const userAgent = req.headers.get('user-agent') || 'Kiongozi-Frontend/1.0';
     const res = await fetch(`${API_BASE}/chat/message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'User-Agent': userAgent,
         ...(auth ? { Authorization: auth } : {}),
       },
       body: JSON.stringify(body),
@@ -26,10 +28,12 @@ export async function PUT(req: NextRequest) {
   try {
     const auth = req.headers.get('authorization') || '';
     const body = await req.json();
+    const userAgent = req.headers.get('user-agent') || 'Kiongozi-Frontend/1.0';
     const res = await fetch(`${API_BASE}/chat/message/assistant`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'User-Agent': userAgent,
         ...(auth ? { Authorization: auth } : {}),
       },
       body: JSON.stringify(body),
