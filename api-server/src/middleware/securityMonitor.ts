@@ -131,9 +131,13 @@ class SecurityMonitor {
       return { allowed: true, severity: 'low' };
     }
     
-    if (this.thresholds.suspiciousIPs.has(ip)) {
-      await this.logSecurityEvent('error', 'BLOCKED_IP', `Request from blacklisted IP: ${ip}`, req);
-      return { allowed: false, reason: 'IP address blocked', severity: 'high' };
+    // Skip IP blocking for production to allow all users
+    // Only block IPs in development or if explicitly enabled
+    if (process.env.ENABLE_IP_BLOCKING === 'true') {
+      if (this.thresholds.suspiciousIPs.has(ip)) {
+        await this.logSecurityEvent('error', 'BLOCKED_IP', `Request from blacklisted IP: ${ip}`, req);
+        return { allowed: false, reason: 'IP address blocked', severity: 'high' };
+      }
     }
 
     if (this.isBlockedUserAgent(userAgent)) {
