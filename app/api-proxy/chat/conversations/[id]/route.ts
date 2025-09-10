@@ -5,9 +5,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3002/api/
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const auth = req.headers.get('authorization') || '';
+    const userAgent = req.headers.get('user-agent') || 'Kiongozi-Frontend/1.0';
     const res = await fetch(`${API_BASE}/chat/conversations/${params.id}`, {
       method: 'DELETE',
-      headers: { ...(auth ? { Authorization: auth } : {}) },
+      headers: { 
+        'User-Agent': userAgent,
+        ...(auth ? { Authorization: auth } : {}) 
+      },
       cache: 'no-store'
     });
     const data = await res.text();

@@ -19,15 +19,14 @@ class SecurityMonitor {
   constructor() {
     this.thresholds = {
       suspiciousPatterns: [
-        /\b(SELECT|INSERT|DELETE|DROP|UNION|SCRIPT|JAVASCRIPT|ONLOAD|ONERROR)\b/i,
-        /[<>\"']/g,
+        /\b(SELECT.*FROM|INSERT.*INTO|DELETE.*FROM|DROP.*TABLE|UNION.*SELECT)\b/i,
+        /<script|javascript:|onload=|onerror=/i,
         /\.\.\/|\.\.\\/, 
-        /\b(eval|function|setTimeout|setInterval)\s*\(/i,
+        /\b(eval|setTimeout|setInterval)\s*\(/i,
         /\b(cmd|exec|system|shell_exec)\b/i
       ],
       blockedUserAgents: [
         /bot|crawler|spider|scraper/i,
-        /curl|wget|postman/i,
         /python-requests|php|java/i
       ],
       maxRequestSize: 10 * 1024 * 1024,
