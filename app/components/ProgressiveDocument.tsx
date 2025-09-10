@@ -591,8 +591,11 @@ const ProgressiveDocument: React.FC<ProgressiveDocumentProps> = ({
       // Generate the document buffer
       const buffer = await Packer.toBuffer(doc);
       
+      // Convert Buffer to Uint8Array for Blob compatibility
+      const uint8Array = new Uint8Array(buffer);
+      
       // Create blob and download
-      const blob = new Blob([buffer], { 
+      const blob = new Blob([uint8Array], { 
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
       });
       
