@@ -6,7 +6,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import ReactMarkdown from 'react-markdown';
-import { CodeMirror } from '@uiw/react-codemirror';
+import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
 import { html } from '@codemirror/lang-html';
@@ -15,7 +15,7 @@ import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
 import { sql } from '@codemirror/lang-sql';
 import { ArtifactType, Artifact } from './types';
-import { Eye, Code2, FileText, Play, Globe } from 'lucide-react';
+import { Eye, Code2, FileText, Globe } from 'lucide-react';
 
 interface ArtifactViewerProps {
   artifact: Artifact;
@@ -33,7 +33,7 @@ const ArtifactViewer: React.FC<ArtifactViewerProps> = ({
   isStreaming = false
 }) => {
   const [activeTab, setActiveTab] = useState('preview');
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing] = useState(false);
 
   // Get display content
   const getDisplayContent = () => {
