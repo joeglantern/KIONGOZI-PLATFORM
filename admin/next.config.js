@@ -6,13 +6,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    unoptimized: true
-  },
   swcMinify: true,
-  experimental: {
-    forceSwcTransforms: true,
-  }
+  poweredByHeader: false,
+  reactStrictMode: true,
 }
 
 module.exports = nextConfig
