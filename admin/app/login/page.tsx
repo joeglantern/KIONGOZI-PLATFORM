@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from "../../lib/supabase";
 import dynamic from "next/dynamic";
 const PasswordInput = dynamic(() => import("../components/PasswordInput"), { ssr: false });
 
@@ -14,10 +14,6 @@ export default function AdminLoginPage() {
   const [mounted, setMounted] = useState(false);
   
   const router = useRouter();
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  );
 
   useEffect(() => {
     setMounted(true);
@@ -40,7 +36,7 @@ export default function AdminLoginPage() {
     };
     
     checkAuth();
-  }, [router, supabase]);
+  }, [router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,20 +81,8 @@ export default function AdminLoginPage() {
           throw new Error('Access denied. Admin privileges required.');
         }
 
-        // Log the admin login
-        try {
-          await supabase.rpc('log_admin_action', {
-            admin_id: authData.user.id,
-            target_user_id: null,
-            action_type: 'admin_login',
-            action_details: { 
-              login_time: new Date().toISOString(),
-              user_agent: navigator.userAgent
-            }
-          });
-        } catch (logError) {
-          console.warn('Failed to log admin login:', logError);
-        }
+        // Log successful admin login (simple console log for now)
+        console.log(`Admin login successful: ${profile.full_name || authData.user.email} at ${new Date().toISOString()}`);
 
         // Success - redirect to dashboard
         router.push('/dashboard');
