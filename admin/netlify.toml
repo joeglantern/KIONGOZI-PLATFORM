@@ -1,15 +1,15 @@
 [build]
-  publish = ".next"
   command = "npm run build"
+  publish = "out"
 
 [build.environment]
   NODE_VERSION = "18"
 
-# Next.js redirects for SPA routing
+# Redirects for SPA routing
 [[redirects]]
   from = "/*"
-  to = "/404.html"
-  status = 404
+  to = "/index.html"
+  status = 200
 
 # Security headers
 [[headers]]
