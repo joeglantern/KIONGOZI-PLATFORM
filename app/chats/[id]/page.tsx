@@ -12,3 +12,4 @@ export default function ChatDetailPage({ params }: { params: { id: string } }) {
 
 
 
+

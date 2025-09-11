@@ -4,7 +4,7 @@
  * and handles authentication, error handling, and response formatting.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3002/api/v1';
+const API_BASE_URL = '/api-proxy';
 
 export interface ApiResponse<T = any> {
   success: boolean;
