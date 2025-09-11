@@ -625,8 +625,13 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
         if (!token) return;
         // Use centralized API client
         const response = await apiClient.getConversations({ limit: 20, offset: 0 });
-        if (!response.success) return;
+        console.log('🗨️ Conversations API response:', response);
+        if (!response.success) {
+          console.warn('❌ Failed to load conversations:', response.error);
+          return;
+        }
         const list = Array.isArray(response.data) ? response.data : [];
+        console.log('✅ Loaded conversations:', list.length, 'items');
         setRecentConversations(list);
       } catch {}
     })();
