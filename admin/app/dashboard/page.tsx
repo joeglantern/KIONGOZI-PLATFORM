@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '../components/DashboardLayout';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 import { 
   Users, 
   MessageSquare, 
@@ -17,10 +17,6 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 
-// Create Supabase client to get session tokens
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface MetricCardProps {
   title: string;
