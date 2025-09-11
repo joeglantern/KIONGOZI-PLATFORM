@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 export async function middleware(req: NextRequest) {
   // Temporarily disabled middleware for debugging - let all requests through
   // Individual pages will handle auth checking
+  // Force deployment trigger
   return NextResponse.next();
 }
 
