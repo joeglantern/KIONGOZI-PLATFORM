@@ -6,15 +6,14 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
   Alert,
   ActivityIndicator,
   SafeAreaView,
   Dimensions,
   StatusBar,
-  Keyboard,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 // LinearGradient removed for compatibility
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '../utils/apiClient';
@@ -29,6 +28,14 @@ interface Message {
   type?: 'chat' | 'research';
 }
 
+interface Conversation {
+  id: string;
+  title?: string;
+  updated_at: string;
+  created_at: string;
+  user_id: string;
+}
+
 const { width } = Dimensions.get('window');
 
 export default function ChatScreen() {
@@ -39,8 +46,9 @@ export default function ChatScreen() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const textInputRef = useRef<TextInput>(null);
 
@@ -56,29 +64,97 @@ export default function ChatScreen() {
     ]);
   }, []);
 
+  // Load user's conversations from API
+  const loadConversations = async () => {
+    if (!user) return;
+
+    setLoadingConversations(true);
+    try {
+      const response = await apiClient.getConversations({ limit: 50, offset: 0 });
+
+      if (response.success && response.data) {
+        const conversationList = Array.isArray(response.data) ? response.data : [];
+        setConversations(conversationList);
+        console.log('✅ Loaded conversations:', conversationList.length);
+      } else {
+        console.warn('❌ Failed to load conversations:', response.error);
+      }
+    } catch (error) {
+      console.error('❌ Error loading conversations:', error);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  // Load conversations when user is available
   useEffect(() => {
-    // Keyboard event listeners
-    const keyboardWillShow = (event: any) => {
-      setKeyboardHeight(event.endCoordinates.height);
-      setIsKeyboardVisible(true);
-    };
+    if (user) {
+      loadConversations();
+    }
+  }, [user]);
 
-    const keyboardWillHide = () => {
-      setKeyboardHeight(0);
-      setIsKeyboardVisible(false);
-    };
+  // Load messages for a specific conversation
+  const loadConversationMessages = async (selectedConversationId: string) => {
+    // Clear current messages first to prevent showing old messages during loading
+    setMessages([]);
+    setLoadingMessages(true);
+    try {
+      const response = await apiClient.getConversationMessages(selectedConversationId, { limit: 100, offset: 0 });
 
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+      if (response.success && response.data) {
+        const messageList = Array.isArray(response.data) ? response.data : [];
 
-    const showSubscription = Keyboard.addListener(showEvent, keyboardWillShow);
-    const hideSubscription = Keyboard.addListener(hideEvent, keyboardWillHide);
+        // Convert API messages to our Message format
+        const formattedMessages: Message[] = messageList.map((msg: any, index: number) => ({
+          id: msg.id || Date.now() + index,
+          text: msg.text || msg.content || '',
+          isUser: msg.is_user === true,
+          type: msg.type || 'chat'
+        }));
 
-    return () => {
-      showSubscription?.remove();
-      hideSubscription?.remove();
-    };
-  }, []);
+        setMessages(formattedMessages);
+        setConversationId(selectedConversationId);
+        console.log('✅ Loaded conversation messages:', formattedMessages.length);
+
+        // Scroll to bottom after loading messages
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      } else {
+        console.warn('❌ Failed to load conversation messages:', response.error);
+        // If failed to load, show empty state instead of keeping loading
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading conversation messages:', error);
+      // On error, show empty state and alert
+      setMessages([]);
+      Alert.alert('Error', 'Failed to load conversation messages');
+    } finally {
+      // Always clear loading state
+      setLoadingMessages(false);
+    }
+  };
+
+  // Start a new chat conversation
+  const startNewChat = () => {
+    // Clear all states first
+    setLoadingMessages(false);
+    setLoading(false);
+    setConversationId(null);
+    setInputText('');
+
+    // Set welcome message
+    setMessages([
+      {
+        id: 1,
+        text: "Habari! I'm your Kiongozi AI assistant. I'm here to help you learn about Kenyan civic education, government, and your rights as a citizen. What would you like to know about?",
+        isUser: false,
+        type: 'chat'
+      }
+    ]);
+    console.log('✅ Started new chat');
+  };
 
   const sendMessage = async () => {
     if (!inputText.trim()) return;
@@ -136,6 +212,9 @@ export default function ChatScreen() {
         };
 
         setMessages(prev => [...prev, aiMessage]);
+
+        // Refresh conversations list to show updated conversation
+        loadConversations();
       } else {
         throw new Error(userResponse.error || 'Failed to send message');
       }
@@ -225,76 +304,76 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      {/* Chat Content with Dynamic Keyboard Handling */}
+      {/* Chat Content */}
       <View style={styles.chatContainer}>
         {/* Messages Container */}
-        <View
-          style={[
-            styles.messagesContainer,
-            darkMode ? styles.messagesContainerDark : styles.messagesContainerLight,
-            isKeyboardVisible && { marginBottom: keyboardHeight - (Platform.OS === 'ios' ? 40 : 0) }
-          ]}
+        <KeyboardAwareScrollView
+          style={[styles.messagesContainer, darkMode ? styles.messagesContainerDark : styles.messagesContainerLight]}
+          contentContainerStyle={styles.messagesContent}
+          ref={scrollViewRef}
+          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+          extraScrollHeight={100}
+          enableAutomaticScroll={true}
         >
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.messagesContent}
-            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {messages.map((message) => (
+          {loadingMessages && (
+            <View style={styles.conversationLoadingWrapper}>
+              <View style={[styles.conversationLoadingContainer, darkMode && styles.conversationLoadingContainerDark]}>
+                <ActivityIndicator size="small" color={darkMode ? '#3b82f6' : '#3b82f6'} />
+                <Text style={[styles.conversationLoadingText, darkMode && styles.conversationLoadingTextDark]}>
+                  Loading conversation...
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {!loadingMessages && messages.map((message) => (
+            <View
+              key={message.id}
+              style={[
+                styles.messageWrapper,
+                message.isUser ? styles.userMessageWrapper : styles.aiMessageWrapper
+              ]}
+            >
               <View
-                key={message.id}
                 style={[
-                  styles.messageWrapper,
-                  message.isUser ? styles.userMessageWrapper : styles.aiMessageWrapper
+                  styles.messageContainer,
+                  message.isUser ? styles.userMessage : styles.aiMessage,
+                  darkMode && message.isUser && styles.userMessageDark,
+                  darkMode && !message.isUser && styles.aiMessageDark,
                 ]}
               >
-                <View
-                  style={[
-                    styles.messageContainer,
-                    message.isUser ? styles.userMessage : styles.aiMessage,
-                    darkMode && message.isUser && styles.userMessageDark,
-                    darkMode && !message.isUser && styles.aiMessageDark,
-                  ]}
-                >
-                  <Text style={[
-                    styles.messageText,
-                    message.isUser ? styles.userMessageText : styles.aiMessageText,
-                    darkMode && message.isUser && styles.userMessageTextDark,
-                    darkMode && !message.isUser && styles.aiMessageTextDark,
-                  ]}>
-                    {message.text}
-                  </Text>
-                </View>
+                <Text style={[
+                  styles.messageText,
+                  message.isUser ? styles.userMessageText : styles.aiMessageText,
+                  darkMode && message.isUser && styles.userMessageTextDark,
+                  darkMode && !message.isUser && styles.aiMessageTextDark,
+                ]}>
+                  {message.text}
+                </Text>
               </View>
-            ))}
+            </View>
+          ))}
 
-            {loading && (
-              <View style={styles.loadingWrapper}>
-                <View style={[styles.loadingContainer, darkMode && styles.loadingContainerDark]}>
-                  <LoadingDots />
-                  <Text style={[styles.loadingText, darkMode && styles.loadingTextDark]}>
-                    Thinking...
-                  </Text>
-                </View>
+          {loading && (
+            <View style={styles.loadingWrapper}>
+              <View style={[styles.loadingContainer, darkMode && styles.loadingContainerDark]}>
+                <LoadingDots />
+                <Text style={[styles.loadingText, darkMode && styles.loadingTextDark]}>
+                  Thinking...
+                </Text>
               </View>
-            )}
-          </ScrollView>
-        </View>
+            </View>
+          )}
+        </KeyboardAwareScrollView>
 
-        {/* Input Container */}
+        {/* Fixed Input Container */}
         <View
           style={[
             styles.inputContainer,
-            darkMode ? styles.inputContainerDark : styles.inputContainerLight,
-            isKeyboardVisible && {
-              position: 'absolute',
-              bottom: keyboardHeight,
-              left: 0,
-              right: 0,
-            }
+            darkMode ? styles.inputContainerDark : styles.inputContainerLight
           ]}
         >
           <View style={styles.inputWrapper}>
@@ -312,12 +391,6 @@ export default function ChatScreen() {
               returnKeyType="send"
               onSubmitEditing={sendMessage}
               blurOnSubmit={false}
-              onFocus={() => {
-                // Scroll to bottom when input is focused to ensure visibility
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 100);
-              }}
             />
             <TouchableOpacity
               style={[
@@ -346,6 +419,18 @@ export default function ChatScreen() {
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         onSignOut={handleSignOut}
+        conversations={conversations}
+        loadingConversations={loadingConversations}
+        onSelectConversation={(selectedConversationId) => {
+          setShowMenu(false);
+          loadConversationMessages(selectedConversationId);
+        }}
+        onNewChat={() => {
+          setShowMenu(false);
+          startNewChat();
+          // Refresh conversations list to potentially show the new chat once user sends a message
+          loadConversations();
+        }}
       />
     </SafeAreaView>
   );
@@ -473,7 +558,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 20,
-    flexGrow: 1,
   },
   messageWrapper: {
     marginBottom: 16,
@@ -626,5 +710,41 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabledBg: {
     backgroundColor: '#9ca3af',
+  },
+  conversationLoadingWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  conversationLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  conversationLoadingContainerDark: {
+    backgroundColor: '#374151',
+    borderColor: '#4b5563',
+  },
+  conversationLoadingText: {
+    marginLeft: 12,
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  conversationLoadingTextDark: {
+    color: '#9ca3af',
   },
 });

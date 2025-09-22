@@ -10,12 +10,24 @@ import {
 } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 
+interface Conversation {
+  id: string;
+  title?: string;
+  updated_at: string;
+  created_at: string;
+  user_id: string;
+}
+
 interface MobileMenuProps {
   visible: boolean;
   onClose: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
   onSignOut: () => void;
+  conversations?: Conversation[];
+  loadingConversations?: boolean;
+  onSelectConversation?: (conversationId: string) => void;
+  onNewChat?: () => void;
 }
 
 export default function MobileMenu({
@@ -24,6 +36,10 @@ export default function MobileMenu({
   darkMode,
   onToggleDarkMode,
   onSignOut,
+  conversations = [],
+  loadingConversations = false,
+  onSelectConversation,
+  onNewChat,
 }: MobileMenuProps) {
   const { user } = useAuthStore();
 
@@ -33,8 +49,10 @@ export default function MobileMenu({
       title: 'New Chat',
       subtitle: 'Start a new conversation',
       onPress: () => {
+        if (onNewChat) {
+          onNewChat();
+        }
         onClose();
-        // TODO: Start new chat
       },
     },
     {
@@ -121,6 +139,62 @@ export default function MobileMenu({
               Active learner
             </Text>
           </View>
+        </View>
+
+        {/* Conversation History Section */}
+        <View style={[styles.conversationSection, darkMode && styles.conversationSectionDark]}>
+          <View style={styles.conversationHeader}>
+            <Text style={[styles.conversationHeaderText, darkMode && styles.conversationHeaderTextDark]}>
+              Recent Conversations
+            </Text>
+            {onNewChat && (
+              <TouchableOpacity
+                onPress={() => {
+                  onNewChat();
+                  onClose();
+                }}
+                style={[styles.newChatButton, darkMode && styles.newChatButtonDark]}
+              >
+                <Text style={styles.newChatButtonText}>+ New</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {loadingConversations ? (
+            <View style={styles.loadingConversations}>
+              <Text style={[styles.loadingText, darkMode && styles.loadingTextDark]}>
+                Loading conversations...
+              </Text>
+            </View>
+          ) : conversations.length > 0 ? (
+            <ScrollView style={styles.conversationList} showsVerticalScrollIndicator={false}>
+              {conversations.slice(0, 5).map((conversation) => (
+                <TouchableOpacity
+                  key={conversation.id}
+                  style={[styles.conversationItem, darkMode && styles.conversationItemDark]}
+                  onPress={() => {
+                    if (onSelectConversation) {
+                      onSelectConversation(conversation.id);
+                      onClose();
+                    }
+                  }}
+                >
+                  <Text style={[styles.conversationTitle, darkMode && styles.conversationTitleDark]}>
+                    {conversation.title || 'Untitled Chat'}
+                  </Text>
+                  <Text style={[styles.conversationDate, darkMode && styles.conversationDateDark]}>
+                    {new Date(conversation.updated_at).toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.noConversations}>
+              <Text style={[styles.noConversationsText, darkMode && styles.noConversationsTextDark]}>
+                No conversations yet. Start a new chat!
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Menu Items */}
@@ -373,5 +447,98 @@ const styles = StyleSheet.create({
   },
   footerTextDark: {
     color: '#6b7280',
+  },
+  conversationSection: {
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  conversationSectionDark: {
+    backgroundColor: '#1f2937',
+    borderBottomColor: '#374151',
+  },
+  conversationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  conversationHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  conversationHeaderTextDark: {
+    color: '#f9fafb',
+  },
+  newChatButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  newChatButtonDark: {
+    backgroundColor: '#1d4ed8',
+  },
+  newChatButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  conversationList: {
+    maxHeight: 200,
+  },
+  conversationItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  conversationItemDark: {
+    backgroundColor: '#374151',
+  },
+  conversationTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  conversationTitleDark: {
+    color: '#f9fafb',
+  },
+  conversationDate: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  conversationDateDark: {
+    color: '#9ca3af',
+  },
+  loadingConversations: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontStyle: 'italic',
+  },
+  loadingTextDark: {
+    color: '#9ca3af',
+  },
+  noConversations: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  noConversationsText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  noConversationsTextDark: {
+    color: '#9ca3af',
   },
 });
