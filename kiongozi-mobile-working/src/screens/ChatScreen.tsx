@@ -12,13 +12,18 @@ import {
   SafeAreaView,
   Dimensions,
   StatusBar,
+  Keyboard,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 // LinearGradient removed for compatibility
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '../utils/apiClient';
 import LoadingDots from '../components/LoadingDots';
 import MobileMenu from '../components/MobileMenu';
+import CustomToast from '../components/CustomToast';
+import ProfileScreen from './ProfileScreen';
 import { generateAIResponse } from '../utils/openaiClient';
 
 interface Message {
@@ -26,6 +31,7 @@ interface Message {
   isUser: boolean;
   id: number;
   type?: 'chat' | 'research';
+  reaction?: 'like' | 'dislike' | null;
 }
 
 interface Conversation {
@@ -46,9 +52,15 @@ export default function ChatScreen() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [refreshingConversations, setRefreshingConversations] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const textInputRef = useRef<TextInput>(null);
 
@@ -62,6 +74,32 @@ export default function ChatScreen() {
         type: 'chat'
       }
     ]);
+  }, []);
+
+  // Keyboard handling for production builds
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event) => {
+        setKeyboardHeight(event.endCoordinates.height);
+        // Scroll to bottom when keyboard opens
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
   }, []);
 
   // Load user's conversations from API
@@ -154,6 +192,60 @@ export default function ChatScreen() {
       }
     ]);
     console.log('✅ Started new chat');
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
+
+  const copyMessage = async (text: string) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast('Message copied to clipboard', 'success');
+    } catch (error) {
+      console.error('Failed to copy message:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showToast('Failed to copy message', 'error');
+    }
+  };
+
+  // Separate refresh function for pull-to-refresh
+  const refreshConversations = async () => {
+    if (!user) return;
+
+    setRefreshingConversations(true);
+    try {
+      const response = await apiClient.getConversations({ limit: 50, offset: 0 });
+
+      if (response.success && response.data) {
+        const conversationList = Array.isArray(response.data) ? response.data : [];
+        setConversations(conversationList);
+        showToast('Conversations refreshed', 'success');
+        console.log('✅ Refreshed conversations:', conversationList.length);
+      } else {
+        console.warn('❌ Failed to refresh conversations:', response.error);
+        showToast('Failed to refresh conversations', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing conversations:', error);
+      showToast('Failed to refresh conversations', 'error');
+    } finally {
+      setRefreshingConversations(false);
+    }
+  };
+
+  const reactToMessage = (messageId: number, reaction: 'like' | 'dislike') => {
+    setMessages(prevMessages =>
+      prevMessages.map(msg =>
+        msg.id === messageId
+          ? { ...msg, reaction: msg.reaction === reaction ? null : reaction }
+          : msg
+      )
+    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const sendMessage = async () => {
@@ -262,7 +354,10 @@ export default function ChatScreen() {
         <View style={styles.headerContent}>
           <View style={styles.logoContainer}>
             <TouchableOpacity
-              onPress={() => setShowMenu(true)}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowMenu(true);
+              }}
               style={[styles.menuButton, darkMode && styles.menuButtonDark]}
             >
               <Text style={[styles.menuButtonText, darkMode && styles.menuButtonTextDark]}>
@@ -286,7 +381,10 @@ export default function ChatScreen() {
 
           <View style={styles.headerActions}>
             <TouchableOpacity
-              onPress={() => setDarkMode(!darkMode)}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setDarkMode(!darkMode);
+              }}
               style={[styles.actionButton, darkMode && styles.actionButtonDark]}
             >
               <Text style={[styles.actionButtonText, darkMode && styles.actionButtonTextDark]}>
@@ -315,8 +413,15 @@ export default function ChatScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           enableOnAndroid={true}
-          extraScrollHeight={100}
+          extraScrollHeight={Platform.OS === 'android' ? 150 : 100}
+          extraHeight={Platform.OS === 'android' ? 120 : 75}
           enableAutomaticScroll={true}
+          enableResetScrollToCoords={false}
+          keyboardOpeningTime={250}
+          viewIsInsideTabBar={false}
+          innerRef={ref => {
+            scrollViewRef.current = ref;
+          }}
         >
           {loadingMessages && (
             <View style={styles.conversationLoadingWrapper}>
@@ -337,13 +442,19 @@ export default function ChatScreen() {
                 message.isUser ? styles.userMessageWrapper : styles.aiMessageWrapper
               ]}
             >
-              <View
+              <TouchableOpacity
                 style={[
                   styles.messageContainer,
                   message.isUser ? styles.userMessage : styles.aiMessage,
                   darkMode && message.isUser && styles.userMessageDark,
                   darkMode && !message.isUser && styles.aiMessageDark,
                 ]}
+                onLongPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  copyMessage(message.text);
+                }}
+                delayLongPress={500}
+                activeOpacity={0.8}
               >
                 <Text style={[
                   styles.messageText,
@@ -353,7 +464,44 @@ export default function ChatScreen() {
                 ]}>
                   {message.text}
                 </Text>
-              </View>
+
+                {/* Reaction buttons for AI messages */}
+                {!message.isUser && (
+                  <View style={styles.reactionContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.reactionButton,
+                        message.reaction === 'like' && styles.reactionButtonActive,
+                        darkMode && styles.reactionButtonDark
+                      ]}
+                      onPress={() => reactToMessage(message.id, 'like')}
+                    >
+                      <Text style={[
+                        styles.reactionButtonText,
+                        message.reaction === 'like' && styles.reactionButtonTextActive
+                      ]}>
+                        👍
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.reactionButton,
+                        message.reaction === 'dislike' && styles.reactionButtonActive,
+                        darkMode && styles.reactionButtonDark
+                      ]}
+                      onPress={() => reactToMessage(message.id, 'dislike')}
+                    >
+                      <Text style={[
+                        styles.reactionButtonText,
+                        message.reaction === 'dislike' && styles.reactionButtonTextActive
+                      ]}>
+                        👎
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
           ))}
 
@@ -373,7 +521,10 @@ export default function ChatScreen() {
         <View
           style={[
             styles.inputContainer,
-            darkMode ? styles.inputContainerDark : styles.inputContainerLight
+            darkMode ? styles.inputContainerDark : styles.inputContainerLight,
+            Platform.OS === 'android' && keyboardHeight > 0 && {
+              paddingBottom: Math.max(keyboardHeight * 0.1, 10),
+            }
           ]}
         >
           <View style={styles.inputWrapper}>
@@ -397,7 +548,10 @@ export default function ChatScreen() {
                 styles.sendButton,
                 (!inputText.trim() || loading) && styles.sendButtonDisabled
               ]}
-              onPress={sendMessage}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                sendMessage();
+              }}
               disabled={!inputText.trim() || loading}
             >
               <View
@@ -421,6 +575,7 @@ export default function ChatScreen() {
         onSignOut={handleSignOut}
         conversations={conversations}
         loadingConversations={loadingConversations}
+        refreshingConversations={refreshingConversations}
         onSelectConversation={(selectedConversationId) => {
           setShowMenu(false);
           loadConversationMessages(selectedConversationId);
@@ -431,6 +586,29 @@ export default function ChatScreen() {
           // Refresh conversations list to potentially show the new chat once user sends a message
           loadConversations();
         }}
+        onRefreshConversations={refreshConversations}
+        onOpenProfile={() => {
+          setShowMenu(false);
+          setShowProfile(true);
+        }}
+      />
+
+      {/* Profile Screen */}
+      <ProfileScreen
+        visible={showProfile}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode(!darkMode)}
+        onClose={() => setShowProfile(false)}
+        onSignOut={handleSignOut}
+      />
+
+      {/* Custom Toast */}
+      <CustomToast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        darkMode={darkMode}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );
@@ -655,6 +833,9 @@ const styles = StyleSheet.create({
   inputContainer: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === 'android' ? 16 : 12,
   },
   inputContainerLight: {
     backgroundColor: '#ffffff',
@@ -664,8 +845,6 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     alignItems: 'center',
     gap: 12,
   },
@@ -746,5 +925,31 @@ const styles = StyleSheet.create({
   },
   conversationLoadingTextDark: {
     color: '#9ca3af',
+  },
+  reactionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+    gap: 8,
+  },
+  reactionButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 32,
+    alignItems: 'center',
+  },
+  reactionButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  reactionButtonActive: {
+    backgroundColor: '#3b82f6',
+  },
+  reactionButtonText: {
+    fontSize: 14,
+  },
+  reactionButtonTextActive: {
+    transform: [{ scale: 1.2 }],
   },
 });
