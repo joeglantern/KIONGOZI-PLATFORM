@@ -17,6 +17,7 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import * as SecureStore from 'expo-secure-store';
 // LinearGradient removed for compatibility
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '../utils/apiClient';
@@ -74,6 +75,9 @@ export default function ChatScreen() {
         type: 'chat'
       }
     ]);
+
+    // Load saved dark mode preference
+    loadDarkModePreference();
   }, []);
 
   // Keyboard handling for production builds
@@ -237,6 +241,29 @@ export default function ChatScreen() {
     }
   };
 
+  // Load dark mode preference from secure storage
+  const loadDarkModePreference = async () => {
+    try {
+      const savedDarkMode = await SecureStore.getItemAsync('darkModeEnabled');
+      if (savedDarkMode !== null) {
+        setDarkMode(savedDarkMode === 'true');
+      }
+    } catch (error) {
+      console.log('Failed to load dark mode preference:', error);
+      // Fallback to default (light mode) - no action needed
+    }
+  };
+
+  // Save dark mode preference to secure storage
+  const saveDarkModePreference = async (isDarkMode: boolean) => {
+    try {
+      await SecureStore.setItemAsync('darkModeEnabled', isDarkMode.toString());
+    } catch (error) {
+      console.log('Failed to save dark mode preference:', error);
+      // Continue without saving - won't persist but won't break the app
+    }
+  };
+
   const reactToMessage = (messageId: number, reaction: 'like' | 'dislike') => {
     setMessages(prevMessages =>
       prevMessages.map(msg =>
@@ -383,7 +410,9 @@ export default function ChatScreen() {
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setDarkMode(!darkMode);
+                const newDarkMode = !darkMode;
+                setDarkMode(newDarkMode);
+                saveDarkModePreference(newDarkMode);
               }}
               style={[styles.actionButton, darkMode && styles.actionButtonDark]}
             >
@@ -571,7 +600,11 @@ export default function ChatScreen() {
         visible={showMenu}
         onClose={() => setShowMenu(false)}
         darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode(!darkMode)}
+        onToggleDarkMode={() => {
+          const newDarkMode = !darkMode;
+          setDarkMode(newDarkMode);
+          saveDarkModePreference(newDarkMode);
+        }}
         onSignOut={handleSignOut}
         conversations={conversations}
         loadingConversations={loadingConversations}
@@ -597,7 +630,11 @@ export default function ChatScreen() {
       <ProfileScreen
         visible={showProfile}
         darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode(!darkMode)}
+        onToggleDarkMode={() => {
+          const newDarkMode = !darkMode;
+          setDarkMode(newDarkMode);
+          saveDarkModePreference(newDarkMode);
+        }}
         onClose={() => setShowProfile(false)}
         onSignOut={handleSignOut}
       />
