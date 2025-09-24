@@ -1,7 +1,26 @@
 // Deep Research Agent API integration
 // This file enhances the OpenAI GPT with deep research capabilities
 
-import { generateAIResponse } from './openai-gpt';
+import apiClient from './apiClient';
+
+// Helper function to use backend API with abort signal support
+async function generateAIResponse(prompt: string, signal?: AbortSignal, conversationId?: string): Promise<string> {
+  if (signal?.aborted) {
+    throw new DOMException("Operation aborted", "AbortError");
+  }
+
+  const response = await apiClient.generateAIResponse(prompt, conversationId, 'research');
+
+  if (signal?.aborted) {
+    throw new DOMException("Operation aborted", "AbortError");
+  }
+
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to generate AI response');
+  }
+
+  return (response.data as any)?.response || '';
+}
 
 // Interface for research response
 export interface ResearchResponse {

@@ -48,7 +48,7 @@ import {
 } from 'react-icons/fi';
 import { LuBrainCircuit, LuSquareLibrary, LuGraduationCap, LuVote } from "react-icons/lu";
 import Image from 'next/image';
-import { generateAIResponse, clearConversationHistory } from '../utils/openai-gpt';
+// Removed direct OpenAI imports for security - now using secure backend API
 import { 
   generateResearchResponse, 
   ResearchResponse 
@@ -827,50 +827,18 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
           setMessages(prev => [...prev, aiMessage]);
           setTypingMessageId(messageId);
           
-          // Get the AI response with streaming
-          const aiResponse = await generateAIResponse(
-            userMessage.text, 
-            controller.signal,
-            (chunk: string, fullContent: string) => {
-              streamingContent = fullContent;
-              
-              // Update the streaming message
-              setMessages(prev => prev.map(msg => 
-                msg.id === messageId 
-                  ? { ...msg, text: fullContent }
-                  : msg
-              ));
-              
-              // Detect artifacts in the current content
-              const artifactDetection = detectArtifacts(fullContent, messageId.toString(), input);
-              
-              if (artifactDetection.shouldCreateArtifact) {
-                // Create artifact from the detection
-                const newArtifact: Artifact = {
-                  id: `${messageId}-artifact-0`,
-                  type: artifactDetection.type,
-                  title: artifactDetection.title,
-                  content: fullContent,
-                  description: artifactDetection.description,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  version: 1
-                };
-                
-                if (!currentStreamingArtifact || currentStreamingArtifact.id !== newArtifact.id) {
-                  // New artifact detected - start streaming it
-                  currentStreamingArtifact = newArtifact;
-                  handleStartArtifactStreaming(newArtifact);
-                  detectedArtifacts = [newArtifact];
-                } else if (currentStreamingArtifact.content !== newArtifact.content) {
-                  // Update existing artifact content
-                  currentStreamingArtifact = newArtifact;
-                  handleUpdateStreamingContent(newArtifact.content);
-                  detectedArtifacts = [newArtifact];
-                }
-              }
-            }
+          // Get the AI response via secure backend API
+          const apiResponse = await apiClient.generateAIResponse(
+            userMessage.text,
+            currentConversationId,
+            'chat'
           );
+
+          if (!apiResponse.success) {
+            throw new Error(apiResponse.error || 'Failed to generate AI response');
+          }
+
+          const aiResponse = (apiResponse.data as any)?.response || 'Sorry, I could not generate a response.';
           
           // Complete streaming
           handleCompleteStreaming();
@@ -893,51 +861,30 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
             }];
           }
           
-          setMessages(prev => prev.map(msg => 
-            msg.id === messageId 
-              ? { 
-                  ...msg, 
+          setMessages(prev => prev.map(msg =>
+            msg.id === messageId
+              ? {
+                  ...msg,
                   text: aiResponse,
-                  isTypingComplete: true,
+                  isTypingComplete: !showTypingEffect, // Enable typing effect if showTypingEffect is true
                   artifacts: finalArtifacts
                 }
               : msg
           ));
-          
-          setTypingMessageId(null);
 
-          // Persist assistant message to DB
-          try {
-            let token = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
-            if (!token) {
-              try {
-                const s = supabase || getSupabase();
-                const { data } = await s.auth.getSession();
-                token = data.session?.access_token || '';
-              } catch {
-                try {
-                  const s2 = await getSupabaseAsync();
-                  const { data } = await s2.auth.getSession();
-                  token = data.session?.access_token || '';
-                } catch {}
-              }
+          // Only clear typing message ID if typing effect is disabled
+          if (!showTypingEffect) {
+            setTypingMessageId(null);
+          }
+
+          // Backend auto-saves the AI response, so reload to show updated messages
+          if (currentConversationId) {
+            try {
+              console.log('🔄 Reloading conversation messages...');
+              await reloadConversationMessages();
+            } catch (error) {
+              console.error('❌ Error reloading conversation messages:', error);
             }
-            if (token && currentConversationId) {
-              console.log('💾 Saving AI response to database...', { conversation_id: currentConversationId, responseLength: aiResponse.length });
-              // Use centralized API client
-              const response = await apiClient.saveAssistantMessage(aiResponse, currentConversationId, 'chat');
-              if (response.success) {
-                console.log('✅ AI response saved successfully');
-                // Reload conversation to show updated messages
-                await reloadConversationMessages();
-              } else {
-                console.error('❌ Failed to save AI response:', response.error, response.details);
-              }
-            } else {
-              console.warn('⚠️  Cannot save AI response - missing token or conversation ID', { hasToken: !!token, conversationId: currentConversationId });
-            }
-          } catch (error) {
-            console.error('❌ Error saving AI response:', error);
           }
         } catch (error) {
           if (!(error instanceof DOMException && error.name === 'AbortError')) {
@@ -973,6 +920,7 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
           }
 
           // Persist assistant research message to DB
+          // Research mode still uses client-side processing, manual save needed
           try {
             let token = (typeof window !== 'undefined') ? (window as any).supabaseToken || '' : '';
             if (!token) {
@@ -1069,8 +1017,7 @@ const AskAI = ({ conversationId, overrideContent, hideInput = false, disableInit
   };
 
   const startNewChat = () => {
-    // Clear the conversation history
-    clearConversationHistory();
+    // Client-side conversation history no longer needed - backend manages context
     
     // Add a fade out animation to the messages
     if (chatContainerRef.current) {

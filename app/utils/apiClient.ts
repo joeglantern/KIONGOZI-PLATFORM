@@ -297,6 +297,15 @@ class ApiClient {
   async deleteConversation(conversationId: string) {
     return this.delete(`/chat/conversations/${conversationId}`);
   }
+
+  // Generate AI response via backend
+  async generateAIResponse(message: string, conversationId?: string, type: 'chat' | 'research' = 'chat') {
+    return this.post('/chat/ai-response', {
+      message,
+      conversation_id: conversationId,
+      type
+    });
+  }
 }
 
 // Create singleton instance
@@ -328,4 +337,5 @@ export const {
   getConversations,
   getConversationMessages,
   deleteConversation,
+  generateAIResponse,
 } = apiClient;
