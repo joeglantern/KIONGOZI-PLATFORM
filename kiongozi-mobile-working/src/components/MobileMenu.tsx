@@ -15,6 +15,25 @@ import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
 
+// Utility function for relative time formatting
+const formatRelativeTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  const diffInDays = Math.floor(diffInHours / 24);
+
+  if (diffInMinutes < 1) return 'Just now';
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  if (diffInDays === 1) return 'Yesterday';
+  if (diffInDays < 7) return `${diffInDays}d ago`;
+
+  // For older dates, show the actual date
+  return date.toLocaleDateString();
+};
+
 interface Conversation {
   id: string;
   title?: string;
@@ -37,6 +56,8 @@ interface MobileMenuProps {
   onRefreshConversations?: () => void;
   onOpenProfile?: () => void;
   onDeleteConversation?: (conversationId: string) => void;
+  onShareConversation?: () => void;
+  currentConversationId?: string;
 }
 
 // Swipeable Conversation Item Component
@@ -45,11 +66,13 @@ function SwipeableConversationItem({
   darkMode,
   onSelect,
   onDelete,
+  isActive,
 }: {
   conversation: Conversation;
   darkMode: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  isActive?: boolean;
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
@@ -117,7 +140,12 @@ function SwipeableConversationItem({
       >
         <Animated.View style={{ transform: [{ translateX }] }}>
           <TouchableOpacity
-            style={[styles.conversationItem, darkMode && styles.conversationItemDark]}
+            style={[
+              styles.conversationItem,
+              darkMode && styles.conversationItemDark,
+              isActive && styles.conversationItemActive,
+              isActive && darkMode && styles.conversationItemActiveDark,
+            ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onSelect();
@@ -127,7 +155,7 @@ function SwipeableConversationItem({
               {conversation.title || 'Untitled Chat'}
             </Text>
             <Text style={[styles.conversationDate, darkMode && styles.conversationDateDark]}>
-              {new Date(conversation.updated_at).toLocaleDateString()}
+              {formatRelativeTime(conversation.updated_at)}
             </Text>
           </TouchableOpacity>
         </Animated.View>
@@ -150,6 +178,8 @@ export default function MobileMenu({
   onRefreshConversations,
   onOpenProfile,
   onDeleteConversation,
+  onShareConversation,
+  currentConversationId,
 }: MobileMenuProps) {
   const { user } = useAuthStore();
 
@@ -162,6 +192,18 @@ export default function MobileMenu({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (onNewChat) {
           onNewChat();
+        }
+        onClose();
+      },
+    },
+    {
+      icon: '📤',
+      title: 'Share Conversation',
+      subtitle: 'Export or share current chat',
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (onShareConversation) {
+          onShareConversation();
         }
         onClose();
       },
@@ -312,6 +354,7 @@ export default function MobileMenu({
                   key={conversation.id}
                   conversation={conversation}
                   darkMode={darkMode}
+                  isActive={conversation.id === currentConversationId}
                   onSelect={() => {
                     if (onSelectConversation) {
                       onSelectConversation(conversation.id);
@@ -637,6 +680,15 @@ const styles = StyleSheet.create({
   },
   conversationItemDark: {
     backgroundColor: '#374151',
+  },
+  conversationItemActive: {
+    backgroundColor: '#dbeafe',
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  conversationItemActiveDark: {
+    backgroundColor: '#1e3a8a',
+    borderColor: '#60a5fa',
   },
   conversationTitle: {
     fontSize: 14,
