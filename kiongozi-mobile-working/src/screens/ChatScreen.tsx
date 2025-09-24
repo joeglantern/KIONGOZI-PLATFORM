@@ -55,6 +55,7 @@ export default function ChatScreen() {
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [refreshingConversations, setRefreshingConversations] = useState(false);
@@ -156,6 +157,11 @@ export default function ChatScreen() {
 
         setMessages(formattedMessages);
         setConversationId(selectedConversationId);
+
+        // Set the current conversation for header display
+        const selectedConversation = conversations.find(c => c.id === selectedConversationId);
+        setCurrentConversation(selectedConversation || null);
+
         console.log('✅ Loaded conversation messages:', formattedMessages.length);
 
         // Scroll to bottom after loading messages
@@ -184,6 +190,7 @@ export default function ChatScreen() {
     setLoadingMessages(false);
     setLoading(false);
     setConversationId(null);
+    setCurrentConversation(null);
     setInputText('');
 
     // Set welcome message
@@ -401,7 +408,7 @@ export default function ChatScreen() {
                 Kiongozi<Text style={styles.platformText}>Platform</Text>
               </Text>
               <Text style={[styles.headerSubtitle, darkMode && styles.headerSubtitleDark]}>
-                AI Assistant
+                {currentConversation?.title || 'AI Assistant'}
               </Text>
             </View>
           </View>
