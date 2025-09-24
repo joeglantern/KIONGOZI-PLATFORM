@@ -1,7 +1,7 @@
 // AI Topic Generator
 // This file handles generation of AI-suggested topics for the sidebar and initial recommendations
 
-import { generateAIResponse } from './openai-gpt';
+import apiClient from './apiClient';
 
 // Interface for topic category
 export interface TopicCategory {
@@ -63,7 +63,11 @@ IMPORTANT: Your response must be ONLY the JSON array - no explanations, no comme
       // First, try to get a proper JSON response
       let response = '';
       try {
-        response = await generateAIResponse(prompt);
+        const apiResponse = await apiClient.generateAIResponse(prompt, undefined, 'chat');
+        if (!apiResponse.success) {
+          throw new Error(apiResponse.error || 'Failed to generate topics');
+        }
+        response = (apiResponse.data as any)?.response || '';
       } catch (aiError) {
         console.error('Error generating topic response:', aiError);
         // If the AI fails, return fallback topics
