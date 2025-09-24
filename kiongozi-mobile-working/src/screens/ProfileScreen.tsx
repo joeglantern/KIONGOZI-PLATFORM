@@ -1,0 +1,589 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  Alert,
+  Switch,
+  Modal,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { useAuthStore } from '../stores/authStore';
+
+interface ProfileScreenProps {
+  visible: boolean;
+  darkMode: boolean;
+  onToggleDarkMode: () => void;
+  onClose: () => void;
+  onSignOut: () => void;
+}
+
+export default function ProfileScreen({
+  visible,
+  darkMode,
+  onToggleDarkMode,
+  onClose,
+  onSignOut,
+}: ProfileScreenProps) {
+  const { user } = useAuthStore();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  const handleSignOut = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: onSignOut
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    Alert.alert(
+      'Delete Account',
+      'This action cannot be undone. All your conversations and data will be permanently deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            // TODO: Implement account deletion
+            Alert.alert('Feature Coming Soon', 'Account deletion will be available in a future update.');
+          }
+        }
+      ]
+    );
+  };
+
+  const settingsItems = [
+    {
+      icon: '🌓',
+      title: 'Dark Mode',
+      subtitle: 'Toggle between light and dark theme',
+      type: 'switch' as const,
+      value: darkMode,
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onToggleDarkMode();
+      },
+    },
+    {
+      icon: '🔔',
+      title: 'Notifications',
+      subtitle: 'Receive updates and reminders',
+      type: 'switch' as const,
+      value: notificationsEnabled,
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setNotificationsEnabled(!notificationsEnabled);
+      },
+    },
+    {
+      icon: '📊',
+      title: 'Learning Stats',
+      subtitle: 'View your progress and achievements',
+      type: 'navigation' as const,
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Alert.alert('Coming Soon', 'Learning statistics will be available in a future update.');
+      },
+    },
+    {
+      icon: '📤',
+      title: 'Export Conversations',
+      subtitle: 'Download your chat history',
+      type: 'navigation' as const,
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Alert.alert('Coming Soon', 'Conversation export will be available in a future update.');
+      },
+    },
+    {
+      icon: '🔒',
+      title: 'Privacy & Security',
+      subtitle: 'Manage your data and privacy settings',
+      type: 'navigation' as const,
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Alert.alert('Coming Soon', 'Privacy settings will be available in a future update.');
+      },
+    },
+    {
+      icon: '❓',
+      title: 'Help & Support',
+      subtitle: 'Get help and contact support',
+      type: 'navigation' as const,
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Alert.alert('Coming Soon', 'Help & support will be available in a future update.');
+      },
+    },
+  ];
+
+  const getJoinDate = () => {
+    // TODO: Get actual join date from user data
+    return new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={[styles.container, darkMode && styles.containerDark]}>
+        {/* Header */}
+        <View style={[styles.header, darkMode && styles.headerDark]}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onClose();
+            }}
+            style={[styles.backButton, darkMode && styles.backButtonDark]}
+          >
+            <Text style={[styles.backButtonText, darkMode && styles.backButtonTextDark]}>
+              ←
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, darkMode && styles.headerTitleDark]}>
+            Profile
+          </Text>
+          <View style={styles.placeholder} />
+        </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* User Info Section */}
+        <View style={[styles.userSection, darkMode && styles.userSectionDark]}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user?.email?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
+            <View style={[styles.statusBadge, darkMode && styles.statusBadgeDark]}>
+              <Text style={styles.statusBadgeText}>•</Text>
+            </View>
+          </View>
+
+          <View style={styles.userInfo}>
+            <Text style={[styles.userEmail, darkMode && styles.userEmailDark]}>
+              {user?.email || 'user@example.com'}
+            </Text>
+            <Text style={[styles.userStatus, darkMode && styles.userStatusDark]}>
+              Active Learner
+            </Text>
+            <Text style={[styles.joinDate, darkMode && styles.joinDateDark]}>
+              Joined {getJoinDate()}
+            </Text>
+          </View>
+        </View>
+
+        {/* Quick Stats */}
+        <View style={[styles.statsSection, darkMode && styles.statsSectionDark]}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+              0
+            </Text>
+            <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+              Conversations
+            </Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+              0
+            </Text>
+            <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+              Topics Learned
+            </Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+              0
+            </Text>
+            <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+              Days Active
+            </Text>
+          </View>
+        </View>
+
+        {/* Settings */}
+        <View style={styles.settingsSection}>
+          <Text style={[styles.sectionTitle, darkMode && styles.sectionTitleDark]}>
+            Settings
+          </Text>
+
+          {settingsItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.settingItem, darkMode && styles.settingItemDark]}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingContent}>
+                <Text style={styles.settingIcon}>{item.icon}</Text>
+                <View style={styles.settingText}>
+                  <Text style={[styles.settingTitle, darkMode && styles.settingTitleDark]}>
+                    {item.title}
+                  </Text>
+                  <Text style={[styles.settingSubtitle, darkMode && styles.settingSubtitleDark]}>
+                    {item.subtitle}
+                  </Text>
+                </View>
+              </View>
+
+              {item.type === 'switch' ? (
+                <Switch
+                  value={item.value}
+                  onValueChange={item.onPress}
+                  trackColor={{ false: '#767577', true: '#3b82f6' }}
+                  thumbColor={item.value ? '#ffffff' : '#f4f3f4'}
+                />
+              ) : (
+                <Text style={[styles.settingArrow, darkMode && styles.settingArrowDark]}>
+                  ›
+                </Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Account Actions */}
+        <View style={styles.actionsSection}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.signOutButton]}
+            onPress={handleSignOut}
+          >
+            <Text style={styles.signOutButtonText}>🚪 Sign Out</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton, darkMode && styles.deleteButtonDark]}
+            onPress={handleDeleteAccount}
+          >
+            <Text style={styles.deleteButtonText}>🗑️ Delete Account</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* App Info */}
+        <View style={styles.footerSection}>
+          <Text style={[styles.footerText, darkMode && styles.footerTextDark]}>
+            Kiongozi Platform v1.0.0
+          </Text>
+          <Text style={[styles.footerSubtext, darkMode && styles.footerSubtextDark]}>
+            Empowering Kenyan youth through civic education
+          </Text>
+        </View>
+      </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  containerDark: {
+    backgroundColor: '#111827',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerDark: {
+    backgroundColor: '#1f2937',
+    borderBottomColor: '#374151',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backButtonText: {
+    fontSize: 20,
+    color: '#4b5563',
+  },
+  backButtonTextDark: {
+    color: '#d1d5db',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  headerTitleDark: {
+    color: '#f9fafb',
+  },
+  placeholder: {
+    width: 40,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  userSection: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  userSectionDark: {
+    backgroundColor: '#1f2937',
+    borderBottomColor: '#374151',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: '#ffffff',
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  statusBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10b981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+  },
+  statusBadgeDark: {
+    borderColor: '#1f2937',
+  },
+  statusBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  userInfo: {
+    alignItems: 'center',
+  },
+  userEmail: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  userEmailDark: {
+    color: '#f9fafb',
+  },
+  userStatus: {
+    fontSize: 16,
+    color: '#10b981',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  userStatusDark: {
+    color: '#10b981',
+  },
+  joinDate: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  joinDateDark: {
+    color: '#9ca3af',
+  },
+  statsSection: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  statsSectionDark: {
+    backgroundColor: '#1f2937',
+    borderBottomColor: '#374151',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 8,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#3b82f6',
+    marginBottom: 4,
+  },
+  statNumberDark: {
+    color: '#3b82f6',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  statLabelDark: {
+    color: '#9ca3af',
+  },
+  settingsSection: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 16,
+  },
+  sectionTitleDark: {
+    color: '#f9fafb',
+  },
+  settingItem: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  settingItemDark: {
+    backgroundColor: '#374151',
+  },
+  settingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingIcon: {
+    fontSize: 24,
+    marginRight: 16,
+  },
+  settingText: {
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  settingTitleDark: {
+    color: '#f9fafb',
+  },
+  settingSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  settingSubtitleDark: {
+    color: '#9ca3af',
+  },
+  settingArrow: {
+    fontSize: 20,
+    color: '#9ca3af',
+  },
+  settingArrowDark: {
+    color: '#6b7280',
+  },
+  actionsSection: {
+    paddingHorizontal: 20,
+    paddingTop: 32,
+    paddingBottom: 24,
+  },
+  actionButton: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  signOutButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  signOutButtonText: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: 'rgba(156, 163, 175, 0.1)',
+  },
+  deleteButtonDark: {
+    backgroundColor: 'rgba(156, 163, 175, 0.2)',
+  },
+  deleteButtonText: {
+    color: '#9ca3af',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footerSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  footerTextDark: {
+    color: '#9ca3af',
+  },
+  footerSubtext: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  footerSubtextDark: {
+    color: '#6b7280',
+  },
+});

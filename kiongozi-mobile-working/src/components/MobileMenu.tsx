@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,12 @@ import {
   Modal,
   ScrollView,
   SafeAreaView,
+  RefreshControl,
+  Animated,
+  Alert,
 } from 'react-native';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
 
 interface Conversation {
@@ -26,8 +31,109 @@ interface MobileMenuProps {
   onSignOut: () => void;
   conversations?: Conversation[];
   loadingConversations?: boolean;
+  refreshingConversations?: boolean;
   onSelectConversation?: (conversationId: string) => void;
   onNewChat?: () => void;
+  onRefreshConversations?: () => void;
+  onOpenProfile?: () => void;
+  onDeleteConversation?: (conversationId: string) => void;
+}
+
+// Swipeable Conversation Item Component
+function SwipeableConversationItem({
+  conversation,
+  darkMode,
+  onSelect,
+  onDelete,
+}: {
+  conversation: Conversation;
+  darkMode: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  const onGestureEvent = Animated.event(
+    [{ nativeEvent: { translationX: translateX } }],
+    { useNativeDriver: true }
+  );
+
+  const onHandlerStateChange = (event: any) => {
+    if (event.nativeEvent.state === State.END) {
+      const { translationX } = event.nativeEvent;
+
+      if (translationX < -100) {
+        // Swipe left to delete
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Alert.alert(
+          'Delete Conversation',
+          'Are you sure you want to delete this conversation? This action cannot be undone.',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => {
+              Animated.spring(translateX, {
+                toValue: 0,
+                useNativeDriver: true,
+              }).start();
+            }},
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => {
+                // Animate out
+                Animated.parallel([
+                  Animated.timing(translateX, {
+                    toValue: -400,
+                    duration: 300,
+                    useNativeDriver: true,
+                  }),
+                  Animated.timing(opacity, {
+                    toValue: 0,
+                    duration: 300,
+                    useNativeDriver: true,
+                  }),
+                ]).start(() => {
+                  onDelete();
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        // Snap back
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    }
+  };
+
+  return (
+    <Animated.View style={{ opacity }}>
+      <PanGestureHandler
+        onGestureEvent={onGestureEvent}
+        onHandlerStateChange={onHandlerStateChange}
+      >
+        <Animated.View style={{ transform: [{ translateX }] }}>
+          <TouchableOpacity
+            style={[styles.conversationItem, darkMode && styles.conversationItemDark]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onSelect();
+            }}
+          >
+            <Text style={[styles.conversationTitle, darkMode && styles.conversationTitleDark]}>
+              {conversation.title || 'Untitled Chat'}
+            </Text>
+            <Text style={[styles.conversationDate, darkMode && styles.conversationDateDark]}>
+              {new Date(conversation.updated_at).toLocaleDateString()}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </PanGestureHandler>
+    </Animated.View>
+  );
 }
 
 export default function MobileMenu({
@@ -38,8 +144,12 @@ export default function MobileMenu({
   onSignOut,
   conversations = [],
   loadingConversations = false,
+  refreshingConversations = false,
   onSelectConversation,
   onNewChat,
+  onRefreshConversations,
+  onOpenProfile,
+  onDeleteConversation,
 }: MobileMenuProps) {
   const { user } = useAuthStore();
 
@@ -49,6 +159,7 @@ export default function MobileMenu({
       title: 'New Chat',
       subtitle: 'Start a new conversation',
       onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (onNewChat) {
           onNewChat();
         }
@@ -80,6 +191,18 @@ export default function MobileMenu({
       onPress: () => {
         onClose();
         // TODO: Navigate to rights info
+      },
+    },
+    {
+      icon: '👤',
+      title: 'Profile & Settings',
+      subtitle: 'Manage your account and preferences',
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (onOpenProfile) {
+          onOpenProfile();
+        }
+        onClose();
       },
     },
     {
@@ -167,25 +290,40 @@ export default function MobileMenu({
               </Text>
             </View>
           ) : conversations.length > 0 ? (
-            <ScrollView style={styles.conversationList} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.conversationList}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshingConversations}
+                  onRefresh={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onRefreshConversations && onRefreshConversations();
+                  }}
+                  tintColor={darkMode ? '#3b82f6' : '#3b82f6'}
+                  colors={['#3b82f6']}
+                  title="Pull to refresh"
+                  titleColor={darkMode ? '#9ca3af' : '#6b7280'}
+                />
+              }
+            >
               {conversations.slice(0, 5).map((conversation) => (
-                <TouchableOpacity
+                <SwipeableConversationItem
                   key={conversation.id}
-                  style={[styles.conversationItem, darkMode && styles.conversationItemDark]}
-                  onPress={() => {
+                  conversation={conversation}
+                  darkMode={darkMode}
+                  onSelect={() => {
                     if (onSelectConversation) {
                       onSelectConversation(conversation.id);
                       onClose();
                     }
                   }}
-                >
-                  <Text style={[styles.conversationTitle, darkMode && styles.conversationTitleDark]}>
-                    {conversation.title || 'Untitled Chat'}
-                  </Text>
-                  <Text style={[styles.conversationDate, darkMode && styles.conversationDateDark]}>
-                    {new Date(conversation.updated_at).toLocaleDateString()}
-                  </Text>
-                </TouchableOpacity>
+                  onDelete={() => {
+                    if (onDeleteConversation) {
+                      onDeleteConversation(conversation.id);
+                    }
+                  }}
+                />
               ))}
             </ScrollView>
           ) : (

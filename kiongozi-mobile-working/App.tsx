@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from './src/stores/authStore';
 import LoginScreen from './src/screens/LoginScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -11,29 +12,34 @@ export default function App() {
 
   useEffect(() => {
     const initializeApp = async () => {
-      await initialize();
-      setIsReady(true);
+      try {
+        await initialize();
+        setIsReady(true);
+      } catch (error) {
+        console.error('App initialization failed:', error);
+        setIsReady(true); // Still render the app even if init fails
+      }
     };
     initializeApp();
   }, [initialize]);
 
   if (!isReady || !initialized) {
     return (
-      <View style={styles.loadingContainer}>
+      <GestureHandlerRootView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1a365d" />
-      </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       <StatusBar style="light" />
       {user ? (
         <ChatScreen />
       ) : (
         <LoginScreen onLoginSuccess={() => {}} />
       )}
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
