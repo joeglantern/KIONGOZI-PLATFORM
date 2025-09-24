@@ -5,13 +5,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Alert,
   Switch,
   Modal,
+  RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
+import { useUserStats } from '../hooks/useUserStats';
+import { useChatStore } from '../stores/chatStore';
+import ExportModal from '../components/ExportModal';
 
 interface ProfileScreenProps {
   visible: boolean;
@@ -30,6 +34,9 @@ export default function ProfileScreen({
 }: ProfileScreenProps) {
   const { user } = useAuthStore();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const { stats, loading: statsLoading, error: statsError, refreshStats } = useUserStats();
+  const { conversations, currentConversation } = useChatStore();
 
   const handleSignOut = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -106,7 +113,7 @@ export default function ProfileScreen({
       type: 'navigation' as const,
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Alert.alert('Coming Soon', 'Conversation export will be available in a future update.');
+        setExportModalVisible(true);
       },
     },
     {
@@ -132,7 +139,14 @@ export default function ProfileScreen({
   ];
 
   const getJoinDate = () => {
-    // TODO: Get actual join date from user data
+    if (stats?.join_date) {
+      return new Date(stats.join_date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    // Fallback to current date while loading
     return new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -167,7 +181,23 @@ export default function ProfileScreen({
           <View style={styles.placeholder} />
         </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={statsLoading}
+            onRefresh={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              refreshStats();
+            }}
+            tintColor={darkMode ? '#3b82f6' : '#3b82f6'}
+            colors={['#3b82f6']}
+            title="Pull to refresh stats"
+            titleColor={darkMode ? '#9ca3af' : '#6b7280'}
+          />
+        }
+      >
         {/* User Info Section */}
         <View style={[styles.userSection, darkMode && styles.userSectionDark]}>
           <View style={styles.avatarContainer}>
@@ -198,7 +228,7 @@ export default function ProfileScreen({
         <View style={[styles.statsSection, darkMode && styles.statsSectionDark]}>
           <View style={styles.statItem}>
             <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-              0
+              {statsLoading ? '...' : (stats?.conversations_count ?? 0)}
             </Text>
             <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
               Conversations
@@ -207,7 +237,7 @@ export default function ProfileScreen({
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-              0
+              {statsLoading ? '...' : (stats?.topics_learned ?? 0)}
             </Text>
             <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
               Topics Learned
@@ -216,7 +246,7 @@ export default function ProfileScreen({
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-              0
+              {statsLoading ? '...' : (stats?.days_active ?? 0)}
             </Text>
             <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
               Days Active
@@ -292,6 +322,15 @@ export default function ProfileScreen({
           </Text>
         </View>
       </ScrollView>
+
+      {/* Export Modal */}
+      <ExportModal
+        visible={exportModalVisible}
+        darkMode={darkMode}
+        onClose={() => setExportModalVisible(false)}
+        conversations={conversations}
+        currentConversation={currentConversation}
+      />
       </SafeAreaView>
     </Modal>
   );

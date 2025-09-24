@@ -33,7 +33,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="auto" />
       {user ? (
         <ChatScreen />
       ) : (

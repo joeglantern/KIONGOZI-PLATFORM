@@ -6,11 +6,11 @@ import {
   StyleSheet,
   Modal,
   ScrollView,
-  SafeAreaView,
   RefreshControl,
   Animated,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
