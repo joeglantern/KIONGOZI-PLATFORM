@@ -16,6 +16,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useUserStats } from '../hooks/useUserStats';
 import { useChatStore } from '../stores/chatStore';
 import ExportModal from '../components/ExportModal';
+import ModernSwitch from '../components/ModernSwitch';
 
 interface ProfileScreenProps {
   visible: boolean;
@@ -75,7 +76,7 @@ export default function ProfileScreen({
 
   const settingsItems = [
     {
-      icon: '🌓',
+      icon: darkMode ? '☀️' : '🌙',
       title: 'Dark Mode',
       subtitle: 'Toggle between light and dark theme',
       type: 'switch' as const,
@@ -280,11 +281,10 @@ export default function ProfileScreen({
               </View>
 
               {item.type === 'switch' ? (
-                <Switch
+                <ModernSwitch
                   value={item.value}
                   onValueChange={item.onPress}
-                  trackColor={{ false: '#767577', true: '#3b82f6' }}
-                  thumbColor={item.value ? '#ffffff' : '#f4f3f4'}
+                  darkMode={darkMode}
                 />
               ) : (
                 <Text style={[styles.settingArrow, darkMode && styles.settingArrowDark]}>
@@ -301,14 +301,14 @@ export default function ProfileScreen({
             style={[styles.actionButton, styles.signOutButton]}
             onPress={handleSignOut}
           >
-            <Text style={styles.signOutButtonText}>🚪 Sign Out</Text>
+            <Text style={styles.signOutButtonText}>Sign Out</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton, darkMode && styles.deleteButtonDark]}
             onPress={handleDeleteAccount}
           >
-            <Text style={styles.deleteButtonText}>🗑️ Delete Account</Text>
+            <Text style={styles.deleteButtonText}>Delete Account</Text>
           </TouchableOpacity>
         </View>
 
@@ -339,10 +339,10 @@ export default function ProfileScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f9fafb',
   },
   containerDark: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0f172a',
   },
   header: {
     flexDirection: 'row',
@@ -350,24 +350,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    backdropFilter: 'blur(20px)',
   },
   headerDark: {
-    backgroundColor: '#1f2937',
-    borderBottomColor: '#374151',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   backButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   backButtonText: {
     fontSize: 20,
@@ -391,16 +392,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: 32,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   userSectionDark: {
-    backgroundColor: '#1f2937',
-    borderBottomColor: '#374151',
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   avatarContainer: {
     position: 'relative',
@@ -413,6 +417,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#3b82f6',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#3b82f6',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   avatarText: {
     color: '#ffffff',
@@ -469,16 +481,19 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
   statsSection: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    paddingVertical: 24,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   statsSectionDark: {
-    backgroundColor: '#1f2937',
-    borderBottomColor: '#374151',
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   statItem: {
     alignItems: 'center',
@@ -520,25 +535,21 @@ const styles = StyleSheet.create({
     color: '#f9fafb',
   },
   settingItem: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    backdropFilter: 'blur(10px)',
   },
   settingItemDark: {
-    backgroundColor: '#374151',
+    backgroundColor: 'rgba(51, 65, 85, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   settingContent: {
     flexDirection: 'row',
@@ -581,13 +592,16 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   actionButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   signOutButton: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   signOutButtonText: {
     color: '#ef4444',

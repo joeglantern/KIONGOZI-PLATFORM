@@ -455,7 +455,8 @@ export default function ChatScreen() {
         style={[styles.header, darkMode ? styles.headerDark : styles.headerLight]}
       >
         <View style={styles.headerContent}>
-          <View style={styles.logoContainer}>
+          {/* Left section - Menu & Logo */}
+          <View style={styles.headerLeft}>
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -463,26 +464,28 @@ export default function ChatScreen() {
               }}
               style={[styles.menuButton, darkMode && styles.menuButtonDark]}
             >
-              <Text style={[styles.menuButtonText, darkMode && styles.menuButtonTextDark]}>
-                ☰
-              </Text>
+              <View style={[styles.sidebarIcon, darkMode && styles.sidebarIconDark]}>
+                <View style={[styles.sidebarRect, styles.sidebarRectLarge, darkMode && styles.sidebarRectDark]} />
+                <View style={[styles.sidebarRect, styles.sidebarRectSmall, darkMode && styles.sidebarRectDark]} />
+              </View>
             </TouchableOpacity>
-            <View
-              style={styles.aiIcon}
-            >
+            <View style={styles.aiIcon}>
               <Text style={styles.aiIconText}>AI</Text>
-            </View>
-            <View>
-              <Text style={[styles.headerTitle, darkMode && styles.headerTitleDark]}>
-                Kiongozi<Text style={styles.platformText}>Platform</Text>
-              </Text>
-              <Text style={[styles.headerSubtitle, darkMode && styles.headerSubtitleDark]}>
-                {currentConversation?.title || 'AI Assistant'}
-              </Text>
             </View>
           </View>
 
-          <View style={styles.headerActions}>
+          {/* Center section - Title (flexible) */}
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, darkMode && styles.headerTitleDark]} numberOfLines={1}>
+              Kiongozi<Text style={styles.platformText}>Platform</Text>
+            </Text>
+            <Text style={[styles.headerSubtitle, darkMode && styles.headerSubtitleDark]} numberOfLines={1}>
+              {currentConversation?.title || 'AI Assistant'}
+            </Text>
+          </View>
+
+          {/* Right section - Actions */}
+          <View style={styles.headerRight}>
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -711,30 +714,59 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    gap: 12,
   },
-  logoContainer: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  headerCenter: {
+    flex: 1,
+    paddingHorizontal: 12,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   menuButton: {
     padding: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
     borderRadius: 8,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   menuButtonDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  menuButtonText: {
-    fontSize: 16,
-    color: '#4b5563',
+  sidebarIcon: {
+    width: 16,
+    height: 12,
+    justifyContent: 'space-between',
   },
-  menuButtonTextDark: {
-    color: '#d1d5db',
+  sidebarIconDark: {
+    // No additional styling needed for dark mode - handled by rect styles
+  },
+  sidebarRect: {
+    borderRadius: 2,
+    backgroundColor: '#374151',
+  },
+  sidebarRectDark: {
+    backgroundColor: '#d1d5db',
+  },
+  sidebarRectLarge: {
+    width: 16,
+    height: 4,
+  },
+  sidebarRectSmall: {
+    width: 12,
+    height: 4,
   },
   aiIcon: {
     width: 40,
@@ -753,6 +785,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
+    marginBottom: 2,
   },
   headerTitleDark: {
     color: '#f9fafb',
@@ -763,14 +796,10 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 12,
     color: '#6b7280',
+    flexShrink: 1,
   },
   headerSubtitleDark: {
     color: '#9ca3af',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   actionButton: {
     paddingHorizontal: 12,

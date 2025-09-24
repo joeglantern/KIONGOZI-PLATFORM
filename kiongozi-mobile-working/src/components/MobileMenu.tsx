@@ -185,21 +185,8 @@ export default function MobileMenu({
 
   const menuItems = [
     {
-      icon: '💬',
-      title: 'New Chat',
-      subtitle: 'Start a new conversation',
-      onPress: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        if (onNewChat) {
-          onNewChat();
-        }
-        onClose();
-      },
-    },
-    {
       icon: '📤',
-      title: 'Share Conversation',
-      subtitle: 'Export or share current chat',
+      title: 'Share Chat',
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (onShareConversation) {
@@ -211,7 +198,6 @@ export default function MobileMenu({
     {
       icon: '📚',
       title: 'Civic Education',
-      subtitle: 'Learn about Kenyan governance',
       onPress: () => {
         onClose();
         // TODO: Navigate to civic education
@@ -219,8 +205,7 @@ export default function MobileMenu({
     },
     {
       icon: '🗳️',
-      title: 'Elections & Democracy',
-      subtitle: 'Understand electoral processes',
+      title: 'Elections',
       onPress: () => {
         onClose();
         // TODO: Navigate to elections info
@@ -229,7 +214,6 @@ export default function MobileMenu({
     {
       icon: '⚖️',
       title: 'Your Rights',
-      subtitle: 'Know your constitutional rights',
       onPress: () => {
         onClose();
         // TODO: Navigate to rights info
@@ -237,8 +221,7 @@ export default function MobileMenu({
     },
     {
       icon: '👤',
-      title: 'Profile & Settings',
-      subtitle: 'Manage your account and preferences',
+      title: 'Profile',
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (onOpenProfile) {
@@ -250,7 +233,6 @@ export default function MobileMenu({
     {
       icon: darkMode ? '☀️' : '🌙',
       title: darkMode ? 'Light Mode' : 'Dark Mode',
-      subtitle: 'Toggle theme',
       onPress: () => {
         onToggleDarkMode();
       },
@@ -306,74 +288,61 @@ export default function MobileMenu({
           </View>
         </View>
 
-        {/* Conversation History Section */}
-        <View style={[styles.conversationSection, darkMode && styles.conversationSectionDark]}>
-          <View style={styles.conversationHeader}>
-            <Text style={[styles.conversationHeaderText, darkMode && styles.conversationHeaderTextDark]}>
-              Recent Conversations
-            </Text>
-            {onNewChat && (
-              <TouchableOpacity
-                onPress={() => {
-                  onNewChat();
-                  onClose();
-                }}
-                style={[styles.newChatButton, darkMode && styles.newChatButtonDark]}
-              >
-                <Text style={styles.newChatButtonText}>+ New</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {loadingConversations ? (
-            <View style={styles.loadingConversations}>
-              <Text style={[styles.loadingText, darkMode && styles.loadingTextDark]}>
-                Loading conversations...
-              </Text>
-            </View>
-          ) : conversations.length > 0 ? (
-            <ScrollView
-              style={styles.conversationList}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshingConversations}
-                  onRefresh={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onRefreshConversations && onRefreshConversations();
-                  }}
-                  tintColor={darkMode ? '#3b82f6' : '#3b82f6'}
-                  colors={['#3b82f6']}
-                  title="Pull to refresh"
-                  titleColor={darkMode ? '#9ca3af' : '#6b7280'}
-                />
-              }
+        {/* Quick Actions & Recent Chats */}
+        <View style={[styles.quickSection, darkMode && styles.quickSectionDark]}>
+          {/* New Chat Button */}
+          {onNewChat && (
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onNewChat();
+                onClose();
+              }}
+              style={[styles.quickAction, styles.newChatQuickAction, darkMode && styles.newChatQuickActionDark]}
             >
-              {conversations.slice(0, 5).map((conversation) => (
-                <SwipeableConversationItem
-                  key={conversation.id}
-                  conversation={conversation}
-                  darkMode={darkMode}
-                  isActive={conversation.id === currentConversationId}
-                  onSelect={() => {
-                    if (onSelectConversation) {
-                      onSelectConversation(conversation.id);
-                      onClose();
-                    }
-                  }}
-                  onDelete={() => {
-                    if (onDeleteConversation) {
-                      onDeleteConversation(conversation.id);
-                    }
-                  }}
-                />
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.noConversations}>
-              <Text style={[styles.noConversationsText, darkMode && styles.noConversationsTextDark]}>
-                No conversations yet. Start a new chat!
+              <Text style={styles.quickActionIcon}>💬</Text>
+              <Text style={[styles.quickActionText, styles.newChatText]}>New Chat</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Recent Conversations - Compact Display */}
+          {conversations.length > 0 && (
+            <View style={styles.recentChatsCompact}>
+              <Text style={[styles.recentChatsTitle, darkMode && styles.recentChatsTitleDark]}>
+                Recent
               </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.recentChatsScroll}
+                contentContainerStyle={styles.recentChatsContent}
+              >
+                {conversations.slice(0, 3).map((conversation) => (
+                  <TouchableOpacity
+                    key={conversation.id}
+                    style={[
+                      styles.recentChatCard,
+                      darkMode && styles.recentChatCardDark,
+                      conversation.id === currentConversationId && styles.recentChatCardActive,
+                      conversation.id === currentConversationId && darkMode && styles.recentChatCardActiveDark,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (onSelectConversation) {
+                        onSelectConversation(conversation.id);
+                        onClose();
+                      }
+                    }}
+                  >
+                    <Text style={[styles.recentChatTitle, darkMode && styles.recentChatTitleDark]} numberOfLines={1}>
+                      {conversation.title || 'New Chat'}
+                    </Text>
+                    <Text style={[styles.recentChatTime, darkMode && styles.recentChatTimeDark]}>
+                      {formatRelativeTime(conversation.updated_at)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
         </View>
@@ -387,14 +356,9 @@ export default function MobileMenu({
               onPress={item.onPress}
             >
               <Text style={styles.menuIcon}>{item.icon}</Text>
-              <View style={styles.menuContent}>
-                <Text style={[styles.menuTitle, darkMode && styles.menuTitleDark]}>
-                  {item.title}
-                </Text>
-                <Text style={[styles.menuSubtitle, darkMode && styles.menuSubtitleDark]}>
-                  {item.subtitle}
-                </Text>
-              </View>
+              <Text style={[styles.menuTitle, darkMode && styles.menuTitleDark]}>
+                {item.title}
+              </Text>
               <Text style={[styles.menuArrow, darkMode && styles.menuArrowDark]}>
                 ›
               </Text>
@@ -406,12 +370,18 @@ export default function MobileMenu({
         <View style={[styles.footer, darkMode && styles.footerDark]}>
           <TouchableOpacity
             style={[styles.signOutButton, darkMode && styles.signOutButtonDark]}
-            onPress={onSignOut}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onSignOut();
+            }}
           >
-            <Text style={styles.signOutButtonText}>🚪 Sign Out</Text>
+            <Text style={styles.signOutIcon}>↗</Text>
+            <Text style={[styles.signOutButtonText, darkMode && styles.signOutButtonTextDark]}>
+              Sign Out
+            </Text>
           </TouchableOpacity>
 
-          <Text style={[styles.footerText, darkMode && styles.footerTextDark]}>
+          <Text style={[styles.footerVersion, darkMode && styles.footerVersionDark]}>
             Kiongozi Platform v1.0.0
           </Text>
         </View>
@@ -549,45 +519,29 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   menuItemDark: {
     backgroundColor: '#1f2937',
   },
   menuIcon: {
-    fontSize: 24,
-    marginRight: 16,
-  },
-  menuContent: {
-    flex: 1,
+    fontSize: 20,
+    marginRight: 12,
   },
   menuTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
     color: '#1f2937',
-    marginBottom: 4,
   },
   menuTitleDark: {
     color: '#f9fafb',
-  },
-  menuSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  menuSubtitleDark: {
-    color: '#9ca3af',
   },
   menuArrow: {
     fontSize: 20,
@@ -598,137 +552,142 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: '#f3f4f6',
+    alignItems: 'center',
   },
   footerDark: {
     borderTopColor: '#374151',
   },
   signOutButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   signOutButtonDark: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: '#374151',
+    borderColor: '#4b5563',
+  },
+  signOutIcon: {
+    fontSize: 16,
+    marginRight: 8,
+    color: '#6b7280',
+    transform: [{ rotate: '45deg' }],
   },
   signOutButtonText: {
-    color: '#ef4444',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
-  footerText: {
-    textAlign: 'center',
-    fontSize: 12,
+  signOutButtonTextDark: {
+    color: '#d1d5db',
+  },
+  footerVersion: {
+    fontSize: 11,
     color: '#9ca3af',
+    fontWeight: '400',
   },
-  footerTextDark: {
+  footerVersionDark: {
     color: '#6b7280',
   },
-  conversationSection: {
+  quickSection: {
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  conversationSectionDark: {
+  quickSectionDark: {
     backgroundColor: '#1f2937',
     borderBottomColor: '#374151',
   },
-  conversationHeader: {
+  quickAction: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 16,
   },
-  conversationHeaderText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  conversationHeaderTextDark: {
-    color: '#f9fafb',
-  },
-  newChatButton: {
+  newChatQuickAction: {
     backgroundColor: '#3b82f6',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
   },
-  newChatButtonDark: {
+  newChatQuickActionDark: {
     backgroundColor: '#1d4ed8',
   },
-  newChatButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
+  quickActionIcon: {
+    fontSize: 18,
+    marginRight: 12,
+  },
+  quickActionText: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  conversationList: {
-    maxHeight: 200,
+  newChatText: {
+    color: '#ffffff',
   },
-  conversationItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+  recentChatsCompact: {
+    marginTop: 8,
+  },
+  recentChatsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  recentChatsTitleDark: {
+    color: '#9ca3af',
+  },
+  recentChatsScroll: {
+    flexGrow: 0,
+  },
+  recentChatsContent: {
+    paddingRight: 20,
+  },
+  recentChatCard: {
     backgroundColor: '#f8fafc',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 8,
-    marginBottom: 8,
+    marginRight: 12,
+    minWidth: 140,
+    maxWidth: 160,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  conversationItemDark: {
+  recentChatCardDark: {
     backgroundColor: '#374151',
   },
-  conversationItemActive: {
+  recentChatCardActive: {
     backgroundColor: '#dbeafe',
-    borderWidth: 1,
     borderColor: '#3b82f6',
   },
-  conversationItemActiveDark: {
+  recentChatCardActiveDark: {
     backgroundColor: '#1e3a8a',
     borderColor: '#60a5fa',
   },
-  conversationTitle: {
-    fontSize: 14,
+  recentChatTitle: {
+    fontSize: 13,
     fontWeight: '500',
     color: '#1f2937',
     marginBottom: 4,
   },
-  conversationTitleDark: {
+  recentChatTitleDark: {
     color: '#f9fafb',
   },
-  conversationDate: {
-    fontSize: 12,
+  recentChatTime: {
+    fontSize: 11,
     color: '#6b7280',
   },
-  conversationDateDark: {
-    color: '#9ca3af',
-  },
-  loadingConversations: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontStyle: 'italic',
-  },
-  loadingTextDark: {
-    color: '#9ca3af',
-  },
-  noConversations: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  noConversationsText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  noConversationsTextDark: {
+  recentChatTimeDark: {
     color: '#9ca3af',
   },
 });
