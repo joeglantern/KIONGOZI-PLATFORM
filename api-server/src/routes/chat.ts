@@ -2,8 +2,14 @@ import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { supabaseServiceClient } from '../config/supabase';
 import { generateConversationTitle } from '../utils/titleGenerator';
+import OpenAI from 'openai';
 
 const router = Router();
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 async function ensureProfile(userId: string, email?: string) {
   if (!supabaseServiceClient) throw new Error('Supabase not configured');
@@ -228,6 +234,167 @@ router.delete('/conversations/:id', authenticateToken, async (req, res) => {
     return res.json({ success: true, message: 'Conversation deleted' });
   } catch (e: any) {
     return res.status(500).json({ success: false, error: e?.message || 'Failed to delete conversation' });
+  }
+});
+
+// Generate AI response via OpenAI API
+router.post('/ai-response', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    if (!supabaseServiceClient) return res.status(500).json({ success: false, error: 'Supabase not configured' });
+
+    const { message, conversation_id, type } = req.body as {
+      message?: string;
+      conversation_id?: string;
+      type?: 'chat' | 'research'
+    };
+
+    // Validate required fields
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Message is required' });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ success: false, error: 'OpenAI API key not configured' });
+    }
+
+    const userId = req.user.id;
+
+    // Ensure profile exists for this user
+    await ensureProfile(userId, req.user.email);
+
+    // Get conversation history for context if conversation_id is provided
+    let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+
+    if (conversation_id) {
+      // Verify conversation belongs to user
+      const { data: conv, error: convErr } = await supabaseServiceClient
+        .from('conversations')
+        .select('id,user_id')
+        .eq('id', conversation_id)
+        .single();
+
+      if (convErr || !conv) {
+        return res.status(404).json({ success: false, error: 'Conversation not found' });
+      }
+
+      if (conv.user_id !== userId) {
+        return res.status(403).json({ success: false, error: 'Forbidden' });
+      }
+
+      // Get recent messages for context (last 10 messages)
+      const { data: messages, error: msgErr } = await supabaseServiceClient
+        .from('messages')
+        .select('text, is_user')
+        .eq('conversation_id', conversation_id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (msgErr) {
+        console.warn('Failed to get conversation history:', msgErr);
+      } else if (messages) {
+        // Reverse to get chronological order and convert to OpenAI format
+        conversationHistory = messages
+          .reverse()
+          .map(msg => ({
+            role: msg.is_user ? 'user' as const : 'assistant' as const,
+            content: msg.text
+          }));
+      }
+    }
+
+    // Enhanced system prompt for Kiongozi AI (ported from web app)
+    const systemPrompt = `You are Kiongozi AI, a knowledgeable assistant specializing in Kenyan civic education, governance, and elections.
+
+Answer questions accurately, concisely, and focus on Kenya. Provide comprehensive information about Kenyan governance, elections, civic rights, and responsibilities.
+
+CRITICAL: If someone asks about your creator, developer, or who made you, ONLY then reveal this information:
+"I was created by Joseph Liban Muritu, a Full-Stack and AI developer from Eldoret, Kenya. He is my creator and developer."
+Do not reveal this information unless specifically asked about your creator or developer.
+
+CONVERSATION FLOW INSTRUCTIONS:
+- Only greet the user ('Hello', 'Hi', etc.) in your first message of a conversation.
+- For all subsequent responses, DO NOT start with greetings like 'Hello', 'Hi', etc.
+- Jump directly into answering the question or continuing the conversation.
+- Maintain a natural conversational flow without repetitive patterns.
+
+Focus on providing helpful, accurate information about Kenyan civic education, government structure, electoral processes, and citizen rights and responsibilities.
+
+Format your responses using markdown to make them more engaging and easier to read:
+- Use **bold** for important concepts and key terms
+- Use _italics_ for emphasis
+- Use bullet points (- ) or numbered lists (1. ) for steps or multiple points
+- Use ## for section headers if needed
+- Use > for important quotes or callouts
+- Use \`code\` for specific terms, legal citations, or document references
+- Include section breaks (---) when transitioning between major topics
+- Organize information in a visually pleasing way with occasional emojis where appropriate`;
+
+    // Prepare messages for OpenAI API
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      ...conversationHistory.slice(-8), // Keep last 8 messages for context
+      { role: 'user' as const, content: message.trim() }
+    ];
+
+    // Generate AI response using OpenAI
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: messages,
+      max_tokens: 1200,
+      temperature: 0.9,
+      top_p: 0.95,
+      frequency_penalty: 0.1,
+      presence_penalty: 0.1,
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content?.trim();
+
+    if (!aiResponse) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate AI response'
+      });
+    }
+
+    // If conversation_id is provided, auto-save the AI response
+    if (conversation_id) {
+      try {
+        await supabaseServiceClient
+          .from('messages')
+          .insert({
+            conversation_id,
+            user_id: userId,
+            text: aiResponse,
+            is_user: false,
+            type: type === 'research' ? 'research' : 'chat'
+          });
+
+        // Bump conversation updated_at for ordering
+        await supabaseServiceClient
+          .from('conversations')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', conversation_id);
+      } catch (saveError) {
+        console.warn('Failed to save AI response to database:', saveError);
+        // Continue anyway - return the response even if saving failed
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        response: aiResponse,
+        conversation_id: conversation_id || undefined
+      }
+    });
+
+  } catch (error: any) {
+    console.error('AI response generation error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error?.message || 'Failed to generate AI response'
+    });
   }
 });
 
