@@ -26,7 +26,6 @@ import LoadingDots from '../components/LoadingDots';
 import MobileMenu from '../components/MobileMenu';
 import CustomToast from '../components/CustomToast';
 import ProfileScreen from './ProfileScreen';
-import { generateAIResponse } from '../utils/openaiClient';
 
 interface Message {
   text: string;
@@ -377,29 +376,27 @@ export default function ChatScreen() {
         // Handle conversation ID from the user message response
         if (!conversationId && userResponse.data?.conversation_id) {
           setConversationId(userResponse.data.conversation_id);
+          // Update current conversation for header display (will be updated when conversations reload)
+          setCurrentConversation({
+            id: userResponse.data.conversation_id,
+            title: undefined, // Will be set when conversations are refreshed
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            user_id: user?.id || ''
+          });
         }
 
-        // Step 2: Generate AI response using OpenAI
-        // Create conversation history from current messages for context
-        const conversationHistory = messages
-          .slice(-10) // Only use last 10 messages for context
-          .map(msg => ({
-            role: msg.isUser ? 'user' as const : 'assistant' as const,
-            content: msg.text
-          }));
-
-        const aiResponseText = await generateAIResponse(messageText, conversationHistory);
-
-        // Step 3: Save AI response to backend
+        // Step 2: Generate AI response via backend API
         const currentConvId = conversationId || userResponse.data?.conversation_id;
-        if (currentConvId) {
-          try {
-            await apiClient.saveAssistantMessage(aiResponseText, currentConvId, 'chat');
-          } catch (saveError) {
-            console.warn('Failed to save AI response to backend:', saveError);
-            // Continue anyway - user will still see the response
-          }
+        const aiResponse = await apiClient.generateAIResponse(messageText, currentConvId, 'chat');
+
+        if (!aiResponse.success) {
+          throw new Error(aiResponse.error || 'Failed to generate AI response');
         }
+
+        const aiResponseText = aiResponse.data?.response || aiResponse.data?.message || 'Sorry, I could not generate a response.';
+
+        // Backend should automatically save the AI response, so no manual save needed
 
         // Step 4: Display AI response to user
         const aiMessage: Message = {

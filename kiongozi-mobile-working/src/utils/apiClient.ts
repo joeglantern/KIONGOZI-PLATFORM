@@ -175,6 +175,18 @@ class ApiClient {
   async deleteConversation(conversationId: string) {
     return this.request(`/api/v1/chat/conversations/${conversationId}`, { method: 'DELETE' });
   }
+
+  // Generate AI response via backend
+  async generateAIResponse(userMessage: string, conversationId?: string, type: 'chat' | 'research' = 'chat') {
+    return this.request('/api/v1/chat/ai-response', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: userMessage,
+        conversation_id: conversationId,
+        type
+      })
+    });
+  }
 }
 
 // Create singleton instance
