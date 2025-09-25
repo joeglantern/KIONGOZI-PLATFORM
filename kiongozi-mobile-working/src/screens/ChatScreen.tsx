@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -24,6 +23,7 @@ import apiClient from '../utils/apiClient';
 import LoadingDots from '../components/LoadingDots';
 import MobileMenu from '../components/MobileMenu';
 import CustomToast from '../components/CustomToast';
+import ModernMessageInput from '../components/ModernMessageInput';
 import ProfileScreen from './ProfileScreen';
 import ExportModal from '../components/ExportModal';
 import AIMessage from '../components/AIMessage';
@@ -68,7 +68,7 @@ export default function ChatScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showExportModal, setShowExportModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-  const textInputRef = useRef<TextInput>(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const chatStore = useChatStore();
 
   useEffect(() => {
@@ -92,10 +92,9 @@ export default function ChatScreen() {
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (event) => {
         setKeyboardHeight(event.endCoordinates.height);
-        // Scroll to bottom when keyboard opens
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
+        // Ensure auto-scroll and scroll to bottom when keyboard opens
+        setShouldAutoScroll(true);
+        scrollToBottom();
       }
     );
 
@@ -140,6 +139,13 @@ export default function ChatScreen() {
       loadConversations();
     }
   }, [user]);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages]);
 
   // Load messages for a specific conversation
   const loadConversationMessages = async (selectedConversationId: string) => {
@@ -341,6 +347,24 @@ export default function ChatScreen() {
     }
   };
 
+  const scrollToBottom = (animated: boolean = true) => {
+    if (scrollViewRef.current && shouldAutoScroll) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated });
+      }, 100);
+    }
+  };
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 20;
+    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >=
+      contentSize.height - paddingToBottom;
+
+    // Update auto-scroll state based on user's scroll position
+    setShouldAutoScroll(isCloseToBottom);
+  };
+
   const reactToMessage = (messageId: number, reaction: 'like' | 'dislike') => {
     setMessages(prevMessages =>
       prevMessages.map(msg =>
@@ -367,6 +391,9 @@ export default function ChatScreen() {
     const messageText = inputText.trim();
     setInputText('');
     setLoading(true);
+
+    // Ensure user is at the bottom for new messages
+    setShouldAutoScroll(true);
 
     try {
       // Step 1: Save user message to backend
@@ -517,13 +544,15 @@ export default function ChatScreen() {
           style={[styles.messagesContainer, darkMode ? styles.messagesContainerDark : styles.messagesContainerLight]}
           contentContainerStyle={styles.messagesContent}
           ref={scrollViewRef}
-          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => scrollToBottom()}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           enableOnAndroid={true}
           extraScrollHeight={Platform.OS === 'android' ? 150 : 100}
           extraHeight={Platform.OS === 'android' ? 120 : 75}
-          enableAutomaticScroll={true}
+          enableAutomaticScroll={false}
           enableResetScrollToCoords={false}
           keyboardOpeningTime={250}
           viewIsInsideTabBar={false}
@@ -573,52 +602,42 @@ export default function ChatScreen() {
           )}
         </KeyboardAwareScrollView>
 
-        {/* Fixed Input Container */}
+        {/* Scroll to Bottom Button */}
+        {!shouldAutoScroll && (
+          <TouchableOpacity
+            style={[
+              styles.scrollToBottomButton,
+              darkMode && styles.scrollToBottomButtonDark
+            ]}
+            onPress={() => {
+              setShouldAutoScroll(true);
+              scrollToBottom();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Text style={styles.scrollToBottomIcon}>↓</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Modern Input Container */}
         <View
           style={[
-            styles.inputContainer,
-            darkMode ? styles.inputContainerDark : styles.inputContainerLight,
+            styles.modernInputContainer,
             Platform.OS === 'android' && keyboardHeight > 0 && {
               paddingBottom: Math.max(keyboardHeight * 0.1, 10),
             }
           ]}
         >
-          <View style={styles.inputWrapper}>
-            <TextInput
-              ref={textInputRef}
-              style={[
-                styles.textInput,
-                darkMode && styles.textInputDark
-              ]}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Ask about Kenyan civic education..."
-              placeholderTextColor={darkMode ? '#9ca3af' : '#6b7280'}
-              maxLength={1000}
-              returnKeyType="send"
-              onSubmitEditing={sendMessage}
-              blurOnSubmit={false}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                (!inputText.trim() || loading) && styles.sendButtonDisabled
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                sendMessage();
-              }}
-              disabled={!inputText.trim() || loading}
-            >
-              <View
-                style={[styles.sendButtonGradient, (!inputText.trim() || loading) ? styles.sendButtonDisabledBg : styles.sendButtonEnabledBg]}
-              >
-                <Text style={styles.sendButtonText}>
-                  {loading ? '⏳' : '🚀'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+          <ModernMessageInput
+            value={inputText}
+            onChangeText={setInputText}
+            onSend={sendMessage}
+            placeholder="Ask me anything..."
+            darkMode={darkMode}
+            loading={loading}
+            disabled={false}
+            maxLength={1000}
+          />
         </View>
       </View>
 
@@ -879,65 +898,40 @@ const styles = StyleSheet.create({
   loadingTextDark: {
     color: '#9ca3af',
   },
-  inputContainer: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  modernInputContainer: {
+    backgroundColor: 'transparent',
+    paddingTop: 12,
     paddingBottom: Platform.OS === 'android' ? 16 : 12,
   },
-  inputContainerLight: {
-    backgroundColor: '#ffffff',
-  },
-  inputContainerDark: {
-    backgroundColor: '#1f2937',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  textInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    height: 44,
-    backgroundColor: '#ffffff',
-    color: '#1f2937',
-    textAlignVertical: 'center',
-  },
-  textInputDark: {
-    backgroundColor: '#374151',
-    borderColor: '#4b5563',
-    color: '#f3f4f6',
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    alignSelf: 'center',
-  },
-  sendButtonGradient: {
+  scrollToBottomButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 80,
     width: 44,
     height: 44,
     borderRadius: 22,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
-  sendButtonDisabled: {
-    opacity: 0.5,
+  scrollToBottomButtonDark: {
+    backgroundColor: '#374151',
+    borderColor: '#4b5563',
   },
-  sendButtonText: {
+  scrollToBottomIcon: {
     fontSize: 18,
-  },
-  sendButtonEnabledBg: {
-    backgroundColor: '#3b82f6',
-  },
-  sendButtonDisabledBg: {
-    backgroundColor: '#9ca3af',
+    fontWeight: 'bold',
+    color: '#3b82f6',
   },
   conversationLoadingWrapper: {
     justifyContent: 'center',

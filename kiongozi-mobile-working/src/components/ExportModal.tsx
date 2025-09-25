@@ -7,12 +7,12 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
-  Switch,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import exportUtils, { ExportFormat, ExportScope, Conversation } from '../utils/exportUtils';
+import ModernSwitch from './ModernSwitch';
 
 interface ExportModalProps {
   visible: boolean;
@@ -220,14 +220,13 @@ export default function ExportModal({
                   Add date and time information to messages
                 </Text>
               </View>
-              <Switch
+              <ModernSwitch
                 value={includeTimestamps}
                 onValueChange={(value) => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setIncludeTimestamps(value);
                 }}
-                trackColor={{ false: '#374151', true: '#3b82f6' }}
-                thumbColor={includeTimestamps ? '#ffffff' : '#9ca3af'}
+                darkMode={darkMode}
               />
             </View>
 
@@ -240,14 +239,13 @@ export default function ExportModal({
                   Add export information and platform details
                 </Text>
               </View>
-              <Switch
+              <ModernSwitch
                 value={includeMetadata}
                 onValueChange={(value) => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setIncludeMetadata(value);
                 }}
-                trackColor={{ false: '#374151', true: '#3b82f6' }}
-                thumbColor={includeMetadata ? '#ffffff' : '#9ca3af'}
+                darkMode={darkMode}
               />
             </View>
           </View>
