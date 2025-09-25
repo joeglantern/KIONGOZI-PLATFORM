@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import { Shield, Activity, AlertTriangle, Users, Clock, Eye, Ban, CheckCircle, TrendingUp, Settings } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { MobileStatsCard, MobileGrid, MobileCard, MobileTabs, MobileTable, useIsMobile } from '../components/MobileOptimized';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface SecurityStats {
   security: {
@@ -42,6 +48,7 @@ export default function SecurityPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [blockIpForm, setBlockIpForm] = useState({ ip: '', reason: '' });
   const [unblockIpForm, setUnblockIpForm] = useState({ ip: '' });
+  const [unblocking, setUnblocking] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -54,8 +61,22 @@ export default function SecurityPage() {
   const fetchSecurityData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth_token');
-      const headers = { 'Authorization': `Bearer ${token}` };
+      setError(null);
+
+      // Get Supabase session to authenticate with API server
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('No active session. Please login again.');
+      }
+
+      // Use Supabase JWT token for API server authentication
+      const token = session.access_token;
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
 
       const [overviewRes, threatsRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_BASE}/admin/security/overview`, { headers }),
@@ -65,14 +86,20 @@ export default function SecurityPage() {
       if (overviewRes.ok && threatsRes.ok) {
         const overview = await overviewRes.json();
         const threats = await threatsRes.json();
+
         setSecurityStats(overview.data);
         setThreatData(threats.data);
       } else {
-        throw new Error('Failed to fetch security data from API server');
+        // Get error details
+        const overviewError = !overviewRes.ok ? await overviewRes.text() : null;
+        const threatsError = !threatsRes.ok ? await threatsRes.text() : null;
+
+        const errorMsg = overviewError || threatsError || `API Error - Overview: ${overviewRes.status}, Threats: ${threatsRes.status}`;
+        throw new Error(errorMsg);
       }
     } catch (error) {
-      console.error('Failed to fetch security data:', error);
-      setError('Could not connect to API server. Make sure it is running on port 3001.');
+      console.error('Security data fetch failed:', error);
+      setError(`${(error as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -86,7 +113,12 @@ export default function SecurityPage() {
     }
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please login again');
+        return;
+      }
+      const token = session.access_token;
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/admin/security/block-ip`, {
         method: 'POST',
         headers: {
@@ -117,7 +149,12 @@ export default function SecurityPage() {
     }
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please login again');
+        return;
+      }
+      const token = session.access_token;
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/admin/security/unblock-ip`, {
         method: 'POST',
         headers: {
@@ -140,11 +177,74 @@ export default function SecurityPage() {
     }
   };
 
+  const handleDirectUnblock = async (ip: string) => {
+    if (!confirm(`Are you sure you want to unblock IP: ${ip}?`)) {
+      return;
+    }
+
+    setUnblocking(ip);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please login again');
+        return;
+      }
+      const token = session.access_token;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/admin/security/unblock-ip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ ip })
+      });
+
+      if (response.ok) {
+        alert(`IP ${ip} unblocked successfully`);
+        fetchSecurityData(); // Refresh data
+      } else {
+        const errorData = await response.text();
+        throw new Error(`Failed to unblock IP: ${errorData}`);
+      }
+    } catch (error) {
+      console.error('Failed to unblock IP:', error);
+      alert(`Failed to unblock IP: ${(error as Error).message}`);
+    } finally {
+      setUnblocking(null);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading security data...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center max-w-md">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-red-800 mb-2">Connection Error</h3>
+              <p className="text-red-700 mb-4">{error}</p>
+              <button
+                onClick={fetchSecurityData}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
+              >
+                Retry Connection
+              </button>
+            </div>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -180,7 +280,8 @@ export default function SecurityPage() {
           onTabChange={setActiveTab}
         />
 
-        {activeTab === 'overview' && securityStats && (
+        {activeTab === 'overview' && (
+          securityStats ? (
           <div className="space-y-6">
             {/* Security Overview Cards */}
             <MobileGrid cols={isMobile ? 1 : 2} gap="md">
@@ -253,9 +354,22 @@ export default function SecurityPage() {
               </div>
             </div>
           </div>
-        )}
+        ) : (
+          <div className="text-center py-12">
+            <Shield className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-500 mb-2">No Security Data Available</h3>
+            <p className="text-gray-400 mb-4">Unable to load security statistics</p>
+            <button
+              onClick={fetchSecurityData}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Retry Loading
+            </button>
+          </div>
+        ))}
 
-        {activeTab === 'threats' && threatData && (
+        {activeTab === 'threats' && (
+          threatData ? (
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-xl shadow-sm border border-red-200">
@@ -327,9 +441,22 @@ export default function SecurityPage() {
               </div>
             </div>
           </div>
-        )}
+        ) : (
+          <div className="text-center py-12">
+            <AlertTriangle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-500 mb-2">No Threat Data Available</h3>
+            <p className="text-gray-400 mb-4">Unable to load threat intelligence</p>
+            <button
+              onClick={fetchSecurityData}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Retry Loading
+            </button>
+          </div>
+        ))}
 
-      {activeTab === 'logs' && securityStats && (
+      {activeTab === 'logs' && (
+        securityStats ? (
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Security Events</h3>
@@ -379,6 +506,19 @@ export default function SecurityPage() {
             </div>
           </div>
         </div>
+        ) : (
+          <div className="text-center py-12">
+            <Activity className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-500 mb-2">No Security Logs Available</h3>
+            <p className="text-gray-400 mb-4">Unable to load security event logs</p>
+            <button
+              onClick={fetchSecurityData}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Retry Loading
+            </button>
+          </div>
+        )
       )}
 
         {activeTab === 'management' && (
@@ -459,17 +599,34 @@ export default function SecurityPage() {
           {/* Blocked IPs List */}
           {securityStats && securityStats.security.blockedIPs.length > 0 && (
             <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Currently Blocked IPs</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Currently Blocked IPs</h3>
+                <span className="text-sm text-gray-500">{securityStats.security.blockedIPs.length} blocked</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {securityStats.security.blockedIPs.map((ip) => (
-                  <div key={ip} className="flex items-center justify-between p-2 bg-red-50 rounded">
-                    <span className="text-sm font-mono">{ip}</span>
-                    <button
-                      onClick={() => setUnblockIpForm({ ip })}
-                      className="text-xs text-red-600 hover:text-red-800"
-                    >
-                      Unblock
-                    </button>
+                  <div key={ip} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span className="text-sm font-mono font-medium text-gray-900">{ip}</span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setUnblockIpForm({ ip })}
+                        className="text-xs px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                        title="Fill unblock form"
+                      >
+                        Fill Form
+                      </button>
+                      <button
+                        onClick={() => handleDirectUnblock(ip)}
+                        disabled={unblocking === ip}
+                        className="text-xs px-2 py-1 bg-green-600 text-white hover:bg-green-700 rounded disabled:opacity-50"
+                        title="Unblock immediately"
+                      >
+                        {unblocking === ip ? 'Unblocking...' : 'Unblock Now'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
