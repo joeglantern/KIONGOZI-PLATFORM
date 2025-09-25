@@ -31,7 +31,7 @@ const Hero = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              Building <span className="gradient-text">stronger democracy</span> through informed participation
+              Building <span className="gradient-text">sustainable future</span> through green & digital innovation
             </motion.h1>
             
             <motion.p 
@@ -40,8 +40,8 @@ const Hero = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.6 }}
             >
-              A digital civic education platform that helps young Kenyans understand 
-              their roles in democracy, governance, and leadership for a more prosperous Kenya.
+              A digital learning platform empowering young Kenyans with green economy skills
+              and digital literacy for sustainable careers and environmental innovation.
             </motion.p>
             
             <motion.div 
@@ -74,8 +74,8 @@ const Hero = () => {
           >
             <div className="relative w-full h-[400px] float-animation">
               <Image
-                src="https://undraw.co/illustrations/undraw_voting_nvu7.svg"
-                alt="Youth civic participation illustration"
+                src="https://undraw.co/illustrations/undraw_environment_iaus.svg"
+                alt="Youth green digital innovation illustration"
                 fill
                 style={{ objectFit: "contain" }}
                 className="drop-shadow-xl"

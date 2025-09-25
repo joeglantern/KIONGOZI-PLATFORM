@@ -55,16 +55,16 @@ router.get('/stats', authenticateToken, async (req, res) => {
       // Simple heuristic: estimate topics based on conversation variety
       // More sophisticated topic extraction could be added later
       const uniqueQuestionWords = new Set();
-      const civicKeywords = [
-        'constitution', 'government', 'election', 'democracy', 'rights', 'parliament',
-        'president', 'governor', 'senator', 'mp', 'mca', 'voting', 'ballot', 'iebc',
-        'judiciary', 'executive', 'legislation', 'devolution', 'county', 'national'
+      const greenDigitalKeywords = [
+        'sustainability', 'renewable', 'solar', 'green', 'climate', 'environment',
+        'digital', 'technology', 'coding', 'programming', 'entrepreneurship', 'innovation',
+        'business', 'agriculture', 'energy', 'recycling', 'conservation', 'skills', 'career', 'jobs'
       ];
 
       messages.forEach(message => {
         if (message.text) {
           const text = message.text.toLowerCase();
-          civicKeywords.forEach(keyword => {
+          greenDigitalKeywords.forEach(keyword => {
             if (text.includes(keyword)) {
               uniqueQuestionWords.add(keyword);
             }
@@ -84,13 +84,13 @@ router.get('/stats', authenticateToken, async (req, res) => {
       daysActive = Math.max(1, daysDiff); // At least 1 day if they have messages
     }
 
-    // Determine join date (prefer profile created_at, fallback to auth created_at)
+    // Determine join date (prefer profile created_at, fallback to current date)
     let joinDate: string;
     if (profile?.created_at) {
       joinDate = profile.created_at;
     } else {
-      // Fallback to auth user created_at if profile doesn't exist
-      joinDate = req.user.created_at || new Date().toISOString();
+      // Fallback to current date if profile doesn't exist
+      joinDate = new Date().toISOString();
     }
 
     // Calculate last active (most recent message)

@@ -19,6 +19,8 @@ import notificationRoutes from './routes/notifications';
 import analyticsRoutes from './routes/analytics';
 import websocketRoutes from './routes/websocket';
 import userRoutes from './routes/user';
+import contentRoutes from './routes/content';
+import progressRoutes from './routes/progress';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -87,6 +89,8 @@ app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/auth', authRateLimit.middleware(), authRoutes);
 app.use('/api/v1/chat', chatRateLimit.middleware(), chatRoutes);
 app.use('/api/v1/user', apiRateLimit.middleware(), userRoutes);
+app.use('/api/v1/content', apiRateLimit.middleware(), contentRoutes);
+app.use('/api/v1/progress', apiRateLimit.middleware(), progressRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/admin/security', adminSecurityRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
