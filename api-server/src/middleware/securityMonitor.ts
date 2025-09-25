@@ -130,16 +130,24 @@ class SecurityMonitor {
       return { allowed: true, severity: 'low' };
     }
     
-    // Skip IP blocking for production to allow all users
-    // Only block IPs in development or if explicitly enabled
-    if (process.env.ENABLE_IP_BLOCKING === 'true') {
-      if (this.thresholds.suspiciousIPs.has(ip)) {
+    // Enable IP blocking in production with admin controls
+    // Only skip if explicitly disabled
+    const blockingEnabled = process.env.ENABLE_IP_BLOCKING !== 'false';
+
+    if (blockingEnabled && this.thresholds.suspiciousIPs.has(ip)) {
+      // Allow emergency bypass for specific admin IPs
+      const emergencyBypassIPs = process.env.EMERGENCY_BYPASS_IPS?.split(',') || [];
+      if (!emergencyBypassIPs.includes(ip)) {
         await this.logSecurityEvent('error', 'BLOCKED_IP', `Request from blacklisted IP: ${ip}`, req);
         return { allowed: false, reason: 'IP address blocked', severity: 'high' };
+      } else {
+        await this.logSecurityEvent('warning', 'BYPASS_USED', `Emergency bypass used for blocked IP: ${ip}`, req);
       }
     }
 
-    if (this.isBlockedUserAgent(userAgent)) {
+    // User agent blocking (configurable)
+    const userAgentBlockingEnabled = process.env.ENABLE_USER_AGENT_BLOCKING !== 'false';
+    if (userAgentBlockingEnabled && this.isBlockedUserAgent(userAgent)) {
       await this.logSecurityEvent('warning', 'SUSPICIOUS_UA', `Blocked suspicious user agent: ${userAgent}`, req);
       return { allowed: false, reason: 'Suspicious user agent', severity: 'medium' };
     }
@@ -158,17 +166,22 @@ class SecurityMonitor {
       requestContent += JSON.stringify(req.query);
     }
 
-    const violations = this.checkSuspiciousContent(requestContent + req.path);
-    if (violations.length > 0) {
-      await this.logSecurityEvent('warning', 'SUSPICIOUS_CONTENT', 'Suspicious content detected', req, { violations });
-      
-      const attackCount = this.trackAttackPattern(ip);
-      if (attackCount > 3) {
-        this.thresholds.suspiciousIPs.add(ip);
-        await this.logSecurityEvent('error', 'AUTO_BLOCK', `IP auto-blocked after ${attackCount} suspicious requests`, req);
+    // Content filtering (configurable)
+    const contentFilteringEnabled = process.env.ENABLE_CONTENT_FILTERING !== 'false';
+    if (contentFilteringEnabled) {
+      const violations = this.checkSuspiciousContent(requestContent + req.path);
+      if (violations.length > 0) {
+        await this.logSecurityEvent('warning', 'SUSPICIOUS_CONTENT', 'Suspicious content detected', req, { violations });
+
+        const autoBlockThreshold = parseInt(process.env.AUTO_BLOCK_AFTER_VIOLATIONS || '3');
+        const attackCount = this.trackAttackPattern(ip);
+        if (attackCount >= autoBlockThreshold) {
+          this.thresholds.suspiciousIPs.add(ip);
+          await this.logSecurityEvent('error', 'AUTO_BLOCK', `IP auto-blocked after ${attackCount} suspicious requests (threshold: ${autoBlockThreshold})`, req);
+        }
+
+        return { allowed: false, reason: 'Suspicious content detected', severity: 'high' };
       }
-      
-      return { allowed: false, reason: 'Suspicious content detected', severity: 'high' };
     }
 
     const recentRequestKey = `requests:${ip}`;

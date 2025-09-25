@@ -258,7 +258,7 @@ router.get('/threats', authenticateToken, async (req, res) => {
 router.put('/settings', authenticateToken, async (req, res) => {
   try {
     const settings = req.body;
-    
+
     // Store security settings in database
     const { error } = await supabase
       .from('system_settings')
@@ -279,6 +279,35 @@ router.put('/settings', authenticateToken, async (req, res) => {
     console.error('Failed to update security settings:', error);
     res.status(500).json({
       error: 'Failed to update security settings',
+      details: (error as Error).message
+    });
+  }
+});
+
+// Get current security configuration
+router.get('/config', authenticateToken, async (req, res) => {
+  try {
+    const { data: config } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'security_config')
+      .single();
+
+    res.json({
+      success: true,
+      data: {
+        config: config?.value || {},
+        environment: {
+          NODE_ENV: process.env.NODE_ENV,
+          IP_BLOCKING_ENABLED: process.env.ENABLE_IP_BLOCKING !== 'false',
+          HAS_EMERGENCY_BYPASS: !!process.env.EMERGENCY_BYPASS_IPS
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Failed to get security config:', error);
+    res.status(500).json({
+      error: 'Failed to get security configuration',
       details: (error as Error).message
     });
   }

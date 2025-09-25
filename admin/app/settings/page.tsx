@@ -29,14 +29,6 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('');
   const [settings, setSettings] = useState<Record<string, any>>({});
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
-
-  if (!user) {
-    return <div className="flex items-center justify-center min-h-screen">Access denied</div>;
-  }
-
   const handleSettingChange = (key: string, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
@@ -138,6 +130,15 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  // Handle loading and authentication states after all hooks
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return <div className="flex items-center justify-center min-h-screen">Access denied</div>;
+  }
 
   const tabs = [
     { id: 'general', name: 'General', icon: SettingsIcon },
