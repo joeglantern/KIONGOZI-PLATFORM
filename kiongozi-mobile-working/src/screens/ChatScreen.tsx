@@ -10,9 +10,11 @@ import {
   ActivityIndicator,
   Dimensions,
   Keyboard,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import * as SecureStore from 'expo-secure-store';
@@ -69,6 +71,7 @@ export default function ChatScreen() {
   const [showExportModal, setShowExportModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const scrollButtonOpacity = useRef(new Animated.Value(0)).current;
   const chatStore = useChatStore();
 
   useEffect(() => {
@@ -347,8 +350,8 @@ export default function ChatScreen() {
     }
   };
 
-  const scrollToBottom = (animated: boolean = true) => {
-    if (scrollViewRef.current && shouldAutoScroll) {
+  const scrollToBottom = (animated: boolean = true, force: boolean = false) => {
+    if (scrollViewRef.current && (shouldAutoScroll || force)) {
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated });
       }, 100);
@@ -357,13 +360,27 @@ export default function ChatScreen() {
 
   const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const paddingToBottom = 20;
+    const paddingToBottom = 50; // Increased threshold for better UX
     const isCloseToBottom = layoutMeasurement.height + contentOffset.y >=
       contentSize.height - paddingToBottom;
 
     // Update auto-scroll state based on user's scroll position
-    setShouldAutoScroll(isCloseToBottom);
+    // Only disable auto-scroll if user actively scrolled up
+    if (!isCloseToBottom && contentOffset.y > 0) {
+      setShouldAutoScroll(false);
+    } else if (isCloseToBottom) {
+      setShouldAutoScroll(true);
+    }
   };
+
+  // Animate button appearance
+  useEffect(() => {
+    Animated.timing(scrollButtonOpacity, {
+      toValue: shouldAutoScroll ? 0 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [shouldAutoScroll]);
 
   const reactToMessage = (messageId: number, reaction: 'like' | 'dislike') => {
     setMessages(prevMessages =>
@@ -603,21 +620,38 @@ export default function ChatScreen() {
         </KeyboardAwareScrollView>
 
         {/* Scroll to Bottom Button */}
-        {!shouldAutoScroll && (
+        <Animated.View
+          style={[
+            styles.scrollToBottomButton,
+            darkMode && styles.scrollToBottomButtonDark,
+            {
+              opacity: scrollButtonOpacity,
+              transform: [{
+                scale: scrollButtonOpacity.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }]
+            }
+          ]}
+          pointerEvents={shouldAutoScroll ? 'none' : 'auto'}
+        >
           <TouchableOpacity
-            style={[
-              styles.scrollToBottomButton,
-              darkMode && styles.scrollToBottomButtonDark
-            ]}
+            style={styles.scrollToBottomTouchable}
             onPress={() => {
               setShouldAutoScroll(true);
-              scrollToBottom();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              scrollToBottom(true, true); // Force scroll even if shouldAutoScroll was false
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             }}
+            activeOpacity={0.7}
           >
-            <Text style={styles.scrollToBottomIcon}>↓</Text>
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={darkMode ? "#60a5fa" : "#3b82f6"}
+            />
           </TouchableOpacity>
-        )}
+        </Animated.View>
 
         {/* Modern Input Container */}
         <View
@@ -905,33 +939,36 @@ const styles = StyleSheet.create({
   },
   scrollToBottomButton: {
     position: 'absolute',
-    right: 20,
-    bottom: 80,
+    right: 16,
+    bottom: 120, // Moved higher to avoid input field
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(20px)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#3b82f6',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   scrollToBottomButtonDark: {
-    backgroundColor: '#374151',
-    borderColor: '#4b5563',
+    backgroundColor: 'rgba(55, 65, 81, 0.95)',
+    borderColor: 'rgba(75, 85, 99, 0.3)',
+    shadowColor: '#60a5fa',
   },
-  scrollToBottomIcon: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#3b82f6',
+  scrollToBottomTouchable: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   conversationLoadingWrapper: {
     justifyContent: 'center',
