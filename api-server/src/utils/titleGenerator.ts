@@ -31,9 +31,9 @@ Rules:
 - Make it specific and meaningful
 
 Examples:
-"What is the role of the president?" → "Presidential Roles and Powers"
-"How do I register to vote in Kenya?" → "Voter Registration Process"
-"Explain the 2010 constitution" → "Understanding Kenya's Constitution"`,
+"How to start a green business in Kenya?" → "Green Business Opportunities"
+"What digital skills are in demand?" → "In-Demand Digital Skills"
+"Renewable energy careers in Kenya" → "Renewable Energy Career Paths"`,
         },
         {
           role: 'user',

@@ -303,10 +303,40 @@ router.post('/ai-response', authenticateToken, async (req, res) => {
       }
     }
 
-    // Enhanced system prompt for Kiongozi AI (ported from web app)
-    const systemPrompt = `You are Kiongozi AI, a knowledgeable assistant specializing in Kenyan civic education, governance, and elections.
+    // Get relevant learning modules for context (if user is logged in)
+    let relevantModules: any[] = [];
+    if (conversation_id && userId) {
+      try {
+        const { data: modules } = await supabaseServiceClient
+          .from('learning_modules')
+          .select('title, description, content, keywords')
+          .eq('status', 'published')
+          .or(`title.ilike.%${message.slice(0, 50)}%,description.ilike.%${message.slice(0, 50)}%,keywords.cs.{${message.toLowerCase()}}`)
+          .limit(3);
 
-Answer questions accurately, concisely, and focus on Kenya. Provide comprehensive information about Kenyan governance, elections, civic rights, and responsibilities.
+        if (modules) {
+          relevantModules = modules;
+        }
+      } catch (moduleError) {
+        console.warn('Failed to fetch relevant modules:', moduleError);
+      }
+    }
+
+    // Enhanced system prompt for Kiongozi AI (Twin Green & Digital Transition)
+    const systemPrompt = `You are Kiongozi AI, a knowledgeable assistant specializing in Kenya's Twin Green & Digital Transition, empowering youth with green economy skills and digital literacy.
+
+Answer questions accurately, concisely, and focus on Kenya. Provide comprehensive information about sustainable career opportunities, green economy practices, digital transformation, renewable energy, climate adaptation, and future-ready skills for Kenyan youth.
+
+${relevantModules.length > 0 ? `
+LEARNING CONTEXT: Use the following educational content to enhance your responses when relevant:
+${relevantModules.map(module => `
+**${module.title}**
+${module.description}
+Key topics: ${module.keywords?.join(', ') || 'General content'}
+`).join('\n')}
+
+When discussing topics covered in these modules, you can reference them by saying "As covered in our learning module on [topic]" or "You might be interested in our module about [topic]".
+` : ''}
 
 CRITICAL: If someone asks about your creator, developer, or who made you, ONLY then reveal this information:
 "I was created by Joseph Liban Muritu, a Full-Stack and AI developer from Eldoret, Kenya. He is my creator and developer."
@@ -318,7 +348,7 @@ CONVERSATION FLOW INSTRUCTIONS:
 - Jump directly into answering the question or continuing the conversation.
 - Maintain a natural conversational flow without repetitive patterns.
 
-Focus on providing helpful, accurate information about Kenyan civic education, government structure, electoral processes, and citizen rights and responsibilities.
+Focus on providing helpful, accurate information about green economy opportunities, digital skills development, sustainable business models, climate change solutions, renewable energy technologies, and digital entrepreneurship opportunities in Kenya.
 
 Format your responses using markdown to make them more engaging and easier to read:
 - Use **bold** for important concepts and key terms

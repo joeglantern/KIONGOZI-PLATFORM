@@ -63,28 +63,22 @@ export const authenticateToken = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  console.log('🔍 DEBUG: authenticateToken middleware starting');
-  console.log('🔍 DEBUG: Request headers:', req.headers.authorization ? 'Bearer token present' : 'No bearer token');
+  // Token authentication middleware
   
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
   
   if (!token) {
-    console.log('❌ DEBUG: No token found in request');
     res.status(401).json({ success: false, error: 'Access token required' });
     return;
   }
 
-  console.log('🔍 DEBUG: Token found, verifying...');
   const user = await verifySupabaseToken(token);
-  
+
   if (!user) {
-    console.log('❌ DEBUG: Token verification failed');
     res.status(401).json({ success: false, error: 'Invalid token' });
     return;
   }
-  
-  console.log('✅ DEBUG: Token verified successfully, user:', user);
   req.user = user;
   next();
   return;
@@ -107,79 +101,59 @@ export const optionalAuth = async (
 
 export const requireRole = (allowedRoles: string[]) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    console.log('🔍 DEBUG: requireRole middleware starting');
-    console.log('🔍 DEBUG: req.user:', req.user);
-    console.log('🔍 DEBUG: allowedRoles:', allowedRoles);
+    // Role-based access control
     
     if (!req.user) {
-      console.log('❌ DEBUG: No user in request');
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;
     }
 
     // TEMPORARY FIX: Allow this specific admin user ID to bypass role check
     if (req.user.id === '7f732087-672f-49f0-ac48-2214cd8b890b') {
-      console.log('✅ DEBUG: Bypassing role check for known admin user');
       req.user.role = 'admin';
       next();
       return;
     }
 
     // Get user's role from database since JWT might not have latest role
-    console.log('🔍 DEBUG: supabaseServiceClient available:', !!supabaseServiceClient);
     if (supabaseServiceClient) {
       try {
-        console.log('🔍 DEBUG: Querying user profile for ID:', req.user.id);
-        console.log('🔍 DEBUG: Query details:', {
-          table: 'profiles',
-          select: 'role',
-          eq: ['id', req.user.id]
-        });
+        // Query user profile for role
         
         const { data: profiles, error } = await supabaseServiceClient
           .from('profiles')
           .select('role')
           .eq('id', req.user.id);
 
-        console.log('🔍 DEBUG: Raw profiles query result:', { profiles, error });
         const profile = profiles?.[0];
 
-        console.log('🔍 DEBUG: Profile query result:', { profile, error });
-        console.log('🔍 DEBUG: Profile query error details:', error);
-
         if (error || !profile) {
-          console.log('❌ DEBUG: User profile not found:', error);
           res.status(403).json({ success: false, error: 'User profile not found' });
           return;
         }
 
         const userRole = profile.role || 'user';
-        console.log('🔍 DEBUG: User role:', userRole);
-        
+
         if (!allowedRoles.includes(userRole)) {
-          console.log('❌ DEBUG: Insufficient permissions:', { required: allowedRoles, current: userRole });
-          res.status(403).json({ 
-            success: false, 
+          res.status(403).json({
+            success: false,
             error: 'Insufficient permissions',
             required: allowedRoles,
             current: userRole
           });
           return;
         }
-
-        console.log('✅ DEBUG: User authorized with role:', userRole);
         // Update req.user with latest role
         req.user.role = userRole;
         next();
         return;
       } catch (error) {
-        console.error('❌ DEBUG: Role verification error:', error);
+        console.error('Role verification error:', error);
         res.status(500).json({ success: false, error: 'Role verification failed' });
         return;
       }
     }
 
-    console.log('❌ DEBUG: Authentication service unavailable');
     res.status(500).json({ success: false, error: 'Authentication service unavailable' });
     return;
   };

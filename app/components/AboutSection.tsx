@@ -16,11 +16,11 @@ const AboutSection = () => {
   };
 
   const features = [
-    "Understanding democratic processes in Kenya",
-    "Youth roles in governance and leadership",
-    "Rights and responsibilities of citizens",
-    "Electoral processes and informed voting",
-    "Grassroots participation and community engagement"
+    "Green economy opportunities and sustainable business models",
+    "Digital literacy and emerging technology skills",
+    "Climate change adaptation and environmental innovation",
+    "Renewable energy technologies and implementation",
+    "Digital entrepreneurship and online market access"
   ];
 
   return (
@@ -37,8 +37,8 @@ const AboutSection = () => {
             About Our <span className="gradient-text">Mission</span>
           </h2>
           <p className="text-gray-600 max-w-3xl mx-auto">
-            Empowering Kenya's youth with the knowledge, tools, and platforms to actively 
-            participate in democracy and foster positive change in their communities.
+            Empowering Kenya's youth with green economy skills and digital literacy to build
+            sustainable careers and drive environmental innovation in their communities.
           </p>
         </motion.div>
 
@@ -71,13 +71,13 @@ const AboutSection = () => {
             variants={fadeInUp}
           >
             <h3 className="text-2xl font-bold mb-6">
-              Why Civic Education Matters
+              Why Green & Digital Transition Matters
             </h3>
-            
+
             <p className="text-gray-600 mb-8">
-              In a young democracy like Kenya, an informed citizenry is crucial for sustainable development 
-              and good governance. We believe that by educating youth about their civic rights and 
-              responsibilities, we can foster a new generation of leaders who will drive positive change.
+              Kenya's youth face a rapidly changing world where environmental challenges meet digital opportunities.
+              By equipping young Kenyans with green economy skills and digital literacy, we create pathways to
+              sustainable careers while fostering innovation that addresses climate change and drives economic growth.
             </p>
             
             <div className="space-y-4 mb-8">
