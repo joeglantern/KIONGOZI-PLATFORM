@@ -196,27 +196,27 @@ export default function MobileMenu({
       },
     },
     {
-      icon: '📚',
-      title: 'Civic Education',
+      icon: '🌱',
+      title: 'Green Economy',
       onPress: () => {
         onClose();
-        // TODO: Navigate to civic education
+        // TODO: Navigate to green economy
       },
     },
     {
-      icon: '🗳️',
-      title: 'Elections',
+      icon: '💻',
+      title: 'Digital Skills',
       onPress: () => {
         onClose();
-        // TODO: Navigate to elections info
+        // TODO: Navigate to digital skills
       },
     },
     {
-      icon: '⚖️',
-      title: 'Your Rights',
+      icon: '🚀',
+      title: 'Career Paths',
       onPress: () => {
         onClose();
-        // TODO: Navigate to rights info
+        // TODO: Navigate to career paths
       },
     },
     {
@@ -259,7 +259,7 @@ export default function MobileMenu({
                   Kiongozi<Text style={styles.platformText}>Platform</Text>
                 </Text>
                 <Text style={[styles.headerSubtitle, darkMode && styles.headerSubtitleDark]}>
-                  Civic Education AI
+                  Green & Digital Transition AI
                 </Text>
               </View>
             </View>

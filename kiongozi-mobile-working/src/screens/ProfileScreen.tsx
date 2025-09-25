@@ -318,7 +318,7 @@ export default function ProfileScreen({
             Kiongozi Platform v1.0.0
           </Text>
           <Text style={[styles.footerSubtext, darkMode && styles.footerSubtextDark]}>
-            Empowering Kenyan youth through civic education
+            Empowering Kenyan youth through Twin Green & Digital Transition
           </Text>
         </View>
       </ScrollView>
