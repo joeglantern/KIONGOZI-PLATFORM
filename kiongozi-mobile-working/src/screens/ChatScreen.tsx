@@ -79,7 +79,7 @@ export default function ChatScreen() {
     setMessages([
       {
         id: 1,
-        text: "Habari! I'm your Kiongozi AI assistant. I'm here to help you learn about Kenyan civic education, government, and your rights as a citizen. What would you like to know about?",
+        text: "Habari! I'm your Kiongozi AI assistant. I'm here to help you explore Kenya's Twin Green & Digital Transition, discover sustainable career paths, and build future-ready skills. What would you like to know about?",
         isUser: false,
         type: 'chat',
       }
@@ -211,7 +211,7 @@ export default function ChatScreen() {
     setMessages([
       {
         id: 1,
-        text: "Habari! I'm your Kiongozi AI assistant. I'm here to help you learn about Kenyan civic education, government, and your rights as a citizen. What would you like to know about?",
+        text: "Habari! I'm your Kiongozi AI assistant. I'm here to help you explore Kenya's Twin Green & Digital Transition, discover sustainable career paths, and build future-ready skills. What would you like to know about?",
         isUser: false,
         type: 'chat',
       }
