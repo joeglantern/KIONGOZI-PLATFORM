@@ -43,33 +43,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     }
   }, [initialMode, chatState.mode, chatState.setMode]);
 
-  // Apply dark mode class to document (client-side only)
-  useEffect(() => {
-    if (!isClient) return;
-
-    const { darkMode } = chatState.settings;
-    const html = document.documentElement;
-
-    if (darkMode) {
-      html.classList.add('dark');
-    } else {
-      html.classList.remove('dark');
-    }
-
-    // Store preference
-    localStorage.setItem('chat-dark-mode', JSON.stringify(darkMode));
-  }, [chatState.settings.darkMode, isClient]);
-
-  // Load saved dark mode preference on mount (client-side only)
-  useEffect(() => {
-    if (!isClient) return;
-
-    const savedDarkMode = localStorage.getItem('chat-dark-mode');
-    if (savedDarkMode !== null) {
-      const isDarkMode = JSON.parse(savedDarkMode);
-      chatState.updateSettings({ darkMode: isDarkMode });
-    }
-  }, [chatState.updateSettings, isClient]);
+  // Note: Dark mode is now handled by ThemeProvider
 
   // Save sidebar state (client-side only)
   useEffect(() => {
@@ -216,9 +190,23 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     }
   }, [chatState.currentConversationId]);
 
+  // Prevent hydration mismatch by only rendering after client-side mount
+  if (!isClient) {
+    return (
+      <div className="min-h-screen h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-sm text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ChatContext.Provider value={chatState}>
-      {children}
+      <div className="fade-in">
+        {children}
+      </div>
     </ChatContext.Provider>
   );
 };

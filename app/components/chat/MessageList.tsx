@@ -16,13 +16,6 @@ const MessageList: React.FC<MessageListProps> = ({
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Debug messages when they change
-  useEffect(() => {
-    console.log('📋 [MessageList Debug] Messages received:', messages.length);
-    console.log('📋 [MessageList Debug] Messages array:', messages);
-    console.log('📋 [MessageList Debug] isLoading:', isLoading);
-    console.log('📋 [MessageList Debug] typingMessageId:', typingMessageId);
-  }, [messages, isLoading, typingMessageId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -36,15 +29,14 @@ const MessageList: React.FC<MessageListProps> = ({
   const handleTypingComplete = (messageId: number) => {
     // This would typically be handled by parent component
     // Update message state to mark typing as complete
-    console.log('Typing complete for message:', messageId);
   };
 
   return (
-    <div className={`flex-grow overflow-y-auto custom-scrollbar h-[calc(100vh-160px)] sm:h-[calc(100vh-150px)] md:h-[calc(100vh-130px)] p-4 sm:px-6 sm:py-6 pt-16 sm:pt-16 md:pt-6 pb-32 transition-all duration-500 ${className}`}>
-      <div className="max-w-4xl mx-auto">
+    <div className={`flex-grow overflow-y-auto custom-scrollbar p-4 sm:px-6 sm:py-4 pb-32 transition-all duration-500 ${className}`}>
+      <div className="max-w-3xl mx-auto">
         {/* Welcome message or empty state */}
         {messages.length === 0 && !isLoading && (
-          <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-center h-64 text-gray-500">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-4 opacity-50">
                 <Image
@@ -91,7 +83,7 @@ const MessageList: React.FC<MessageListProps> = ({
                   className="w-full h-full"
                 />
               </div>
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-tl-md px-4 py-3">
+              <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">
                 <LoadingDots size="sm" />
               </div>
             </div>

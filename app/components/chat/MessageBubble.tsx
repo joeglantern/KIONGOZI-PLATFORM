@@ -22,14 +22,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const isWelcomeMessage = message.text.includes('What can I do for you?');
   const isUser = message.isUser;
 
-  // Debug each message being rendered
-  console.log('💬 [MessageBubble Debug] Rendering message:', {
-    id: message.id,
-    isUser: message.isUser,
-    text: message.text?.substring(0, 50) + '...',
-    isTyping,
-    isTypingComplete: message.isTypingComplete
-  });
 
   const handleTypingComplete = () => {
     // This would typically be handled by parent component
@@ -38,20 +30,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const handleArtifactUpdate = (updatedArtifact: any) => {
     // This would typically be handled by parent component
-    console.log('Artifact updated:', updatedArtifact);
   };
 
   const renderMessageContent = () => {
-    console.log('💬 [MessageBubble Debug] Rendering content for:', {
-      messageText: message.text,
-      textLength: message.text?.length,
-      isTyping,
-      isTypingComplete: message.isTypingComplete
-    });
 
     if (isUser) {
       return (
-        <div className="text-white dark:text-gray-900 font-medium">
+        <div className="text-white font-medium text-[15px]">
           {message.text}
         </div>
       );
@@ -59,7 +44,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     // Handle empty or missing AI message content
     if (!message.text || message.text.trim() === '' || message.text === '...') {
-      console.log('⚠️ [MessageBubble Debug] Empty AI message detected, showing fallback');
       return (
         <div className="text-gray-500 dark:text-gray-400 italic">
           <div className="flex items-center gap-2">
@@ -90,28 +74,22 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     // Regular chat message with proper styling and typewriter effect
     const shouldUseTypewriter = isTyping && !message.isTypingComplete && message.text.length > 0;
 
-    console.log('🎭 [MessageBubble Debug] Content decision:', {
-      shouldUseTypewriter,
-      messageLength: message.text.length,
-      isWelcomeMessage
-    });
 
     if (shouldUseTypewriter) {
       return (
         <TypewriterEffect
           text={message.text}
           onComplete={handleTypingComplete}
-          className="prose prose-lg dark:prose-invert max-w-none text-gray-900 dark:text-gray-100"
+          className="prose prose-sm max-w-none text-gray-900 [&>p]:text-[15px] [&>p]:leading-6"
         />
       );
     } else {
       // Render markdown content immediately
       const processedContent = processMarkdown(message.text);
-      console.log('📝 [MessageBubble Debug] Processed markdown:', processedContent);
 
       return (
         <div
-          className="prose prose-lg dark:prose-invert max-w-none text-gray-900 dark:text-gray-100"
+          className="prose prose-sm max-w-none text-gray-900 [&>p]:text-[15px] [&>p]:leading-6"
           dangerouslySetInnerHTML={{ __html: processedContent }}
         />
       );
@@ -137,7 +115,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     >
       {isUser ? (
         /* User Message - Keep as bubble */
-        <div className="relative max-w-[85vw] sm:max-w-xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-3xl rounded-br-lg">
+        <div className="relative max-w-[85vw] sm:max-w-xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm bg-gray-900 text-white rounded-3xl rounded-br-lg">
           {renderMessageContent()}
         </div>
       ) : (

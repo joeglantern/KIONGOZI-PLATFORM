@@ -25,7 +25,7 @@ const AskAI: React.FC<AskAIProps> = ({
   // If override content is provided, render it instead
   if (overrideContent) {
     return (
-      <div className={`min-h-screen h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300 ${className}`}>
+      <div className={`min-h-screen h-screen flex flex-col bg-gray-50 ${className}`}>
         <PageTransition mode={initialMode}>
           {overrideContent}
         </PageTransition>
@@ -40,7 +40,7 @@ const AskAI: React.FC<AskAIProps> = ({
         initialMode='chat'
         initialSettings={{
           showTypingEffect: true,
-          darkMode: true,
+          darkMode: false,
           autoCollapseOnMouseLeave: true,
           showSidebar: true
         }}

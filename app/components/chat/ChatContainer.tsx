@@ -9,7 +9,8 @@ import '../input-glow.css';
 import '../send-effects.css';
 import { useChatContext } from './ChatProvider';
 import ChatInput from './ChatInput';
-import ChatSidebar from './ChatSidebar';
+import CleanLMSSidebar from './CleanLMSSidebar';
+import CleanMobileMenu from './CleanMobileMenu';
 import ModernChatLayout from './ModernChatLayout';
 import ChatErrorBoundary from './ChatErrorBoundary';
 
@@ -39,8 +40,14 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     createNewConversation,
     toggleSidebarCollapse,
     showSidebar,
-    isSidebarCollapsed
+    isSidebarCollapsed,
+    toggleSidebar
   } = useChatContext();
+
+  // Handle conversation rename (placeholder - implement API call)
+  const handleConversationRename = async (id: string, newTitle: string) => {
+    // TODO: Implement API call to rename conversation
+  };
 
   const handleSendMessage = async (text: string) => {
     await sendMessage(text);
@@ -57,57 +64,43 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
 
   return (
     <div className={`flex h-full ${className} relative`}>
-      {/* Sidebar - Hidden on mobile by default, overlay when shown */}
-      <AnimatePresence>
-        {showSidebar && (
-          <>
-            {/* Desktop Sidebar */}
-            <div className={`${isMobile ? 'hidden' : 'block'}`}>
-              <ChatSidebar
-                conversations={conversations}
-                currentConversationId={currentConversationId}
-                onConversationSelect={loadConversation}
-                onConversationDelete={deleteConversation}
-                onNewConversation={createNewConversation}
-                isCollapsed={isSidebarCollapsed}
-                onToggleCollapse={toggleSidebarCollapse}
-              />
-            </div>
+      {/* Desktop LMS Sidebar - Only show on desktop */}
+      {!isMobile && (
+        <AnimatePresence>
+          {showSidebar && (
+            <CleanLMSSidebar
+              conversations={conversations}
+              currentConversationId={currentConversationId}
+              onConversationSelect={loadConversation}
+              onNewConversation={createNewConversation}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={toggleSidebarCollapse}
+              currentPath="/chat"
+              onNavigate={(path) => {
+                // Handle navigation to other parts of the LMS
+                // TODO: Implement navigation logic or use router
+              }}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
-            {/* Mobile Sidebar - Overlay */}
-            {isMobile && (
-              <>
-                <motion.div
-                  initial={{ x: '-100%' }}
-                  animate={{ x: 0 }}
-                  exit={{ x: '-100%' }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                  className="fixed left-0 top-0 h-full z-50 md:hidden"
-                >
-                  <ChatSidebar
-                    conversations={conversations}
-                    currentConversationId={currentConversationId}
-                    onConversationSelect={loadConversation}
-                    onConversationDelete={deleteConversation}
-                    onNewConversation={createNewConversation}
-                    isCollapsed={false}
-                    onToggleCollapse={toggleSidebarCollapse}
-                  />
-                </motion.div>
-
-                {/* Mobile overlay */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                  onClick={toggleSidebarCollapse}
-                />
-              </>
-            )}
-          </>
-        )}
-      </AnimatePresence>
+      {/* Mobile Menu - Only available on mobile */}
+      {isMobile && (
+        <CleanMobileMenu
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onConversationSelect={loadConversation}
+          onNewConversation={createNewConversation}
+          isOpen={showSidebar}
+          onOpenChange={toggleSidebar}
+          currentPath="/chat"
+          onNavigate={(path) => {
+            // Handle navigation to other parts of the LMS
+            // TODO: Implement navigation logic or use router
+          }}
+        />
+      )}
 
       {/* Main Modern Layout */}
       <div className="flex-grow">
@@ -135,16 +128,16 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 h-full w-full md:w-1/2 lg:w-2/5 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 z-50 shadow-2xl"
+            className="fixed right-0 top-0 h-full w-full md:w-1/2 lg:w-2/5 bg-white border-l border-gray-200 z-50 shadow-2xl"
           >
             <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">
                   Artifact Viewer
                 </h2>
                 <button
                   onClick={() => setSelectedArtifact(null)}
-                  className="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -154,8 +147,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
 
               <div className="flex-grow overflow-hidden">
                 <div className="h-full p-4">
-                  <div className="h-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <p className="text-gray-500 dark:text-gray-400">
+                  <div className="h-full bg-gray-50 rounded-lg flex items-center justify-center">
+                    <p className="text-gray-500">
                       Artifact content will be displayed here
                     </p>
                   </div>
