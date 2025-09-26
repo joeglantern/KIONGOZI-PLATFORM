@@ -15,7 +15,7 @@ import { detectArtifacts } from '../utils/artifact-detector';
 import apiClient from '../utils/apiClient';
 
 const defaultSettings: ChatSettings = {
-  darkMode: true,
+  darkMode: false, // This will be managed by ThemeProvider now
   showTypingEffect: true,
   autoCollapseOnMouseLeave: true,
   showSidebar: true,

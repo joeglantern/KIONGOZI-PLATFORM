@@ -14,12 +14,6 @@ const TypewriterEffect: React.FC<TypewriterEffectProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
 
-  console.log('⌨️ [TypewriterEffect Debug] Initialized with:', {
-    textLength: text.length,
-    text: text.substring(0, 50) + '...',
-    speed,
-    className
-  });
 
   // Faster typing speed
   useEffect(() => {
@@ -36,12 +30,6 @@ const TypewriterEffect: React.FC<TypewriterEffectProps> = ({
         const nextChars = text.substring(currentIndex, currentIndex + charsToAdd);
         setDisplayText(prev => {
           const newText = prev + nextChars;
-          console.log('⌨️ [TypewriterEffect Debug] Typing progress:', {
-            currentIndex: currentIndex + charsToAdd,
-            totalLength: text.length,
-            displayedLength: newText.length,
-            nextChars
-          });
           return newText;
         });
 
@@ -50,7 +38,6 @@ const TypewriterEffect: React.FC<TypewriterEffectProps> = ({
 
       return () => clearTimeout(timeout);
     } else if (onComplete && !isComplete) {
-      console.log('⌨️ [TypewriterEffect Debug] Typing complete, calling onComplete');
       setIsComplete(true);
       onComplete();
     }
@@ -58,7 +45,6 @@ const TypewriterEffect: React.FC<TypewriterEffectProps> = ({
 
   // Reset effect when text changes
   useEffect(() => {
-    console.log('⌨️ [TypewriterEffect Debug] Text changed, resetting');
     setDisplayText("");
     setCurrentIndex(0);
     setIsComplete(false);
@@ -66,7 +52,6 @@ const TypewriterEffect: React.FC<TypewriterEffectProps> = ({
 
   // When typing is complete, return the full text with formatting
   if (currentIndex >= text.length && text.length > 0) {
-    console.log('⌨️ [TypewriterEffect Debug] Rendering complete text with markdown');
     return (
       <div
         className={`leading-relaxed ${className}`}
@@ -76,7 +61,6 @@ const TypewriterEffect: React.FC<TypewriterEffectProps> = ({
   }
 
   // During typing, show current progress with cursor
-  console.log('⌨️ [TypewriterEffect Debug] Rendering in-progress text:', displayText.length, '/', text.length);
 
   return (
     <div className={`leading-relaxed ${className}`}>

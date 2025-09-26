@@ -3,36 +3,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  FiUser,
-  FiSettings,
-  FiLogOut,
-  FiHelpCircle,
-  FiMessageSquare,
-  FiMoon,
-  FiSun,
-  FiChevronDown
-} from 'react-icons/fi';
+  User,
+  Settings,
+  LogOut,
+  HelpCircle,
+  MessageCircle,
+  ChevronDown
+} from 'lucide-react';
 
 interface ProfileMenuProps {
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
-  darkMode: boolean;
-  onToggleTheme: () => void;
   userName?: string;
   userEmail?: string;
   userAvatar?: string;
+  onLogout?: () => void;
 }
 
 const ProfileMenu: React.FC<ProfileMenuProps> = ({
   isOpen,
   onToggle,
   onClose,
-  darkMode,
-  onToggleTheme,
   userName = 'User',
   userEmail = 'user@example.com',
-  userAvatar
+  userAvatar,
+  onLogout
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -50,38 +46,27 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     }
   }, [isOpen, onClose]);
 
+  const handleNavigation = (path: string) => {
+    // For now, we'll use console.log, but this should be replaced with actual routing
+    console.log(`Navigate to: ${path}`);
+    onClose();
+  };
+
   const menuItems = [
     {
-      icon: FiUser,
+      icon: User,
       label: 'Profile',
-      action: () => {
-        console.log('Navigate to profile');
-        onClose();
-      }
+      action: () => handleNavigation('/profile')
     },
     {
-      icon: FiSettings,
+      icon: Settings,
       label: 'Settings',
-      action: () => {
-        console.log('Navigate to settings');
-        onClose();
-      }
+      action: () => handleNavigation('/settings')
     },
     {
-      icon: darkMode ? FiSun : FiMoon,
-      label: darkMode ? 'Light Mode' : 'Dark Mode',
-      action: () => {
-        onToggleTheme();
-        onClose();
-      }
-    },
-    {
-      icon: FiHelpCircle,
+      icon: HelpCircle,
       label: 'Help & Support',
-      action: () => {
-        console.log('Navigate to help');
-        onClose();
-      }
+      action: () => handleNavigation('/help')
     }
   ];
 
@@ -92,8 +77,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         onClick={onToggle}
         className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
           isOpen
-            ? 'bg-gray-100 dark:bg-gray-700'
-            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+            ? 'bg-gray-100'
+            : 'hover:bg-gray-100'
         }`}
         title="Profile menu"
       >
@@ -112,14 +97,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             </div>
           )}
           <div className="hidden md:block text-left">
-            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-24">
+            <div className="text-sm font-medium text-gray-900 truncate max-w-24">
               {userName}
             </div>
           </div>
         </div>
-        <FiChevronDown
+        <ChevronDown
           size={16}
-          className={`text-gray-500 dark:text-gray-400 transition-transform ${
+          className={`text-gray-500 transition-transform ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -133,10 +118,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50"
           >
             {/* User Info Header */}
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="px-4 py-3 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 {userAvatar ? (
                   <img
@@ -152,10 +137,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
                   </div>
                 )}
                 <div className="min-w-0 flex-grow">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                  <div className="text-sm font-medium text-gray-900 truncate">
                     {userName}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  <div className="text-xs text-gray-500 truncate">
                     {userEmail}
                   </div>
                 </div>
@@ -168,7 +153,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
                 <button
                   key={index}
                   onClick={item.action}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                 >
                   <item.icon size={16} />
                   {item.label}
@@ -177,15 +162,17 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             </div>
 
             {/* Logout Section */}
-            <div className="border-t border-gray-200 dark:border-gray-700 py-1">
+            <div className="border-t border-gray-200 py-1">
               <button
-                onClick={() => {
-                  console.log('Logout');
+                onClick={async () => {
                   onClose();
+                  if (onLogout) {
+                    await onLogout();
+                  }
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
               >
-                <FiLogOut size={16} />
+                <LogOut size={16} />
                 Sign Out
               </button>
             </div>

@@ -314,6 +314,16 @@ class ApiClient {
     return this.post('/auth/refresh');
   }
 
+  // Get current authenticated user
+  async getCurrentUser() {
+    return this.get('/auth/user');
+  }
+
+  // Logout user
+  async logout() {
+    return this.post('/auth/logout');
+  }
+
   /**
    * Chat Methods
    */
@@ -478,6 +488,11 @@ class ApiClient {
   async getRecentModules(): Promise<ApiResponse<LearningModule[]>> {
     return this.get('/content/modules?sort=created_at&order=desc&limit=10');
   }
+
+  // Get user statistics (for UserStats component)
+  async getUserStats() {
+    return this.get('/user/stats');
+  }
 }
 
 // Create singleton instance
@@ -504,6 +519,8 @@ export const {
   login,
   register,
   refreshToken,
+  getCurrentUser,
+  logout,
   sendMessage,
   saveAssistantMessage,
   getConversations,
@@ -529,4 +546,5 @@ export const {
   getModulesByCategory,
   getPopularModules,
   getRecentModules,
+  getUserStats,
 } = apiClient;

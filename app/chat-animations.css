@@ -127,23 +127,7 @@
   border-radius: 20px;
 }
 
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(100, 116, 139, 0.5);
-}
-
-/* Custom scrollbar for document */
-.custom-scrollbar-dark::-webkit-scrollbar {
-  width: 6px;
-}
-
-.custom-scrollbar-dark::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar-dark::-webkit-scrollbar-thumb {
-  background-color: rgba(100, 116, 139, 0.5);
-  border-radius: 20px;
-}
+/* Removed dark theme scrollbar styles */
 
 /* Floating animation */
 @keyframes float {

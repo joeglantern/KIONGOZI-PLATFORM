@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { FiStopCircle, FiArrowUp } from 'react-icons/fi';
+import { StopCircle, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ChatInputProps } from '../../types/chat';
 
@@ -83,10 +83,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto">
+    <div className="relative w-full max-w-2xl mx-auto">
       <form onSubmit={handleSubmit}>
-        <div className={`relative bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700/50 overflow-hidden transition-all duration-200 ${
-          isInputFocused ? 'ring-1 ring-gray-300 dark:ring-gray-600' : ''
+        <div className={`relative bg-white rounded-3xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-200 ${
+          isInputFocused ? 'border-gray-300 shadow-xl' : 'shadow-lg'
         }`}>
           <div className="flex items-end gap-3 px-4 py-3">
             {/* Main textarea */}
@@ -98,7 +98,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder={placeholder}
-              className="flex-1 resize-none bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none min-h-[24px] max-h-[200px] placeholder-gray-500 dark:placeholder-gray-400 text-base leading-6"
+              className="flex-1 resize-none bg-transparent text-gray-900 focus:outline-none min-h-[24px] max-h-[120px] placeholder-gray-500 text-[15px] leading-6"
               disabled={isLoading || isDisabled}
               maxLength={maxLength}
               rows={1}
@@ -111,24 +111,24 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 onClick={stopGeneration}
                 size="sm"
                 variant="destructive"
-                className="rounded-full w-8 h-8 p-0 min-w-8 shrink-0"
+                className="rounded-lg w-7 h-7 p-0 min-w-7 shrink-0"
               >
-                <FiStopCircle size={16} />
+                <StopCircle size={16} />
               </Button>
             ) : (
               <Button
                 type="submit"
                 size="sm"
                 disabled={isLoading || !input.trim() || isDisabled}
-                className={`rounded-full w-8 h-8 p-0 min-w-8 shrink-0 transition-all duration-200 ${
+                className={`rounded-lg w-7 h-7 p-0 min-w-7 shrink-0 transition-all duration-200 ${
                   input.trim()
-                    ? 'bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200'
-                    : 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
-                }`}
+                    ? 'bg-gray-900 hover:bg-gray-800'
+                    : 'bg-gray-200 cursor-not-allowed'
+                }`}>
               >
-                <FiArrowUp
+                <ArrowUp
                   size={16}
-                  className={input.trim() ? 'text-white dark:text-gray-900' : 'text-gray-400'}
+                  className={input.trim() ? 'text-white' : 'text-gray-400'}
                 />
               </Button>
             )}
@@ -136,8 +136,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
           {/* Character counter (show when approaching limit) */}
           {maxLength && input.length > maxLength * 0.8 && (
-            <div className="px-4 pb-2">
-              <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
+            <div className="px-3 pb-2">
+              <div className="text-xs text-gray-500 text-right">
                 {input.length}/{maxLength}
               </div>
             </div>

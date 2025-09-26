@@ -2,14 +2,12 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiMenu } from 'react-icons/fi';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChatContext } from './ChatProvider';
+import { useUser } from '../../contexts/UserContext';
 import MessageList from './MessageList';
-import ThemeToggle from './ThemeToggle';
 import ProfileMenu from './ProfileMenu';
-import DebugPanel from './DebugPanel';
-import AuthDebug from './AuthDebug';
 
 interface ModernChatLayoutProps {
   children: React.ReactNode; // This will be the ChatInput
@@ -18,20 +16,19 @@ interface ModernChatLayoutProps {
 const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
   const {
     messages,
-    settings,
-    toggleDarkMode,
     profileMenuOpen,
     setProfileMenuOpen,
     toggleSidebar,
     isMobile
   } = useChatContext();
 
+  const { user, logout } = useUser();
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="min-h-screen h-screen flex flex-col bg-white dark:bg-gray-950 transition-colors duration-300">
-      {/* Corner Controls */}
-      <div className="absolute top-4 z-50 flex items-center justify-between w-full px-4">
+    <div className="min-h-screen h-screen flex flex-col bg-[#f7f7f8] transition-colors duration-300 relative">
+      {/* Corner Controls - Fixed to this container, not the viewport */}
+      <div className="flex items-center justify-between px-4 py-3 z-50 flex-shrink-0">
         {/* Mobile menu button - Left side */}
         {isMobile && (
           <Button
@@ -40,29 +37,23 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
             onClick={toggleSidebar}
             className="opacity-70 hover:opacity-100 transition-opacity h-8 w-8"
           >
-            <FiMenu size={16} />
+            <Menu size={16} />
           </Button>
         )}
 
         {/* Desktop spacing */}
         {!isMobile && <div />}
 
-        {/* Theme and Profile controls - Right side */}
+        {/* Profile controls - Right side */}
         <div className="flex items-center gap-2">
-          <ThemeToggle
-            darkMode={settings.darkMode}
-            onToggle={toggleDarkMode}
-            size="sm"
-            className="opacity-70 hover:opacity-100 transition-opacity"
-          />
           <ProfileMenu
             isOpen={profileMenuOpen}
             onToggle={() => setProfileMenuOpen(!profileMenuOpen)}
             onClose={() => setProfileMenuOpen(false)}
-            darkMode={settings.darkMode}
-            onToggleTheme={toggleDarkMode}
-            userName="User"
-            userEmail="user@example.com"
+            userName={user?.full_name || user?.first_name || 'User'}
+            userEmail={user?.email || 'user@example.com'}
+            userAvatar={user?.avatar_url}
+            onLogout={logout}
           />
         </div>
       </div>
@@ -76,20 +67,20 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
-            className="flex-grow flex items-center justify-center px-6"
+            className="flex-grow flex items-center justify-center px-4 pt-0"
           >
-            <div className="w-full max-w-3xl">
+            <div className="w-full max-w-2xl">
               {/* Welcome Section */}
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-center mb-12"
+                className="text-center mb-8"
               >
-                <h1 className="text-4xl font-light text-gray-900 dark:text-gray-100 mb-4 tracking-tight">
+                <h1 className="text-3xl font-normal text-gray-900 mb-3 tracking-tight">
                   How can I help you today?
                 </h1>
-                <p className="text-lg text-gray-600 dark:text-gray-400 font-light max-w-2xl mx-auto">
+                <p className="text-base text-gray-600 max-w-xl mx-auto">
                   Ask me anything about your learning journey, digital transformation, or green technologies.
                 </p>
               </motion.div>
@@ -108,7 +99,7 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.6 }}
-                className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 max-w-4xl mx-auto"
+                className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-2 max-w-3xl mx-auto"
               >
                 {[
                   "Explain digital transformation strategies",
@@ -119,7 +110,7 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
                     key={index}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="p-4 text-left rounded-xl border border-gray-200/60 dark:border-gray-700/60 bg-white/50 dark:bg-gray-800/30 hover:bg-white dark:hover:bg-gray-800/50 transition-colors text-gray-700 dark:text-gray-300 text-sm backdrop-blur-sm"
+                    className="p-3 text-left rounded-lg border border-gray-200 bg-white hover:bg-gray-100 transition-colors text-gray-900 text-sm shadow-sm"
                   >
                     {suggestion}
                   </motion.button>
@@ -138,8 +129,8 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
             className="flex-grow flex flex-col h-full min-h-0"
           >
             {/* Messages Container - Better responsive spacing */}
-            <div className="flex-grow flex flex-col justify-end min-h-0 py-8 px-4 sm:px-6 lg:px-8">
-              <div className="w-full max-w-4xl mx-auto flex-grow flex flex-col justify-end min-h-0">
+            <div className="flex-grow flex flex-col justify-end min-h-0 py-3 px-4 sm:px-6">
+              <div className="w-full max-w-3xl mx-auto flex-grow flex flex-col justify-end min-h-0">
                 <MessageList
                   messages={messages}
                   className="flex-grow min-h-0"
@@ -147,14 +138,14 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
               </div>
             </div>
 
-            {/* Bottom Input Area - Fixed at bottom */}
+            {/* Bottom Input Area - Floating Island */}
             <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.4 }}
-              className="flex-shrink-0 p-4 sm:p-6 border-t border-gray-200/20 dark:border-gray-800/30 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md"
+              className="flex-shrink-0 p-4 sm:p-6"
             >
-              <div className="w-full max-w-4xl mx-auto">
+              <div className="w-full max-w-2xl mx-auto">
                 {children}
               </div>
             </motion.div>
@@ -162,9 +153,6 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
         )}
       </AnimatePresence>
 
-      {/* Debug Panels (development only) */}
-      <DebugPanel />
-      <AuthDebug />
     </div>
   );
 };
