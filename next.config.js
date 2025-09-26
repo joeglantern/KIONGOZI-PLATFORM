@@ -21,8 +21,7 @@ const nextConfig = {
   },
   // Add experimental options to improve hydration
   experimental: {
-    // This makes Next.js ignore certain properties during hydration to avoid mismatches
-    optimizeCss: true,
+    // Removed optimizeCss due to critters module issues
   },
   // Removed invalid key serverExternalPackages for Next 14
   // Required for Netlify

@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import dynamic from 'next/dynamic'
-
-const SupabaseTokenBridge = dynamic(() => import('./supabase-token-bridge'), { ssr: false })
+import ClientProvider from './components/ClientProvider'
 
 export const metadata: Metadata = {
   title: 'AI Chatbot',
@@ -24,8 +22,9 @@ export default function RootLayout({
         <link rel="icon" href="/images/ai-head-icon.svg" type="image/svg+xml" />
       </head>
       <body className="min-h-screen" suppressHydrationWarning>
-        <SupabaseTokenBridge />
-        {children}
+        <ClientProvider>
+          {children}
+        </ClientProvider>
       </body>
     </html>
   )
