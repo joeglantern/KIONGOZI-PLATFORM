@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Message } from './AskAI';
+import { Message } from '../types/chat';
 import { 
   FiFile,
   FiChevronDown,

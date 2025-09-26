@@ -4,6 +4,17 @@
  * and handles authentication, error handling, and response formatting.
  */
 
+import type {
+  ModuleCategory,
+  LearningModule,
+  UserProgress,
+  LearningStats,
+  ModuleRecommendation,
+  ModuleFilters,
+  ModulesResponse,
+  ProgressUpdateRequest
+} from '../types/lms';
+
 const API_BASE_URL = '/api-proxy';
 
 export interface ApiResponse<T = any> {
@@ -76,14 +87,20 @@ class ApiClient {
 
     // Debug logging for token issues
     if (!token) {
-      console.warn('🔐 ApiClient: No authentication token found', {
+      console.error('❌ [ApiClient] CRITICAL: No authentication token found!', {
         hasWindow: typeof window !== 'undefined',
         windowToken: typeof window !== 'undefined' ? !!(window as any).supabaseToken : false,
         hasLocalStorage: typeof window !== 'undefined' && !!window.localStorage,
         supabaseStorageExists: typeof window !== 'undefined' && !!localStorage.getItem('sb-jdncfyagppohtksogzkx-auth-token'),
+        endpoint,
+        url
       });
     } else {
-      console.log('🔐 ApiClient: Using token for request to', endpoint, { hasToken: true, tokenPrefix: token.slice(0, 10) + '...' });
+      console.log('✅ [ApiClient] Using token for request to', endpoint, {
+        hasToken: true,
+        tokenPrefix: token.slice(0, 10) + '...',
+        url
+      });
     }
 
     const headers: HeadersInit = {
@@ -96,15 +113,49 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    console.log('🌐 [ApiClient] Making request:', {
+      url,
+      method: options.method || 'GET',
+      hasAuth: !!token,
+      headers: Object.keys(headers)
+    });
+
     try {
       const response = await fetch(url, {
         ...options,
         headers,
       });
 
-      const data = await response.json();
+      console.log('📡 [ApiClient] Response received:', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        contentType: response.headers.get('content-type')
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('❌ [ApiClient] Failed to parse JSON response:', parseError);
+        const textResponse = await response.text();
+        console.log('📄 [ApiClient] Raw response text:', textResponse);
+        return {
+          success: false,
+          error: 'Invalid JSON response',
+          details: `Status: ${response.status}, Text: ${textResponse.substring(0, 200)}`
+        };
+      }
+
+      console.log('📋 [ApiClient] Parsed response data:', data);
 
       if (!response.ok) {
+        console.error('❌ [ApiClient] Request failed:', {
+          status: response.status,
+          error: data.error || `HTTP ${response.status}`,
+          details: data.details
+        });
         return {
           success: false,
           error: data.error || `HTTP ${response.status}`,
@@ -114,6 +165,11 @@ class ApiClient {
 
       return data;
     } catch (error: any) {
+      console.error('❌ [ApiClient] Network error:', {
+        url,
+        error: error.message,
+        name: error.name
+      });
       return {
         success: false,
         error: 'Network error',
@@ -306,6 +362,122 @@ class ApiClient {
       type
     });
   }
+
+  /**
+   * Learning Management System (LMS) Methods
+   */
+
+  // Get all module categories
+  async getModuleCategories(): Promise<ApiResponse<ModuleCategory[]>> {
+    return this.get('/content/categories');
+  }
+
+  // Get learning modules with filters and pagination
+  async getLearningModules(filters?: ModuleFilters & { page?: number; limit?: number }): Promise<ApiResponse<ModulesResponse>> {
+    const queryParams = new URLSearchParams();
+
+    if (filters?.category_id) queryParams.append('category_id', filters.category_id);
+    if (filters?.difficulty_level) queryParams.append('difficulty_level', filters.difficulty_level);
+    if (filters?.is_featured !== undefined) queryParams.append('is_featured', filters.is_featured.toString());
+    if (filters?.search) queryParams.append('search', filters.search);
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    if (filters?.keywords?.length) {
+      filters.keywords.forEach(keyword => queryParams.append('keywords', keyword));
+    }
+
+    const queryString = queryParams.toString();
+    return this.get(`/content/modules${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // Get specific learning module by ID
+  async getLearningModule(moduleId: string): Promise<ApiResponse<LearningModule>> {
+    return this.get(`/content/modules/${moduleId}`);
+  }
+
+  // Create new learning module (requires content editor+ role)
+  async createLearningModule(moduleData: Partial<LearningModule>): Promise<ApiResponse<LearningModule>> {
+    return this.post('/content/modules', moduleData);
+  }
+
+  // Update existing learning module (requires author/moderator role)
+  async updateLearningModule(moduleId: string, moduleData: Partial<LearningModule>): Promise<ApiResponse<LearningModule>> {
+    return this.put(`/content/modules/${moduleId}`, moduleData);
+  }
+
+  // Delete learning module (requires author/admin role)
+  async deleteLearningModule(moduleId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/content/modules/${moduleId}`);
+  }
+
+  // Get user's learning progress for all modules
+  async getUserProgress(): Promise<ApiResponse<UserProgress[]>> {
+    return this.get('/progress');
+  }
+
+  // Get user's progress for a specific module
+  async getModuleProgress(moduleId: string): Promise<ApiResponse<UserProgress>> {
+    return this.get(`/progress/${moduleId}`);
+  }
+
+  // Update user's progress for a specific module
+  async updateProgress(progressData: ProgressUpdateRequest): Promise<ApiResponse<UserProgress>> {
+    return this.post('/progress', progressData);
+  }
+
+  // Get user's learning statistics and analytics
+  async getLearningStats(): Promise<ApiResponse<LearningStats>> {
+    return this.get('/progress/stats');
+  }
+
+  // Get personalized module recommendations
+  async getModuleRecommendations(): Promise<ApiResponse<ModuleRecommendation[]>> {
+    return this.get('/progress/recommendations');
+  }
+
+  // Bookmark/unbookmark a module
+  async toggleModuleBookmark(moduleId: string, bookmarked: boolean): Promise<ApiResponse<UserProgress>> {
+    return this.post('/progress', {
+      module_id: moduleId,
+      status: bookmarked ? 'bookmarked' : 'not_started'
+    });
+  }
+
+  // Mark module as completed
+  async completeModule(moduleId: string, timeSpent?: number, notes?: string): Promise<ApiResponse<UserProgress>> {
+    return this.post('/progress', {
+      module_id: moduleId,
+      status: 'completed',
+      progress_percentage: 100,
+      time_spent_minutes: timeSpent,
+      notes
+    });
+  }
+
+  // Get featured modules
+  async getFeaturedModules(): Promise<ApiResponse<ModulesResponse>> {
+    return this.getLearningModules({ is_featured: true, limit: 10 });
+  }
+
+  // Search modules by keyword
+  async searchModules(query: string): Promise<ApiResponse<ModulesResponse>> {
+    return this.getLearningModules({ search: query });
+  }
+
+  // Get modules by category
+  async getModulesByCategory(categoryId: string): Promise<ApiResponse<ModulesResponse>> {
+    return this.getLearningModules({ category_id: categoryId });
+  }
+
+  // Get popular modules (by view count)
+  async getPopularModules(): Promise<ApiResponse<LearningModule[]>> {
+    return this.get('/content/modules?sort=view_count&order=desc&limit=10');
+  }
+
+  // Get recent modules
+  async getRecentModules(): Promise<ApiResponse<LearningModule[]>> {
+    return this.get('/content/modules?sort=created_at&order=desc&limit=10');
+  }
 }
 
 // Create singleton instance
@@ -338,4 +510,23 @@ export const {
   getConversationMessages,
   deleteConversation,
   generateAIResponse,
+  // LMS Methods
+  getModuleCategories,
+  getLearningModules,
+  getLearningModule,
+  createLearningModule,
+  updateLearningModule,
+  deleteLearningModule,
+  getUserProgress,
+  getModuleProgress,
+  updateProgress,
+  getLearningStats,
+  getModuleRecommendations,
+  toggleModuleBookmark,
+  completeModule,
+  getFeaturedModules,
+  searchModules,
+  getModulesByCategory,
+  getPopularModules,
+  getRecentModules,
 } = apiClient;

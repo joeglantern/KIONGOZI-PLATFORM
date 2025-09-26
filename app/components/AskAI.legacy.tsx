@@ -14,7 +14,7 @@ interface AskAIProps {
   className?: string;
 }
 
-const AskAI: React.FC<AskAIProps> = ({
+const AskAINew: React.FC<AskAIProps> = ({
   conversationId,
   overrideContent,
   hideInput = false,
@@ -56,4 +56,4 @@ const AskAI: React.FC<AskAIProps> = ({
   );
 };
 
-export default AskAI;
+export default AskAINew;

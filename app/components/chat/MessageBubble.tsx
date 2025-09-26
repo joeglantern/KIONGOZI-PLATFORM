@@ -1,0 +1,184 @@
+"use client";
+
+import React from 'react';
+import { motion } from 'framer-motion';
+import Image from 'next/image';
+import type { MessageBubbleProps } from '../../types/chat';
+import { processMarkdown } from '../../utils/messageProcessing';
+import { useChatContext } from './ChatProvider';
+import TypewriterEffect from './TypewriterEffect';
+import CompactArtifact from '../artifacts/CompactArtifact';
+import ResearchOutput from '../ResearchOutput';
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  isTyping = false,
+  showAvatar = true,
+  onArtifactClick
+}) => {
+  const { settings } = useChatContext();
+  const { darkMode } = settings;
+
+  const isWelcomeMessage = message.text.includes('What can I do for you?');
+  const isUser = message.isUser;
+
+  // Debug each message being rendered
+  console.log('💬 [MessageBubble Debug] Rendering message:', {
+    id: message.id,
+    isUser: message.isUser,
+    text: message.text?.substring(0, 50) + '...',
+    isTyping,
+    isTypingComplete: message.isTypingComplete
+  });
+
+  const handleTypingComplete = () => {
+    // This would typically be handled by parent component
+    // For now, we'll just mark the message as complete locally
+  };
+
+  const handleArtifactUpdate = (updatedArtifact: any) => {
+    // This would typically be handled by parent component
+    console.log('Artifact updated:', updatedArtifact);
+  };
+
+  const renderMessageContent = () => {
+    console.log('💬 [MessageBubble Debug] Rendering content for:', {
+      messageText: message.text,
+      textLength: message.text?.length,
+      isTyping,
+      isTypingComplete: message.isTypingComplete
+    });
+
+    if (isUser) {
+      return (
+        <div className="text-white dark:text-gray-900 font-medium">
+          {message.text}
+        </div>
+      );
+    }
+
+    // Handle empty or missing AI message content
+    if (!message.text || message.text.trim() === '' || message.text === '...') {
+      console.log('⚠️ [MessageBubble Debug] Empty AI message detected, showing fallback');
+      return (
+        <div className="text-gray-500 dark:text-gray-400 italic">
+          <div className="flex items-center gap-2">
+            <div className="animate-pulse">🤔</div>
+            <span>Thinking...</span>
+          </div>
+        </div>
+      );
+    }
+
+    // AI message content
+    if (message.type === 'research' && message.researchData) {
+      return isTyping && !message.isTypingComplete ? (
+        <TypewriterEffect
+          text={message.text}
+          onComplete={handleTypingComplete}
+          className="prose prose-lg dark:prose-invert max-w-none"
+        />
+      ) : (
+        <ResearchOutput
+          research={message.researchData}
+          isTypingComplete={message.isTypingComplete || false}
+          onTopicClick={() => {}} // This would be passed from parent
+        />
+      );
+    }
+
+    // Regular chat message with proper styling and typewriter effect
+    const shouldUseTypewriter = isTyping && !message.isTypingComplete && message.text.length > 0;
+
+    console.log('🎭 [MessageBubble Debug] Content decision:', {
+      shouldUseTypewriter,
+      messageLength: message.text.length,
+      isWelcomeMessage
+    });
+
+    if (shouldUseTypewriter) {
+      return (
+        <TypewriterEffect
+          text={message.text}
+          onComplete={handleTypingComplete}
+          className="prose prose-lg dark:prose-invert max-w-none text-gray-900 dark:text-gray-100"
+        />
+      );
+    } else {
+      // Render markdown content immediately
+      const processedContent = processMarkdown(message.text);
+      console.log('📝 [MessageBubble Debug] Processed markdown:', processedContent);
+
+      return (
+        <div
+          className="prose prose-lg dark:prose-invert max-w-none text-gray-900 dark:text-gray-100"
+          dangerouslySetInnerHTML={{ __html: processedContent }}
+        />
+      );
+    }
+  };
+
+  return (
+    <motion.div
+      className={`${isUser ? 'flex justify-end my-4' : 'w-full my-6'}`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        scale: isUser ? [0.98, 1.02, 1] : 1,
+        rotate: isUser ? [0, 1, 0] : 0
+      }}
+      transition={{
+        duration: 0.5,
+        ease: "easeOut",
+        scale: { duration: 0.4, ease: "easeInOut" },
+        rotate: { duration: 0.3, ease: "easeInOut" }
+      }}
+    >
+      {isUser ? (
+        /* User Message - Keep as bubble */
+        <div className="relative max-w-[85vw] sm:max-w-xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-3xl rounded-br-lg">
+          {renderMessageContent()}
+        </div>
+      ) : (
+        /* AI Message - No bubble, full width, rich text */
+        <div className="w-full max-w-4xl mx-auto">
+          {/* AI Avatar */}
+          {showAvatar && (
+            <div className="flex items-center mb-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mr-3">
+                <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                </div>
+              </div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                AI Assistant
+              </span>
+            </div>
+          )}
+
+          {/* AI Message Content - Full width, no background */}
+          <div className="text-gray-900 dark:text-gray-100 leading-relaxed">
+            {renderMessageContent()}
+          </div>
+
+          {/* Artifacts */}
+          {message.artifacts && message.artifacts.length > 0 && (
+            <div className="mt-6 space-y-3">
+              {message.artifacts.map((artifact) => (
+                <CompactArtifact
+                  key={artifact.id}
+                  artifact={artifact}
+                  darkMode={darkMode}
+                  onUpdate={handleArtifactUpdate}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+export default MessageBubble;
