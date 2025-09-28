@@ -129,11 +129,11 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
             className="flex-grow flex flex-col h-full min-h-0"
           >
             {/* Messages Container - Better responsive spacing */}
-            <div className="flex-grow flex flex-col justify-end min-h-0 py-3 px-4 sm:px-6">
-              <div className="w-full max-w-3xl mx-auto flex-grow flex flex-col justify-end min-h-0">
+            <div className="flex-grow flex flex-col min-h-0 overflow-hidden">
+              <div className="w-full h-full flex-grow min-h-0">
                 <MessageList
                   messages={messages}
-                  className="flex-grow min-h-0"
+                  className="h-full"
                 />
               </div>
             </div>

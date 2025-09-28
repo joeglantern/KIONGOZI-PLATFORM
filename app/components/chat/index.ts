@@ -11,7 +11,6 @@ export { default as ChatInput } from './ChatInput';
 export { default as LoadingDots } from './LoadingDots';
 export { default as TypewriterEffect } from './TypewriterEffect';
 export { default as ChatSidebar } from './ChatSidebar';
-export { default as ThemeToggle } from './ThemeToggle';
 export { default as ProfileMenu } from './ProfileMenu';
 export { default as ModernChatLayout } from './ModernChatLayout';
 

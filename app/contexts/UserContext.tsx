@@ -52,7 +52,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const response = await apiClient.getCurrentUser();
 
       if (response.success && response.data) {
-        setUser(response.data);
+        setUser(response.data as any);
       } else {
         // If no API endpoint, try to extract from localStorage token
         const token = getTokenFromStorage();

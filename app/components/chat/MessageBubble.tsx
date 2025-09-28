@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { MessageBubbleProps } from '../../types/chat';
 import { processMarkdown } from '../../utils/messageProcessing';
 import { useChatContext } from './ChatProvider';
-import TypewriterEffect from './TypewriterEffect';
+import MagicalTypewriter from './MagicalTypewriter';
 import CompactArtifact from '../artifacts/CompactArtifact';
 import ResearchOutput from '../ResearchOutput';
 
@@ -57,10 +57,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     // AI message content
     if (message.type === 'research' && message.researchData) {
       return isTyping && !message.isTypingComplete ? (
-        <TypewriterEffect
+        <MagicalTypewriter
           text={message.text}
           onComplete={handleTypingComplete}
-          className="prose prose-lg dark:prose-invert max-w-none"
+          className="prose prose-lg max-w-none"
         />
       ) : (
         <ResearchOutput
@@ -77,7 +77,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (shouldUseTypewriter) {
       return (
-        <TypewriterEffect
+        <MagicalTypewriter
           text={message.text}
           onComplete={handleTypingComplete}
           className="prose prose-sm max-w-none text-gray-900 [&>p]:text-[15px] [&>p]:leading-6"

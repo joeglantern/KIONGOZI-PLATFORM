@@ -124,7 +124,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                   input.trim()
                     ? 'bg-gray-900 hover:bg-gray-800'
                     : 'bg-gray-200 cursor-not-allowed'
-                }`}>
+                }`}
               >
                 <ArrowUp
                   size={16}

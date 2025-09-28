@@ -146,4 +146,84 @@
 /* Remove old cursor styles since we now use word highlighting */
 .typewriter-cursor {
   display: none;
+}
+
+/* ChatGPT-style push-up animation for older messages */
+@keyframes push-up {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+  100% {
+    transform: translateY(-20px);
+  }
+}
+
+.push-up-animation {
+  animation: push-up 0.5s ease-out forwards;
+}
+
+/* Message container smooth transitions */
+.message-container {
+  transition: transform 0.3s ease-out;
+  will-change: transform, opacity;
+}
+
+/* Ensure scroll container preserves scrolling during animations */
+.scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+/* Fix any animation interference with scrolling */
+.message-container.stagger-push-up,
+.message-container.slide-in-bottom {
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Staggered animation for multiple messages */
+@keyframes stagger-push-up {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  30% {
+    transform: translateY(-5px) scale(0.98);
+    opacity: 0.9;
+  }
+  60% {
+    transform: translateY(-12px) scale(0.96);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-20px) scale(0.95);
+    opacity: 0.7;
+  }
+}
+
+.stagger-push-up {
+  animation: stagger-push-up 0.6s ease-out forwards;
+}
+
+/* New message slide-in from bottom */
+@keyframes slide-in-bottom {
+  0% {
+    transform: translateY(40px) scale(0.9);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-5px) scale(1.02);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.slide-in-bottom {
+  animation: slide-in-bottom 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 } 

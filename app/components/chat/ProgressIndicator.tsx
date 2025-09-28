@@ -40,13 +40,13 @@ const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
         // Fetch learning stats
         const statsResponse = await getLearningStats();
         if (statsResponse.success && statsResponse.data) {
-          setStats(statsResponse.data as LearningStats);
+          setStats(statsResponse.data as unknown as LearningStats);
         }
 
         // Fetch in-progress modules
         const progressResponse = await apiClient.get('/progress?status=in_progress&limit=3');
         if (progressResponse.success && progressResponse.data) {
-          setInProgressModules(progressResponse.data);
+          setInProgressModules(progressResponse.data as any);
         }
       } catch (error) {
         console.error('Failed to fetch progress data:', error);

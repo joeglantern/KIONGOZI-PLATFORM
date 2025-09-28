@@ -163,6 +163,7 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
 
     console.log('👤 [Chat Debug] Created user message:', userMessage);
 
+    // Add user message
     setMessages(prev => {
       const newMessages = [...prev, userMessage];
       console.log('📝 [Chat Debug] Updated messages with user message. Total count:', newMessages.length);
@@ -313,7 +314,7 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, [isLoading, mode, currentConversationId, settings.showTypingEffect]);
+  }, [isLoading, mode, currentConversationId, settings.showTypingEffect, messages]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);

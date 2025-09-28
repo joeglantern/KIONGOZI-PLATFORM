@@ -37,7 +37,7 @@ const UserStats: React.FC<UserStatsProps> = ({
       try {
         const response = await getUserStats();
         if (response.success && response.data) {
-          setStats(response.data);
+          setStats(response.data as any);
         }
       } catch (error) {
         console.error('Failed to fetch user stats:', error);

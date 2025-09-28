@@ -110,6 +110,7 @@ export interface ChatActions {
   toggleDarkMode: () => void;
 
 
+
   // Artifact actions
   setSelectedArtifact: (artifact: Artifact | null) => void;
 
