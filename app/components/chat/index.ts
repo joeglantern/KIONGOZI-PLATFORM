@@ -14,6 +14,10 @@ export { default as ChatSidebar } from './ChatSidebar';
 export { default as ProfileMenu } from './ProfileMenu';
 export { default as ModernChatLayout } from './ModernChatLayout';
 
+// LMS Integration Components
+export { default as SmartSuggestions } from './suggestions/SmartSuggestions';
+export { default as SuggestionCard } from './suggestions/SuggestionCard';
+
 // Context and Provider
 export { ChatProvider, useChatContext, ChatContext } from './ChatProvider';
 
@@ -32,6 +36,16 @@ export type {
   TypewriterEffectProps,
   LoadingDotsProps
 } from '../../types/chat';
+
+// LMS-Chat integration types
+export type {
+  ChatSuggestion,
+  SuggestionCategory,
+  SmartSuggestionsProps,
+  SuggestionCardProps,
+  LearningStatsWidgetProps,
+  CompactLearningStats
+} from '../../types/lms-chat';
 
 // Re-export hooks
 export { useChat } from '../../hooks/useChat';

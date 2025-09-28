@@ -8,6 +8,8 @@ import { useChatContext } from './ChatProvider';
 import { useUser } from '../../contexts/UserContext';
 import MessageList from './MessageList';
 import ProfileMenu from './ProfileMenu';
+import SmartSuggestions from './suggestions/SmartSuggestions';
+import type { ChatSuggestion } from '../../types/lms-chat';
 
 interface ModernChatLayoutProps {
   children: React.ReactNode; // This will be the ChatInput
@@ -19,11 +21,20 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
     profileMenuOpen,
     setProfileMenuOpen,
     toggleSidebar,
-    isMobile
+    isMobile,
+    sendMessage,
+    setInput
   } = useChatContext();
 
   const { user, logout } = useUser();
   const hasMessages = messages.length > 0;
+
+  const handleSuggestionClick = (suggestion: ChatSuggestion) => {
+    // Send the suggestion action as a message
+    sendMessage(suggestion.action);
+    // Also update the input field to show what was sent
+    setInput('');
+  };
 
   return (
     <div className="min-h-screen h-screen flex flex-col bg-[#f7f7f8] transition-colors duration-300 relative">
@@ -94,28 +105,13 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
                 {children}
               </motion.div>
 
-              {/* Quick Suggestions */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-                className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-2 max-w-3xl mx-auto"
-              >
-                {[
-                  "Explain digital transformation strategies",
-                  "What are sustainable tech practices?",
-                  "Help me plan a learning module"
-                ].map((suggestion, index) => (
-                  <motion.button
-                    key={index}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="p-3 text-left rounded-lg border border-gray-200 bg-white hover:bg-gray-100 transition-colors text-gray-900 text-sm shadow-sm"
-                  >
-                    {suggestion}
-                  </motion.button>
-                ))}
-              </motion.div>
+              {/* Smart Suggestions */}
+              <SmartSuggestions
+                onSuggestionClick={handleSuggestionClick}
+                className="mt-6 max-w-3xl mx-auto"
+                maxSuggestions={6}
+                showCategories={false}
+              />
             </div>
           </motion.div>
         ) : (
