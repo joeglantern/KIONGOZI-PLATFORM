@@ -5,7 +5,7 @@ import type { LearningModule, LearningStats, ModuleRecommendation } from './lms'
 // Suggestion Types
 export interface ChatSuggestion {
   id: string;
-  type: 'featured_module' | 'recent_module' | 'quick_action' | 'custom';
+  type: 'featured_module' | 'recent_module' | 'trending_module' | 'quick_action' | 'custom';
   title: string;
   description?: string;
   action: string; // The text that will be sent to chat when clicked

@@ -18,6 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Conversation } from '../../types/chat';
+import LearningStatsWidget from './lms-integration/LearningStatsWidget';
 
 interface CleanLMSSidebarProps {
   conversations: Conversation[];
@@ -51,9 +52,9 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
 
   return (
     <motion.div
-      animate={{ width: isCollapsed ? 64 : 240 }}
+      animate={{ width: isCollapsed ? 64 : 320 }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-      className="h-full bg-white border-r border-gray-300/40 flex flex-col relative shadow-sm"
+      className="h-full max-h-screen bg-white border-r border-gray-300/40 flex flex-col relative shadow-sm overflow-hidden"
     >
       {/* Modern Collapse Toggle */}
       <div className="absolute -right-3 top-6 z-10">
@@ -120,7 +121,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
       </div>
 
       {/* Navigation */}
-      <div className="flex-1">
+      <div className="flex-shrink-0">
         <div className="p-2 space-y-0.5">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -167,9 +168,19 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
           })}
         </div>
 
-        {/* Recent Chats */}
+        {/* Learning Stats Widget - Moved above Recent */}
+        <div className="mt-6 flex-shrink-0 px-2">
+          <LearningStatsWidget
+            variant={isCollapsed ? 'minimal' : 'compact'}
+            showProgress={true}
+            showStreak={!isCollapsed}
+            className="w-full"
+          />
+        </div>
+
+        {/* Recent Chats Header */}
         {currentPath === '/chat' && (
-          <div className="mt-6">
+          <div className="mt-4 flex-shrink-0">
             {isCollapsed ? (
               <div className="px-2">
                 <TooltipProvider>
@@ -191,113 +202,58 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                 </TooltipProvider>
               </div>
             ) : (
-              <>
-                <div className="px-3 py-2 flex items-center justify-between">
-                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Recent</h4>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={onNewConversation}
-                  >
-                    <Plus size={14} />
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Recent Conversations - Only show when expanded */}
-        {!isCollapsed && currentPath === '/chat' && (
-          <div>
-            <ScrollArea className="px-2">
-              <div className="space-y-0.5">
-                {recentConversations.map((conv) => (
-                  <button
-                    key={conv.id}
-                    onClick={() => onConversationSelect(conv.id)}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                      currentConversationId === conv.id
-                        ? 'bg-gray-100 text-gray-900'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <div className="truncate font-medium">{conv.title}</div>
-                  </button>
-                ))}
-
-                {conversations.length > 5 && (
-                  <button className="w-full text-left px-3 py-2 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                    View all {conversations.length} conversations
-                  </button>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
-
-        {/* Quick Stats for non-chat pages */}
-        {currentPath !== '/chat' && (
-          <div className="mt-6">
-            {isCollapsed ? (
-              <div className="px-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg p-3 border border-blue-200 dark:border-blue-800 cursor-pointer">
-                        <div className="text-center">
-                          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">60%</div>
-                          <div className="text-xs text-blue-500 dark:text-blue-400">Progress</div>
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                      <div className="text-center">
-                        <p className="font-medium">Learning Progress</p>
-                        <p className="text-xs text-gray-500 mt-1">12 of 20 modules completed</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            ) : (
-              <div className="px-4">
-                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Progress</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Modules</span>
-                    <span className="text-gray-500">12/20</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-primary-500 h-2 rounded-full" style={{width: '60%'}}></div>
-                  </div>
-                </div>
+              <div className="px-3 py-2 flex items-center justify-between">
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Recent</h4>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={onNewConversation}
+                >
+                  <Plus size={14} />
+                </Button>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Footer */}
-      {!isCollapsed && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="p-3 border-t border-gray-200/60"
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleCollapse}
-            className="w-full justify-start text-xs opacity-60 hover:opacity-100 transition-opacity"
-          >
-            <ChevronLeft size={14} className="mr-2" />
-            Collapse
-          </Button>
-        </motion.div>
+      {/* Scrollable Conversations Area */}
+      {!isCollapsed && currentPath === '/chat' && (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="px-2 space-y-1 pb-4">
+              {recentConversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => onConversationSelect(conv.id)}
+                  className={`w-full text-left px-3 py-3 rounded-md text-sm transition-colors ${
+                    currentConversationId === conv.id
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <div className="truncate font-medium">{conv.title}</div>
+                </button>
+              ))}
+
+              {conversations.length > 5 && (
+                <button className="w-full text-left px-3 py-2 text-xs text-gray-500 hover:text-gray-700 transition-colors rounded-md hover:bg-gray-50">
+                  View all {conversations.length} conversations
+                </button>
+              )}
+
+              {conversations.length === 0 && (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  No conversations yet
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
       )}
+
+
     </motion.div>
   );
 };

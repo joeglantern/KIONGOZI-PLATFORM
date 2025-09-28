@@ -12,6 +12,7 @@ import type {
 import { generateUniqueId, isMobileDevice } from '../utils/chatUtils';
 import { processMessageContent } from '../utils/messageProcessing';
 import { detectArtifacts } from '../utils/artifact-detector';
+import { isCommand, processCommand } from '../utils/chatCommands';
 import apiClient from '../utils/apiClient';
 
 const defaultSettings: ChatSettings = {
@@ -175,6 +176,48 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     setHasFirstUserMessage(true);
 
     console.log('⏳ [Chat Debug] Set loading states and first user message flag');
+
+    // Check if this is a command
+    if (isCommand(text.trim())) {
+      console.log('🔧 [Chat Debug] Processing command:', text.trim());
+
+      try {
+        const commandResponse = await processCommand(text.trim());
+        console.log('✅ [Chat Debug] Command processed successfully:', commandResponse);
+
+        // Create command response message
+        const commandMessage: Message = {
+          id: generateUniqueId(),
+          text: '', // Empty text, will use commandResponse for rendering
+          isUser: false,
+          type: 'chat',
+          isTypingComplete: true,
+          commandResponse // Add the command response data
+        };
+
+        setMessages(prev => [...prev, commandMessage]);
+        setIsLoading(false);
+        setIsGenerating(false);
+        return;
+
+      } catch (error: any) {
+        console.error('❌ [Chat Debug] Command processing failed:', error);
+
+        // Add error message
+        const errorMessage: Message = {
+          id: generateUniqueId(),
+          text: error.message || 'Command failed. Please try again.',
+          isUser: false,
+          type: 'chat',
+          isTypingComplete: true,
+        };
+
+        setMessages(prev => [...prev, errorMessage]);
+        setIsLoading(false);
+        setIsGenerating(false);
+        return;
+      }
+    }
 
     // Cancel any previous request
     if (abortControllerRef.current) {

@@ -63,7 +63,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   };
 
   return (
-    <div className={`flex h-full ${className} relative`}>
+    <div className={`flex h-screen min-h-screen max-h-screen ${className} relative overflow-hidden`}>
       {/* Desktop LMS Sidebar - Only show on desktop */}
       {!isMobile && (
         <AnimatePresence>

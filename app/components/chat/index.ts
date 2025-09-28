@@ -17,6 +17,20 @@ export { default as ModernChatLayout } from './ModernChatLayout';
 // LMS Integration Components
 export { default as SmartSuggestions } from './suggestions/SmartSuggestions';
 export { default as SuggestionCard } from './suggestions/SuggestionCard';
+export { default as LearningStatsWidget } from './lms-integration/LearningStatsWidget';
+export { default as ModuleSearchResults } from './lms-integration/ModuleSearchResults';
+export { default as ProgressUpdateModal } from './lms-integration/ProgressUpdateModal';
+export { default as SmartRecommendations } from './lms-integration/SmartRecommendations';
+export { default as CommandResponseBubble } from './CommandResponseBubble';
+export { default as ChatInputHints } from './ChatInputHints';
+export { default as ProgressCelebration } from './ProgressCelebration';
+export { default as CategorySelector } from './CategorySelector';
+export { default as TrendingModules } from './TrendingModules';
+export { default as CategoryBrowse } from './CategoryBrowse';
+export { default as BookmarkButton } from './BookmarkButton';
+export { default as ModuleDetailModal } from './ModuleDetailModal';
+export { default as BookmarksList } from './BookmarksList';
+export { default as UserProfileWidget } from './UserProfileWidget';
 
 // Context and Provider
 export { ChatProvider, useChatContext, ChatContext } from './ChatProvider';
@@ -68,3 +82,9 @@ export {
   messageToPlainText,
   validateMessage
 } from '../../utils/messageProcessing';
+
+export {
+  isCommand,
+  processCommand,
+  CHAT_COMMANDS
+} from '../../utils/chatCommands';

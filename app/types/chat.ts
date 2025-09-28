@@ -13,6 +13,7 @@ export interface Message {
   researchData?: DeepResearchResponse;
   isTypingComplete?: boolean;
   artifacts?: Artifact[];
+  commandResponse?: any; // For command responses like search results
 }
 
 

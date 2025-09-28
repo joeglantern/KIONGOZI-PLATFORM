@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { StopCircle, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ChatInputProps } from '../../types/chat';
+import ChatInputHints from './ChatInputHints';
 
 const ChatInput: React.FC<ChatInputProps> = ({
   input,
@@ -21,6 +22,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showHints, setShowHints] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,12 +71,20 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleFocus = () => {
     setIsInputFocused(true);
+    setShowHints(true);
     onFocusChange?.(true);
   };
 
   const handleBlur = () => {
     setIsInputFocused(false);
+    // Delay hiding hints to allow clicking on them
+    setTimeout(() => setShowHints(false), 150);
     onFocusChange?.(false);
+  };
+
+  const handleCommandSelect = (command: string) => {
+    onInputChange(command);
+    inputRef.current?.focus();
   };
 
   const stopGeneration = () => {
@@ -144,6 +154,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
           )}
         </div>
       </form>
+
+      {/* Command hints */}
+      <ChatInputHints
+        onCommandSelect={handleCommandSelect}
+        input={input}
+        isVisible={showHints && input.trim() === ''}
+      />
     </div>
   );
 };

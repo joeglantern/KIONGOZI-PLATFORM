@@ -9,6 +9,7 @@ import { useChatContext } from './ChatProvider';
 import MagicalTypewriter from './MagicalTypewriter';
 import CompactArtifact from '../artifacts/CompactArtifact';
 import ResearchOutput from '../ResearchOutput';
+import CommandResponseBubble from './CommandResponseBubble';
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -42,15 +43,20 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       );
     }
 
-    // Handle empty or missing AI message content
-    if (!message.text || message.text.trim() === '' || message.text === '...') {
+    // Command response content (check this FIRST before checking for empty text)
+    if (message.commandResponse) {
       return (
-        <div className="text-gray-500 dark:text-gray-400 italic">
-          <div className="flex items-center gap-2">
-            <div className="animate-pulse">🤔</div>
-            <span>Thinking...</span>
-          </div>
-        </div>
+        <CommandResponseBubble
+          response={message.commandResponse}
+          onModuleSelect={(module) => {
+            // Handle module selection - could open module details or start module
+            console.log('Module selected:', module);
+          }}
+          onBookmark={(moduleId, bookmarked) => {
+            // Handle bookmark action
+            console.log('Bookmark action:', moduleId, bookmarked);
+          }}
+        />
       );
     }
 
@@ -68,6 +74,18 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           isTypingComplete={message.isTypingComplete || false}
           onTopicClick={() => {}} // This would be passed from parent
         />
+      );
+    }
+
+    // Handle empty or missing AI message content (check this AFTER command responses)
+    if (!message.text || message.text.trim() === '' || message.text === '...') {
+      return (
+        <div className="text-gray-500 dark:text-gray-400 italic">
+          <div className="flex items-center gap-2">
+            <div className="animate-pulse">🤔</div>
+            <span>Thinking...</span>
+          </div>
+        </div>
       );
     }
 
