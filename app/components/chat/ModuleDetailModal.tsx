@@ -277,11 +277,11 @@ const ModuleDetailModal: React.FC<ModuleDetailModalProps> = ({
                   )}
 
                   {/* Prerequisites (if available) */}
-                  {module.prerequisites && module.prerequisites.length > 0 && (
+                  {module?.prerequisites && module.prerequisites.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-3">Prerequisites</h4>
                       <ul className="space-y-2">
-                        {module.prerequisites.map((prereq, index) => (
+                        {module.prerequisites?.map((prereq, index) => (
                           <li key={index} className="flex items-start gap-2 text-sm text-gray-600">
                             <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
                             <span>{prereq}</span>

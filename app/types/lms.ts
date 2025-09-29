@@ -24,6 +24,7 @@ export interface LearningModule {
   estimated_duration_minutes: number;
   learning_objectives: string[];
   keywords: string[];
+  prerequisites?: string[];
   is_featured: boolean;
   is_published: boolean;
   view_count: number;

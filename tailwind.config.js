@@ -10,8 +10,11 @@ module.exports = {
   	extend: {
   		fontFamily: {
   			sans: [
-  				'Inter',
-  				'DM Sans',
+  				'Roboto',
+  				'-apple-system',
+  				'BlinkMacSystemFont',
+  				'Helvetica Neue',
+  				'Arial',
   				'sans-serif'
   			]
   		},

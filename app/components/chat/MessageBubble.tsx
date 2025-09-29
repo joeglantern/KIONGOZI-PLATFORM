@@ -37,7 +37,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (isUser) {
       return (
-        <div className="text-white font-medium text-[15px]">
+        <div className="text-white font-medium text-base">
           {message.text}
         </div>
       );
@@ -98,7 +98,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         <MagicalTypewriter
           text={message.text}
           onComplete={handleTypingComplete}
-          className="prose prose-sm max-w-none text-gray-900 [&>p]:text-[15px] [&>p]:leading-6"
+          className="prose prose-sm max-w-none text-gray-900 [&>p]:text-base [&>p]:leading-6"
         />
       );
     } else {
@@ -107,7 +107,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       return (
         <div
-          className="prose prose-sm max-w-none text-gray-900 [&>p]:text-[15px] [&>p]:leading-6"
+          className="prose prose-sm max-w-none text-gray-900 [&>p]:text-base [&>p]:leading-6"
           dangerouslySetInnerHTML={{ __html: processedContent }}
         />
       );

@@ -56,11 +56,11 @@ const UserProfileWidget: React.FC<UserProfileWidgetProps> = ({
       ]);
 
       if (profileResponse.success && profileResponse.data) {
-        setProfile(profileResponse.data);
+        setProfile(profileResponse.data as UserProfile);
       }
 
       if (statsResponse.success && statsResponse.data) {
-        setStats(statsResponse.data);
+        setStats(statsResponse.data as UserStats);
       }
     } catch (err) {
       console.error('Failed to fetch user data:', err);

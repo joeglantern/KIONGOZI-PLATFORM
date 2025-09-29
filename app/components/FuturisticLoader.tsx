@@ -37,7 +37,7 @@ const FuturisticLoader = () => {
         animate={{ opacity: [0, 1, 0.7, 1], y: [20, 0, 0, 0] }}
         transition={{ duration: 1.2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
         className="text-2xl md:text-4xl font-bold text-white mb-2 text-center drop-shadow-lg"
-        style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '0.01em' }}
+        style={{ letterSpacing: '0.01em' }}
       >
         Afosi presents Kiongozi Platform
       </motion.h2>
