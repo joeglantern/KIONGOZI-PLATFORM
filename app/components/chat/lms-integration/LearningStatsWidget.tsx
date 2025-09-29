@@ -80,7 +80,8 @@ const LearningStatsWidget: React.FC<LearningStatsWidgetProps> = ({
     fetchStats();
   }, []);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (variant === 'compact') {
       setIsExpanded(!isExpanded);
     }
@@ -123,16 +124,30 @@ const LearningStatsWidget: React.FC<LearningStatsWidgetProps> = ({
   // Minimal variant for collapsed sidebar
   if (variant === 'minimal') {
     return (
-      <div className={`p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition-colors ${className}`} onClick={handleClick}>
+      <div className={`p-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition-colors ${className}`} onClick={handleClick}>
         <div className="text-center">
-          <div className="text-lg font-bold text-gray-900">{Math.round(compactStats?.completionRate || 0)}%</div>
-          <div className="text-xs text-gray-500">completed</div>
+          <div className="text-sm font-bold text-gray-900">{Math.round(compactStats?.completionRate || 0)}%</div>
+          <div className="text-xs text-gray-500">done</div>
         </div>
       </div>
     );
   }
 
-  // Clean, functional design inspired by real learning platforms
+  // Collapsed view - just header
+  const CollapsedView = () => (
+    <div className="flex items-center justify-between">
+      <h3 className="font-medium text-gray-900">Learning Progress</h3>
+      <button
+        onClick={handleRefresh}
+        className="text-gray-400 hover:text-gray-600 transition-colors"
+        aria-label="Refresh stats"
+      >
+        <RefreshCw className="w-4 h-4" />
+      </button>
+    </div>
+  );
+
+  // Expanded view - header + stats
   const CompactView = () => (
     <div>
       {/* Simple header */}
@@ -249,18 +264,30 @@ const LearningStatsWidget: React.FC<LearningStatsWidgetProps> = ({
     >
       <AnimatePresence mode="wait">
         {variant === 'compact' && isExpanded ? (
-          <motion.div key="expanded">
-            <ExpandedView />
+          <motion.div
+            key="expanded"
+            initial={{ opacity: 0, height: 'auto' }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 'auto' }}
+            transition={{ duration: 0.2 }}
+          >
+            <CompactView />
             <div className="flex justify-center mt-3 pt-2 border-t border-gray-100">
-              <ChevronUp className="w-4 h-4 text-gray-400" />
+              <ChevronUp className="w-4 h-4 text-gray-500 hover:text-gray-700 transition-colors" />
             </div>
           </motion.div>
         ) : (
-          <motion.div key="compact">
-            <CompactView />
+          <motion.div
+            key="collapsed"
+            initial={{ opacity: 0, height: 'auto' }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 'auto' }}
+            transition={{ duration: 0.2 }}
+          >
+            <CollapsedView />
             {variant === 'compact' && (
               <div className="flex justify-center mt-3 pt-2 border-t border-gray-100">
-                <ChevronDown className="w-4 h-4 text-gray-400" />
+                <ChevronDown className="w-4 h-4 text-gray-500 hover:text-gray-700 transition-colors" />
               </div>
             )}
           </motion.div>
