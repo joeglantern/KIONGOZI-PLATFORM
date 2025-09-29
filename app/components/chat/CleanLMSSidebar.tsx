@@ -74,46 +74,19 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
 
       {/* Header */}
       <div className="p-3 border-b border-gray-200/60">
-        {isCollapsed ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="flex justify-center"
-          >
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Avatar className="w-8 h-8 cursor-pointer">
-                    <AvatarFallback className="bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300">
-                      U
-                    </AvatarFallback>
-                  </Avatar>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <div className="text-center">
-                    <p className="font-medium">User</p>
-                    <p className="text-xs text-gray-500">Learning</p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </motion.div>
-        ) : (
+        {!isCollapsed && (
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-3"
           >
-            <Avatar className="w-8 h-8">
-              <AvatarFallback className="bg-indigo-500 text-white">
-                U
-              </AvatarFallback>
-            </Avatar>
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">K</span>
+            </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-sm text-gray-900 truncate">User</h3>
-              <p className="text-xs text-gray-500">Learning</p>
+              <h3 className="font-semibold text-sm text-gray-900 truncate">Kiongozi Platform</h3>
+              <p className="text-xs text-gray-500">Learning Management System</p>
             </div>
           </motion.div>
         )}
@@ -123,25 +96,6 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
       {isCollapsed ? (
         /* Collapsed View - Icon Only Navigation */
         <div className="flex flex-col items-center py-4 space-y-3">
-          {/* User Avatar */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Avatar className="w-8 h-8 cursor-pointer">
-                  <AvatarFallback className="bg-indigo-500 text-white text-xs">
-                    U
-                  </AvatarFallback>
-                </Avatar>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <div className="text-center">
-                  <p className="font-medium">User</p>
-                  <p className="text-xs text-gray-500">Learning</p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
           {/* Navigation Icons */}
           {menuItems.map((item) => {
             const Icon = item.icon;

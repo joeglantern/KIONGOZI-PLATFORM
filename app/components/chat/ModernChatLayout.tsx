@@ -23,7 +23,9 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
     toggleSidebar,
     isMobile,
     sendMessage,
-    setInput
+    setInput,
+    showSidebar,
+    isSidebarCollapsed
   } = useChatContext();
 
   const { user, logout } = useUser();
@@ -52,8 +54,18 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
           </Button>
         )}
 
-        {/* Desktop spacing */}
-        {!isMobile && <div />}
+        {/* Platform Title - Shows when sidebar is collapsed on desktop */}
+        {!isMobile && showSidebar && isSidebarCollapsed && (
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center">
+              <span className="text-white font-bold text-xs">K</span>
+            </div>
+            <h1 className="font-semibold text-gray-900">Kiongozi Platform</h1>
+          </div>
+        )}
+
+        {/* Desktop spacing when sidebar is expanded or hidden */}
+        {!isMobile && (!showSidebar || !isSidebarCollapsed) && <div />}
 
         {/* Profile controls - Right side */}
         <div className="flex items-center gap-2">
