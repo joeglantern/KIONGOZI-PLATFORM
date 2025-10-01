@@ -20,7 +20,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const { settings } = useChatContext();
   const { darkMode } = settings;
 
-  const isWelcomeMessage = message.text.includes('What can I do for you?');
+  const isWelcomeMessage = message.text?.includes('What can I do for you?') || false;
   const isUser = message.isUser;
 
 

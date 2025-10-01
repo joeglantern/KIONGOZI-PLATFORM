@@ -47,32 +47,206 @@ class ApiClient {
   }
 
   /**
-   * Get authentication token from various sources
+   * Get authentication token from various sources with better management
    */
   private getAuthToken(): string | null {
+    if (typeof window === 'undefined') return null;
+
     // Try to get token from window object (set by auth components)
-    if (typeof window !== 'undefined') {
-      const token = (window as any).supabaseToken;
-      if (token) return token;
+    const windowToken = (window as any).supabaseToken;
+    if (windowToken && this.isValidTokenFormat(windowToken)) {
+      return windowToken;
     }
 
-    // Try to get from localStorage with multiple key formats
-    if (typeof window !== 'undefined' && window.localStorage) {
-      // Try Supabase's standard format first
-      const supabaseToken = localStorage.getItem('sb-jdncfyagppohtksogzkx-auth-token');
-      if (supabaseToken) {
-        try {
-          const parsed = JSON.parse(supabaseToken);
-          if (parsed.access_token) return parsed.access_token;
-        } catch {}
-      }
-
-      // Fallback to direct token storage
-      const directToken = localStorage.getItem('supabase_token') || localStorage.getItem('token');
-      if (directToken) return directToken;
+    // Get the current active token from localStorage with proper cleanup
+    const activeToken = this.getActiveAuthToken();
+    if (activeToken) {
+      return activeToken;
     }
 
     return null;
+  }
+
+  /**
+   * Get the most recently updated valid token and clean up old ones
+   */
+  private getActiveAuthToken(): string | null {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+
+    const possibleKeys = [
+      'sb-uposzscjqzdttnkcllgy-auth-token',
+      'sb-jdncfyagppohtksogzkx-auth-token',
+      'sb-vjwvtnjsrtakgpvqfpejo-auth-token'
+    ];
+
+    let validTokens: { key: string; token: string; expiresAt: number }[] = [];
+
+    // Collect all valid tokens with their expiration times
+    for (const key of possibleKeys) {
+      const supabaseToken = localStorage.getItem(key);
+      if (supabaseToken) {
+        try {
+          const parsed = JSON.parse(supabaseToken);
+          if (parsed.access_token && this.isValidTokenFormat(parsed.access_token)) {
+            // Try to extract expiration time from JWT payload
+            const tokenPayload = this.getTokenPayload(parsed.access_token);
+            const expiresAt = tokenPayload?.exp ? tokenPayload.exp * 1000 : Date.now() + 3600000; // 1 hour fallback
+
+            if (expiresAt > Date.now()) {
+              validTokens.push({
+                key,
+                token: parsed.access_token,
+                expiresAt
+              });
+            } else {
+              // Clean up expired token
+              localStorage.removeItem(key);
+              console.log(`🧹 [ApiClient] Cleaned up expired token from ${key}`);
+            }
+          }
+        } catch (e) {
+          // Clean up malformed token
+          localStorage.removeItem(key);
+          console.log(`🧹 [ApiClient] Cleaned up malformed token from ${key}`);
+        }
+      }
+    }
+
+    // If we have multiple valid tokens, use the one with the latest expiration
+    if (validTokens.length > 0) {
+      const latestToken = validTokens.sort((a, b) => b.expiresAt - a.expiresAt)[0];
+      console.log(`✅ [ApiClient] Using most recent token from ${latestToken.key}`);
+
+      // Clean up older tokens if we have multiple
+      if (validTokens.length > 1) {
+        for (const tokenInfo of validTokens) {
+          if (tokenInfo.key !== latestToken.key) {
+            localStorage.removeItem(tokenInfo.key);
+            console.log(`🧹 [ApiClient] Cleaned up older token from ${tokenInfo.key}`);
+          }
+        }
+      }
+
+      return latestToken.token;
+    }
+
+    // Fallback to direct token storage
+    const directToken = localStorage.getItem('supabase_token') || localStorage.getItem('token');
+    if (directToken && this.isValidTokenFormat(directToken)) {
+      return directToken;
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract payload from JWT token
+   */
+  private getTokenPayload(token: string): any {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+
+      const payload = parts[1];
+      const decoded = atob(payload);
+      return JSON.parse(decoded);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Attempt to refresh the authentication token
+   */
+  private async attemptTokenRefresh(): Promise<boolean> {
+    try {
+      // Try to refresh using the refresh token endpoint
+      const response = await fetch(`${this.baseURL}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for refresh token
+      });
+
+      if (response.ok) {
+        const data: any = await response.json();
+        if (data.success && data.data?.access_token) {
+          // Update the token in localStorage
+          if (typeof window !== 'undefined' && window.localStorage) {
+            // Store in the primary Supabase key
+            const tokenData = {
+              access_token: data.data.access_token,
+              refresh_token: data.data.refresh_token,
+              expires_at: data.data.expires_at,
+              user: data.data.user
+            };
+            localStorage.setItem('sb-uposzscjqzdttnkcllgy-auth-token', JSON.stringify(tokenData));
+            console.log('✅ [ApiClient] Token refreshed and stored');
+          }
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('❌ [ApiClient] Token refresh error:', error);
+    }
+    return false;
+  }
+
+  /**
+   * Retry the request with the new token after refresh
+   */
+  private async retryRequestWithNewToken<T>(endpoint: string, options: RequestInit): Promise<ApiResponse<T>> {
+    const url = `${this.baseURL}${endpoint}`;
+    const token = this.getAuthToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: 'No token available after refresh',
+      };
+    }
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'Kiongozi-Frontend/1.0',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    };
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || `HTTP ${response.status}`,
+          details: data.details,
+        };
+      }
+
+      return data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: 'Network error on retry',
+        details: error.message,
+      };
+    }
+  }
+
+  /**
+   * Simple validation to check if token looks like a JWT
+   */
+  private isValidTokenFormat(token: string): boolean {
+    if (!token || typeof token !== 'string') return false;
+    const parts = token.split('.');
+    return parts.length === 3 && parts[0].length > 10;
   }
 
   /**
@@ -91,7 +265,11 @@ class ApiClient {
         hasWindow: typeof window !== 'undefined',
         windowToken: typeof window !== 'undefined' ? !!(window as any).supabaseToken : false,
         hasLocalStorage: typeof window !== 'undefined' && !!window.localStorage,
-        supabaseStorageExists: typeof window !== 'undefined' && !!localStorage.getItem('sb-jdncfyagppohtksogzkx-auth-token'),
+        supabaseStorageExists: typeof window !== 'undefined' && (
+          !!localStorage.getItem('sb-uposzscjqzdttnkcllgy-auth-token') ||
+          !!localStorage.getItem('sb-jdncfyagppohtksogzkx-auth-token') ||
+          !!localStorage.getItem('sb-vjwvtnjsrtakgpvqfpejo-auth-token')
+        ),
         endpoint,
         url
       });
@@ -151,6 +329,20 @@ class ApiClient {
       console.log('📋 [ApiClient] Parsed response data:', data);
 
       if (!response.ok) {
+        // Handle 401 Unauthorized - try to refresh token
+        if (response.status === 401) {
+          console.warn('⚠️ [ApiClient] 401 Unauthorized - attempting token refresh');
+          const refreshSuccess = await this.attemptTokenRefresh();
+
+          if (refreshSuccess) {
+            console.log('✅ [ApiClient] Token refreshed, retrying request');
+            // Retry the original request once with new token
+            return this.retryRequestWithNewToken(endpoint, options);
+          } else {
+            console.error('❌ [ApiClient] Token refresh failed, user needs to re-authenticate');
+          }
+        }
+
         console.error('❌ [ApiClient] Request failed:', {
           status: response.status,
           error: data.error || `HTTP ${response.status}`,
@@ -364,6 +556,16 @@ class ApiClient {
     return this.delete(`/chat/conversations/${conversationId}`);
   }
 
+  // Update conversation title and/or slug
+  async updateConversation(conversationId: string, updates: { title?: string; slug?: string }) {
+    return this.put(`/chat/conversations/${conversationId}`, updates);
+  }
+
+  // Update conversation title (backward compatibility)
+  async updateConversationTitle(conversationId: string, title: string) {
+    return this.updateConversation(conversationId, { title });
+  }
+
   // Generate AI response via backend
   async generateAIResponse(message: string, conversationId?: string, type: 'chat' | 'research' = 'chat') {
     return this.post('/chat/ai-response', {
@@ -526,6 +728,7 @@ export const {
   getConversations,
   getConversationMessages,
   deleteConversation,
+  updateConversationTitle,
   generateAIResponse,
   // LMS Methods
   getModuleCategories,

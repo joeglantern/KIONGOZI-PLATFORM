@@ -1,7 +1,8 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   BookOpen,
@@ -12,7 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  PanelLeft
+  PanelLeft,
+  Search,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -30,6 +33,11 @@ interface CleanLMSSidebarProps {
   onToggleCollapse: () => void;
   currentPath?: string;
   onNavigate?: (path: string) => void;
+  conversationsLoading?: boolean;
+  conversationsError?: string | null;
+  hasMoreConversations?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => Promise<void>;
 }
 
 const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
@@ -40,8 +48,17 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
   currentPath = '/chat',
-  onNavigate
+  onNavigate,
+  conversationsLoading = false,
+  conversationsError = null,
+  hasMoreConversations = false,
+  isLoadingMore = false,
+  onLoadMore
 }) => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [searchQuery, setSearchQuery] = useState('');
+
   const menuItems = [
     { icon: LayoutGrid, label: 'Dashboard', path: '/dashboard' },
     { icon: BookOpen, label: 'Modules', path: '/modules' },
@@ -49,7 +66,60 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
     { icon: TrendingUp, label: 'Progress', path: '/progress' },
   ];
 
-  const recentConversations = conversations.slice(0, 5);
+  // Filter conversations based on search query
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return conversations.slice(0, 8); // Show more recent conversations with pagination
+    }
+
+    return conversations
+      .filter(conv =>
+        conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        conv.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
+      ); // Show all search results
+  }, [conversations, searchQuery]);
+
+  const displayConversations = filteredConversations;
+
+  // Handle conversation navigation with URL routing
+  const handleConversationClick = (conversation: Conversation) => {
+    // Add loading state during navigation
+    const targetUrl = conversation.slug
+      ? `/chats/${conversation.slug}`
+      : `/chats/${conversation.id}`;
+
+    // Only navigate if we're not already on this conversation
+    if (!pathname.includes(conversation.slug || conversation.id)) {
+      router.push(targetUrl);
+      // Also call the original callback for state management
+      onConversationSelect(conversation.id);
+    }
+  };
+
+  // Handle new conversation navigation
+  const handleNewConversation = () => {
+    router.push('/chat');
+    onNewConversation();
+  };
+
+  const formatTimestamp = (timestamp: string): string => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+
+    if (diffInDays > 0) {
+      return diffInDays === 1 ? '1 day ago' : `${diffInDays} days ago`;
+    } else if (diffInHours > 0) {
+      return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
+    } else if (diffInMinutes > 0) {
+      return diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`;
+    } else {
+      return 'Just now';
+    }
+  };
 
   return (
     <motion.div
@@ -141,7 +211,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={onNewConversation}
+                      onClick={handleNewConversation}
                       className="w-full h-10 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                     >
                       <Plus size={20} />
@@ -198,43 +268,134 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                 <div>
                   {/* Recent Chats Header */}
                   <div className="px-3 pr-6 py-2 flex items-center justify-between">
-                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Recent</h4>
+                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      {searchQuery ? 'Search Results' : 'Recent'}
+                    </h4>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6"
-                      onClick={onNewConversation}
+                      onClick={handleNewConversation}
                     >
                       <Plus size={14} />
                     </Button>
                   </div>
 
+                  {/* Search Input */}
+                  <div className="px-3 pr-6 pb-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search conversations..."
+                        className="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Conversations List */}
                   <div className="px-2 pr-6 space-y-1 pb-4">
-                    {recentConversations.map((conv) => (
-                      <button
-                        key={conv.id}
-                        onClick={() => onConversationSelect(conv.id)}
-                        className={`w-full text-left px-3 py-3 rounded-md text-sm transition-colors ${
-                          currentConversationId === conv.id
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                        }`}
-                      >
-                        <div className="truncate font-medium">{conv.title}</div>
-                      </button>
-                    ))}
-
-                    {conversations.length > 5 && (
-                      <button className="w-full text-left px-3 py-2 text-xs text-gray-500 hover:text-gray-700 transition-colors rounded-md hover:bg-gray-50">
-                        View all {conversations.length} conversations
-                      </button>
+                    {/* Loading State */}
+                    {conversationsLoading && (
+                      <div className="space-y-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="w-full px-3 py-3 rounded-md">
+                            <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                            <div className="h-3 bg-gray-100 rounded mt-2 w-3/4 animate-pulse"></div>
+                          </div>
+                        ))}
+                      </div>
                     )}
 
-                    {conversations.length === 0 && (
-                      <div className="text-center py-8 text-gray-500 text-sm">
-                        No conversations yet
+                    {/* Error State */}
+                    {conversationsError && !conversationsLoading && (
+                      <div className="text-center py-6 px-3">
+                        <div className="text-red-500 text-sm mb-2">⚠️ {conversationsError}</div>
+                        <button
+                          onClick={onNewConversation}
+                          className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          Start a new conversation
+                        </button>
                       </div>
+                    )}
+
+                    {/* Conversations */}
+                    {!conversationsLoading && !conversationsError && (
+                      <>
+                        {displayConversations.map((conv) => (
+                          <div
+                            key={conv.id}
+                            onClick={() => handleConversationClick(conv)}
+                            className={`w-full text-left px-3 py-3 rounded-md text-sm transition-colors cursor-pointer ${
+                              currentConversationId === conv.id
+                                ? 'bg-gray-100 text-gray-900'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }`}
+                          >
+                            <div className="flex-1 truncate font-medium mb-1">
+                              {conv.title}
+                            </div>
+                            {conv.lastMessage && (
+                              <div className="truncate text-xs text-gray-500 mb-1">
+                                {conv.lastMessage}
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between text-xs text-gray-400">
+                              <span>
+                                {conv.messageCount ? `${conv.messageCount} messages` : ''}
+                              </span>
+                              <span>
+                                {conv.updatedAt && formatTimestamp(conv.updatedAt)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Load More Button */}
+                        {!searchQuery && hasMoreConversations && onLoadMore && (
+                          <button
+                            onClick={onLoadMore}
+                            disabled={isLoadingMore}
+                            className="w-full text-left px-3 py-3 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {isLoadingMore ? (
+                              <>
+                                <div className="w-3 h-3 border border-blue-300 border-t-blue-600 rounded-full animate-spin"></div>
+                                Loading more...
+                              </>
+                            ) : (
+                              <>
+                                <Plus size={14} />
+                                Load more conversations
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {searchQuery && displayConversations.length === 0 && (
+                          <div className="text-center py-8 text-gray-500 text-sm">
+                            <Search className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                            No conversations found for "{searchQuery}"
+                          </div>
+                        )}
+
+                        {!searchQuery && conversations.length === 0 && (
+                          <div className="text-center py-8 text-gray-500 text-sm">
+                            No conversations yet
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -249,4 +410,4 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
   );
 };
 
-export default CleanLMSSidebar;
+export default React.memo(CleanLMSSidebar);

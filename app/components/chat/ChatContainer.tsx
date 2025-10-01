@@ -37,11 +37,17 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     currentConversationId,
     loadConversation,
     deleteConversation,
+    updateConversation,
+    loadMoreConversations,
     createNewConversation,
     toggleSidebarCollapse,
     showSidebar,
     isSidebarCollapsed,
-    toggleSidebar
+    toggleSidebar,
+    conversationsLoading,
+    conversationsError,
+    hasMoreConversations,
+    isLoadingMore
   } = useChatContext();
 
   // Handle conversation rename (placeholder - implement API call)
@@ -73,8 +79,15 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
               currentConversationId={currentConversationId}
               onConversationSelect={loadConversation}
               onNewConversation={createNewConversation}
+              onConversationDelete={deleteConversation}
+              onConversationUpdate={updateConversation}
+              onLoadMore={loadMoreConversations}
               isCollapsed={isSidebarCollapsed}
               onToggleCollapse={toggleSidebarCollapse}
+              conversationsLoading={conversationsLoading}
+              conversationsError={conversationsError}
+              hasMoreConversations={hasMoreConversations}
+              isLoadingMore={isLoadingMore}
               currentPath="/chat"
               onNavigate={(path) => {
                 // Handle navigation to other parts of the LMS
@@ -94,6 +107,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
           onNewConversation={createNewConversation}
           isOpen={showSidebar}
           onOpenChange={toggleSidebar}
+          conversationsLoading={conversationsLoading}
+          conversationsError={conversationsError}
           currentPath="/chat"
           onNavigate={(path) => {
             // Handle navigation to other parts of the LMS

@@ -189,6 +189,87 @@ class ApiClient {
       })
     });
   }
+
+  /**
+   * LMS Methods - Learning Management System Integration
+   */
+
+  // Get learning module categories
+  async getModuleCategories() {
+    return this.request('/api/v1/content/categories', { method: 'GET' });
+  }
+
+  // Get learning modules with filtering
+  async getModules(params?: {
+    category_id?: string;
+    difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+    featured?: boolean;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const queryString = new URLSearchParams(params as any).toString();
+    const endpoint = `/api/v1/content/modules${queryString ? `?${queryString}` : ''}`;
+    return this.request(endpoint, { method: 'GET' });
+  }
+
+  // Get a specific module by ID
+  async getModule(moduleId: string) {
+    return this.request(`/api/v1/content/modules/${moduleId}`, { method: 'GET' });
+  }
+
+  // Get user's learning progress
+  async getUserProgress(params?: {
+    module_id?: string;
+    status?: 'not_started' | 'in_progress' | 'completed' | 'bookmarked';
+    limit?: number;
+    offset?: number;
+  }) {
+    const queryString = new URLSearchParams(params as any).toString();
+    const endpoint = `/api/v1/progress${queryString ? `?${queryString}` : ''}`;
+    return this.request(endpoint, { method: 'GET' });
+  }
+
+  // Update progress for a specific module
+  async updateProgress(moduleId: string, data: {
+    status?: 'not_started' | 'in_progress' | 'completed' | 'bookmarked';
+    progress_percentage?: number;
+    time_spent_minutes?: number;
+    notes?: string;
+  }) {
+    return this.request(`/api/v1/progress/${moduleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // Get learning statistics/overview
+  async getLearningStats() {
+    return this.request('/api/v1/progress/stats', { method: 'GET' });
+  }
+
+  // Search modules (enhanced search with AI)
+  async searchModules(query: string, params?: {
+    category_id?: string;
+    difficulty_level?: string;
+    limit?: number;
+  }) {
+    const searchParams = { search: query, ...params };
+    const queryString = new URLSearchParams(searchParams as any).toString();
+    return this.request(`/api/v1/content/modules?${queryString}`, { method: 'GET' });
+  }
+
+  // Get featured/recommended modules
+  async getFeaturedModules(limit: number = 6) {
+    return this.request(`/api/v1/content/modules?featured=true&limit=${limit}`, { method: 'GET' });
+  }
+
+  // Bookmark/unbookmark a module
+  async bookmarkModule(moduleId: string, bookmarked: boolean = true) {
+    return this.updateProgress(moduleId, {
+      status: bookmarked ? 'bookmarked' : 'not_started'
+    });
+  }
 }
 
 // Create singleton instance

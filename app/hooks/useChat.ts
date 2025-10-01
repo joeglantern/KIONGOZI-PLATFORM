@@ -9,7 +9,7 @@ import type {
   VoiceInputState,
   UseChatReturn
 } from '../types/chat';
-import { generateUniqueId, isMobileDevice } from '../utils/chatUtils';
+import { generateUniqueId, isMobileDevice, formatConversationTitle } from '../utils/chatUtils';
 import { processMessageContent } from '../utils/messageProcessing';
 import { detectArtifacts } from '../utils/artifact-detector';
 import { isCommand, processCommand } from '../utils/chatCommands';
@@ -33,29 +33,14 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(
     initialConversationId || null
   );
-  const [conversations, setConversations] = useState<Conversation[]>([
-    {
-      id: 'sample-1',
-      title: 'Learning Management System Overview',
-      lastMessage: 'Can you explain how the LMS modules work?',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-      messageCount: 5
-    },
-    {
-      id: 'sample-2',
-      title: 'Digital Transition Strategies',
-      lastMessage: 'What are the best practices for digital transformation?',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-      messageCount: 8
-    },
-    {
-      id: 'sample-3',
-      title: 'Green Technologies Research',
-      lastMessage: 'How can we implement sustainable practices in our organization?',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-      messageCount: 12
-    }
-  ]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [conversationsError, setConversationsError] = useState<string | null>(null);
+
+  // Pagination state
+  const [hasMoreConversations, setHasMoreConversations] = useState(true);
+  const [conversationsPage, setConversationsPage] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // UI state
   const [mode, setMode] = useState<ChatMode>('chat');
@@ -107,41 +92,121 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
 
   // Load conversations list
   useEffect(() => {
-    loadConversations();
+    loadConversations(true); // Reset to first page on initial load
   }, []);
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (reset = false, retryCount = 0) => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000 * Math.pow(2, retryCount); // Exponential backoff
+    const PAGE_SIZE = 20;
+
     try {
-      const response = await apiClient.getConversations();
-      if (response.success && response.data) {
-        setConversations(response.data as Conversation[]);
+      if (reset) {
+        setConversationsLoading(true);
+        setConversationsPage(0);
+      } else {
+        setIsLoadingMore(true);
       }
-    } catch (error) {
-      console.error('Error loading conversations:', error);
+      setConversationsError(null);
+
+      const currentPage = reset ? 0 : conversationsPage;
+      console.log('🔄 [Conversations] Loading conversations...', { retryCount, page: currentPage, reset });
+
+      const response = await apiClient.getConversations({
+        limit: PAGE_SIZE,
+        offset: currentPage * PAGE_SIZE
+      });
+
+      console.log('📡 [Conversations] API Response:', response);
+
+      if (response.success && response.data) {
+        const conversationsData = Array.isArray(response.data) ? response.data : response.data.conversations || [];
+        const totalCount = (response as any).pagination?.total || conversationsData.length;
+
+        console.log('✅ [Conversations] Successfully loaded:', conversationsData.length, 'conversations');
+
+        if (reset) {
+          setConversations(conversationsData as Conversation[]);
+        } else {
+          setConversations(prev => [...prev, ...conversationsData as Conversation[]]);
+        }
+
+        // Update pagination state
+        setConversationsPage(prev => reset ? 1 : prev + 1);
+        setHasMoreConversations(conversationsData.length === PAGE_SIZE && conversations.length + conversationsData.length < totalCount);
+        setConversationsError(null);
+      } else {
+        const errorMsg = response.error || 'Failed to load conversations';
+        console.warn('⚠️ [Conversations] API returned error:', errorMsg);
+        setConversationsError(errorMsg);
+
+        // If this is our first attempt and we got an API error, try again
+        if (retryCount < MAX_RETRIES) {
+          console.log(`🔄 [Conversations] Retrying in ${RETRY_DELAY}ms...`);
+          setTimeout(() => loadConversations(reset, retryCount + 1), RETRY_DELAY);
+          return;
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ [Conversations] Error loading conversations:', error);
+      const errorMessage = error.message || 'Failed to connect to server';
+      setConversationsError(errorMessage);
+
+      // Retry on network errors
+      if (retryCount < MAX_RETRIES && !error.name?.includes('AbortError')) {
+        console.log(`🔄 [Conversations] Retrying in ${RETRY_DELAY}ms due to error...`);
+        setTimeout(() => loadConversations(reset, retryCount + 1), RETRY_DELAY);
+        return;
+      }
+
+      // After max retries, set empty array to show empty state only on reset
+      if (reset) {
+        setConversations([]);
+      }
+    } finally {
+      if (reset) {
+        setConversationsLoading(false);
+      } else {
+        setIsLoadingMore(false);
+      }
     }
-  }, []);
+  }, [conversationsPage, conversations.length]);
 
   const loadConversation = useCallback(async (conversationId: string) => {
     try {
+      console.log('🔍 [useChat] Loading conversation:', conversationId);
       setIsLoading(true);
-      const response = await apiClient.getConversationMessages(conversationId);
+      setMessages([]); // Clear messages first like mobile app
+
+      // Use same API call as mobile app with pagination parameters
+      const response = await apiClient.getConversationMessages(conversationId, { limit: 100, offset: 0 });
+      console.log('📡 [useChat] API response:', response);
 
       if (response.success && response.data) {
-        const loadedMessages: Message[] = (response.data as any[]).map((msg: any) => ({
-          id: generateUniqueId(),
-          text: msg.content,
-          isUser: msg.role === 'user',
+        const messageList = Array.isArray(response.data) ? response.data : [];
+        console.log('📋 [useChat] Raw messages:', messageList);
+
+        // Use same message mapping as mobile app
+        const loadedMessages: Message[] = messageList.map((msg: any, index: number) => ({
+          id: msg.id || generateUniqueId(),
+          text: msg.text || msg.content || '', // Try both fields like mobile app
+          isUser: msg.is_user === true, // Use is_user field like mobile app
           type: msg.type || 'chat',
           isTypingComplete: true,
           artifacts: msg.artifacts || []
         }));
 
+        console.log('✅ [useChat] Formatted messages:', loadedMessages);
         setMessages(loadedMessages);
         setCurrentConversationId(conversationId);
         setHasFirstUserMessage(loadedMessages.some(msg => msg.isUser));
+      } else {
+        console.warn('❌ [useChat] Failed to load conversation messages:', response.error);
+        setMessages([]); // Clear messages on failure
       }
     } catch (error) {
-      console.error('Error loading conversation:', error);
+      console.error('❌ [useChat] Error loading conversation:', error);
+      setMessages([]); // Clear messages on error
     } finally {
       setIsLoading(false);
     }
@@ -228,16 +293,42 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     abortControllerRef.current = new AbortController();
 
     try {
-      console.log('🌐 [Chat Debug] Sending API request with:', {
+      // Step 1: Save user message immediately to create/update conversation
+      console.log('💾 [Chat Debug] Saving user message immediately:', {
         text: text.trim(),
-        conversationId: currentConversationId,
+        conversationId: currentConversationId
+      });
+
+      const userMessageResponse = await apiClient.sendMessage(
+        text.trim(),
+        currentConversationId || undefined
+      );
+
+      console.log('📝 [Chat Debug] User message saved:', userMessageResponse);
+
+      // Update conversation ID if this was a new conversation
+      let workingConversationId = currentConversationId;
+      if (userMessageResponse.success && userMessageResponse.data && (userMessageResponse.data as any).conversation_id) {
+        workingConversationId = (userMessageResponse.data as any).conversation_id;
+        if (!currentConversationId) {
+          console.log('🆕 [Chat Debug] New conversation created:', workingConversationId);
+          setCurrentConversationId(workingConversationId);
+
+          // Refresh conversations list immediately to show the new conversation
+          await refreshConversations();
+        }
+      }
+
+      // Step 2: Generate AI response
+      console.log('🌐 [Chat Debug] Sending AI generation request with:', {
+        text: text.trim(),
+        conversationId: workingConversationId,
         mode
       });
 
-      // Send message to API
       const response = await apiClient.generateAIResponse(
         text.trim(),
-        currentConversationId || undefined,
+        workingConversationId || undefined,
         mode
       );
 
@@ -328,11 +419,26 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
           );
         }
 
-        // Update conversation ID if new conversation
-        if ((response.data as any).conversation_id && !currentConversationId) {
-          console.log('🆕 [Chat Debug] Setting new conversation ID:', (response.data as any).conversation_id);
-          setCurrentConversationId((response.data as any).conversation_id);
-          await loadConversations(); // Refresh conversations list
+        // Generate title for new conversations (we now have the conversation ID from earlier)
+        if (workingConversationId && !currentConversationId) {
+          try {
+            const generatedTitle = formatConversationTitle(text.trim());
+            console.log('🏷️ [Chat Debug] Generated title for new conversation:', generatedTitle);
+
+            // Update the conversation title via API
+            await apiClient.updateConversationTitle(workingConversationId, generatedTitle);
+            console.log('✅ [Chat Debug] Successfully saved conversation title');
+
+            // Refresh conversations list to show the new title
+            await refreshConversations();
+          } catch (titleError) {
+            console.warn('⚠️ [Chat Debug] Failed to update conversation title:', titleError);
+            // Still refresh conversations even if title update failed
+            await refreshConversations();
+          }
+        } else {
+          // For existing conversations, still refresh the list to update last message
+          await refreshConversations();
         }
       } else {
         console.error('❌ [Chat Debug] API response failed:', response);
@@ -386,6 +492,25 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
       console.error('Error deleting conversation:', error);
     }
   }, [currentConversationId, clearMessages]);
+
+  const updateConversation = useCallback((updatedConversation: Conversation) => {
+    setConversations(prev =>
+      prev.map(conv =>
+        conv.id === updatedConversation.id
+          ? { ...conv, ...updatedConversation }
+          : conv
+      )
+    );
+  }, []);
+
+  const loadMoreConversations = useCallback(async () => {
+    if (!hasMoreConversations || isLoadingMore) return;
+    await loadConversations(false); // Load next page
+  }, [hasMoreConversations, isLoadingMore, loadConversations]);
+
+  const refreshConversations = useCallback(async () => {
+    await loadConversations(true); // Reset and reload from first page
+  }, [loadConversations]);
 
 
   const toggleSidebar = useCallback(() => {
@@ -447,6 +572,10 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     isGenerating,
     currentConversationId,
     conversations,
+    conversationsLoading,
+    conversationsError,
+    hasMoreConversations,
+    isLoadingMore,
     mode,
     settings,
     showSidebar,
@@ -471,6 +600,9 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     createNewConversation,
     loadConversation,
     deleteConversation,
+    updateConversation,
+    loadMoreConversations,
+    refreshConversations,
     setMode,
     toggleSidebar,
     toggleSidebarCollapse,

@@ -4,6 +4,17 @@ import { supabaseServiceClient } from '../config/supabase';
 import { generateConversationTitle } from '../utils/titleGenerator';
 import OpenAI from 'openai';
 
+// Utility function to generate conversation slug
+function generateConversationSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+    .slice(0, 50);
+}
+
 const router = Router();
 
 // Initialize OpenAI client
@@ -52,9 +63,10 @@ router.post('/message', authenticateToken, async (req, res) => {
     if (!convId) {
       // Generate title using GPT or fallback to simple generation
       const title = await generateConversationTitle(text);
+      const slug = generateConversationSlug(title);
       const { data: conv, error: convErr } = await supabaseServiceClient
         .from('conversations')
-        .insert({ user_id: userId, title })
+        .insert({ user_id: userId, title, slug })
         .select('*')
         .single();
       if (convErr) return res.status(500).json({ success: false, error: convErr.message });
@@ -73,9 +85,10 @@ router.post('/message', authenticateToken, async (req, res) => {
       if (!existingConv) {
         // Conversation doesn't exist, create it with the provided ID and generated title
         const title = await generateConversationTitle(text);
+        const slug = generateConversationSlug(title);
         const { data: newConv, error: createErr } = await supabaseServiceClient
           .from('conversations')
-          .insert({ id: convId, user_id: userId, title })
+          .insert({ id: convId, user_id: userId, title, slug })
           .select('*')
           .single();
         if (createErr) return res.status(500).json({ success: false, error: createErr.message });
@@ -164,10 +177,50 @@ router.get('/conversations', authenticateToken, async (req, res) => {
       base = base.ilike('title', `%${q}%`);
     }
 
-    const { data, error, count } = await base;
+    const { data: conversations, error, count } = await base;
 
     if (error) return res.status(500).json({ success: false, error: error.message });
-    return res.json({ success: true, data, pagination: { limit, offset, total: count ?? null } });
+    if (!conversations) return res.json({ success: true, data: [], pagination: { limit, offset, total: 0 } });
+
+    // Enhance conversations with lastMessage and messageCount
+    const enhancedConversations = await Promise.all(conversations.map(async (conv) => {
+      try {
+        // Get message count
+        const { count: messageCount } = await supabaseServiceClient
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', conv.id);
+
+        // Get last message
+        const { data: lastMessages } = await supabaseServiceClient
+          .from('messages')
+          .select('text, is_user, created_at')
+          .eq('conversation_id', conv.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        const lastMessage = lastMessages && lastMessages.length > 0 ? lastMessages[0] : null;
+
+        return {
+          ...conv,
+          messageCount: messageCount || 0,
+          lastMessage: lastMessage ? lastMessage.text : null,
+          lastMessageIsUser: lastMessage ? lastMessage.is_user : null,
+          lastMessageAt: lastMessage ? lastMessage.created_at : conv.updated_at
+        };
+      } catch (enhanceError) {
+        console.warn(`Failed to enhance conversation ${conv.id}:`, enhanceError);
+        return {
+          ...conv,
+          messageCount: 0,
+          lastMessage: null,
+          lastMessageIsUser: null,
+          lastMessageAt: conv.updated_at
+        };
+      }
+    }));
+
+    return res.json({ success: true, data: enhancedConversations, pagination: { limit, offset, total: count ?? null } });
   } catch (e: any) {
     return res.status(500).json({ success: false, error: e?.message || 'Failed to list conversations' });
   }
@@ -204,6 +257,53 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
     return res.json({ success: true, data, pagination: { limit, offset, total: count ?? null } });
   } catch (e: any) {
     return res.status(500).json({ success: false, error: e?.message || 'Failed to get messages' });
+  }
+});
+
+// Update a conversation title and slug (owner-only)
+router.put('/conversations/:id', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    if (!supabaseServiceClient) return res.status(500).json({ success: false, error: 'Supabase not configured' });
+
+    const conversationId = req.params.id;
+    const { title, slug } = req.body as { title?: string; slug?: string };
+
+    if (!title && !slug) {
+      return res.status(400).json({ success: false, error: 'Title or slug is required' });
+    }
+
+    // Ensure ownership
+    const { data: conv, error: convErr } = await supabaseServiceClient
+      .from('conversations')
+      .select('id,user_id,title')
+      .eq('id', conversationId)
+      .single();
+    if (convErr) return res.status(404).json({ success: false, error: 'Conversation not found' });
+    if (conv.user_id !== req.user.id) return res.status(403).json({ success: false, error: 'Forbidden' });
+
+    // Prepare update data
+    const updateData: any = { updated_at: new Date().toISOString() };
+    if (title) {
+      updateData.title = title.trim();
+      // Auto-generate slug from new title if not provided
+      updateData.slug = slug ? slug.trim() : generateConversationSlug(title.trim());
+    } else if (slug) {
+      updateData.slug = slug.trim();
+    }
+
+    // Update conversation
+    const { data: updatedConv, error: updateErr } = await supabaseServiceClient
+      .from('conversations')
+      .update(updateData)
+      .eq('id', conversationId)
+      .select('*')
+      .single();
+
+    if (updateErr) return res.status(500).json({ success: false, error: updateErr.message });
+    return res.json({ success: true, data: updatedConv });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e?.message || 'Failed to update conversation' });
   }
 });
 

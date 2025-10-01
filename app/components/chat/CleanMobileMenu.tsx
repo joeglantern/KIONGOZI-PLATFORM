@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   BookOpen,
@@ -31,6 +32,8 @@ interface CleanMobileMenuProps {
   onOpenChange: (open: boolean) => void;
   currentPath?: string;
   onNavigate?: (path: string) => void;
+  conversationsLoading?: boolean;
+  conversationsError?: string | null;
 }
 
 const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
@@ -41,9 +44,37 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
   isOpen,
   onOpenChange,
   currentPath = '/chat',
-  onNavigate
+  onNavigate,
+  conversationsLoading = false,
+  conversationsError = null
 }) => {
+  const router = useRouter();
+  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Handle conversation navigation with URL routing
+  const handleConversationClick = (conversation: Conversation) => {
+    // Add loading state during navigation
+    const targetUrl = conversation.slug
+      ? `/chats/${conversation.slug}`
+      : `/chats/${conversation.id}`;
+
+    // Only navigate if we're not already on this conversation
+    if (!pathname.includes(conversation.slug || conversation.id)) {
+      router.push(targetUrl);
+      // Also call the original callback for state management
+      onConversationSelect(conversation.id);
+    }
+    // Close mobile menu
+    onOpenChange(false);
+  };
+
+  // Handle new conversation navigation
+  const handleNewConversation = () => {
+    router.push('/chat');
+    onNewConversation();
+    onOpenChange(false);
+  };
 
   const menuItems = [
     { icon: LayoutGrid, label: 'Dashboard', path: '/dashboard' },

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import VoiceInputButton from './VoiceInputButton';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +23,8 @@ interface ModernMessageInputProps {
   loading?: boolean;
   disabled?: boolean;
   maxLength?: number;
+  onQuickActionsPress?: () => void;
+  onVoiceInput?: (text: string) => void;
 }
 
 export default function ModernMessageInput({
@@ -33,6 +36,8 @@ export default function ModernMessageInput({
   loading = false,
   disabled = false,
   maxLength = 1000,
+  onQuickActionsPress,
+  onVoiceInput,
 }: ModernMessageInputProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [inputHeight, setInputHeight] = useState(44);
@@ -165,25 +170,38 @@ export default function ModernMessageInput({
 
       {/* Action Buttons Container */}
       <View style={styles.actionsContainer}>
-        {/* Voice Message Button (Future Enhancement) */}
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            darkMode && styles.actionButtonDark,
-            { opacity: canSend ? 0 : 1 }
-          ]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            // TODO: Implement voice message functionality
-          }}
-          disabled={canSend || disabled}
-        >
-          <Ionicons
-            name="mic"
-            size={20}
-            color={darkMode ? '#9ca3af' : '#6b7280'}
-          />
-        </TouchableOpacity>
+        {/* Quick Actions Button */}
+        {onQuickActionsPress && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              darkMode && styles.actionButtonDark,
+              { opacity: canSend ? 0 : 1 }
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onQuickActionsPress();
+            }}
+            disabled={canSend || disabled}
+          >
+            <Ionicons
+              name="apps"
+              size={20}
+              color={darkMode ? '#9ca3af' : '#6b7280'}
+            />
+          </TouchableOpacity>
+        )}
+
+        {/* Voice Input Button */}
+        {onVoiceInput && (
+          <View style={{ opacity: canSend ? 0 : 1 }}>
+            <VoiceInputButton
+              onTranscription={onVoiceInput}
+              darkMode={darkMode}
+              disabled={canSend || disabled}
+            />
+          </View>
+        )}
 
         {/* Send Button */}
         <Animated.View

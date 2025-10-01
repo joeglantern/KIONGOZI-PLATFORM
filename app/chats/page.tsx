@@ -71,7 +71,7 @@ export default function ChatsPage() {
           <ul className="space-y-3">
           {items.map((c) => (
               <li key={c.id} className="group bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl p-0 overflow-hidden hover:shadow-md transition-shadow">
-                <Link href={`/chats/${c.id}`} className="flex items-center justify-between w-full p-3 sm:p-4">
+                <Link href={c.slug ? `/chats/${c.slug}` : `/chats/${c.id}`} className="flex items-center justify-between w-full p-3 sm:p-4">
                   <div className="min-w-0">
                     <div className="font-medium text-gray-900 truncate max-w-[60vw] sm:max-w-[40vw] group-hover:underline">{c.title || 'Untitled conversation'}</div>
                     <div className="text-xs text-gray-500">Updated {new Date(c.updated_at).toLocaleString()}</div>

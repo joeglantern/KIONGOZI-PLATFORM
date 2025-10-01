@@ -30,7 +30,15 @@ import ProfileScreen from './ProfileScreen';
 import ExportModal from '../components/ExportModal';
 import AIMessage from '../components/AIMessage';
 import UserMessage from '../components/UserMessage';
+import EnhancedAIMessage from '../components/EnhancedAIMessage';
+import WelcomeScreen from '../components/WelcomeScreen';
+import QuickActionsMenu from '../components/QuickActionsMenu';
+import ModuleDetailModal from '../components/ModuleDetailModal';
+import { ChatSuggestion } from '../components/SmartSuggestions';
 import { useChatStore } from '../stores/chatStore';
+import { isCommand, processCommand } from '../utils/messageProcessor';
+import { processCommand as handleCommand } from '../utils/commandProcessor';
+import { LearningModule, ModuleCategory } from '../types/lms';
 
 interface Message {
   text: string;
@@ -38,6 +46,7 @@ interface Message {
   id: number;
   type?: 'chat' | 'research';
   reaction?: 'like' | 'dislike' | null;
+  commandResponse?: any;
 }
 
 interface Conversation {
@@ -72,18 +81,16 @@ export default function ChatScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const scrollButtonOpacity = useRef(new Animated.Value(0)).current;
+  const [latestMessageId, setLatestMessageId] = useState<number | null>(null);
+  const [useEnhancedMessages, setUseEnhancedMessages] = useState(true);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showModuleDetail, setShowModuleDetail] = useState(false);
+  const [selectedModule, setSelectedModule] = useState<LearningModule | null>(null);
   const chatStore = useChatStore();
 
   useEffect(() => {
-    // Add welcome message matching web app
-    setMessages([
-      {
-        id: 1,
-        text: "Habari! I'm your Kiongozi AI assistant. I'm here to help you explore Kenya's Twin Green & Digital Transition, discover sustainable career paths, and build future-ready skills. What would you like to know about?",
-        isUser: false,
-        type: 'chat',
-      }
-    ]);
+    // Start with empty messages - welcome screen handles the greeting
+    setMessages([]);
 
     // Load saved dark mode preference
     loadDarkModePreference();
@@ -207,15 +214,8 @@ export default function ChatScreen() {
     setCurrentConversation(null);
     setInputText('');
 
-    // Set welcome message
-    setMessages([
-      {
-        id: 1,
-        text: "Habari! I'm your Kiongozi AI assistant. I'm here to help you explore Kenya's Twin Green & Digital Transition, discover sustainable career paths, and build future-ready skills. What would you like to know about?",
-        isUser: false,
-        type: 'chat',
-      }
-    ]);
+    // Start with empty messages - welcome screen will show
+    setMessages([]);
     console.log('✅ Started new chat');
   };
 
@@ -393,6 +393,154 @@ export default function ChatScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const handleSuggestionPress = (suggestion: ChatSuggestion) => {
+    setInputText(suggestion.action);
+    // Auto-send the suggestion
+    setTimeout(() => {
+      sendMessage();
+    }, 100);
+  };
+
+  const handleModulePress = (module: LearningModule) => {
+    // Show module detail modal
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    setSelectedModule(module);
+    setShowModuleDetail(true);
+    
+    console.log('Module pressed:', {
+      id: module.id,
+      title: module.title,
+      category: module.category?.name,
+      difficulty: module.difficulty_level
+    });
+  };
+
+  const handleCategoryPress = (category: ModuleCategory) => {
+    // Handle category press by searching for modules in that category
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    const searchQuery = `/modules ${category.name}`;
+    setInputText(searchQuery);
+    
+    // Auto-send the command
+    setTimeout(() => {
+      sendMessage();
+    }, 100);
+    
+    showToast(`🔍 Searching modules in ${category.name}`, 'info');
+  };
+
+  const handleQuickActionSelect = async (command: string) => {
+    // Handle quick action selection from the menu - execute immediately
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    if (command === 'What would you like to search for?') {
+      // For search action, just set the input text and let user type
+      setInputText('');
+      showToast('💭 Type what you\'d like to search for', 'info');
+    } else {
+      // Execute command immediately without setting input text
+      try {
+        // Check if it's a command and process it directly
+        if (isCommand(command)) {
+          setLoading(true);
+          
+          // Add user message to show what action was selected
+          const userMessage: Message = {
+            text: command,
+            isUser: true,
+            id: Date.now(),
+          };
+          setMessages(prev => [...prev, userMessage]);
+
+          // Process the command
+          const commandResult = await handleCommand(command);
+          
+          // Add AI response with command result
+          const aiMessage: Message = {
+            text: commandResult.content,
+            isUser: false,
+            id: Date.now() + 1,
+            commandResponse: commandResult,
+          };
+          
+          setMessages(prev => [...prev, aiMessage]);
+          setLatestMessageId(aiMessage.id);
+          
+          // Auto-scroll to bottom
+          setTimeout(() => {
+            scrollToBottom();
+          }, 100);
+          
+        } else {
+          // For non-command actions, treat as regular message
+          setInputText(command);
+          setTimeout(() => {
+            sendMessage();
+          }, 100);
+        }
+      } catch (error: any) {
+        console.error('Quick action error:', error);
+        showToast('Sorry, there was an error processing that action.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleQuickActionsPress = () => {
+    setShowQuickActions(true);
+  };
+
+  const handleStartLearning = (module: LearningModule) => {
+    // Handle starting a learning module
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    
+    // For now, show a toast - Phase 4 will add full learning interface
+    showToast(
+      `🚀 Starting "${module.title}"\nThis will open the full learning experience in Phase 4!`,
+      'info'
+    );
+    
+    console.log('Starting learning for module:', module.title);
+  };
+
+  const handleModuleBookmark = async (module: LearningModule, bookmarked: boolean) => {
+    // Handle bookmarking a module
+    try {
+      if (bookmarked) {
+        showToast(`📚 Bookmarked "${module.title}"`, 'success');
+      } else {
+        showToast(`📚 Removed bookmark from "${module.title}"`, 'info');
+      }
+      
+      console.log(`Module ${bookmarked ? 'bookmarked' : 'unbookmarked'}:`, module.title);
+    } catch (error) {
+      showToast('Failed to update bookmark', 'error');
+    }
+  };
+
+  const handleVoiceInput = (transcription: string) => {
+    // Handle voice input transcription
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // Set the transcribed text in the input field
+    setInputText(transcription);
+    
+    // Show feedback toast
+    showToast('🎤 Voice input received!', 'success');
+    
+    console.log('Voice transcription:', transcription);
+    
+    // Auto-send if it's a command or question
+    if (transcription.trim().length > 0) {
+      setTimeout(() => {
+        sendMessage();
+      }, 500); // Small delay to show the text was set
+    }
+  };
+
 
   const sendMessage = async () => {
     if (!inputText.trim()) return;
@@ -411,6 +559,39 @@ export default function ChatScreen() {
 
     // Ensure user is at the bottom for new messages
     setShouldAutoScroll(true);
+
+    // Check if this is a command
+    if (isCommand(messageText)) {
+      try {
+        const commandResponse = await handleCommand(messageText);
+        
+        const commandMessage: Message = {
+          id: Date.now() + 1,
+          text: commandResponse.success ? '' : commandResponse.content,
+          isUser: false,
+          type: 'chat',
+          commandResponse: commandResponse.success ? commandResponse : undefined
+        };
+
+        setMessages(prev => [...prev, commandMessage]);
+        setLatestMessageId(commandMessage.id);
+        setLoading(false);
+        return;
+      } catch (error: any) {
+        console.error('Command processing failed:', error);
+        
+        const errorMessage: Message = {
+          id: Date.now() + 1,
+          text: error.message || 'Command failed. Please try again.',
+          isUser: false,
+          type: 'chat',
+        };
+
+        setMessages(prev => [...prev, errorMessage]);
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       // Step 1: Save user message to backend
@@ -450,6 +631,7 @@ export default function ChatScreen() {
           type: 'chat',
         };
 
+        setLatestMessageId(aiMessage.id); // Track for typewriter effect
         setMessages(prev => [...prev, aiMessage]);
 
 
@@ -557,67 +739,93 @@ export default function ChatScreen() {
       {/* Chat Content */}
       <View style={styles.chatContainer}>
         {/* Messages Container */}
-        <KeyboardAwareScrollView
-          style={[styles.messagesContainer, darkMode ? styles.messagesContainerDark : styles.messagesContainerLight]}
-          contentContainerStyle={styles.messagesContent}
-          ref={scrollViewRef}
-          onContentSizeChange={() => scrollToBottom()}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          enableOnAndroid={true}
-          extraScrollHeight={Platform.OS === 'android' ? 150 : 100}
-          extraHeight={Platform.OS === 'android' ? 120 : 75}
-          enableAutomaticScroll={false}
-          enableResetScrollToCoords={false}
-          keyboardOpeningTime={250}
-          viewIsInsideTabBar={false}
-          innerRef={ref => {
-            scrollViewRef.current = ref;
-          }}
-        >
-          {loadingMessages && (
-            <View style={styles.conversationLoadingWrapper}>
-              <View style={[styles.conversationLoadingContainer, darkMode && styles.conversationLoadingContainerDark]}>
-                <ActivityIndicator size="small" color={darkMode ? '#3b82f6' : '#3b82f6'} />
-                <Text style={[styles.conversationLoadingText, darkMode && styles.conversationLoadingTextDark]}>
-                  Loading conversation...
-                </Text>
+{/* Show welcome screen if no messages */}
+        {!loadingMessages && messages.length === 0 && !loading ? (
+          <WelcomeScreen
+            onSuggestionPress={handleSuggestionPress}
+            darkMode={darkMode}
+            userName={user?.first_name || user?.full_name || 'there'}
+          />
+        ) : (
+          <KeyboardAwareScrollView
+            style={[styles.messagesContainer, darkMode ? styles.messagesContainerDark : styles.messagesContainerLight]}
+            contentContainerStyle={styles.messagesContent}
+            ref={scrollViewRef}
+            onContentSizeChange={() => scrollToBottom()}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            enableOnAndroid={true}
+            extraScrollHeight={Platform.OS === 'android' ? 150 : 100}
+            extraHeight={Platform.OS === 'android' ? 120 : 75}
+            enableAutomaticScroll={false}
+            enableResetScrollToCoords={false}
+            keyboardOpeningTime={250}
+            viewIsInsideTabBar={false}
+            innerRef={ref => {
+              scrollViewRef.current = ref;
+            }}
+          >
+            {loadingMessages && (
+              <View style={styles.conversationLoadingWrapper}>
+                <View style={[styles.conversationLoadingContainer, darkMode && styles.conversationLoadingContainerDark]}>
+                  <ActivityIndicator size="small" color={darkMode ? '#3b82f6' : '#3b82f6'} />
+                  <Text style={[styles.conversationLoadingText, darkMode && styles.conversationLoadingTextDark]}>
+                    Loading conversation...
+                  </Text>
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {!loadingMessages && messages.map((message) => (
-            message.isUser ? (
-              <UserMessage
+{!loadingMessages && messages.map((message, index) => (
+              <View
                 key={message.id}
-                message={message}
-                darkMode={darkMode}
-                onCopy={copyMessage}
-              />
-            ) : (
-              <AIMessage
-                key={message.id}
-                message={message}
-                darkMode={darkMode}
-                onCopy={copyMessage}
-                onReact={reactToMessage}
-              />
-            )
-          ))}
-
-          {loading && (
-            <View style={styles.loadingWrapper}>
-              <View style={[styles.loadingContainer, darkMode && styles.loadingContainerDark]}>
-                <LoadingDots />
-                <Text style={[styles.loadingText, darkMode && styles.loadingTextDark]}>
-                  Thinking...
-                </Text>
+                style={[
+                  !message.isUser && styles.aiMessageBackground,
+                  !message.isUser && darkMode && styles.aiMessageBackgroundDark
+                ]}
+              >
+                {message.isUser ? (
+                  <UserMessage
+                    message={message}
+                    darkMode={darkMode}
+                    onCopy={copyMessage}
+                  />
+                ) : useEnhancedMessages ? (
+                  <EnhancedAIMessage
+                    message={message}
+                    darkMode={darkMode}
+                    onCopy={copyMessage}
+                    onReact={reactToMessage}
+                    showTypewriter={message.id === latestMessageId}
+                    onTypewriterComplete={() => setLatestMessageId(null)}
+                    onModulePress={handleModulePress}
+                    onCategoryPress={handleCategoryPress}
+                  />
+                ) : (
+                  <AIMessage
+                    message={message}
+                    darkMode={darkMode}
+                    onCopy={copyMessage}
+                    onReact={reactToMessage}
+                  />
+                )}
               </View>
-            </View>
-          )}
-        </KeyboardAwareScrollView>
+            ))}
+
+            {loading && (
+              <View style={styles.loadingWrapper}>
+                <View style={[styles.loadingContainer, darkMode && styles.loadingContainerDark]}>
+                  <LoadingDots />
+                  <Text style={[styles.loadingText, darkMode && styles.loadingTextDark]}>
+                    Thinking...
+                  </Text>
+                </View>
+              </View>
+            )}
+          </KeyboardAwareScrollView>
+        )}
 
         {/* Scroll to Bottom Button */}
         <Animated.View
@@ -671,6 +879,8 @@ export default function ChatScreen() {
             loading={loading}
             disabled={false}
             maxLength={1000}
+            onQuickActionsPress={handleQuickActionsPress}
+            onVoiceInput={handleVoiceInput}
           />
         </View>
       </View>
@@ -729,6 +939,27 @@ export default function ChatScreen() {
         onClose={() => setShowExportModal(false)}
         conversations={chatStore.conversations}
         currentConversation={chatStore.currentConversation}
+      />
+
+      {/* Quick Actions Menu */}
+      <QuickActionsMenu
+        visible={showQuickActions}
+        onClose={() => setShowQuickActions(false)}
+        onActionSelect={handleQuickActionSelect}
+        darkMode={darkMode}
+      />
+
+      {/* Module Detail Modal */}
+      <ModuleDetailModal
+        visible={showModuleDetail}
+        module={selectedModule}
+        onClose={() => {
+          setShowModuleDetail(false);
+          setSelectedModule(null);
+        }}
+        darkMode={darkMode}
+        onStartLearning={handleStartLearning}
+        onBookmark={handleModuleBookmark}
       />
 
       {/* Custom Toast */}
@@ -891,7 +1122,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 8, // Reduced from 16 for wider messages
     paddingTop: 20,
     paddingBottom: 20,
   },
@@ -1005,5 +1236,11 @@ const styles = StyleSheet.create({
   },
   conversationLoadingTextDark: {
     color: '#9ca3af',
+  },
+  aiMessageBackground: {
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  },
+  aiMessageBackgroundDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
 });

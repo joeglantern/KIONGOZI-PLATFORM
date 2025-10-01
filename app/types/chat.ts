@@ -27,9 +27,15 @@ export type VoiceInputState = 'idle' | 'listening' | 'processing' | 'error';
 export interface Conversation {
   id: string;
   title: string;
+  slug?: string;
   lastMessage?: string;
+  lastMessageIsUser?: boolean;
+  lastMessageAt?: string;
   updatedAt: string;
+  createdAt?: string;
   messageCount?: number;
+  isStarred?: boolean;
+  isArchived?: boolean;
 }
 
 // Chat settings interface
@@ -51,6 +57,10 @@ export interface ChatState {
   // Current conversation
   currentConversationId: string | null;
   conversations: Conversation[];
+  conversationsLoading: boolean;
+  conversationsError: string | null;
+  hasMoreConversations: boolean;
+  isLoadingMore: boolean;
 
   // UI state
   mode: ChatMode;
@@ -97,6 +107,9 @@ export interface ChatActions {
   createNewConversation: () => void;
   loadConversation: (id: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
+  updateConversation: (conversation: Conversation) => void;
+  loadMoreConversations: () => Promise<void>;
+  refreshConversations: () => Promise<void>;
 
   // Mode actions
   setMode: (mode: ChatMode) => void;
