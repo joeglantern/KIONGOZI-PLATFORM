@@ -47,7 +47,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     conversationsLoading,
     conversationsError,
     hasMoreConversations,
-    isLoadingMore
+    isLoadingMore,
+    exportConversations
   } = useChatContext();
 
   // Handle conversation rename (placeholder - implement API call)
@@ -88,6 +89,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
               conversationsError={conversationsError}
               hasMoreConversations={hasMoreConversations}
               isLoadingMore={isLoadingMore}
+              onExportConversations={exportConversations}
               currentPath="/chat"
               onNavigate={(path) => {
                 // Handle navigation to other parts of the LMS

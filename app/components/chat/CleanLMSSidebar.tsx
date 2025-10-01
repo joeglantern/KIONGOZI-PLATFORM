@@ -15,7 +15,8 @@ import {
   Menu,
   PanelLeft,
   Search,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -23,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Conversation } from '../../types/chat';
 import LearningStatsWidget from './lms-integration/LearningStatsWidget';
+import ExportModal from './ExportModal';
 
 interface CleanLMSSidebarProps {
   conversations: Conversation[];
@@ -38,6 +40,9 @@ interface CleanLMSSidebarProps {
   hasMoreConversations?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => Promise<void>;
+  onConversationDelete?: (id: string) => Promise<void>;
+  onConversationUpdate?: (conversation: Conversation) => void;
+  onExportConversations?: (conversationIds: string[], format: 'text' | 'markdown' | 'json', includeMetadata: boolean) => Promise<void>;
 }
 
 const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
@@ -53,11 +58,15 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
   conversationsError = null,
   hasMoreConversations = false,
   isLoadingMore = false,
-  onLoadMore
+  onLoadMore,
+  onConversationDelete,
+  onConversationUpdate,
+  onExportConversations
 }) => {
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const menuItems = [
     { icon: LayoutGrid, label: 'Dashboard', path: '/dashboard' },
@@ -122,6 +131,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
   };
 
   return (
+    <>
     <motion.div
       animate={{ width: isCollapsed ? 80 : 340 }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
@@ -271,14 +281,35 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                     <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                       {searchQuery ? 'Search Results' : 'Recent'}
                     </h4>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={handleNewConversation}
-                    >
-                      <Plus size={14} />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {onExportConversations && conversations.length > 0 && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => setShowExportModal(true)}
+                              >
+                                <Download size={14} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Export conversations</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={handleNewConversation}
+                      >
+                        <Plus size={14} />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Search Input */}
@@ -407,6 +438,19 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
 
 
     </motion.div>
+
+    {/* Export Modal */}
+    {onExportConversations && (
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        onExport={onExportConversations}
+        darkMode={false} // Use theme context if available
+      />
+    )}
+  </>
   );
 };
 

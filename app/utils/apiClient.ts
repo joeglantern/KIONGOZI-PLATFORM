@@ -47,97 +47,49 @@ class ApiClient {
   }
 
   /**
-   * Get authentication token from various sources with better management
+   * Get authentication token from window (set by SupabaseTokenBridge)
    */
   private getAuthToken(): string | null {
     if (typeof window === 'undefined') return null;
 
-    // Try to get token from window object (set by auth components)
+    // Primary source: window token (set by SupabaseTokenBridge)
     const windowToken = (window as any).supabaseToken;
     if (windowToken && this.isValidTokenFormat(windowToken)) {
       return windowToken;
     }
 
-    // Get the current active token from localStorage with proper cleanup
-    const activeToken = this.getActiveAuthToken();
-    if (activeToken) {
-      return activeToken;
-    }
+    // Secondary fallback: try localStorage (simplified)
+    try {
+      const localStorage = window.localStorage;
+      if (localStorage) {
+        // Try common Supabase auth token patterns
+        const possibleKeys = [
+          'sb-uposzscjqzdttnkcllgy-auth-token',
+          'sb-jdncfyagppohtksogzkx-auth-token',
+          'sb-vjwvtnjsrtakgpvqfpejo-auth-token'
+        ];
 
-    return null;
-  }
-
-  /**
-   * Get the most recently updated valid token and clean up old ones
-   */
-  private getActiveAuthToken(): string | null {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
-
-    const possibleKeys = [
-      'sb-uposzscjqzdttnkcllgy-auth-token',
-      'sb-jdncfyagppohtksogzkx-auth-token',
-      'sb-vjwvtnjsrtakgpvqfpejo-auth-token'
-    ];
-
-    let validTokens: { key: string; token: string; expiresAt: number }[] = [];
-
-    // Collect all valid tokens with their expiration times
-    for (const key of possibleKeys) {
-      const supabaseToken = localStorage.getItem(key);
-      if (supabaseToken) {
-        try {
-          const parsed = JSON.parse(supabaseToken);
-          if (parsed.access_token && this.isValidTokenFormat(parsed.access_token)) {
-            // Try to extract expiration time from JWT payload
-            const tokenPayload = this.getTokenPayload(parsed.access_token);
-            const expiresAt = tokenPayload?.exp ? tokenPayload.exp * 1000 : Date.now() + 3600000; // 1 hour fallback
-
-            if (expiresAt > Date.now()) {
-              validTokens.push({
-                key,
-                token: parsed.access_token,
-                expiresAt
-              });
-            } else {
-              // Clean up expired token
-              localStorage.removeItem(key);
-              console.log(`🧹 [ApiClient] Cleaned up expired token from ${key}`);
+        for (const key of possibleKeys) {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (parsed.access_token && this.isValidTokenFormat(parsed.access_token)) {
+                return parsed.access_token;
+              }
+            } catch {
+              // Ignore parsing errors
             }
           }
-        } catch (e) {
-          // Clean up malformed token
-          localStorage.removeItem(key);
-          console.log(`🧹 [ApiClient] Cleaned up malformed token from ${key}`);
         }
       }
-    }
-
-    // If we have multiple valid tokens, use the one with the latest expiration
-    if (validTokens.length > 0) {
-      const latestToken = validTokens.sort((a, b) => b.expiresAt - a.expiresAt)[0];
-      console.log(`✅ [ApiClient] Using most recent token from ${latestToken.key}`);
-
-      // Clean up older tokens if we have multiple
-      if (validTokens.length > 1) {
-        for (const tokenInfo of validTokens) {
-          if (tokenInfo.key !== latestToken.key) {
-            localStorage.removeItem(tokenInfo.key);
-            console.log(`🧹 [ApiClient] Cleaned up older token from ${tokenInfo.key}`);
-          }
-        }
-      }
-
-      return latestToken.token;
-    }
-
-    // Fallback to direct token storage
-    const directToken = localStorage.getItem('supabase_token') || localStorage.getItem('token');
-    if (directToken && this.isValidTokenFormat(directToken)) {
-      return directToken;
+    } catch (error) {
+      console.warn('⚠️ [ApiClient] Could not access localStorage:', error);
     }
 
     return null;
   }
+
 
   /**
    * Extract payload from JWT token
@@ -172,18 +124,11 @@ class ApiClient {
       if (response.ok) {
         const data: any = await response.json();
         if (data.success && data.data?.access_token) {
-          // Update the token in localStorage
-          if (typeof window !== 'undefined' && window.localStorage) {
-            // Store in the primary Supabase key
-            const tokenData = {
-              access_token: data.data.access_token,
-              refresh_token: data.data.refresh_token,
-              expires_at: data.data.expires_at,
-              user: data.data.user
-            };
-            localStorage.setItem('sb-uposzscjqzdttnkcllgy-auth-token', JSON.stringify(tokenData));
-            console.log('✅ [ApiClient] Token refreshed and stored');
+          // Update window token
+          if (typeof window !== 'undefined') {
+            (window as any).supabaseToken = data.data.access_token;
           }
+          console.log('✅ [ApiClient] Token refreshed');
           return true;
         }
       }
@@ -264,12 +209,6 @@ class ApiClient {
       console.error('❌ [ApiClient] CRITICAL: No authentication token found!', {
         hasWindow: typeof window !== 'undefined',
         windowToken: typeof window !== 'undefined' ? !!(window as any).supabaseToken : false,
-        hasLocalStorage: typeof window !== 'undefined' && !!window.localStorage,
-        supabaseStorageExists: typeof window !== 'undefined' && (
-          !!localStorage.getItem('sb-uposzscjqzdttnkcllgy-auth-token') ||
-          !!localStorage.getItem('sb-jdncfyagppohtksogzkx-auth-token') ||
-          !!localStorage.getItem('sb-vjwvtnjsrtakgpvqfpejo-auth-token')
-        ),
         endpoint,
         url
       });

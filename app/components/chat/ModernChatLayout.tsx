@@ -9,6 +9,7 @@ import { useUser } from '../../contexts/UserContext';
 import MessageList from './MessageList';
 import ProfileMenu from './ProfileMenu';
 import SmartSuggestions from './suggestions/SmartSuggestions';
+import ExportModal from './ExportModal';
 import type { ChatSuggestion } from '../../types/lms-chat';
 
 interface ModernChatLayoutProps {
@@ -25,7 +26,12 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
     sendMessage,
     setInput,
     showSidebar,
-    isSidebarCollapsed
+    isSidebarCollapsed,
+    conversations,
+    currentConversationId,
+    showExportModal,
+    setShowExportModal,
+    exportConversations
   } = useChatContext();
 
   const { user, logout } = useUser();
@@ -77,13 +83,14 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
             userEmail={user?.email || 'user@example.com'}
             userAvatar={user?.avatar_url}
             onLogout={logout}
+            onExport={() => setShowExportModal(true)}
           />
         </div>
       </div>
 
       <AnimatePresence mode="wait">
         {!hasMessages ? (
-          // Empty State - Centered Input
+          // Empty State - Centered Input (Original Design)
           <motion.div
             key="empty-state"
             initial={{ opacity: 0, y: 20 }}
@@ -160,6 +167,14 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+      />
 
     </div>
   );

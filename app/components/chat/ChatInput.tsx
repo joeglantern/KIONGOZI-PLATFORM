@@ -2,10 +2,11 @@
 
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { StopCircle, ArrowUp } from 'lucide-react';
+import { StopCircle, ArrowUp, Grid3X3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ChatInputProps } from '../../types/chat';
 import ChatInputHints from './ChatInputHints';
+import SimpleQuickActionsMenu from './SimpleQuickActionsMenu';
 
 const ChatInput: React.FC<ChatInputProps> = ({
   input,
@@ -23,6 +24,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showHints, setShowHints] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,9 +89,35 @@ const ChatInput: React.FC<ChatInputProps> = ({
     inputRef.current?.focus();
   };
 
+  const handleQuickActionSelect = (command: string) => {
+    onInputChange(command);
+    setShowQuickActions(false);
+    inputRef.current?.focus();
+  };
+
+
   const stopGeneration = () => {
     setIsGenerating(false);
     // This would typically cancel the ongoing request
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDownWithShortcuts = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Ctrl/Cmd + K opens quick actions
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      setShowQuickActions(true);
+      return;
+    }
+
+    // Forward slash opens quick actions (when input is empty)
+    if (e.key === '/' && input.trim() === '') {
+      e.preventDefault();
+      setShowQuickActions(true);
+      return;
+    }
+
+    handleKeyDown(e);
   };
 
   return (
@@ -99,12 +127,26 @@ const ChatInput: React.FC<ChatInputProps> = ({
           isInputFocused ? 'border-gray-300 shadow-xl' : 'shadow-lg'
         }`}>
           <div className="flex items-end gap-3 px-4 py-3">
+            {/* Quick Actions Button */}
+            <Button
+              type="button"
+              onClick={() => setShowQuickActions(true)}
+              size="sm"
+              variant="ghost"
+              className={`rounded-lg w-7 h-7 p-0 min-w-7 shrink-0 transition-all duration-200 hover:bg-gray-100 ${
+                isInputFocused ? 'text-gray-600' : 'text-gray-400'
+              }`}
+              title="Quick Actions (Ctrl+K or /)"
+            >
+              <Grid3X3 size={16} />
+            </Button>
+
             {/* Main textarea */}
             <textarea
               ref={inputRef}
               value={input}
               onChange={handleInputChangeInternal}
-              onKeyDown={handleKeyDown}
+              onKeyDown={handleKeyDownWithShortcuts}
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder={placeholder}
@@ -160,6 +202,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
         onCommandSelect={handleCommandSelect}
         input={input}
         isVisible={showHints && input.trim() === ''}
+      />
+
+      {/* Quick Actions Menu */}
+      <SimpleQuickActionsMenu
+        visible={showQuickActions}
+        onClose={() => setShowQuickActions(false)}
+        onActionSelect={handleQuickActionSelect}
       />
     </div>
   );

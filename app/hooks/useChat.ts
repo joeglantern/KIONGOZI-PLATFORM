@@ -12,7 +12,9 @@ import type {
 import { generateUniqueId, isMobileDevice, formatConversationTitle } from '../utils/chatUtils';
 import { processMessageContent } from '../utils/messageProcessing';
 import { detectArtifacts } from '../utils/artifact-detector';
-import { isCommand, processCommand } from '../utils/chatCommands';
+import { isCommand } from '../utils/messageProcessor';
+import { processCommand } from '../utils/commandProcessor';
+import { exportConversations } from '../utils/exportUtils';
 import apiClient from '../utils/apiClient';
 
 const defaultSettings: ChatSettings = {
@@ -71,6 +73,9 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
 
   // Tools
   const [showToolsMenu, setShowToolsMenu] = useState(false);
+
+  // Export modal
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -541,6 +546,10 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     setShowProgressiveDoc(prev => !prev);
   }, []);
 
+  const toggleExportModal = useCallback(() => {
+    setShowExportModal(prev => !prev);
+  }, []);
+
   const handleTypingComplete = useCallback((messageId: number) => {
     setMessages(prev =>
       prev.map(msg =>
@@ -554,6 +563,50 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
       setTypingMessageId(null);
     }
   }, [typingMessageId]);
+
+  const handleExportConversations = useCallback(async (
+    conversationIds: string[],
+    format: 'text' | 'markdown' | 'json',
+    includeMetadata: boolean
+  ) => {
+    try {
+      // Get the conversations to export
+      const conversationsToExport = conversations.filter(conv =>
+        conversationIds.includes(conv.id)
+      );
+
+      if (conversationsToExport.length === 0) {
+        throw new Error('No conversations found to export');
+      }
+
+      // For each conversation, ensure we have the full message data
+      const conversationsWithMessages = await Promise.all(
+        conversationsToExport.map(async (conv) => {
+          if (!conv.messages || conv.messages.length === 0) {
+            // Load messages for this conversation if not already loaded
+            try {
+              const response = await apiClient.get(`/conversations/${conv.id}/messages`);
+              if (response.success && response.data) {
+                return {
+                  ...conv,
+                  messages: response.data
+                };
+              }
+            } catch (error) {
+              console.warn(`Failed to load messages for conversation ${conv.id}:`, error);
+            }
+          }
+          return conv;
+        })
+      );
+
+      // Use the export utility to generate and download the file
+      await exportConversations(conversationsWithMessages, format, includeMetadata);
+    } catch (error: any) {
+      console.error('Export error:', error);
+      throw new Error(error.message || 'Failed to export conversations');
+    }
+  }, [conversations]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -591,6 +644,7 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     showProgressiveDoc,
     docGenEnabled,
     showToolsMenu,
+    showExportModal,
     isMobile,
 
     // Actions
@@ -617,6 +671,11 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     toggleProgressiveDoc,
     setDocGenEnabled,
     setShowToolsMenu,
+    toggleExportModal,
+    setShowExportModal,
+
+    // Export functions
+    exportConversations: handleExportConversations,
 
     // Additional utility functions would go here
   };

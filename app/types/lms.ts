@@ -25,9 +25,12 @@ export interface LearningModule {
   learning_objectives: string[];
   keywords: string[];
   prerequisites?: string[];
-  is_featured: boolean;
-  is_published: boolean;
+  featured: boolean; // Aligned with mobile app
+  is_featured?: boolean; // Keep for backward compatibility
+  status: 'draft' | 'published' | 'archived'; // Aligned with mobile app
+  is_published?: boolean; // Keep for backward compatibility
   view_count: number;
+  published_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -48,16 +51,18 @@ export interface UserProgress {
 
 export interface LearningStats {
   total_modules: number;
-  modules_started: number;
-  modules_completed: number;
-  modules_in_progress: number;
-  modules_bookmarked: number;
+  completed_modules: number;
+  in_progress_modules: number;
+  bookmarked_modules: number;
+  total_time_spent_minutes: number;
   completion_rate: number;
-  average_progress: number;
-  total_time_spent: number;
-  learning_streak: number;
-  categories_progress: CategoryProgress[];
-  recent_activity: RecentActivity[];
+  current_streak_days: number;
+  longest_streak_days: number;
+  recent_activity: UserProgress[];
+  favorite_categories: {
+    category: ModuleCategory;
+    modules_completed: number;
+  }[];
 }
 
 export interface CategoryProgress {
@@ -143,6 +148,48 @@ export interface ProgressIndicatorProps {
   size?: 'sm' | 'md' | 'lg';
   showPercentage?: boolean;
   className?: string;
+}
+
+// Command Response Types for Chat Integration
+export interface ModuleCommandResponse {
+  type: 'modules';
+  title: string;
+  description: string;
+  modules: LearningModule[];
+  total_count?: number;
+  category?: ModuleCategory;
+  search_query?: string;
+}
+
+export interface ProgressCommandResponse {
+  type: 'progress';
+  title: string;
+  description: string;
+  stats: LearningStats;
+  recent_modules: UserProgress[];
+}
+
+export interface CategoryCommandResponse {
+  type: 'categories';
+  title: string;
+  description: string;
+  categories: ModuleCategory[];
+}
+
+// Union type for all command responses
+export type CommandResponse =
+  | ModuleCommandResponse
+  | ProgressCommandResponse
+  | CategoryCommandResponse;
+
+// Enhanced interface for command processing
+export interface EnhancedCommandResponse {
+  type: 'command_response';
+  command: string;
+  title: string;
+  content: string;
+  success: boolean;
+  data?: CommandResponse;
 }
 
 // Learning Path types (for future implementation)

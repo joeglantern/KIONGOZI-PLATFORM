@@ -1,5 +1,6 @@
 import type { ResearchResponse } from '../utils/deep-research-agent';
 import type { Artifact } from '../components/artifacts/types';
+import type { EnhancedCommandResponse } from './lms';
 
 // Use the ResearchResponse type as DeepResearchResponse for all references
 export type DeepResearchResponse = ResearchResponse;
@@ -13,7 +14,7 @@ export interface Message {
   researchData?: DeepResearchResponse;
   isTypingComplete?: boolean;
   artifacts?: Artifact[];
-  commandResponse?: any; // For command responses like search results
+  commandResponse?: EnhancedCommandResponse; // For command responses like search results
 }
 
 
@@ -92,6 +93,9 @@ export interface ChatState {
   // Tools
   showToolsMenu: boolean;
 
+  // Export modal
+  showExportModal: boolean;
+
   // Mobile
   isMobile: boolean;
 }
@@ -142,6 +146,11 @@ export interface ChatActions {
 
   // Tools actions
   setShowToolsMenu: (show: boolean) => void;
+
+  // Export actions
+  toggleExportModal: () => void;
+  setShowExportModal: (show: boolean) => void;
+  exportConversations: (conversationIds: string[], format: 'text' | 'markdown' | 'json', includeMetadata: boolean) => Promise<void>;
 }
 
 // Combined chat context interface

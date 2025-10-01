@@ -20,23 +20,133 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Default quick action suggestions
-  const defaultQuickActions: ChatSuggestion[] = [
+  // Enhanced suggestion categories with mobile app content
+  const categoryBasedSuggestions: ChatSuggestion[] = [
+    // Learning Category
+    {
+      id: 'learn-modules',
+      type: 'quick_action',
+      title: 'Show me learning modules',
+      action: '/modules',
+      description: 'Browse all available learning modules',
+      icon: '📚',
+      category: 'Learning'
+    },
+    {
+      id: 'learn-green-tech',
+      type: 'smart_question',
+      title: 'Green technology modules',
+      action: 'What learning modules are available about sustainable technology and green innovation?',
+      description: 'Explore sustainable technology learning',
+      icon: '🌱',
+      category: 'Learning'
+    },
+    {
+      id: 'learn-progress',
+      type: 'quick_action',
+      title: 'Check my progress',
+      action: '/progress',
+      description: 'See your learning statistics and completed modules',
+      icon: '📊',
+      category: 'Learning'
+    },
+    {
+      id: 'learn-digital-skills',
+      type: 'smart_question',
+      title: 'Digital skills training',
+      action: 'What digital skills training modules are available for career advancement?',
+      description: 'Enhance your digital capabilities',
+      icon: '💻',
+      category: 'Learning'
+    },
+
+    // Career Category
+    {
+      id: 'career-green-economy',
+      type: 'smart_question',
+      title: 'Career paths in green economy',
+      action: 'What career opportunities are available in Kenya\'s green economy and sustainability sector?',
+      description: 'Explore green career opportunities',
+      icon: '💼',
+      category: 'Career'
+    },
+    {
+      id: 'career-entrepreneurship',
+      type: 'smart_question',
+      title: 'Digital entrepreneurship guide',
+      action: 'How can I start a digital business in Kenya? What skills and resources do I need?',
+      description: 'Start your digital business journey',
+      icon: '🚀',
+      category: 'Career'
+    },
+    {
+      id: 'career-remote-work',
+      type: 'smart_question',
+      title: 'Remote work opportunities',
+      action: 'What remote work opportunities are available for Kenyan youth in the digital economy?',
+      description: 'Find remote work opportunities',
+      icon: '🌍',
+      category: 'Career'
+    },
+
+    // Technology Category
+    {
+      id: 'tech-trends-kenya',
+      type: 'smart_question',
+      title: 'Latest tech trends in Kenya',
+      action: 'What are the latest technology trends and innovations happening in Kenya right now?',
+      description: 'Stay updated with tech trends',
+      icon: '📱',
+      category: 'Technology'
+    },
+    {
+      id: 'tech-ai-ml',
+      type: 'smart_question',
+      title: 'Learn about AI and machine learning',
+      action: 'How can I get started with artificial intelligence and machine learning? What resources are available?',
+      description: 'Dive into AI and machine learning',
+      icon: '🤖',
+      category: 'Technology'
+    },
+    {
+      id: 'tech-renewable-energy',
+      type: 'smart_question',
+      title: 'Renewable energy technologies',
+      action: 'What renewable energy technologies are most relevant for Kenya\'s future?',
+      description: 'Explore renewable energy tech',
+      icon: '☀️',
+      category: 'Technology'
+    },
+
+    // General Category
+    {
+      id: 'general-platform',
+      type: 'smart_question',
+      title: 'What is Kiongozi Platform?',
+      action: 'Tell me about the Kiongozi Platform and how it can help me with my learning journey.',
+      description: 'Learn about the platform',
+      icon: '❓',
+      category: 'General'
+    },
+    {
+      id: 'general-transition',
+      type: 'smart_question',
+      title: 'Twin Green & Digital Transition',
+      action: 'Explain Kenya\'s Twin Green and Digital Transition strategy and how it affects young people.',
+      description: 'Understand Kenya\'s digital transformation',
+      icon: '🔄',
+      category: 'General'
+    },
+
+    // Quick Actions
     {
       id: 'search_command',
       type: 'quick_action',
       title: 'Search modules',
       action: '/search ',
       description: 'Type /search followed by keywords to find modules',
-      icon: '🔍'
-    },
-    {
-      id: 'progress_command',
-      type: 'quick_action',
-      title: 'Check progress',
-      action: '/progress',
-      description: 'See your learning statistics and completed modules',
-      icon: '📊'
+      icon: '🔍',
+      category: 'Quick Actions'
     },
     {
       id: 'help_command',
@@ -44,7 +154,8 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
       title: 'Show commands',
       action: '/help',
       description: 'See all available chat commands',
-      icon: '❓'
+      icon: '❓',
+      category: 'Quick Actions'
     }
   ];
 
@@ -90,19 +201,39 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
         ? popularResponse.data.slice(0, 1).map(module => generateSuggestionFromModule(module, 'trending_module'))
         : [];
 
-      // Combine all suggestions
-      const allSuggestions = [
+      // Combine all suggestions with intelligent mixing
+      const dynamicSuggestions = [
         ...featuredSuggestions,
         ...recentSuggestions,
-        ...popularSuggestions,
-        ...defaultQuickActions
+        ...popularSuggestions
+      ];
+
+      // Mix dynamic suggestions with category-based suggestions
+      const categoryBasedSelection = categoryBasedSuggestions
+        .sort(() => Math.random() - 0.5) // Randomize for variety
+        .slice(0, Math.max(2, maxSuggestions - dynamicSuggestions.length));
+
+      const allSuggestions = [
+        ...dynamicSuggestions,
+        ...categoryBasedSelection
       ].slice(0, maxSuggestions);
 
       setSuggestions(allSuggestions);
 
       // Group by categories if requested
       if (showCategories) {
+        // Group category-based suggestions by category
+        const groupedByCategory = categoryBasedSuggestions.reduce((acc, suggestion) => {
+          const category = suggestion.category || 'General';
+          if (!acc[category]) {
+            acc[category] = [];
+          }
+          acc[category].push(suggestion);
+          return acc;
+        }, {} as Record<string, ChatSuggestion[]>);
+
         const categorizedSuggestions: SuggestionCategory[] = [
+          // Dynamic categories first
           {
             id: 'featured',
             title: 'Featured Content',
@@ -121,11 +252,36 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
             icon: '🆕',
             suggestions: recentSuggestions
           },
+          // Category-based suggestions
+          {
+            id: 'learning',
+            title: 'Learning',
+            icon: '📚',
+            suggestions: groupedByCategory['Learning'] || []
+          },
+          {
+            id: 'career',
+            title: 'Career',
+            icon: '💼',
+            suggestions: groupedByCategory['Career'] || []
+          },
+          {
+            id: 'technology',
+            title: 'Technology',
+            icon: '🔬',
+            suggestions: groupedByCategory['Technology'] || []
+          },
           {
             id: 'actions',
             title: 'Quick Actions',
             icon: '⚡',
-            suggestions: defaultQuickActions
+            suggestions: groupedByCategory['Quick Actions'] || []
+          },
+          {
+            id: 'general',
+            title: 'General',
+            icon: '💡',
+            suggestions: groupedByCategory['General'] || []
           }
         ].filter(category => category.suggestions.length > 0);
 
@@ -135,8 +291,11 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
     } catch (err) {
       console.error('Failed to fetch suggestions:', err);
       setError('Failed to load suggestions');
-      // Fallback to default suggestions
-      setSuggestions(defaultQuickActions);
+      // Fallback to category-based suggestions
+      const fallbackSuggestions = categoryBasedSuggestions
+        .sort(() => Math.random() - 0.5)
+        .slice(0, maxSuggestions);
+      setSuggestions(fallbackSuggestions);
     } finally {
       setIsLoading(false);
     }

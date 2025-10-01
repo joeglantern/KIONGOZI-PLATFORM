@@ -8,7 +8,8 @@ import {
   LogOut,
   HelpCircle,
   MessageCircle,
-  ChevronDown
+  ChevronDown,
+  Download
 } from 'lucide-react';
 
 interface ProfileMenuProps {
@@ -19,6 +20,7 @@ interface ProfileMenuProps {
   userEmail?: string;
   userAvatar?: string;
   onLogout?: () => void;
+  onExport?: () => void;
 }
 
 const ProfileMenu: React.FC<ProfileMenuProps> = ({
@@ -28,7 +30,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   userName = 'User',
   userEmail = 'user@example.com',
   userAvatar,
-  onLogout
+  onLogout,
+  onExport
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +65,16 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       icon: Settings,
       label: 'Settings',
       action: () => handleNavigation('/settings')
+    },
+    {
+      icon: Download,
+      label: 'Export Conversations',
+      action: () => {
+        onClose();
+        if (onExport) {
+          onExport();
+        }
+      }
     },
     {
       icon: HelpCircle,

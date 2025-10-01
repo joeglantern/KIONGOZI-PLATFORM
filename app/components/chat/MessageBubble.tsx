@@ -10,6 +10,7 @@ import MagicalTypewriter from './MagicalTypewriter';
 import CompactArtifact from '../artifacts/CompactArtifact';
 import ResearchOutput from '../ResearchOutput';
 import CommandResponseBubble from './CommandResponseBubble';
+import CommandResponseCard from './CommandResponseCard';
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -45,19 +46,38 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     // Command response content (check this FIRST before checking for empty text)
     if (message.commandResponse) {
-      return (
-        <CommandResponseBubble
-          response={message.commandResponse}
-          onModuleSelect={(module) => {
-            // Handle module selection - could open module details or start module
-            console.log('Module selected:', module);
-          }}
-          onBookmark={(moduleId, bookmarked) => {
-            // Handle bookmark action
-            console.log('Bookmark action:', moduleId, bookmarked);
-          }}
-        />
-      );
+      // Check if it's our enhanced command response
+      if (message.commandResponse.type === 'command_response') {
+        return (
+          <CommandResponseCard
+            response={message.commandResponse}
+            darkMode={darkMode}
+            onModulePress={(module) => {
+              // Handle module selection - could open module details or start module
+              console.log('Module selected:', module);
+            }}
+            onCategoryPress={(category) => {
+              // Handle category selection
+              console.log('Category selected:', category);
+            }}
+          />
+        );
+      } else {
+        // Fall back to existing CommandResponseBubble for legacy responses
+        return (
+          <CommandResponseBubble
+            response={message.commandResponse}
+            onModuleSelect={(module) => {
+              // Handle module selection - could open module details or start module
+              console.log('Module selected:', module);
+            }}
+            onBookmark={(moduleId, bookmarked) => {
+              // Handle bookmark action
+              console.log('Bookmark action:', moduleId, bookmarked);
+            }}
+          />
+        );
+      }
     }
 
     // AI message content
