@@ -123,12 +123,12 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
 
   return (
     <motion.div
-      animate={{ width: isCollapsed ? 80 : 320 }}
+      animate={{ width: isCollapsed ? 80 : 340 }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-      className="h-full max-h-screen bg-white border-r border-gray-300/40 flex flex-col relative shadow-sm overflow-visible"
+      className="h-full max-h-screen bg-white border-r border-gray-300/40 flex flex-col relative shadow-sm"
     >
-      {/* Sidebar Collapse Toggle - Positioned at sidebar edge */}
-      <div className="absolute -right-3 top-3 z-20">
+      {/* Sidebar Collapse Toggle - Positioned inside sidebar */}
+      <div className="absolute right-2 top-3 z-20">
         <motion.button
           onClick={onToggleCollapse}
           whileHover={{ scale: 1.05 }}
@@ -229,9 +229,9 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
         /* Expanded View - Full Sidebar */
         <div className="flex-1 min-h-0 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="space-y-4">
+            <div className="space-y-4 w-full overflow-hidden">
               {/* Navigation */}
-              <div className="p-2 pr-6 space-y-0.5">
+              <div className="p-2 pr-10 space-y-0.5">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = currentPath === item.path;
@@ -254,7 +254,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
               </div>
 
               {/* Learning Stats Widget */}
-              <div className="px-2 pr-6">
+              <div className="px-2 pr-10">
                 <LearningStatsWidget
                   variant="compact"
                   showProgress={true}
@@ -267,7 +267,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
               {currentPath === '/chat' && (
                 <div>
                   {/* Recent Chats Header */}
-                  <div className="px-3 pr-6 py-2 flex items-center justify-between">
+                  <div className="px-3 pr-10 py-2 flex items-center justify-between">
                     <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                       {searchQuery ? 'Search Results' : 'Recent'}
                     </h4>
@@ -282,7 +282,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                   </div>
 
                   {/* Search Input */}
-                  <div className="px-3 pr-6 pb-3">
+                  <div className="px-3 pr-10 pb-3">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <input
@@ -304,7 +304,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                   </div>
 
                   {/* Conversations List */}
-                  <div className="px-2 pr-6 space-y-1 pb-4">
+                  <div className="px-2 pr-10 space-y-1 pb-4 w-full overflow-hidden">
                     {/* Loading State */}
                     {conversationsLoading && (
                       <div className="space-y-2">
@@ -337,25 +337,25 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                           <div
                             key={conv.id}
                             onClick={() => handleConversationClick(conv)}
-                            className={`w-full text-left px-3 py-3 rounded-md text-sm transition-colors cursor-pointer ${
+                            className={`w-full text-left px-3 py-3 rounded-md text-sm transition-colors cursor-pointer overflow-hidden ${
                               currentConversationId === conv.id
                                 ? 'bg-gray-100 text-gray-900'
                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                             }`}
                           >
-                            <div className="flex-1 truncate font-medium mb-1">
+                            <div className="truncate font-medium mb-1 max-w-full">
                               {conv.title}
                             </div>
                             {conv.lastMessage && (
-                              <div className="truncate text-xs text-gray-500 mb-1">
+                              <div className="truncate text-xs text-gray-500 mb-1 max-w-full">
                                 {conv.lastMessage}
                               </div>
                             )}
-                            <div className="flex items-center justify-between text-xs text-gray-400">
-                              <span>
+                            <div className="flex items-center justify-between text-xs text-gray-400 min-w-0">
+                              <span className="truncate flex-1 mr-2">
                                 {conv.messageCount ? `${conv.messageCount} messages` : ''}
                               </span>
-                              <span>
+                              <span className="flex-shrink-0">
                                 {conv.updatedAt && formatTimestamp(conv.updatedAt)}
                               </span>
                             </div>
