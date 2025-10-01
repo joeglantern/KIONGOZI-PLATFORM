@@ -98,7 +98,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
 
   // Handle new conversation navigation
   const handleNewConversation = () => {
-    router.push('/chat');
+    router.push('/');
     onNewConversation();
   };
 
