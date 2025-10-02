@@ -2,8 +2,7 @@
 
 /**
  * ExportModal Component
- * Allows users to export conversation history in multiple formats
- * Supports Text, Markdown, and JSON exports with metadata
+ * Simplified text-only export to match mobile app functionality
  */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,18 +10,12 @@ import {
   X,
   Download,
   FileText,
-  Code,
-  FileJson,
-  Calendar,
   MessageCircle,
-  User,
-  Clock,
   CheckCircle2,
   AlertCircle,
   Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { exportConversations, getExportPreview, validateExportData, type ExportFormat } from '../../utils/exportUtils';
 import type { Conversation, Message } from '../../types/chat';
 
 interface ExportModalProps {
@@ -34,8 +27,8 @@ interface ExportModalProps {
 }
 
 interface ExportOptions {
-  format: ExportFormat;
   includeMetadata: boolean;
+  includeTimestamps: boolean;
   selectedConversations: string[];
   exportAll: boolean;
 }
@@ -48,10 +41,10 @@ export default function ExportModal({
   darkMode = false
 }: ExportModalProps) {
   const [options, setOptions] = useState<ExportOptions>({
-    format: 'markdown',
     includeMetadata: true,
+    includeTimestamps: true,
     selectedConversations: currentConversationId ? [currentConversationId] : [],
-    exportAll: false
+    exportAll: conversations.length > 0 ? true : false // Default to export all if conversations exist
   });
 
   const [isExporting, setIsExporting] = useState(false);
@@ -61,14 +54,14 @@ export default function ExportModal({
   useEffect(() => {
     if (isOpen) {
       setOptions({
-        format: 'markdown',
         includeMetadata: true,
-        selectedConversations: currentConversationId ? [currentConversationId] : [],
-        exportAll: false
+        includeTimestamps: true,
+        selectedConversations: currentConversationId ? [currentConversationId] : conversations.map(c => c.id),
+        exportAll: conversations.length > 0 ? true : false // Default to export all
       });
       setExportStatus('idle');
     }
-  }, [isOpen, currentConversationId]);
+  }, [isOpen, currentConversationId, conversations]);
 
   // Handle escape key
   useEffect(() => {
@@ -89,29 +82,13 @@ export default function ExportModal({
     };
   }, [isOpen, onClose]);
 
-  const formatOptions = [
-    {
-      value: 'text' as ExportFormat,
-      label: 'Plain Text',
-      description: 'Simple text format, easy to read',
-      icon: FileText,
-      extension: '.txt'
-    },
-    {
-      value: 'markdown' as ExportFormat,
-      label: 'Markdown',
-      description: 'Structured format with formatting preserved',
-      icon: Code,
-      extension: '.md'
-    },
-    {
-      value: 'json' as ExportFormat,
-      label: 'JSON',
-      description: 'Machine-readable format with full data',
-      icon: FileJson,
-      extension: '.json'
-    }
-  ];
+  // Simple text export format like mobile app
+  const exportFormat = {
+    label: 'Plain Text',
+    description: 'Simple text format, easy to read and share',
+    icon: FileText,
+    extension: '.txt'
+  };
 
   const handleConversationToggle = (conversationId: string) => {
     if (options.exportAll) return; // Don't allow individual selection when export all is enabled
@@ -132,6 +109,71 @@ export default function ExportModal({
     }));
   };
 
+  // Simple text export function like mobile app
+  const formatAsText = (conversations: Conversation[], options: ExportOptions): string => {
+    const { includeTimestamps, includeMetadata } = options;
+    let content = '';
+
+    if (includeMetadata) {
+      content += 'Kiongozi Platform - Conversation Export\n';
+      content += `Generated on: ${new Date().toLocaleString()}\n`;
+      content += `Total Conversations: ${conversations.length}\n`;
+      content += '='.repeat(50) + '\n\n';
+    }
+
+    conversations.forEach((conversation, index) => {
+      const title = conversation.title || `Conversation ${index + 1}`;
+      content += `${title}\n`;
+      content += '-'.repeat(title.length) + '\n';
+
+      // Safe date formatting to fix "Invalid Date" issue
+      if (includeTimestamps && conversation.createdAt) {
+        try {
+          const date = new Date(conversation.createdAt);
+          if (!isNaN(date.getTime())) {
+            content += `Created: ${date.toLocaleString()}\n`;
+          }
+        } catch (e) {
+          // Skip invalid dates silently
+        }
+      }
+
+      content += '\n';
+
+      // Add basic conversation info since we don't have full messages
+      if (conversation.lastMessage) {
+        content += `Last message: ${conversation.lastMessage}\n`;
+      }
+      if (conversation.messageCount) {
+        content += `Total messages: ${conversation.messageCount}\n`;
+      }
+
+      content += '\n' + '='.repeat(50) + '\n\n';
+    });
+
+    if (includeMetadata) {
+      content += '\n---\nGenerated by Kiongozi Platform - Learning Management System\n';
+    }
+
+    return content;
+  };
+
+  const downloadFile = (content: string, filename: string): void => {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  };
+
   const handleExport = async () => {
     try {
       setIsExporting(true);
@@ -146,15 +188,14 @@ export default function ExportModal({
         return;
       }
 
-      // Validate export data
-      if (!validateExportData(conversationsToExport)) {
-        console.error('Invalid conversation data for export');
-        setExportStatus('error');
-        return;
-      }
+      // Format as text and download
+      const content = formatAsText(conversationsToExport, options);
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = conversationsToExport.length === 1
+        ? `kiongozi-conversation-${conversationsToExport[0].title?.replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').toLowerCase() || 'untitled'}-${timestamp}.txt`
+        : `kiongozi-conversations-${conversationsToExport.length}-${timestamp}.txt`;
 
-      // Use the export utility to handle the export
-      await exportConversations(conversationsToExport, options.format, options.includeMetadata);
+      downloadFile(content, filename);
       setExportStatus('success');
 
       // Auto close after success
@@ -169,17 +210,15 @@ export default function ExportModal({
     }
   };
 
-  const selectedFormat = formatOptions.find(f => f.value === options.format);
   const selectedCount = options.exportAll ? conversations.length : options.selectedConversations.length;
 
-  // Get export preview
   const selectedConversations = options.exportAll
     ? conversations
     : conversations.filter(c => options.selectedConversations.includes(c.id));
 
-  const exportPreview = selectedConversations.length > 0
-    ? getExportPreview(selectedConversations, options.format, options.includeMetadata)
-    : null;
+  const getTotalMessages = (conversations: Conversation[]): number => {
+    return conversations.reduce((sum, conv) => sum + (conv.messageCount || 0), 0);
+  };
 
   if (!isOpen) return null;
 
@@ -189,7 +228,7 @@ export default function ExportModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4"
         onClick={onClose}
       >
         <motion.div
@@ -197,7 +236,7 @@ export default function ExportModal({
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 500 }}
-          className={`w-full max-w-2xl max-h-[90vh] rounded-xl overflow-hidden shadow-2xl ${
+          className={`w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] min-h-[400px] sm:min-h-[500px] rounded-xl overflow-hidden shadow-2xl flex flex-col ${
             darkMode
               ? 'bg-gray-900 border border-gray-700'
               : 'bg-white border border-gray-200'
@@ -232,59 +271,42 @@ export default function ExportModal({
             </button>
           </div>
 
-          <div className="max-h-[70vh] overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             <div className="p-6 space-y-6">
-              {/* Format Selection */}
+              {/* Format Info - Fixed format like mobile */}
               <div>
                 <h3 className={`text-lg font-semibold mb-3 ${
                   darkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  Export Format
+                  Export Format: Plain Text
                 </h3>
-                <div className="grid gap-3">
-                  {formatOptions.map((format) => {
-                    const Icon = format.icon;
-                    return (
-                      <button
-                        key={format.value}
-                        onClick={() => setOptions(prev => ({ ...prev, format: format.value }))}
-                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                          options.format === format.value
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : darkMode
-                              ? 'border-gray-700 hover:border-gray-600 bg-gray-800'
-                              : 'border-gray-200 hover:border-gray-300 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <Icon size={20} className={`mt-0.5 ${
-                            options.format === format.value
-                              ? 'text-blue-600'
-                              : darkMode ? 'text-gray-400' : 'text-gray-500'
-                          }`} />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`font-medium ${
-                                darkMode ? 'text-white' : 'text-gray-900'
-                              }`}>
-                                {format.label}
-                              </span>
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {format.extension}
-                              </span>
-                            </div>
-                            <p className={`text-sm mt-1 ${
-                              darkMode ? 'text-gray-400' : 'text-gray-600'
-                            }`}>
-                              {format.description}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className={`p-4 rounded-lg border ${
+                  darkMode
+                    ? 'bg-gray-800 border-gray-700'
+                    : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <FileText size={20} className={darkMode ? 'text-gray-400' : 'text-gray-500'} />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium ${
+                          darkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {exportFormat.label}
+                        </span>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {exportFormat.extension}
+                        </span>
+                      </div>
+                      <p className={`text-sm mt-1 ${
+                        darkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {exportFormat.description}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -361,8 +383,15 @@ export default function ExportModal({
                               {conversation.messageCount || 0} messages
                             </span>
                             <span className="flex items-center gap-1">
-                              <Calendar size={12} />
-                              {new Date(conversation.updatedAt).toLocaleDateString()}
+                              <MessageCircle size={12} />
+                              {(() => {
+                                try {
+                                  const date = new Date(conversation.updatedAt);
+                                  return !isNaN(date.getTime()) ? date.toLocaleDateString() : 'No date';
+                                } catch (e) {
+                                  return 'No date';
+                                }
+                              })()}
                             </span>
                           </div>
                         </div>
@@ -385,33 +414,60 @@ export default function ExportModal({
                 <h3 className={`text-lg font-semibold mb-3 ${
                   darkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  Export Options
+                  Include Options
                 </h3>
 
-                <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${
-                  darkMode
-                    ? 'bg-gray-800 border-gray-700 hover:bg-gray-750'
-                    : 'bg-white border-gray-200 hover:bg-gray-50'
-                }`}>
-                  <input
-                    type="checkbox"
-                    checked={options.includeMetadata}
-                    onChange={(e) => setOptions(prev => ({ ...prev, includeMetadata: e.target.checked }))}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <div className="flex-1">
-                    <span className={`font-medium ${
-                      darkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      Include Metadata
-                    </span>
-                    <p className={`text-sm ${
-                      darkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      Add timestamps, message counts, and participant information
-                    </p>
-                  </div>
-                </label>
+                <div className="space-y-3">
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${
+                    darkMode
+                      ? 'bg-gray-800 border-gray-700 hover:bg-gray-750'
+                      : 'bg-white border-gray-200 hover:bg-gray-50'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={options.includeTimestamps}
+                      onChange={(e) => setOptions(prev => ({ ...prev, includeTimestamps: e.target.checked }))}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <span className={`font-medium ${
+                        darkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        Include Timestamps
+                      </span>
+                      <p className={`text-sm ${
+                        darkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        Add date and time information to conversations
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${
+                    darkMode
+                      ? 'bg-gray-800 border-gray-700 hover:bg-gray-750'
+                      : 'bg-white border-gray-200 hover:bg-gray-50'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={options.includeMetadata}
+                      onChange={(e) => setOptions(prev => ({ ...prev, includeMetadata: e.target.checked }))}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <span className={`font-medium ${
+                        darkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        Include Metadata
+                      </span>
+                      <p className={`text-sm ${
+                        darkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        Add export information and platform details
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* Export Status */}
@@ -437,48 +493,44 @@ export default function ExportModal({
           </div>
 
           {/* Footer */}
-          <div className={`flex items-center justify-between p-6 border-t ${
+          <div className={`flex-shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 sm:p-6 border-t ${
             darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-100 bg-gray-50'
           }`}>
             <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              {selectedCount > 0 && exportPreview ? (
+              {selectedCount > 0 ? (
                 <>
-                  {selectedCount} conversation{selectedCount !== 1 ? 's' : ''} selected
-                  {selectedFormat && ` • ${selectedFormat.label} format`}
+                  {selectedCount} conversation{selectedCount !== 1 ? 's' : ''} selected • Plain Text format
                   <br />
                   <span className="text-xs">
-                    {exportPreview.messageCount} messages • Est. size: {exportPreview.size}
+                    {getTotalMessages(selectedConversations)} total messages
                   </span>
-                </>
-              ) : selectedCount > 0 ? (
-                <>
-                  {selectedCount} conversation{selectedCount !== 1 ? 's' : ''} selected
-                  {selectedFormat && ` • ${selectedFormat.label} format`}
                 </>
               ) : (
                 'No conversations selected'
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Button
                 variant="outline"
                 onClick={onClose}
                 disabled={isExporting}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleExport}
                 disabled={selectedCount === 0 || isExporting}
-                className="flex items-center gap-2"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 sm:px-8 py-3 text-base font-semibold"
+                size="lg"
               >
                 {isExporting ? (
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2 size={18} className="animate-spin" />
                 ) : (
-                  <Download size={16} />
+                  <Download size={18} />
                 )}
-                {isExporting ? 'Exporting...' : 'Export'}
+                {isExporting ? 'Exporting...' : 'Export Conversations'}
               </Button>
             </div>
           </div>

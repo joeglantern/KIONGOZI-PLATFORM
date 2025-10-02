@@ -6,6 +6,11 @@ import type { Conversation, Message } from '../types/chat';
 
 export type ExportFormat = 'text' | 'markdown' | 'json';
 
+// Extended conversation interface specifically for export purposes
+export interface ExportableConversation extends Conversation {
+  messages: Message[];
+}
+
 interface ExportOptions {
   includeMetadata: boolean;
   format: ExportFormat;
@@ -15,7 +20,7 @@ interface ExportOptions {
  * Export conversations to specified format and trigger download
  */
 export async function exportConversations(
-  conversations: Conversation[],
+  conversations: ExportableConversation[],
   format: ExportFormat,
   includeMetadata: boolean = true
 ): Promise<void> {
@@ -56,7 +61,7 @@ export async function exportConversations(
 /**
  * Format conversations as plain text
  */
-function formatAsText(conversations: Conversation[], options: ExportOptions): string {
+function formatAsText(conversations: ExportableConversation[], options: ExportOptions): string {
   const { includeMetadata } = options;
   let output = '';
 
@@ -105,7 +110,7 @@ function formatAsText(conversations: Conversation[], options: ExportOptions): st
 /**
  * Format conversations as Markdown
  */
-function formatAsMarkdown(conversations: Conversation[], options: ExportOptions): string {
+function formatAsMarkdown(conversations: ExportableConversation[], options: ExportOptions): string {
   const { includeMetadata } = options;
   let output = '';
 
@@ -154,7 +159,7 @@ function formatAsMarkdown(conversations: Conversation[], options: ExportOptions)
 /**
  * Format conversations as JSON
  */
-function formatAsJSON(conversations: Conversation[], options: ExportOptions): string {
+function formatAsJSON(conversations: ExportableConversation[], options: ExportOptions): string {
   const { includeMetadata } = options;
 
   const exportData = {
@@ -185,7 +190,7 @@ function formatAsJSON(conversations: Conversation[], options: ExportOptions): st
 /**
  * Generate filename for export
  */
-function generateFilename(conversations: Conversation[], extension: string): string {
+function generateFilename(conversations: Conversation[] | ExportableConversation[], extension: string): string {
   const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
   const count = conversations.length;
 
@@ -222,7 +227,7 @@ function downloadFile(content: string, filename: string, mimeType: string): void
 /**
  * Validate export data before processing
  */
-export function validateExportData(conversations: Conversation[]): boolean {
+export function validateExportData(conversations: ExportableConversation[]): boolean {
   if (!Array.isArray(conversations) || conversations.length === 0) {
     return false;
   }
@@ -239,7 +244,7 @@ export function validateExportData(conversations: Conversation[]): boolean {
  * Get export preview for UI
  */
 export function getExportPreview(
-  conversations: Conversation[],
+  conversations: Conversation[] | ExportableConversation[],
   format: ExportFormat,
   includeMetadata: boolean
 ): { size: string; messageCount: number; filename: string } {

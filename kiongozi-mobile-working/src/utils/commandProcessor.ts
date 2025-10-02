@@ -60,6 +60,21 @@ export async function processCommand(text: string): Promise<EnhancedCommandRespo
       case 'search':
         return await handleSearchCommand(args);
       
+      case 'courses':
+      case 'course':
+        return await handleCoursesCommand(args);
+      
+      case 'enroll':
+        return await handleEnrollCommand(args);
+      
+      case 'my-courses':
+      case 'enrollments':
+        return await handleMyCoursesCommand(args);
+      
+      case 'drop':
+      case 'unenroll':
+        return await handleDropCommand(args);
+      
       case 'help':
         return handleHelpCommand();
       
@@ -68,7 +83,7 @@ export async function processCommand(text: string): Promise<EnhancedCommandRespo
           type: 'command_response',
           command: cmd,
           title: 'Unknown Command',
-          content: `Unknown command: "${cmd}". Available commands:\n\n• \`/modules\` - View learning modules\n• \`/progress\` - Check your progress\n• \`/categories\` - Browse categories\n• \`/search [query]\` - Search modules\n• \`/help\` - Show help`,
+          content: `Unknown command: "${cmd}". Available commands:\n\n• \`/modules\` - View learning modules\n• \`/courses\` - View learning courses\n• \`/progress\` - Check your progress\n• \`/categories\` - Browse categories\n• \`/search [query]\` - Search modules\n• \`/enroll [course]\` - Enroll in a course\n• \`/my-courses\` - View your enrollments\n• \`/help\` - Show help`,
           success: false
         };
     }
@@ -336,22 +351,322 @@ async function handleSearchCommand(args: string[]): Promise<EnhancedCommandRespo
 }
 
 /**
+ * Handle /courses command with real API data
+ */
+async function handleCoursesCommand(args: string[]): Promise<EnhancedCommandResponse> {
+  try {
+    // Parse arguments for filtering
+    const filterCategory = args.length > 0 ? args.join(' ').toLowerCase() : null;
+    const limit = 6; // Show max 6 courses in chat
+    
+    // Fetch courses from API
+    const response = await apiClient.getCourses({
+      featured: filterCategory ? undefined : true, // Show featured if no filter
+      search: filterCategory || undefined,
+      limit
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch courses');
+    }
+
+    const courses = response.data.data || response.data;
+    const totalCount = response.data.pagination?.total || courses.length;
+
+    const commandResponse = {
+      type: 'courses' as const,
+      title: filterCategory ? `Courses: "${filterCategory}"` : 'Featured Learning Courses',
+      description: filterCategory 
+        ? `Found ${courses.length} courses matching "${filterCategory}"`
+        : `Here are our ${courses.length} featured learning courses`,
+      courses,
+      total_count: totalCount,
+      search_query: filterCategory || undefined
+    };
+
+    const content = courses.length > 0
+      ? `${commandResponse.description}:\n\n${
+          courses.map((course: any) => 
+            `**${course.title}**\n` +
+            `📚 ${course.category?.name || 'General'} • ${capitalizeFirst(course.difficulty_level)}\n` +
+            `⏱️ ${course.estimated_duration_hours}h • ${course.enrollment_count || 0} enrolled\n` +
+            `${course.description}\n`
+          ).join('\n')
+        }\n💡 *Tap any course card below to learn more or enroll!*`
+      : `No courses found${filterCategory ? ` for "${filterCategory}"` : ''}. Try browsing all categories or searching for different terms.`;
+
+    return {
+      type: 'command_response',
+      command: 'courses',
+      title: commandResponse.title,
+      content,
+      success: true,
+      data: commandResponse
+    };
+  } catch (error: any) {
+    console.error('Courses command error:', error);
+    return {
+      type: 'command_response',
+      command: 'courses',
+      title: 'Error Loading Courses',
+      content: 'Sorry, I couldn\'t load the learning courses right now. Please check your connection and try again.',
+      success: false
+    };
+  }
+}
+
+/**
+ * Handle /enroll command
+ */
+async function handleEnrollCommand(args: string[]): Promise<EnhancedCommandResponse> {
+  try {
+    if (args.length === 0) {
+      return {
+        type: 'command_response',
+        command: 'enroll',
+        title: 'Course Enrollment',
+        content: 'Please specify a course to enroll in. Example: `/enroll Digital Skills` or use `/courses` to see available courses.',
+        success: false
+      };
+    }
+
+    const courseQuery = args.join(' ').trim();
+    
+    // First, search for the course
+    const searchResponse = await apiClient.searchCourses(courseQuery, { limit: 1 });
+    
+    if (!searchResponse.success || !searchResponse.data) {
+      throw new Error(searchResponse.error || 'Failed to search courses');
+    }
+
+    const courses = searchResponse.data.data || searchResponse.data;
+    
+    if (!courses || courses.length === 0) {
+      return {
+        type: 'command_response',
+        command: 'enroll',
+        title: 'Course Not Found',
+        content: `No course found matching "${courseQuery}". Use \`/courses\` to see available courses.`,
+        success: false
+      };
+    }
+
+    const course = courses[0];
+    
+    // Try to enroll in the course
+    const enrollResponse = await apiClient.enrollInCourse(course.id);
+    
+    if (!enrollResponse.success) {
+      return {
+        type: 'command_response',
+        command: 'enroll',
+        title: 'Enrollment Failed',
+        content: `Failed to enroll in "${course.title}": ${enrollResponse.error || 'Unknown error'}`,
+        success: false
+      };
+    }
+
+    return {
+      type: 'command_response',
+      command: 'enroll',
+      title: 'Successfully Enrolled! 🎉',
+      content: `You have successfully enrolled in **${course.title}**!\n\n` +
+        `📚 **Course:** ${course.title}\n` +
+        `⏱️ **Duration:** ${course.estimated_duration_hours} hours\n` +
+        `📈 **Difficulty:** ${capitalizeFirst(course.difficulty_level)}\n\n` +
+        `Use \`/my-courses\` to see all your enrollments or start learning right away!`,
+      success: true
+    };
+  } catch (error: any) {
+    console.error('Enroll command error:', error);
+    return {
+      type: 'command_response',
+      command: 'enroll',
+      title: 'Enrollment Error',
+      content: 'Sorry, there was an error processing your enrollment. Please try again later.',
+      success: false
+    };
+  }
+}
+
+/**
+ * Handle /my-courses command
+ */
+async function handleMyCoursesCommand(args: string[]): Promise<EnhancedCommandResponse> {
+  try {
+    // Parse status filter from args
+    const statusFilter = args.length > 0 ? args[0].toLowerCase() : null;
+    const validStatuses = ['active', 'completed', 'dropped', 'suspended'];
+    
+    const params: any = { limit: 10 };
+    if (statusFilter && validStatuses.includes(statusFilter)) {
+      params.status = statusFilter;
+    }
+
+    // Fetch user's enrollments
+    const response = await apiClient.getUserEnrollments(params);
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch enrollments');
+    }
+
+    const enrollments = response.data.data || response.data;
+    const totalCount = response.data.pagination?.total || enrollments.length;
+
+    const commandResponse = {
+      type: 'enrollments' as const,
+      title: statusFilter ? `${capitalizeFirst(statusFilter)} Courses` : 'My Courses',
+      description: statusFilter 
+        ? `You have ${enrollments.length} ${statusFilter} course enrollments`
+        : `You are enrolled in ${enrollments.length} courses`,
+      enrollments,
+      total_count: totalCount,
+      status_filter: statusFilter || undefined
+    };
+
+    const content = enrollments.length > 0
+      ? `${commandResponse.description}:\n\n${
+          enrollments.map((enrollment: any) => {
+            const course = enrollment.courses || enrollment.course;
+            const statusEmoji = {
+              active: '🔄',
+              completed: '✅',
+              dropped: '❌',
+              suspended: '⏸️'
+            }[enrollment.status] || '📚';
+            
+            return `${statusEmoji} **${course?.title || 'Unknown Course'}**\n` +
+              `📊 Progress: ${enrollment.progress_percentage}%\n` +
+              `📅 Status: ${capitalizeFirst(enrollment.status.replace('_', ' '))}\n` +
+              `⏱️ Duration: ${course?.estimated_duration_hours || 'N/A'}h\n`;
+          }).join('\n')
+        }\n💡 *Use \`/enroll [course]\` to enroll in more courses!*`
+      : statusFilter 
+        ? `You have no ${statusFilter} course enrollments. Use \`/courses\` to find courses to enroll in.`
+        : 'You are not enrolled in any courses yet. Use `/courses` to find courses to enroll in.';
+
+    return {
+      type: 'command_response',
+      command: 'my-courses',
+      title: commandResponse.title,
+      content,
+      success: true,
+      data: commandResponse
+    };
+  } catch (error: any) {
+    console.error('My courses command error:', error);
+    return {
+      type: 'command_response',
+      command: 'my-courses',
+      title: 'Error Loading Enrollments',
+      content: 'Sorry, I couldn\'t load your course enrollments right now. Please check your connection and try again.',
+      success: false
+    };
+  }
+}
+
+/**
+ * Handle /drop command
+ */
+async function handleDropCommand(args: string[]): Promise<EnhancedCommandResponse> {
+  try {
+    if (args.length === 0) {
+      return {
+        type: 'command_response',
+        command: 'drop',
+        title: 'Drop Course',
+        content: 'Please specify a course to drop. Example: `/drop Digital Skills` or use `/my-courses` to see your enrollments.',
+        success: false
+      };
+    }
+
+    const courseQuery = args.join(' ').trim();
+    
+    // First, get user's enrollments to find the course
+    const enrollmentsResponse = await apiClient.getUserEnrollments({ status: 'active' });
+    
+    if (!enrollmentsResponse.success || !enrollmentsResponse.data) {
+      throw new Error(enrollmentsResponse.error || 'Failed to fetch enrollments');
+    }
+
+    const enrollments = enrollmentsResponse.data.data || enrollmentsResponse.data;
+    
+    // Find matching course
+    const matchingEnrollment = enrollments.find((enrollment: any) => {
+      const course = enrollment.courses || enrollment.course;
+      return course?.title.toLowerCase().includes(courseQuery.toLowerCase());
+    });
+
+    if (!matchingEnrollment) {
+      return {
+        type: 'command_response',
+        command: 'drop',
+        title: 'Course Not Found',
+        content: `No active enrollment found for "${courseQuery}". Use \`/my-courses\` to see your current enrollments.`,
+        success: false
+      };
+    }
+
+    const course = matchingEnrollment.courses || matchingEnrollment.course;
+    
+    // Drop from the course
+    const dropResponse = await apiClient.dropFromCourse(course.id);
+    
+    if (!dropResponse.success) {
+      return {
+        type: 'command_response',
+        command: 'drop',
+        title: 'Drop Failed',
+        content: `Failed to drop from "${course.title}": ${dropResponse.error || 'Unknown error'}`,
+        success: false
+      };
+    }
+
+    return {
+      type: 'command_response',
+      command: 'drop',
+      title: 'Successfully Dropped',
+      content: `You have successfully dropped from **${course.title}**.\n\n` +
+        `📊 **Progress Saved:** ${matchingEnrollment.progress_percentage}%\n` +
+        `💡 You can re-enroll later using \`/enroll ${course.title}\`\n\n` +
+        `Use \`/my-courses\` to see your remaining enrollments.`,
+      success: true
+    };
+  } catch (error: any) {
+    console.error('Drop command error:', error);
+    return {
+      type: 'command_response',
+      command: 'drop',
+      title: 'Drop Error',
+      content: 'Sorry, there was an error processing your request. Please try again later.',
+      success: false
+    };
+  }
+}
+
+/**
  * Handle /help command
  */
 function handleHelpCommand(): EnhancedCommandResponse {
   const content = `## Available Commands 🤖\n\n` +
-    `**Learning Commands:**\n` +
+    `**Module Commands:**\n` +
     `• \`/modules\` - Browse featured learning modules\n` +
     `• \`/modules [category]\` - Filter modules by category\n` +
-    `• \`/search [query]\` - Search for specific modules\n` +
-    `• \`/categories\` - View all learning categories\n` +
-    `• \`/progress\` - View your learning progress and stats\n\n` +
+    `• \`/search [query]\` - Search for specific modules\n\n` +
+    `**Course Commands:**\n` +
+    `• \`/courses\` - Browse featured learning courses\n` +
+    `• \`/courses [category]\` - Filter courses by category\n` +
+    `• \`/enroll [course]\` - Enroll in a specific course\n` +
+    `• \`/my-courses\` - View your course enrollments\n` +
+    `• \`/drop [course]\` - Drop from a course\n\n` +
     `**General Commands:**\n` +
+    `• \`/categories\` - View all learning categories\n` +
+    `• \`/progress\` - View your learning progress and stats\n` +
     `• \`/help\` - Show this help message\n\n` +
     `**Tips:**\n` +
-    `• You can also ask questions naturally, like "What modules are available?"\n` +
+    `• You can also ask questions naturally, like "What courses are available?"\n` +
     `• Use the suggestion cards for quick actions\n` +
-    `• Tap on module cards to view details and start learning\n\n` +
+    `• Tap on course/module cards to view details and start learning\n\n` +
     `*Happy learning! 🎓*`;
 
   return {
@@ -367,7 +682,10 @@ function handleHelpCommand(): EnhancedCommandResponse {
  * Check if a command is available
  */
 export function isValidCommand(command: string): boolean {
-  const validCommands = ['modules', 'learn', 'progress', 'stats', 'categories', 'cats', 'search', 'help'];
+  const validCommands = [
+    'modules', 'learn', 'progress', 'stats', 'categories', 'cats', 'search', 'help',
+    'courses', 'course', 'enroll', 'my-courses', 'enrollments', 'drop', 'unenroll'
+  ];
   return validCommands.includes(command.toLowerCase());
 }
 
@@ -377,9 +695,12 @@ export function isValidCommand(command: string): boolean {
 export function getCommandSuggestions(input: string): string[] {
   const commands = [
     '/modules - Browse learning modules',
+    '/courses - Browse learning courses',
     '/progress - Check your progress',
     '/categories - View all categories',
     '/search [query] - Search modules',
+    '/enroll [course] - Enroll in a course',
+    '/my-courses - View your enrollments',
     '/help - Show available commands'
   ];
 

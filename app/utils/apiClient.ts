@@ -634,6 +634,225 @@ class ApiClient {
   async getUserStats() {
     return this.get('/user/stats');
   }
+
+  // ================================
+  // COURSE MANAGEMENT METHODS
+  // ================================
+
+  // Get all courses with filtering
+  async getCourses(params?: {
+    category_id?: string;
+    difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+    featured?: boolean;
+    search?: string;
+    status?: string;
+    author_id?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<any>> {
+    const queryParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = queryParams.toString();
+    return this.get(`/api-proxy/lms/courses${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // Get a specific course by ID
+  async getCourse(courseId: string): Promise<ApiResponse<any>> {
+    return this.get(`/api-proxy/lms/courses/${courseId}`);
+  }
+
+  // Create a new course (moderator+)
+  async createCourse(courseData: {
+    title: string;
+    description: string;
+    overview?: string;
+    category_id?: string;
+    difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+    estimated_duration_hours?: number;
+    prerequisites?: string[];
+    learning_outcomes?: string[];
+    status?: 'draft' | 'published' | 'archived';
+    featured?: boolean;
+  }): Promise<ApiResponse<any>> {
+    return this.post('/api-proxy/lms/courses', courseData);
+  }
+
+  // Update a course (author or moderator+)
+  async updateCourse(courseId: string, courseData: {
+    title?: string;
+    description?: string;
+    overview?: string;
+    category_id?: string;
+    difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+    estimated_duration_hours?: number;
+    prerequisites?: string[];
+    learning_outcomes?: string[];
+    status?: 'draft' | 'published' | 'archived';
+    featured?: boolean;
+  }): Promise<ApiResponse<any>> {
+    return this.put(`/api-proxy/lms/courses/${courseId}`, courseData);
+  }
+
+  // Delete a course (author or admin only)
+  async deleteCourse(courseId: string): Promise<ApiResponse<any>> {
+    return this.delete(`/api-proxy/lms/courses/${courseId}`);
+  }
+
+  // Get featured courses
+  async getFeaturedCourses(): Promise<ApiResponse<any>> {
+    return this.getCourses({ featured: true, limit: 10 });
+  }
+
+  // Search courses by keyword
+  async searchCourses(query: string): Promise<ApiResponse<any>> {
+    return this.getCourses({ search: query });
+  }
+
+  // Get courses by category
+  async getCoursesByCategory(categoryId: string): Promise<ApiResponse<any>> {
+    return this.getCourses({ category_id: categoryId });
+  }
+
+  // Get courses by author
+  async getCoursesByAuthor(authorId: string): Promise<ApiResponse<any>> {
+    return this.getCourses({ author_id: authorId });
+  }
+
+  // ================================
+  // COURSE-MODULE RELATIONSHIP METHODS
+  // ================================
+
+  // Get modules for a specific course
+  async getCourseModules(courseId: string): Promise<ApiResponse<any>> {
+    return this.get(`/api-proxy/lms/courses/${courseId}/modules`);
+  }
+
+  // Add a module to a course
+  async addModuleToCourse(courseId: string, moduleData: {
+    module_id: string;
+    order_index?: number;
+    is_required?: boolean;
+  }): Promise<ApiResponse<any>> {
+    return this.post(`/api-proxy/lms/courses/${courseId}/modules`, moduleData);
+  }
+
+  // Remove a module from a course
+  async removeModuleFromCourse(courseId: string, moduleId: string): Promise<ApiResponse<any>> {
+    return this.delete(`/api-proxy/lms/courses/${courseId}/modules/${moduleId}`);
+  }
+
+  // Update module settings within a course
+  async updateCourseModule(courseId: string, moduleId: string, moduleData: {
+    is_required?: boolean;
+    order_index?: number;
+  }): Promise<ApiResponse<any>> {
+    return this.put(`/api-proxy/lms/courses/${courseId}/modules/${moduleId}`, moduleData);
+  }
+
+  // Reorder modules within a course
+  async reorderCourseModules(courseId: string, moduleOrders: Array<{
+    module_id: string;
+    order_index: number;
+  }>): Promise<ApiResponse<any>> {
+    return this.put(`/api-proxy/lms/courses/${courseId}/modules/order`, {
+      module_orders: moduleOrders
+    });
+  }
+
+  // ================================
+  // COURSE ENROLLMENT METHODS
+  // ================================
+
+  // Get user's enrollments
+  async getUserEnrollments(params?: {
+    status?: 'active' | 'completed' | 'dropped' | 'suspended';
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<any>> {
+    const queryParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = queryParams.toString();
+    return this.get(`/api-proxy/lms/enrollments${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // Get enrollment details for a specific course
+  async getCourseEnrollment(courseId: string): Promise<ApiResponse<any>> {
+    return this.get(`/api-proxy/lms/courses/${courseId}/enrollment`);
+  }
+
+  // Enroll in a course
+  async enrollInCourse(courseId: string): Promise<ApiResponse<any>> {
+    return this.post(`/api-proxy/lms/courses/${courseId}/enroll`, {});
+  }
+
+  // Update enrollment status
+  async updateEnrollment(courseId: string, enrollmentData: {
+    status?: 'active' | 'completed' | 'dropped' | 'suspended';
+    progress_percentage?: number;
+  }): Promise<ApiResponse<any>> {
+    return this.put(`/api-proxy/lms/courses/${courseId}/enrollment`, enrollmentData);
+  }
+
+  // Drop from course (user action)
+  async dropFromCourse(courseId: string): Promise<ApiResponse<any>> {
+    return this.updateEnrollment(courseId, { status: 'dropped' });
+  }
+
+  // Mark course as completed (moderator/author action)
+  async markCourseCompleted(courseId: string): Promise<ApiResponse<any>> {
+    return this.updateEnrollment(courseId, { status: 'completed' });
+  }
+
+  // Get course enrollment statistics (moderators only)
+  async getCourseEnrollmentStats(courseId: string): Promise<ApiResponse<any>> {
+    return this.get(`/api-proxy/lms/courses/${courseId}/enrollment-stats`);
+  }
+
+  // Get all enrollments for a course (moderators only)
+  async getCourseEnrollments(courseId: string, params?: {
+    status?: 'active' | 'completed' | 'dropped' | 'suspended';
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<any>> {
+    const queryParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = queryParams.toString();
+    return this.get(`/api-proxy/lms/courses/${courseId}/enrollments${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // Get active enrollments
+  async getActiveEnrollments(): Promise<ApiResponse<any>> {
+    return this.getUserEnrollments({ status: 'active' });
+  }
+
+  // Get completed enrollments
+  async getCompletedEnrollments(): Promise<ApiResponse<any>> {
+    return this.getUserEnrollments({ status: 'completed' });
+  }
 }
 
 // Create singleton instance
@@ -689,4 +908,31 @@ export const {
   getPopularModules,
   getRecentModules,
   getUserStats,
+  // Course Methods
+  getCourses,
+  getCourse,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  getFeaturedCourses,
+  searchCourses,
+  getCoursesByCategory,
+  getCoursesByAuthor,
+  // Course-Module Relationship Methods
+  getCourseModules,
+  addModuleToCourse,
+  removeModuleFromCourse,
+  updateCourseModule,
+  reorderCourseModules,
+  // Course Enrollment Methods
+  getUserEnrollments,
+  getCourseEnrollment,
+  enrollInCourse,
+  updateEnrollment,
+  dropFromCourse,
+  markCourseCompleted,
+  getCourseEnrollmentStats,
+  getCourseEnrollments,
+  getActiveEnrollments,
+  getCompletedEnrollments,
 } = apiClient;

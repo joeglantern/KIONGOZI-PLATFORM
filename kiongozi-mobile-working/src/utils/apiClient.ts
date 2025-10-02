@@ -270,6 +270,112 @@ class ApiClient {
       status: bookmarked ? 'bookmarked' : 'not_started'
     });
   }
+
+  // ================================
+  // COURSE MANAGEMENT METHODS
+  // ================================
+
+  // Get all courses with filtering
+  async getCourses(params?: {
+    category_id?: string;
+    difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+    featured?: boolean;
+    search?: string;
+    status?: string;
+    author_id?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const queryString = new URLSearchParams(params as any).toString();
+    const endpoint = `/api/v1/content/courses${queryString ? `?${queryString}` : ''}`;
+    return this.request(endpoint, { method: 'GET' });
+  }
+
+  // Get a specific course by ID
+  async getCourse(courseId: string) {
+    return this.request(`/api/v1/content/courses/${courseId}`, { method: 'GET' });
+  }
+
+  // Get featured courses
+  async getFeaturedCourses(limit: number = 6) {
+    return this.request(`/api/v1/content/courses?featured=true&limit=${limit}`, { method: 'GET' });
+  }
+
+  // Search courses by keyword
+  async searchCourses(query: string, params?: {
+    category_id?: string;
+    difficulty_level?: string;
+    limit?: number;
+  }) {
+    const searchParams = { search: query, ...params };
+    const queryString = new URLSearchParams(searchParams as any).toString();
+    return this.request(`/api/v1/content/courses?${queryString}`, { method: 'GET' });
+  }
+
+  // Get courses by category
+  async getCoursesByCategory(categoryId: string) {
+    return this.request(`/api/v1/content/courses?category_id=${categoryId}`, { method: 'GET' });
+  }
+
+  // ================================
+  // COURSE ENROLLMENT METHODS
+  // ================================
+
+  // Get user's course enrollments
+  async getUserEnrollments(params?: {
+    status?: 'active' | 'completed' | 'dropped' | 'suspended';
+    limit?: number;
+    offset?: number;
+  }) {
+    const queryString = new URLSearchParams(params as any).toString();
+    const endpoint = `/api/v1/content/enrollments${queryString ? `?${queryString}` : ''}`;
+    return this.request(endpoint, { method: 'GET' });
+  }
+
+  // Get enrollment details for a specific course
+  async getCourseEnrollment(courseId: string) {
+    return this.request(`/api/v1/content/courses/${courseId}/enrollment`, { method: 'GET' });
+  }
+
+  // Enroll in a course
+  async enrollInCourse(courseId: string) {
+    return this.request(`/api/v1/content/courses/${courseId}/enroll`, { method: 'POST' });
+  }
+
+  // Update enrollment status
+  async updateEnrollment(courseId: string, data: {
+    status?: 'active' | 'completed' | 'dropped' | 'suspended';
+    progress_percentage?: number;
+  }) {
+    return this.request(`/api/v1/content/courses/${courseId}/enrollment`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // Drop from course
+  async dropFromCourse(courseId: string) {
+    return this.updateEnrollment(courseId, { status: 'dropped' });
+  }
+
+  // Get active enrollments
+  async getActiveEnrollments() {
+    return this.getUserEnrollments({ status: 'active' });
+  }
+
+  // Get completed enrollments
+  async getCompletedEnrollments() {
+    return this.getUserEnrollments({ status: 'completed' });
+  }
+
+  // ================================
+  // COURSE-MODULE RELATIONSHIP METHODS
+  // ================================
+
+  // Get modules for a specific course
+  async getCourseModules(courseId: string) {
+    return this.request(`/api/v1/content/courses/${courseId}/modules`, { method: 'GET' });
+  }
 }
 
 // Create singleton instance

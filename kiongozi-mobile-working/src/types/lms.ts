@@ -14,6 +14,57 @@ export interface ModuleCategory {
   updated_at?: string;
 }
 
+export interface Course {
+  id: string;
+  title: string;
+  description: string;
+  overview?: string;
+  category_id?: string;
+  category?: ModuleCategory;
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced';
+  estimated_duration_hours: number;
+  prerequisites: string[];
+  learning_outcomes: string[];
+  author_id: string;
+  author_name?: string;
+  author_email?: string;
+  status: 'draft' | 'published' | 'archived';
+  review_status: 'draft' | 'pending_review' | 'approved' | 'rejected';
+  published_at?: string;
+  featured: boolean;
+  enrollment_count: number;
+  view_count: number;
+  module_count?: number;
+  current_enrollments?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CourseModule {
+  id: string;
+  course_id: string;
+  module_id: string;
+  order_index: number;
+  is_required: boolean;
+  learning_modules?: LearningModule;
+  created_at: string;
+}
+
+export interface CourseEnrollment {
+  id: string;
+  user_id: string;
+  course_id: string;
+  enrolled_at: string;
+  status: 'active' | 'completed' | 'dropped' | 'suspended';
+  progress_percentage: number;
+  completed_at?: string;
+  certificate_issued: boolean;
+  last_accessed_at: string;
+  created_at: string;
+  updated_at: string;
+  courses?: Course;
+}
+
 export interface LearningModule {
   id: string;
   title: string;
@@ -106,11 +157,32 @@ export interface CategoryCommandResponse {
   categories: ModuleCategory[];
 }
 
+export interface CourseCommandResponse {
+  type: 'courses';
+  title: string;
+  description: string;
+  courses: Course[];
+  total_count?: number;
+  category?: ModuleCategory;
+  search_query?: string;
+}
+
+export interface EnrollmentCommandResponse {
+  type: 'enrollments';
+  title: string;
+  description: string;
+  enrollments: CourseEnrollment[];
+  total_count?: number;
+  status_filter?: string;
+}
+
 // Union type for all command responses
 export type CommandResponse = 
   | ModuleCommandResponse 
   | ProgressCommandResponse 
-  | CategoryCommandResponse;
+  | CategoryCommandResponse
+  | CourseCommandResponse
+  | EnrollmentCommandResponse;
 
 // Utility types for API responses
 export interface PaginatedResponse<T> {
@@ -128,3 +200,4 @@ export interface ApiResponse<T = any> {
   error?: string;
   message?: string;
 }
+
