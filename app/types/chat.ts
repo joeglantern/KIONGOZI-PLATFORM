@@ -37,6 +37,7 @@ export interface Conversation {
   messageCount?: number;
   isStarred?: boolean;
   isArchived?: boolean;
+  messages?: any[]; // Optional messages array for export functionality
 }
 
 // Chat settings interface

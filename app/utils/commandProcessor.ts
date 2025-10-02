@@ -125,9 +125,10 @@ async function handleModulesCommand(args: string[]): Promise<EnhancedCommandResp
       throw new Error(response.error || 'Failed to fetch modules');
     }
 
-    const modules: LearningModule[] = Array.isArray(response.data.data) ? response.data.data :
-                                     Array.isArray(response.data) ? response.data : [];
-    const totalCount = response.data.pagination?.total || modules.length;
+    const responseData = response.data as any;
+    const modules: LearningModule[] = Array.isArray(responseData.data) ? responseData.data :
+                                     Array.isArray(responseData) ? responseData : [];
+    const totalCount = responseData.pagination?.total || modules.length;
 
     // Create structured response
     const commandResponse: ModuleCommandResponse = {
@@ -188,10 +189,11 @@ async function handleProgressCommand(args: string[]): Promise<EnhancedCommandRes
       throw new Error(statsResponse.error || 'Failed to fetch learning stats');
     }
 
-    const statsData = statsResponse.data;
+    const statsData = statsResponse.data as any;
+    const progressData = progressResponse.data as any;
     const recentProgress: UserProgress[] = progressResponse.success ?
-      (Array.isArray(progressResponse.data?.data) ? progressResponse.data.data :
-       Array.isArray(progressResponse.data) ? progressResponse.data : []) : [];
+      (Array.isArray(progressData?.data) ? progressData.data :
+       Array.isArray(progressData) ? progressData : []) : [];
 
     // Transform API response to our expected format
     const stats: LearningStats = {
@@ -211,14 +213,14 @@ async function handleProgressCommand(args: string[]): Promise<EnhancedCommandRes
     const commandResponse: ProgressCommandResponse = {
       type: 'progress',
       title: 'Your Learning Progress',
-      description: `You've completed ${stats.modules_completed || 0} out of ${stats.total_modules || 0} modules`,
+      description: `You've completed ${stats.completed_modules || 0} out of ${stats.total_modules || 0} modules`,
       stats,
       recent_modules: recentProgress
     };
 
     // Create human-readable content
     const completionRate = Math.round(stats.completion_rate || 0);
-    const hoursSpent = Math.round((stats.total_time_spent || 0) / 60 * 10) / 10;
+    const hoursSpent = Math.round((stats.total_time_spent_minutes || 0) / 60 * 10) / 10;
 
     const content = `## Your Learning Progress 📊\n\n` +
       `**Overall Completion:** ${completionRate}% (${stats.completed_modules || 0}/${stats.total_modules || 0} modules)\n\n` +
@@ -266,8 +268,9 @@ async function handleCategoriesCommand(): Promise<EnhancedCommandResponse> {
       throw new Error(response.error || 'Failed to fetch categories');
     }
 
-    const categories: ModuleCategory[] = Array.isArray(response.data.data) ? response.data.data :
-                                        Array.isArray(response.data) ? response.data : [];
+    const responseData = response.data as any;
+    const categories: ModuleCategory[] = Array.isArray(responseData.data) ? responseData.data :
+                                        Array.isArray(responseData) ? responseData : [];
 
     // Create structured response
     const commandResponse: CategoryCommandResponse = {
@@ -334,8 +337,9 @@ async function handleSearchCommand(args: string[]): Promise<EnhancedCommandRespo
       throw new Error(response.error || 'Search failed');
     }
 
-    const modules: LearningModule[] = Array.isArray(response.data.data) ? response.data.data :
-                                     Array.isArray(response.data) ? response.data : [];
+    const responseData = response.data as any;
+    const modules: LearningModule[] = Array.isArray(responseData.data) ? responseData.data :
+                                     Array.isArray(responseData) ? responseData : [];
 
     // Create structured response (reuse ModuleCommandResponse)
     const commandResponse: ModuleCommandResponse = {

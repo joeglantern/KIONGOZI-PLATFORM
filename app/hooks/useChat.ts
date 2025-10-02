@@ -125,7 +125,8 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
       console.log('📡 [Conversations] API Response:', response);
 
       if (response.success && response.data) {
-        const conversationsData = Array.isArray(response.data) ? response.data : response.data.conversations || [];
+        const responseData = response.data as any;
+        const conversationsData = Array.isArray(responseData) ? responseData : responseData.conversations || [];
         const totalCount = (response as any).pagination?.total || conversationsData.length;
 
         console.log('✅ [Conversations] Successfully loaded:', conversationsData.length, 'conversations');
@@ -589,8 +590,15 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
         })
       );
 
-      // Use the export utility to generate and download the file
-      await exportConversations(conversationsWithMessages, format, includeMetadata);
+      // Filter out conversations without messages and use the export utility to generate and download the file
+      const exportableConversations = conversationsWithMessages.filter(conv => {
+        const messages = conv.messages as any[];
+        return messages && Array.isArray(messages) && messages.length > 0;
+      });
+      if (exportableConversations.length === 0) {
+        throw new Error('No conversations with messages found to export');
+      }
+      await exportConversations(exportableConversations as any, format, includeMetadata);
     } catch (error: any) {
       console.error('Export error:', error);
       throw new Error(error.message || 'Failed to export conversations');

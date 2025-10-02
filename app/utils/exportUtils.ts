@@ -90,12 +90,13 @@ function formatAsText(conversations: ExportableConversation[], options: ExportOp
 
     // Messages
     if (conversation.messages && conversation.messages.length > 0) {
-      conversation.messages.forEach((message, msgIndex) => {
-        const timestamp = includeMetadata ? `[${new Date(message.timestamp).toLocaleString()}] ` : '';
-        const role = message.role.toUpperCase();
+      conversation.messages.forEach((message: any, msgIndex) => {
+        const timestamp = includeMetadata && message.timestamp ? `[${new Date(message.timestamp).toLocaleString()}] ` : '';
+        const role = message.role ? message.role.toUpperCase() : (message.isUser ? 'USER' : 'ASSISTANT');
+        const content = message.content || message.text || '';
 
         output += `${timestamp}${role}:\n`;
-        output += `${message.content}\n\n`;
+        output += `${content}\n\n`;
       });
     } else {
       output += '(No messages)\n\n';
@@ -136,14 +137,17 @@ function formatAsMarkdown(conversations: ExportableConversation[], options: Expo
 
     // Messages
     if (conversation.messages && conversation.messages.length > 0) {
-      conversation.messages.forEach((message, msgIndex) => {
-        const timestamp = includeMetadata ?
+      conversation.messages.forEach((message: any, msgIndex) => {
+        const timestamp = includeMetadata && message.timestamp ?
           `<small>*${new Date(message.timestamp).toLocaleString()}*</small>\n\n` : '';
 
-        if (message.role === 'user') {
-          output += `### 👤 User\n\n${timestamp}${message.content}\n\n`;
+        const isUser = message.role === 'user' || message.isUser;
+        const content = message.content || message.text || '';
+
+        if (isUser) {
+          output += `### 👤 User\n\n${timestamp}${content}\n\n`;
         } else {
-          output += `### 🤖 Assistant\n\n${timestamp}${message.content}\n\n`;
+          output += `### 🤖 Assistant\n\n${timestamp}${content}\n\n`;
         }
       });
     } else {
@@ -248,7 +252,7 @@ export function getExportPreview(
   format: ExportFormat,
   includeMetadata: boolean
 ): { size: string; messageCount: number; filename: string } {
-  const messageCount = conversations.reduce((sum, conv) => sum + (conv.messageCount || 0), 0);
+  const messageCount = (conversations as any[]).reduce((sum: number, conv: any) => sum + (conv.messageCount || 0), 0);
   const filename = generateFilename(conversations, format === 'text' ? 'txt' : format === 'markdown' ? 'md' : 'json');
 
   // Estimate file size (rough calculation)

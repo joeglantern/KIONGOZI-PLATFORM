@@ -232,11 +232,7 @@ export default function SimpleQuickActionsMenu({
                     cursor: 'pointer',
                     textAlign: 'left',
                     width: '100%',
-                    transition: 'all 0.2s ease',
-                    ':hover': {
-                      borderColor: '#d1d5db',
-                      backgroundColor: '#f9fafb'
-                    }
+                    transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = '#d1d5db';
