@@ -4,8 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import AskAI from '../components/AskAI';
 import { supabase, getSupabase, getSupabaseAsync } from '../utils/supabaseClient';
-
-interface Conversation { id: string; title: string; created_at: string; updated_at: string; }
+import type { Conversation } from '../types/chat';
 
 export default function ChatsPage() {
   const [items, setItems] = useState<Conversation[]>([]);
@@ -74,7 +73,7 @@ export default function ChatsPage() {
                 <Link href={c.slug ? `/chats/${c.slug}` : `/chats/${c.id}`} className="flex items-center justify-between w-full p-3 sm:p-4">
                   <div className="min-w-0">
                     <div className="font-medium text-gray-900 truncate max-w-[60vw] sm:max-w-[40vw] group-hover:underline">{c.title || 'Untitled conversation'}</div>
-                    <div className="text-xs text-gray-500">Updated {new Date(c.updated_at).toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">Updated {new Date(c.updatedAt).toLocaleString()}</div>
               </div>
                 </Link>
                 <div className="flex gap-2 px-3 pb-3">
