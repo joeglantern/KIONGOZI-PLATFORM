@@ -12,7 +12,8 @@ import {
   Sparkles,
   Leaf,
   Grid3X3,
-  Settings
+  Settings,
+  type LucideIcon
 } from 'lucide-react';
 
 interface QuickAction {
@@ -20,7 +21,7 @@ interface QuickAction {
   title: string;
   description: string;
   command: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   color: string;
 }
 

@@ -44,10 +44,10 @@ const LearningStatsWidget: React.FC<LearningStatsWidgetProps> = ({
         // Create compact version for mobile/sidebar display
         const compact: CompactLearningStats = {
           completionRate: fullStats.completion_rate || 0,
-          modulesCompleted: fullStats.modules_completed || 0,
+          modulesCompleted: fullStats.completed_modules || 0,
           totalModules: fullStats.total_modules || 0,
-          currentStreak: fullStats.learning_streak || 0,
-          weeklyProgress: fullStats.average_progress || 0
+          currentStreak: fullStats.current_streak_days || 0,
+          weeklyProgress: fullStats.completion_rate || 0
         };
         setCompactStats(compact);
       } else {
@@ -221,7 +221,7 @@ const LearningStatsWidget: React.FC<LearningStatsWidgetProps> = ({
               <span className="text-sm text-gray-600">Time spent</span>
             </div>
             <span className="text-sm font-medium text-gray-900">
-              {Math.round((stats.total_time_spent || 0) / 60)}h
+              {Math.round((stats.total_time_spent_minutes || 0) / 60)}h
             </span>
           </div>
 
@@ -232,21 +232,21 @@ const LearningStatsWidget: React.FC<LearningStatsWidgetProps> = ({
               <span className="text-sm text-gray-600">In progress</span>
             </div>
             <span className="text-sm font-medium text-gray-900">
-              {stats.modules_in_progress || 0}
+              {stats.in_progress_modules || 0}
             </span>
           </div>
 
           {/* Categories Progress (if available) */}
-          {stats.categories_progress && stats.categories_progress.length > 0 && (
+          {stats.favorite_categories && stats.favorite_categories.length > 0 && (
             <div className="space-y-2">
               <div className="text-xs font-medium text-gray-700">Top Categories</div>
-              {stats.categories_progress.slice(0, 3).map((category) => (
-                <div key={category.category_id} className="flex items-center justify-between">
+              {stats.favorite_categories.slice(0, 3).map((favCat) => (
+                <div key={favCat.category.id} className="flex items-center justify-between">
                   <span className="text-xs text-gray-600 truncate">
-                    {category.category_name}
+                    {favCat.category.name}
                   </span>
                   <span className="text-xs font-medium text-gray-900">
-                    {Math.round(category.completion_percentage)}%
+                    {favCat.modules_completed}
                   </span>
                 </div>
               ))}

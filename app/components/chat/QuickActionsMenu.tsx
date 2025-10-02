@@ -15,7 +15,8 @@ import {
   School,
   TrendingUp,
   Sparkles,
-  Leaf
+  Leaf,
+  type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +25,7 @@ interface QuickAction {
   title: string;
   description: string;
   command: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   color: string;
   category: 'learning' | 'progress' | 'search' | 'help';
 }

@@ -42,6 +42,7 @@ interface CleanLMSSidebarProps {
   onLoadMore?: () => Promise<void>;
   onConversationDelete?: (id: string) => Promise<void>;
   onConversationUpdate?: (conversation: Conversation) => void;
+  onExportConversations?: (conversationIds: string[], format: 'text' | 'markdown' | 'json', includeMetadata: boolean) => Promise<void>;
 }
 
 const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({

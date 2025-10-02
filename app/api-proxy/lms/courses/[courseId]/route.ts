@@ -4,10 +4,10 @@ const API_BASE_URL = process.env.API_BASE_URL || 'https://kiongozi-api.onrender.
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { courseId: string } }
 ) {
   try {
-    const { id } = params;
+    const { courseId: id } = params;
 
     console.log('🔍 [LMS Course GET] Debug Info:', {
       url: `${API_BASE_URL}/content/courses/${id}`,
@@ -56,10 +56,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { courseId: string } }
 ) {
   try {
-    const { id } = params;
+    const { courseId: id } = params;
     const body = await request.json();
 
     console.log('📝 [LMS Course PUT] Debug Info:', {
@@ -111,10 +111,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { courseId: string } }
 ) {
   try {
-    const { id } = params;
+    const { courseId: id } = params;
 
     console.log('🗑️ [LMS Course DELETE] Debug Info:', {
       url: `${API_BASE_URL}/content/courses/${id}`,
