@@ -375,11 +375,11 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                             }`}
                           >
                             <div className="truncate font-medium mb-1 max-w-full">
-                              {conv.title}
+                              {conv.title.length > 30 ? `${conv.title.substring(0, 30)}...` : conv.title}
                             </div>
                             {conv.lastMessage && (
                               <div className="truncate text-xs text-gray-500 mb-1 max-w-full">
-                                {conv.lastMessage}
+                                {conv.lastMessage.length > 40 ? `${conv.lastMessage.substring(0, 40)}...` : conv.lastMessage}
                               </div>
                             )}
                             <div className="flex items-center justify-between text-xs text-gray-400 min-w-0">
