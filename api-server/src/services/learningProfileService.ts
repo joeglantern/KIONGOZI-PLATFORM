@@ -271,16 +271,22 @@ class LearningProfileService {
       const recommendations = [];
 
       // Recommend modules from user's top categories
-      const categoryModules = availableModules.filter(m =>
-        topCategories.includes(m.module_categories?.name || '')
-      );
-      categoryModules.slice(0, 2).forEach(module => {
+      const categoryModules = availableModules.filter((m: any) => {
+        const categoryName = Array.isArray(m.module_categories)
+          ? (m.module_categories[0] as any)?.name
+          : (m.module_categories as any)?.name;
+        return topCategories.includes(categoryName || '');
+      });
+      categoryModules.slice(0, 2).forEach((module: any) => {
+        const categoryName = Array.isArray(module.module_categories)
+          ? (module.module_categories[0] as any)?.name
+          : (module.module_categories as any)?.name;
         recommendations.push({
           id: module.id,
           title: module.title,
-          category: module.module_categories?.name || 'Uncategorized',
+          category: categoryName || 'Uncategorized',
           difficulty: module.difficulty_level,
-          reason: `Matches your interest in ${module.module_categories?.name}`
+          reason: `Matches your interest in ${categoryName}`
         });
       });
 
@@ -291,12 +297,15 @@ class LearningProfileService {
         return true; // advanced users can take any level
       });
 
-      skillAppropriate.slice(0, 2).forEach(module => {
+      skillAppropriate.slice(0, 2).forEach((module: any) => {
         if (!recommendations.find(r => r.id === module.id)) {
+          const categoryName = Array.isArray(module.module_categories)
+            ? (module.module_categories[0] as any)?.name
+            : (module.module_categories as any)?.name;
           recommendations.push({
             id: module.id,
             title: module.title,
-            category: module.module_categories?.name || 'Uncategorized',
+            category: categoryName || 'Uncategorized',
             difficulty: module.difficulty_level,
             reason: `Perfect for your ${skillLevel} skill level`
           });
@@ -307,11 +316,14 @@ class LearningProfileService {
       const remaining = availableModules.filter(m =>
         !recommendations.find(r => r.id === m.id)
       );
-      remaining.slice(0, 2).forEach(module => {
+      remaining.slice(0, 2).forEach((module: any) => {
+        const categoryName = Array.isArray(module.module_categories)
+          ? (module.module_categories[0] as any)?.name
+          : (module.module_categories as any)?.name;
         recommendations.push({
           id: module.id,
           title: module.title,
-          category: module.module_categories?.name || 'Uncategorized',
+          category: categoryName || 'Uncategorized',
           difficulty: module.difficulty_level,
           reason: 'Popular with other learners'
         });
@@ -439,7 +451,9 @@ class LearningProfileService {
         if (keywordMatch) score += 15;
 
         // 2. User interest alignment (30% weight)
-        const category = module.module_categories?.name;
+        const category = Array.isArray(module.module_categories)
+          ? (module.module_categories[0] as any)?.name
+          : (module.module_categories as any)?.name;
         if (category && profile.topCategories.includes(category)) {
           score += 30;
         }
@@ -515,9 +529,12 @@ class LearningProfileService {
       if (error || !recentProgress?.length) return '';
 
       const activityLines = ['RECENT LEARNING ACTIVITY:'];
-      recentProgress.forEach(progress => {
+      recentProgress.forEach((progress: any) => {
         const module = progress.learning_modules;
-        const category = module.module_categories?.name || 'General';
+        const categoryName = Array.isArray(module.module_categories)
+          ? module.module_categories[0]?.name
+          : module.module_categories?.name;
+        const category = categoryName || 'General';
         const statusText = progress.status === 'completed'
           ? '✅ Completed'
           : `📚 ${progress.progress_percentage}% progress`;
