@@ -11,7 +11,8 @@ import {
   X,
   Sparkles,
   Leaf,
-  Grid3X3
+  Grid3X3,
+  Settings
 } from 'lucide-react';
 
 interface QuickAction {
@@ -76,6 +77,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     description: 'Find specific content',
     command: '/search ',
     icon: Search,
+    color: '#8b5cf6'
+  },
+  {
+    id: 'preferences',
+    title: 'AI Preferences',
+    description: 'Control learning suggestions',
+    command: '/preferences',
+    icon: Settings,
     color: '#8b5cf6'
   },
   {

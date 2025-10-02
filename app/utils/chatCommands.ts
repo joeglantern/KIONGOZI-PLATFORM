@@ -13,6 +13,7 @@ export const CHAT_COMMANDS = {
   COMPLETE: '/complete',
   BROWSE: '/browse',
   PROFILE: '/profile',
+  PREFERENCES: '/preferences',
   HELP: '/help'
 } as const;
 
@@ -232,6 +233,63 @@ export async function handleProfileCommand(): Promise<{
   }
 }
 
+// Process preferences command
+export function handlePreferencesCommand(params: string[]): {
+  type: 'preferences_setting';
+  action: 'show' | 'set';
+  preference?: string;
+  message: string;
+  currentSetting: string;
+} {
+  const validPreferences = ['minimal', 'moderate', 'full'];
+  const currentSetting = localStorage.getItem('learning_suggestions_preference') || 'moderate';
+
+  // If no parameters, show current settings
+  if (params.length === 0) {
+    const descriptions = {
+      minimal: 'Only suggest learning content when explicitly asked',
+      moderate: 'Ask permission before suggesting learning content (recommended)',
+      full: 'Freely suggest learning content in conversations'
+    };
+
+    return {
+      type: 'preferences_setting',
+      action: 'show',
+      message: `**Current learning suggestion preference:** ${currentSetting}\n\n**${descriptions[currentSetting as keyof typeof descriptions]}**\n\nTo change: \`/preferences [minimal|moderate|full]\``,
+      currentSetting
+    };
+  }
+
+  const newPreference = params[0].toLowerCase();
+
+  // Validate preference
+  if (!validPreferences.includes(newPreference)) {
+    return {
+      type: 'preferences_setting',
+      action: 'show',
+      message: `Invalid preference. Choose from:\n• **minimal** - Only suggest when explicitly asked\n• **moderate** - Ask permission before suggesting (recommended)\n• **full** - Freely suggest learning content\n\nExample: \`/preferences moderate\``,
+      currentSetting
+    };
+  }
+
+  // Set the preference
+  localStorage.setItem('learning_suggestions_preference', newPreference);
+
+  const confirmationMessages = {
+    minimal: 'Perfect! I\'ll only suggest learning content when you specifically ask for it. You can still use commands like `/recommend` anytime.',
+    moderate: 'Great choice! I\'ll ask for permission before suggesting learning content. This gives you control while still offering helpful resources.',
+    full: 'Got it! I\'ll freely suggest relevant learning content during our conversations. You can adjust this anytime with `/preferences`.'
+  };
+
+  return {
+    type: 'preferences_setting',
+    action: 'set',
+    preference: newPreference,
+    message: `**Preference updated to "${newPreference}"**\n\n${confirmationMessages[newPreference as keyof typeof confirmationMessages]}`,
+    currentSetting: newPreference
+  };
+}
+
 // Process browse command
 export async function handleBrowseCommand(params: string[]): Promise<{
   type: 'category_browse';
@@ -383,6 +441,11 @@ export function handleHelpCommand(): {
         example: '/recommend'
       },
       {
+        command: '/preferences [setting]',
+        description: 'Control learning content suggestions',
+        example: '/preferences moderate'
+      },
+      {
         command: '/help',
         description: 'Show available commands',
         example: '/help'
@@ -419,6 +482,9 @@ export async function processCommand(message: string): Promise<any> {
 
     case CHAT_COMMANDS.PROFILE:
       return await handleProfileCommand();
+
+    case CHAT_COMMANDS.PREFERENCES:
+      return handlePreferencesCommand(params);
 
     case CHAT_COMMANDS.HELP:
       return handleHelpCommand();
