@@ -58,6 +58,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const token = getTokenFromStorage();
         if (token) {
           const userData = extractUserFromToken(token);
+          console.log('🔍 User data from token:', userData);
           if (userData) {
             setUser(userData);
           } else {

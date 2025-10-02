@@ -17,23 +17,67 @@ interface ProfileMenuProps {
   onToggle: () => void;
   onClose: () => void;
   userName?: string;
+  firstName?: string;
+  lastName?: string;
   userEmail?: string;
   userAvatar?: string;
   onLogout?: () => void;
   onExport?: () => void;
 }
 
+// Helper function to generate initials from available user data
+const getInitials = (firstName?: string, lastName?: string, fullName?: string, email?: string): string => {
+  // Try firstName and lastName first
+  if (firstName && lastName) {
+    return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+  }
+
+  if (firstName) {
+    return firstName.charAt(0).toUpperCase();
+  }
+
+  // Try to parse full_name (e.g., "John Doe" -> "JD")
+  if (fullName && fullName.trim().includes(' ')) {
+    const parts = fullName.trim().split(/\s+/);
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  // Try to extract from email (e.g., "john.doe@gmail.com" -> "JD")
+  if (email) {
+    const emailPrefix = email.split('@')[0];
+    const emailParts = emailPrefix.split(/[._-]/);
+
+    if (emailParts.length >= 2) {
+      return (emailParts[0].charAt(0) + emailParts[1].charAt(0)).toUpperCase();
+    }
+
+    if (emailParts[0].length >= 2) {
+      return emailParts[0].substring(0, 2).toUpperCase();
+    }
+
+    return emailParts[0].charAt(0).toUpperCase();
+  }
+
+  return 'U';
+};
+
 const ProfileMenu: React.FC<ProfileMenuProps> = ({
   isOpen,
   onToggle,
   onClose,
   userName = 'User',
+  firstName,
+  lastName,
   userEmail = 'user@example.com',
   userAvatar,
   onLogout,
   onExport
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Extract display name from available data
+  const displayName = firstName || (userName && userName !== 'User' ? userName.split(' ')[0] : null) || userEmail.split('@')[0];
+  const initials = getInitials(firstName, lastName, userName, userEmail);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -99,19 +143,19 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           {userAvatar ? (
             <img
               src={userAvatar}
-              alt={userName}
+              alt={displayName}
               className="w-8 h-8 rounded-full object-cover"
             />
           ) : (
             <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
               <span className="text-white text-sm font-medium">
-                {userName.charAt(0).toUpperCase()}
+                {initials}
               </span>
             </div>
           )}
           <div className="hidden md:block text-left">
             <div className="text-sm font-medium text-gray-900 truncate max-w-24">
-              {userName}
+              {displayName}
             </div>
           </div>
         </div>
@@ -139,19 +183,19 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
                 {userAvatar ? (
                   <img
                     src={userAvatar}
-                    alt={userName}
+                    alt={displayName}
                     className="w-10 h-10 rounded-full object-cover"
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center">
                     <span className="text-white font-medium">
-                      {userName.charAt(0).toUpperCase()}
+                      {initials}
                     </span>
                   </div>
                 )}
                 <div className="min-w-0 flex-grow">
                   <div className="text-sm font-medium text-gray-900 truncate">
-                    {userName}
+                    {displayName}
                   </div>
                   <div className="text-xs text-gray-500 truncate">
                     {userEmail}

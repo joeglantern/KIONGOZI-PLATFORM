@@ -79,7 +79,9 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
             isOpen={profileMenuOpen}
             onToggle={() => setProfileMenuOpen(!profileMenuOpen)}
             onClose={() => setProfileMenuOpen(false)}
-            userName={user?.full_name || user?.first_name || 'User'}
+            firstName={user?.first_name}
+            lastName={user?.last_name}
+            userName={user?.full_name || 'User'}
             userEmail={user?.email || 'user@example.com'}
             userAvatar={user?.avatar_url}
             onLogout={logout}
