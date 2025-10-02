@@ -42,7 +42,6 @@ interface CleanLMSSidebarProps {
   onLoadMore?: () => Promise<void>;
   onConversationDelete?: (id: string) => Promise<void>;
   onConversationUpdate?: (conversation: Conversation) => void;
-  onExportConversations?: (conversationIds: string[], format: 'text' | 'markdown' | 'json', includeMetadata: boolean) => Promise<void>;
 }
 
 const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
@@ -60,8 +59,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
   isLoadingMore = false,
   onLoadMore,
   onConversationDelete,
-  onConversationUpdate,
-  onExportConversations
+  onConversationUpdate
 }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -282,7 +280,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
                       {searchQuery ? 'Search Results' : 'Recent'}
                     </h4>
                     <div className="flex items-center gap-1">
-                      {onExportConversations && conversations.length > 0 && (
+                      {conversations.length > 0 && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -440,16 +438,13 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
     </motion.div>
 
     {/* Export Modal */}
-    {onExportConversations && (
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        onExport={onExportConversations}
-        darkMode={false} // Use theme context if available
-      />
-    )}
+    <ExportModal
+      isOpen={showExportModal}
+      onClose={() => setShowExportModal(false)}
+      conversations={conversations}
+      currentConversationId={currentConversationId}
+      darkMode={false} // Use theme context if available
+    />
   </>
   );
 };
