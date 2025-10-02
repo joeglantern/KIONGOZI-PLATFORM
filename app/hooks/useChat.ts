@@ -343,29 +343,18 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
         // Debug the full API response structure
         console.log('🔍 [Chat Debug] Full API response structure:', JSON.stringify(response.data, null, 2));
 
-        // Try different possible field names based on common API response patterns
-        const aiMessageText = (response.data as any).content ||
-                              (response.data as any).text ||
-                              (response.data as any).message ||
-                              (response.data as any).response ||
-                              (response.data as any).answer ||
-                              (response.data as any).reply ||
-                              (response.data as any).data ||
-                              (response.data as any).result ||
-                              (response.data as any).output ||
-                              (response.data as any).choices?.[0]?.message?.content ||
-                              (response.data as any).choices?.[0]?.text ||
-                              '';
+        // Use standardized response field (API now consistently returns 'response')
+        const aiMessageText = (response.data as any).response || '';
 
         console.log('🤖 [Chat Debug] Extracted AI message text:', aiMessageText);
-        console.log('🔍 [Chat Debug] Available response data keys:', Object.keys(response.data));
+        console.log('🔍 [Chat Debug] API metadata:', (response.data as any).metadata);
 
-        // If we still don't have message text, try a more aggressive search
+        // Simplified validation - should always have response field now
         let finalMessageText = aiMessageText;
         if (!finalMessageText || finalMessageText.trim() === '') {
-          console.log('⚠️ [Chat Debug] No message text found, searching response recursively...');
+          console.log('⚠️ [Chat Debug] No response text found in standardized field');
 
-          // Recursively search for any string value that looks like a message
+          // Fallback search only as backup (should not be needed with standardized API)
           const searchForMessage = (obj: any, path: string = ''): string => {
             if (typeof obj === 'string' && obj.trim().length > 10) {
               console.log('🔍 [Chat Debug] Found potential message at path:', path, '=', obj.substring(0, 100) + '...');
