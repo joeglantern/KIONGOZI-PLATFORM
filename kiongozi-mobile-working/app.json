@@ -43,16 +43,19 @@
         {
           "android": {
             "enableProguardInReleaseBuilds": false,
-            "enableShrinkResourcesInReleaseBuilds": false
+            "enableShrinkResourcesInReleaseBuilds": false,
+            "enableMinifyInReleaseBuilds": false,
+            "useAndroidX": true,
+            "enableJetifier": true
           }
         }
       ]
     ],
+    "owner": "joe_lib_an",
     "extra": {
       "eas": {
-        "projectId": "811faacd-45b9-459a-b089-2c5d7f809b9e"
+        "projectId": "d41fa2af-cdf7-4c6f-8070-ade8221f15eb"
       }
-    },
-    "owner": "liban21"
+    }
   }
 }
