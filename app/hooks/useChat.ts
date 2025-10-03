@@ -320,8 +320,21 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
           console.log('🆕 [Chat Debug] New conversation created:', workingConversationId);
           setCurrentConversationId(workingConversationId);
 
-          // Refresh conversations list immediately to show the new conversation
-          await refreshConversations();
+          // Optimistically add the new conversation to the list immediately
+          const newConversation: Conversation = {
+            id: workingConversationId,
+            title: text.trim().substring(0, 50) + (text.trim().length > 50 ? '...' : ''),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_id: '', // Will be updated when refreshConversations completes
+            message_count: 1
+          };
+
+          // Add to conversations list at the top
+          setConversations(prev => [newConversation, ...prev]);
+
+          // Refresh conversations list in the background to get the real title from GPT
+          refreshConversations();
         }
       }
 

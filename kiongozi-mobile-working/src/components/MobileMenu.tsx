@@ -196,30 +196,6 @@ export default function MobileMenu({
       },
     },
     {
-      icon: '🌱',
-      title: 'Green Economy',
-      onPress: () => {
-        onClose();
-        // TODO: Navigate to green economy
-      },
-    },
-    {
-      icon: '💻',
-      title: 'Digital Skills',
-      onPress: () => {
-        onClose();
-        // TODO: Navigate to digital skills
-      },
-    },
-    {
-      icon: '🚀',
-      title: 'Career Paths',
-      onPress: () => {
-        onClose();
-        // TODO: Navigate to career paths
-      },
-    },
-    {
       icon: '👤',
       title: 'Profile',
       onPress: () => {

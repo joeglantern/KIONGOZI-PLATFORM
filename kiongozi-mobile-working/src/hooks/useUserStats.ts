@@ -24,7 +24,7 @@ export const useUserStats = (): UseUserStatsReturn => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuthStore();
 
-  const calculateStatsFromConversations = useCallback(async () => {
+  const fetchUserStats = useCallback(async () => {
     if (!user) {
       setStats(null);
       setError(null);
@@ -35,70 +35,26 @@ export const useUserStats = (): UseUserStatsReturn => {
     setError(null);
 
     try {
-      // Add a small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Fetch real stats from the API
+      const response = await apiClient.getUserStats();
 
-      // Fetch conversations to calculate stats from existing data (reduce limit to avoid rate limiting)
-      const conversationsResponse = await apiClient.getConversations({ limit: 50, offset: 0 });
-
-      if (!conversationsResponse.success || !conversationsResponse.data) {
-        throw new Error('Failed to fetch conversations for stats calculation');
+      if (!response.success || !response.data) {
+        throw new Error('Failed to fetch user statistics');
       }
 
-      const conversations = Array.isArray(conversationsResponse.data) ? conversationsResponse.data : [];
-
-      // Calculate basic stats from conversation data
-      const conversationDates: Date[] = [];
-
-      // Collect conversation dates without fetching individual messages to avoid rate limiting
-      conversations.forEach(conversation => {
-        if (conversation.created_at) {
-          conversationDates.push(new Date(conversation.created_at));
-        }
-      });
-
-      // Estimate total messages based on conversations (rough estimation to avoid API calls)
-      // Assume average of 8-12 messages per conversation
-      const estimatedMessagesPerConv = Math.floor(Math.random() * 5) + 8; // 8-12 range
-      const totalMessages = conversations.length * estimatedMessagesPerConv;
-
-      // Calculate join date (earliest conversation date or user creation date)
-      const earliestConversation = conversationDates.length > 0
-        ? new Date(Math.min(...conversationDates.map(d => d.getTime())))
-        : new Date();
-
-      // Estimate topics learned (rough calculation based on conversations)
-      const topicsLearned = Math.min(conversations.length * 2, 50); // Cap at 50
-
-      // Calculate days active (unique days with conversations)
-      const uniqueDays = new Set(
-        conversationDates.map(date => date.toDateString())
-      ).size;
-
-      const calculatedStats: UserStats = {
-        conversations_count: conversations.length,
-        total_messages: totalMessages,
-        topics_learned: topicsLearned,
-        days_active: Math.max(uniqueDays, 1), // At least 1 day if they have conversations
-        join_date: earliestConversation.toISOString(),
-        last_active: conversationDates.length > 0
-          ? new Date(Math.max(...conversationDates.map(d => d.getTime()))).toISOString()
-          : new Date().toISOString()
-      };
-
-      setStats(calculatedStats);
+      setStats(response.data as UserStats);
     } catch (err: any) {
-      console.error('Failed to calculate user stats:', err);
+      console.error('Failed to fetch user stats:', err);
       setError(err.message || 'Failed to load statistics');
 
-      // Fallback to basic stats if calculation fails
+      // Fallback to basic stats if API fails
       const fallbackStats: UserStats = {
         conversations_count: 0,
         total_messages: 0,
         topics_learned: 0,
-        days_active: 1,
+        days_active: 0,
         join_date: new Date().toISOString(),
-        last_active: new Date().toISOString()
+        last_active: null
       };
       setStats(fallbackStats);
     } finally {
@@ -108,12 +64,12 @@ export const useUserStats = (): UseUserStatsReturn => {
 
   // Fetch stats when user changes or hook is first used
   useEffect(() => {
-    calculateStatsFromConversations();
-  }, [calculateStatsFromConversations]);
+    fetchUserStats();
+  }, [fetchUserStats]);
 
   const refreshStats = useCallback(async () => {
-    await calculateStatsFromConversations();
-  }, [calculateStatsFromConversations]);
+    await fetchUserStats();
+  }, [fetchUserStats]);
 
   return {
     stats,

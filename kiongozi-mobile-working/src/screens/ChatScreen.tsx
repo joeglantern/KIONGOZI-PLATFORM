@@ -601,13 +601,29 @@ export default function ChatScreen() {
         // Handle conversation ID from the user message response
         if (!conversationId && userResponse.data?.conversation_id) {
           setConversationId(userResponse.data.conversation_id);
-          // Update current conversation for header display (will be updated when conversations reload)
-          setCurrentConversation({
+
+          // Create new conversation object
+          const newConversation = {
             id: userResponse.data.conversation_id,
-            title: undefined, // Will be set when conversations are refreshed
+            title: messageText.substring(0, 50) + (messageText.length > 50 ? '...' : ''), // Temporary title
             updated_at: new Date().toISOString(),
             created_at: new Date().toISOString(),
             user_id: user?.id || ''
+          };
+
+          // Immediately add to conversations list
+          setConversations(prev => [newConversation, ...prev]);
+
+          // Update current conversation for header display
+          setCurrentConversation(newConversation);
+
+          // Also update the chat store for other components
+          chatStore.addConversation({
+            id: newConversation.id,
+            title: newConversation.title,
+            messages: messages,
+            created_at: newConversation.created_at,
+            updated_at: newConversation.updated_at
           });
         }
 

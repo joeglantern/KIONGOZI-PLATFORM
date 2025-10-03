@@ -177,6 +177,10 @@ class ApiClient {
     return this.request(`/api/v1/chat/conversations/${conversationId}`, { method: 'DELETE' });
   }
 
+  // Get user statistics
+  async getUserStats() {
+    return this.request('/api/v1/user/stats', { method: 'GET' });
+  }
 
   // Generate AI response via backend
   async generateAIResponse(userMessage: string, conversationId?: string, type: 'chat' | 'research' = 'chat') {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useUserStats } from '../hooks/useUserStats';
 import { useChatStore } from '../stores/chatStore';
 import ExportModal from '../components/ExportModal';
 import ModernSwitch from '../components/ModernSwitch';
+import { supabase } from '../utils/supabaseClient';
 
 interface ProfileScreenProps {
   visible: boolean;
@@ -38,6 +39,32 @@ export default function ProfileScreen({
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const { stats, loading: statsLoading, error: statsError, refreshStats } = useUserStats();
   const { conversations, currentConversation } = useChatStore();
+  const [userProfile, setUserProfile] = useState<{ first_name?: string; last_name?: string; full_name?: string } | null>(null);
+
+  // Fetch user profile from database
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, full_name')
+          .eq('id', user.id)
+          .single();
+
+        if (!error && data) {
+          setUserProfile(data);
+        }
+      } catch (err) {
+        console.error('Error fetching user profile:', err);
+      }
+    };
+
+    if (visible) {
+      fetchUserProfile();
+    }
+  }, [visible, user?.id]);
 
   const handleSignOut = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -204,7 +231,9 @@ export default function ProfileScreen({
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {user?.email?.charAt(0).toUpperCase() || 'U'}
+                {userProfile?.first_name?.charAt(0).toUpperCase() ||
+                 userProfile?.full_name?.charAt(0).toUpperCase() ||
+                 user?.email?.charAt(0).toUpperCase() || 'U'}
               </Text>
             </View>
             <View style={[styles.statusBadge, darkMode && styles.statusBadgeDark]}>
@@ -213,6 +242,12 @@ export default function ProfileScreen({
           </View>
 
           <View style={styles.userInfo}>
+            <Text style={[styles.userName, darkMode && styles.userNameDark]}>
+              {userProfile?.full_name ||
+               (userProfile?.first_name && userProfile?.last_name
+                 ? `${userProfile.first_name} ${userProfile.last_name}`
+                 : user?.email?.split('@')[0]) || 'User'}
+            </Text>
             <Text style={[styles.userEmail, darkMode && styles.userEmailDark]}>
               {user?.email || 'user@example.com'}
             </Text>
@@ -226,32 +261,72 @@ export default function ProfileScreen({
         </View>
 
         {/* Quick Stats */}
-        <View style={[styles.statsSection, darkMode && styles.statsSectionDark]}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-              {statsLoading ? '...' : (stats?.conversations_count ?? 0)}
-            </Text>
-            <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
-              Conversations
-            </Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-              {statsLoading ? '...' : (stats?.topics_learned ?? 0)}
-            </Text>
-            <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
-              Topics Learned
-            </Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-              {statsLoading ? '...' : (stats?.days_active ?? 0)}
-            </Text>
-            <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
-              Days Active
-            </Text>
+        <View style={styles.statsContainer}>
+          <View style={styles.statsGrid}>
+            {/* Topics Learned */}
+            <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+              <View style={[styles.statIconContainer, styles.statIconBlue]}>
+                <Text style={styles.statIcon}>📚</Text>
+              </View>
+              <View style={styles.statContent}>
+                <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                  {statsLoading ? '...' : (stats?.topics_learned ?? 0)}
+                </Text>
+                <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                  Topics Learned
+                </Text>
+              </View>
+            </View>
+
+            {/* Streak */}
+            <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+              <View style={[styles.statIconContainer, styles.statIconGreen]}>
+                <Text style={styles.statIcon}>🔥</Text>
+              </View>
+              <View style={styles.statContent}>
+                <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                  {statsLoading ? '...' : (stats?.days_active ?? 0)}
+                </Text>
+                <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                  Day Streak
+                </Text>
+              </View>
+            </View>
+
+            {/* AI Chats */}
+            <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+              <View style={[styles.statIconContainer, styles.statIconPurple]}>
+                <Text style={styles.statIcon}>💬</Text>
+              </View>
+              <View style={styles.statContent}>
+                <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                  {statsLoading ? '...' : (stats?.conversations_count ?? 0)}
+                </Text>
+                <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                  AI Chats
+                </Text>
+              </View>
+            </View>
+
+            {/* Joined Date */}
+            <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+              <View style={[styles.statIconContainer, styles.statIconOrange]}>
+                <Text style={styles.statIcon}>📅</Text>
+              </View>
+              <View style={styles.statContent}>
+                <Text style={[styles.statNumber, styles.statDateText, darkMode && styles.statNumberDark]}>
+                  {statsLoading ? '...' : (stats?.join_date
+                    ? new Date(stats.join_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        year: 'numeric'
+                      })
+                    : 'N/A')}
+                </Text>
+                <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                  Joined
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -455,14 +530,23 @@ const styles = StyleSheet.create({
   userInfo: {
     alignItems: 'center',
   },
-  userEmail: {
+  userName: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 4,
   },
-  userEmailDark: {
+  userNameDark: {
     color: '#f9fafb',
+  },
+  userEmail: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  userEmailDark: {
+    color: '#9ca3af',
   },
   userStatus: {
     fontSize: 16,
@@ -480,43 +564,70 @@ const styles = StyleSheet.create({
   joinDateDark: {
     color: '#9ca3af',
   },
-  statsSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    paddingVertical: 24,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: 20,
+  statsContainer: {
+    paddingHorizontal: 20,
     marginTop: 16,
-    borderRadius: 20,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 16,
+    padding: 12,
+    width: '48%',
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  statsSectionDark: {
-    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+  statCardDark: {
+    backgroundColor: 'rgba(51, 65, 85, 0.6)',
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  statItem: {
+  statIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 8,
+  },
+  statIconBlue: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+  },
+  statIconGreen: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  statIconPurple: {
+    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+  },
+  statIconOrange: {
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+  },
+  statIcon: {
+    fontSize: 16,
+  },
+  statContent: {
     flex: 1,
   },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#e5e7eb',
-    marginVertical: 8,
-  },
   statNumber: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#3b82f6',
-    marginBottom: 4,
+    color: '#1f2937',
+    marginBottom: 2,
   },
   statNumberDark: {
-    color: '#3b82f6',
+    color: '#f9fafb',
+  },
+  statDateText: {
+    fontSize: 14,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#6b7280',
-    textAlign: 'center',
   },
   statLabelDark: {
     color: '#9ca3af',
