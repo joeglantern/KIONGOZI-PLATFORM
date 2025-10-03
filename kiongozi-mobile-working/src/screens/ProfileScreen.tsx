@@ -18,6 +18,7 @@ import { useChatStore } from '../stores/chatStore';
 import ExportModal from '../components/ExportModal';
 import ModernSwitch from '../components/ModernSwitch';
 import { supabase } from '../utils/supabaseClient';
+import apiClient from '../utils/apiClient';
 
 interface ProfileScreenProps {
   visible: boolean;
@@ -92,9 +93,30 @@ export default function ProfileScreen({
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement account deletion
-            Alert.alert('Feature Coming Soon', 'Account deletion will be available in a future update.');
+          onPress: async () => {
+            try {
+              const response = await apiClient.deleteAccount();
+
+              if (response.success) {
+                Alert.alert(
+                  'Account Deleted',
+                  'Your account has been permanently deleted.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        onSignOut(); // Sign out and redirect to login
+                      }
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert('Error', response.error || 'Failed to delete account. Please try again.');
+              }
+            } catch (error: any) {
+              console.error('Error deleting account:', error);
+              Alert.alert('Error', 'Failed to delete account. Please try again.');
+            }
           }
         }
       ]
@@ -122,16 +144,6 @@ export default function ProfileScreen({
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setNotificationsEnabled(!notificationsEnabled);
-      },
-    },
-    {
-      icon: '📊',
-      title: 'Learning Stats',
-      subtitle: 'View your progress and achievements',
-      type: 'navigation' as const,
-      onPress: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Alert.alert('Coming Soon', 'Learning statistics will be available in a future update.');
       },
     },
     {

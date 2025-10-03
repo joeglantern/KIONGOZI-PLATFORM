@@ -182,6 +182,11 @@ class ApiClient {
     return this.request('/api/v1/user/stats', { method: 'GET' });
   }
 
+  // Delete user account
+  async deleteAccount() {
+    return this.request('/api/v1/user/account', { method: 'DELETE' });
+  }
+
   // Generate AI response via backend
   async generateAIResponse(userMessage: string, conversationId?: string, type: 'chat' | 'research' = 'chat') {
     return this.request('/api/v1/chat/ai-response', {

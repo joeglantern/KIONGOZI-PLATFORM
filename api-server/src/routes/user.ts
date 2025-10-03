@@ -149,4 +149,44 @@ router.get('/stats', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete user account
+router.delete('/account', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    if (!supabaseServiceClient) {
+      return res.status(500).json({ success: false, error: 'Database not configured' });
+    }
+
+    const userId = req.user.id;
+
+    // Delete user's auth account (this will cascade delete profile and related data due to foreign keys)
+    const { error: deleteError } = await supabaseServiceClient.auth.admin.deleteUser(userId);
+
+    if (deleteError) {
+      console.error('Failed to delete user account:', deleteError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to delete account',
+        details: deleteError.message
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Account successfully deleted'
+    });
+
+  } catch (error: any) {
+    console.error('Failed to delete user account:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete account',
+      details: error.message
+    });
+  }
+});
+
 export default router;
