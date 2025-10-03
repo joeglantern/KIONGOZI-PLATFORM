@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../utils/supabaseClient';
@@ -233,7 +234,7 @@ export default function MobileMenu({
 
   const menuItems = [
     {
-      icon: '📤',
+      iconName: 'share-outline' as const,
       title: 'Share Chat',
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -244,7 +245,7 @@ export default function MobileMenu({
       },
     },
     {
-      icon: '👤',
+      iconName: 'person-outline' as const,
       title: 'Profile',
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -255,7 +256,7 @@ export default function MobileMenu({
       },
     },
     {
-      icon: '🎓',
+      iconName: 'help-circle-outline' as const,
       title: 'Show Tutorial',
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -266,7 +267,7 @@ export default function MobileMenu({
       },
     },
     {
-      icon: darkMode ? '☀️' : '🌙',
+      iconName: (darkMode ? 'sunny-outline' : 'moon-outline') as const,
       title: darkMode ? 'Light Mode' : 'Dark Mode',
       onPress: () => {
         onToggleDarkMode();
@@ -414,13 +415,20 @@ export default function MobileMenu({
               style={[styles.menuItem, darkMode && styles.menuItemDark]}
               onPress={item.onPress}
             >
-              <Text style={styles.menuIcon}>{item.icon}</Text>
+              <Ionicons
+                name={item.iconName}
+                size={22}
+                color={darkMode ? '#9ca3af' : '#6b7280'}
+                style={styles.menuIcon}
+              />
               <Text style={[styles.menuTitle, darkMode && styles.menuTitleDark]}>
                 {item.title}
               </Text>
-              <Text style={[styles.menuArrow, darkMode && styles.menuArrowDark]}>
-                ›
-              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={darkMode ? '#6b7280' : '#9ca3af'}
+              />
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -620,7 +628,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1f2937',
   },
   menuIcon: {
-    fontSize: 20,
     marginRight: 12,
   },
   menuTitle: {
@@ -631,13 +638,6 @@ const styles = StyleSheet.create({
   },
   menuTitleDark: {
     color: '#f9fafb',
-  },
-  menuArrow: {
-    fontSize: 20,
-    color: '#9ca3af',
-  },
-  menuArrowDark: {
-    color: '#6b7280',
   },
   footer: {
     paddingHorizontal: 20,
