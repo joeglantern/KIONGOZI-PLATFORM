@@ -21,7 +21,7 @@ import { useAuthStore } from '../stores/authStore';
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { signIn, signUp, loading } = useAuthStore();
+  const { signIn, signUp, signInWithGoogle, loading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -110,14 +110,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <View style={styles.aiIcon}>
-                <Text style={styles.aiIconText}>AI</Text>
-              </View>
-              <Text style={styles.title}>Kiongozi</Text>
+              <View style={styles.aiIcon} />
+              <Text style={styles.title}>
+                {isSignUp ? 'Create an account' : 'Sign in'}
+              </Text>
             </View>
-            <Text style={styles.subtitle}>
-              {isSignUp ? 'Create your account' : 'Welcome back'}
-            </Text>
           </View>
 
           {/* Form Container */}
@@ -215,10 +212,14 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
             {/* Google Sign In */}
             <TouchableOpacity
               style={styles.googleButton}
-              onPress={() => {
+              onPress={async () => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                Alert.alert('Coming Soon', 'Google sign-in will be available in a future update.');
+                const result = await signInWithGoogle();
+                if (!result.success && result.error) {
+                  Alert.alert('Error', result.error);
+                }
               }}
+              disabled={loading}
               activeOpacity={0.8}
             >
               <Text style={styles.googleButtonText}>Continue with Google</Text>
@@ -257,46 +258,32 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   header: {
+    marginBottom: 24,
     alignItems: 'center',
-    marginBottom: 48,
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: 8,
+    justifyContent: 'center',
   },
   aiIcon: {
-    width: 36,
-    height: 36,
+    width: 28,
+    height: 28,
     backgroundColor: '#3b82f6',
-    borderRadius: 18,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   aiIconText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#1e293b',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '500',
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#111827',
   },
   formContainer: {
     marginBottom: 32,
@@ -306,29 +293,18 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   input: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f9fafb',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#e5e7eb',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
-    color: '#1e293b',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    fontSize: 15,
+    color: '#111827',
   },
   inputFocused: {
-    borderColor: '#3b82f6',
-    shadowColor: '#3b82f6',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: '#d1d5db',
+    backgroundColor: '#ffffff',
   },
   passwordInput: {
     paddingRight: 50,
@@ -340,13 +316,13 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   submitButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-    shadowColor: '#3b82f6',
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -408,17 +384,16 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   footerText: {
-    color: '#64748b',
+    color: '#6b7280',
     fontSize: 14,
-    marginBottom: 8,
   },
   switchButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
   switchText: {
-    color: '#3b82f6',
-    fontSize: 16,
+    color: '#6366f1',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

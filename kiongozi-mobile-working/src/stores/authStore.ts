@@ -9,6 +9,7 @@ interface AuthState {
   initialized: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
 }
@@ -95,6 +96,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       set({ user: data.user, loading: false });
+      return { success: true };
+    } catch (error: any) {
+      set({ loading: false });
+      return { success: false, error: error.message };
+    }
+  },
+
+  signInWithGoogle: async () => {
+    set({ loading: true });
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'kiongozi://auth/callback',
+          skipBrowserRedirect: false,
+        },
+      });
+
+      if (error) {
+        set({ loading: false });
+        return { success: false, error: error.message };
+      }
+
+      // Check if we got a URL to open
+      if (data?.url) {
+        const { Linking } = require('react-native');
+        await Linking.openURL(data.url);
+      }
+
+      // OAuth will handle the redirect, session will be set via onAuthStateChange
+      set({ loading: false });
       return { success: true };
     } catch (error: any) {
       set({ loading: false });
