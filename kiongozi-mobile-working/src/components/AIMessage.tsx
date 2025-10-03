@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Markdown from 'react-native-markdown-display';
 import * as Haptics from 'expo-haptics';
 
 interface Message {
@@ -50,11 +49,12 @@ export default function AIMessage({ message, darkMode, onCopy, onReact }: AIMess
         activeOpacity={0.8}
       >
         {/* Rich Text Content */}
-        <Markdown
-          style={darkMode ? markdownDarkStyles : markdownLightStyles}
-        >
+        <Text style={[
+          styles.messageText,
+          { color: darkMode ? '#f3f4f6' : '#1f2937' }
+        ]}>
           {message.text}
-        </Markdown>
+        </Text>
 
         {/* Reaction buttons */}
         <View style={styles.reactionContainer}>
@@ -181,186 +181,8 @@ const styles = StyleSheet.create({
   reactionButtonTextActive: {
     transform: [{ scale: 1.2 }],
   },
+  messageText: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
 });
-
-// Light theme markdown styles
-const markdownLightStyles = {
-  body: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#1f2937',
-    fontFamily: 'System',
-  },
-  heading1: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  heading2: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  heading3: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  paragraph: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#1f2937',
-    marginBottom: 12,
-  },
-  strong: {
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  em: {
-    fontStyle: 'italic',
-  },
-  list_item: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  bullet_list: {
-    marginBottom: 12,
-  },
-  ordered_list: {
-    marginBottom: 12,
-  },
-  code_inline: {
-    backgroundColor: '#f3f4f6',
-    color: '#dc2626',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    fontFamily: 'monospace',
-    fontSize: 14,
-  },
-  fence: {
-    backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#3b82f6',
-  },
-  code_block: {
-    backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    fontFamily: 'monospace',
-    fontSize: 14,
-    color: '#374151',
-  },
-  blockquote: {
-    backgroundColor: '#f9fafb',
-    paddingLeft: 16,
-    paddingRight: 12,
-    paddingVertical: 8,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#6b7280',
-  },
-};
-
-// Dark theme markdown styles
-const markdownDarkStyles = {
-  body: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#f3f4f6',
-    fontFamily: 'System',
-  },
-  heading1: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#f9fafb',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  heading2: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f9fafb',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  heading3: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#f9fafb',
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  paragraph: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#f3f4f6',
-    marginBottom: 12,
-  },
-  strong: {
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  em: {
-    fontStyle: 'italic',
-  },
-  list_item: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#f3f4f6',
-    marginBottom: 4,
-  },
-  bullet_list: {
-    marginBottom: 12,
-  },
-  ordered_list: {
-    marginBottom: 12,
-  },
-  code_inline: {
-    backgroundColor: '#374151',
-    color: '#fca5a5',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    fontFamily: 'monospace',
-    fontSize: 14,
-  },
-  fence: {
-    backgroundColor: '#1f2937',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#60a5fa',
-  },
-  code_block: {
-    backgroundColor: '#1f2937',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    fontFamily: 'monospace',
-    fontSize: 14,
-    color: '#d1d5db',
-  },
-  blockquote: {
-    backgroundColor: '#374151',
-    paddingLeft: 16,
-    paddingRight: 12,
-    paddingVertical: 8,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#9ca3af',
-  },
-};
