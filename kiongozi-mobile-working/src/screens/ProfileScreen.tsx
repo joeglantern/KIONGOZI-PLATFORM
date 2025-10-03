@@ -163,7 +163,13 @@ export default function ProfileScreen({
       type: 'navigation' as const,
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Alert.alert('Coming Soon', 'Privacy settings will be available in a future update.');
+        Alert.alert(
+          'Privacy & Security',
+          'Your data is stored securely and never shared with third parties.\n\n• Your conversations are private\n• Learning progress is stored locally\n• Account can be deleted anytime',
+          [
+            { text: 'OK', style: 'default' }
+          ]
+        );
       },
     },
     {

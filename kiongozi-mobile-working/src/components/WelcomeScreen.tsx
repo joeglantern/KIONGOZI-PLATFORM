@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import SmartSuggestions, { ChatSuggestion } from './SmartSuggestions';
+import { ChatSuggestion } from './SmartSuggestions';
 
 const { width } = Dimensions.get('window');
 
@@ -20,6 +20,58 @@ interface WelcomeScreenProps {
   darkMode?: boolean;
   userName?: string;
 }
+
+// Simple suggestions matching web app
+const SUGGESTIONS: ChatSuggestion[] = [
+  {
+    id: 'learn-modules',
+    text: 'Show me learning modules',
+    action: '/modules',
+    category: 'learning',
+    icon: '📚',
+    color: '#10b981',
+  },
+  {
+    id: 'learn-green-tech',
+    text: 'Green technology modules',
+    action: 'What learning modules are available about sustainable technology and green innovation?',
+    category: 'learning',
+    icon: '🌱',
+    color: '#10b981',
+  },
+  {
+    id: 'learn-progress',
+    text: 'Check my progress',
+    action: '/progress',
+    category: 'learning',
+    icon: '📊',
+    color: '#10b981',
+  },
+  {
+    id: 'career-green-economy',
+    text: 'Career paths in green economy',
+    action: 'What career opportunities are available in Kenya\'s green economy and sustainability sector?',
+    category: 'career',
+    icon: '💼',
+    color: '#8b5cf6',
+  },
+  {
+    id: 'tech-ai-ml',
+    text: 'Learn about AI and machine learning',
+    action: 'How can I get started with artificial intelligence and machine learning? What resources are available?',
+    category: 'tech',
+    icon: '🤖',
+    color: '#3b82f6',
+  },
+  {
+    id: 'general-platform',
+    text: 'What is Kiongozi Platform?',
+    action: 'Tell me about the Kiongozi Platform and how it can help me with my learning journey.',
+    category: 'general',
+    icon: '❓',
+    color: '#6b7280',
+  },
+];
 
 export default function WelcomeScreen({
   onSuggestionPress,
@@ -47,7 +99,6 @@ export default function WelcomeScreen({
     onSuggestionPress(suggestion);
   };
 
-
   return (
     <>
       <Animated.View
@@ -68,30 +119,30 @@ export default function WelcomeScreen({
             </Text>
           </View>
 
-          {/* Subtle suggestion button */}
+          {/* Show suggestions button */}
           <TouchableOpacity
             style={[styles.suggestionsButton, darkMode && styles.suggestionsButtonDark]}
             onPress={handleSuggestionsPress}
             activeOpacity={0.7}
           >
-            <Ionicons 
-              name="bulb-outline" 
-              size={18} 
-              color={darkMode ? '#9ca3af' : '#6b7280'} 
+            <Ionicons
+              name="bulb-outline"
+              size={18}
+              color={darkMode ? '#9ca3af' : '#6b7280'}
             />
             <Text style={[styles.suggestionsButtonText, darkMode && styles.suggestionsButtonTextDark]}>
               Show suggestions
             </Text>
-            <Ionicons 
-              name="chevron-forward" 
-              size={16} 
-              color={darkMode ? '#9ca3af' : '#6b7280'} 
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={darkMode ? '#9ca3af' : '#6b7280'}
             />
           </TouchableOpacity>
         </View>
       </Animated.View>
 
-      {/* Responsive suggestions modal */}
+      {/* Simple suggestions modal */}
       <Modal
         visible={showSuggestions}
         animationType="slide"
@@ -109,30 +160,36 @@ export default function WelcomeScreen({
                 style={styles.closeButton}
                 onPress={() => setShowSuggestions(false)}
               >
-                <Ionicons 
-                  name="close" 
-                  size={24} 
-                  color={darkMode ? '#9ca3af' : '#6b7280'} 
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={darkMode ? '#9ca3af' : '#6b7280'}
                 />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Suggestions content */}
-          <ScrollView 
+          {/* Simple suggestions grid */}
+          <ScrollView
             style={styles.modalContent}
             contentContainerStyle={styles.modalScrollContent}
-            showsVerticalScrollIndicator={true}
-            indicatorStyle={darkMode ? 'white' : 'black'}
-            bounces={true}
-            decelerationRate="fast"
+            showsVerticalScrollIndicator={false}
           >
-            <SmartSuggestions
-              onSuggestionPress={handleSuggestionSelect}
-              darkMode={darkMode}
-              maxSuggestions={12} // Increased to show more suggestions
-              showCategories={true}
-            />
+            <View style={styles.suggestionsGrid}>
+              {SUGGESTIONS.map((suggestion) => (
+                <TouchableOpacity
+                  key={suggestion.id}
+                  style={[styles.suggestionCard, darkMode && styles.suggestionCardDark]}
+                  onPress={() => handleSuggestionSelect(suggestion)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.suggestionIcon}>{suggestion.icon}</Text>
+                  <Text style={[styles.suggestionText, darkMode && styles.suggestionTextDark]} numberOfLines={2}>
+                    {suggestion.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </ScrollView>
         </View>
       </Modal>
@@ -161,19 +218,19 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   mainTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '400',
     color: '#111827',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     letterSpacing: -0.5,
   },
   mainTitleDark: {
     color: '#f9fafb',
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     color: '#6b7280',
     textAlign: 'center',
     maxWidth: width - 80,
@@ -244,15 +301,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
   modalContent: {
     flex: 1,
-    paddingTop: 16,
   },
   modalScrollContent: {
-    paddingBottom: 40, // Extra padding at bottom for better scrolling experience
-    flexGrow: 1, // Allow content to expand if needed
+    padding: 20,
+    paddingBottom: 40,
+  },
+  suggestionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  suggestionCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    width: (width - 52) / 2, // 2 cards per row with gaps
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+    alignItems: 'center',
+    minHeight: 100,
+  },
+  suggestionCardDark: {
+    backgroundColor: '#1f2937',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  suggestionIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  suggestionText: {
+    fontSize: 13,
+    color: '#374151',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  suggestionTextDark: {
+    color: '#d1d5db',
   },
 });

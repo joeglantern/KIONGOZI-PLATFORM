@@ -26,54 +26,28 @@ export default function CustomToast({
 }: CustomToastProps) {
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.8)).current;
-  const iconScale = useRef(new Animated.Value(0)).current;
-  const iconRotate = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      // Modern bounce-in animation
+      // Simple slide in
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: 0,
-          tension: 100,
-          friction: 8,
+          tension: 80,
+          friction: 10,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scale, {
-          toValue: 1,
-          tension: 120,
-          friction: 7,
+          duration: 250,
           useNativeDriver: true,
         }),
       ]).start();
 
-      // Icon animation with delay
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.spring(iconScale, {
-            toValue: 1,
-            tension: 150,
-            friction: 6,
-            useNativeDriver: true,
-          }),
-          Animated.timing(iconRotate, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }, 200);
-
-      // Auto hide after 2.5 seconds
+      // Auto hide after 2 seconds
       const timer = setTimeout(() => {
         hideToast();
-      }, 2500);
+      }, 2000);
 
       return () => clearTimeout(timer);
     }
@@ -83,122 +57,72 @@ export default function CustomToast({
     Animated.parallel([
       Animated.timing(translateY, {
         toValue: -100,
-        duration: 300,
+        duration: 200,
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scale, {
-        toValue: 0.8,
-        duration: 300,
+        duration: 200,
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Reset animations for next use
-      iconScale.setValue(0);
-      iconRotate.setValue(0);
       onHide();
     });
   };
 
   if (!visible) return null;
 
-  const getColors = () => {
+  const getConfig = () => {
     switch (type) {
       case 'success':
         return {
-          bg: darkMode ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
-          border: '#10b981',
-          icon: '#10b981',
-          gradient: darkMode ? ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.05)'] : ['rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.02)']
+          bg: darkMode ? '#1f2937' : '#ffffff',
+          text: darkMode ? '#f9fafb' : '#111827',
+          icon: '✓',
+          iconBg: '#10b981',
         };
       case 'error':
         return {
-          bg: darkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
-          border: '#ef4444',
-          icon: '#ef4444',
-          gradient: darkMode ? ['rgba(239, 68, 68, 0.2)', 'rgba(239, 68, 68, 0.05)'] : ['rgba(239, 68, 68, 0.15)', 'rgba(239, 68, 68, 0.02)']
+          bg: darkMode ? '#1f2937' : '#ffffff',
+          text: darkMode ? '#f9fafb' : '#111827',
+          icon: '✕',
+          iconBg: '#ef4444',
         };
       case 'info':
       default:
         return {
-          bg: darkMode ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)',
-          border: '#3b82f6',
-          icon: '#3b82f6',
-          gradient: darkMode ? ['rgba(59, 130, 246, 0.2)', 'rgba(59, 130, 246, 0.05)'] : ['rgba(59, 130, 246, 0.15)', 'rgba(59, 130, 246, 0.02)']
+          bg: darkMode ? '#1f2937' : '#ffffff',
+          text: darkMode ? '#f9fafb' : '#111827',
+          icon: 'ℹ',
+          iconBg: '#3b82f6',
         };
     }
   };
 
-  const getIcon = () => {
-    switch (type) {
-      case 'success':
-        return '✓';
-      case 'error':
-        return '✕';
-      case 'info':
-      default:
-        return 'i';
-    }
-  };
-
-  const colors = getColors();
-  const iconRotateInterpolated = iconRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  const config = getConfig();
 
   return (
     <Animated.View
       style={[
         styles.container,
         {
-          transform: [{ translateY }, { scale }],
+          transform: [{ translateY }],
           opacity,
         },
       ]}
     >
       <View style={[
         styles.toast,
-        {
-          backgroundColor: colors.bg,
-          borderColor: colors.border,
-        },
-        darkMode ? styles.toastDark : styles.toastLight
+        { backgroundColor: config.bg },
+        darkMode && styles.toastDark
       ]}>
-        {/* Modern icon with circle background */}
-        <Animated.View
-          style={[
-            styles.iconContainer,
-            {
-              backgroundColor: colors.icon,
-              transform: [
-                { scale: iconScale },
-                { rotate: iconRotateInterpolated }
-              ],
-            },
-          ]}
-        >
-          <Text style={[styles.icon, { color: '#ffffff' }]}>
-            {getIcon()}
-          </Text>
-        </Animated.View>
-
-        {/* Message with modern typography */}
-        <View style={styles.messageContainer}>
-          <Text style={[
-            styles.message,
-            darkMode ? styles.messageDark : styles.messageLight
-          ]}>
-            {message}
-          </Text>
+        <View style={[styles.iconContainer, { backgroundColor: config.iconBg }]}>
+          <Text style={styles.icon}>{config.icon}</Text>
         </View>
 
-        {/* Modern accent line */}
-        <View style={[styles.accentLine, { backgroundColor: colors.border }]} />
+        <Text style={[styles.message, { color: config.text }]}>
+          {message}
+        </Text>
       </View>
     </Animated.View>
   );
@@ -211,73 +135,38 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     zIndex: 9999,
-    alignItems: 'center',
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 16,
-    maxWidth: width - 40,
-    borderWidth: 1,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  toastLight: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   toastDark: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOpacity: 0.3,
   },
   iconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   icon: {
-    fontSize: 16,
+    fontSize: 14,
+    color: '#ffffff',
     fontWeight: 'bold',
   },
-  messageContainer: {
-    flex: 1,
-  },
   message: {
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 20,
-    letterSpacing: 0.1,
-  },
-  messageLight: {
-    color: '#1f2937',
-  },
-  messageDark: {
-    color: '#f9fafb',
-  },
-  accentLine: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
   },
 });
