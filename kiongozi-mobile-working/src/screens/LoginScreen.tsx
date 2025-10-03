@@ -121,9 +121,16 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
           <View style={styles.formContainer}>
             {isSignUp && (
               <View style={styles.inputContainer}>
+                <Ionicons
+                  name="person-outline"
+                  size={20}
+                  color="#9ca3af"
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={[
                     styles.input,
+                    styles.inputWithIcon,
                     focusedField === 'fullName' && styles.inputFocused
                   ]}
                   placeholder="Full Name"
@@ -139,9 +146,16 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
             )}
 
             <View style={styles.inputContainer}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color="#9ca3af"
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[
                   styles.input,
+                  styles.inputWithIcon,
                   focusedField === 'email' && styles.inputFocused
                 ]}
                 placeholder="Email address"
@@ -158,9 +172,16 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
             </View>
 
             <View style={styles.inputContainer}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color="#9ca3af"
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[
                   styles.input,
+                  styles.inputWithIcon,
                   styles.passwordInput,
                   focusedField === 'password' && styles.inputFocused
                 ]}
@@ -222,6 +243,12 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
               disabled={loading}
               activeOpacity={0.8}
             >
+              <Ionicons
+                name="logo-google"
+                size={20}
+                color="#DB4437"
+                style={styles.googleIcon}
+              />
               <Text style={styles.googleButtonText}>Continue with Google</Text>
             </TouchableOpacity>
           </View>
@@ -292,19 +319,35 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     position: 'relative',
   },
+  inputIcon: {
+    position: 'absolute',
+    left: 16,
+    top: 14,
+    zIndex: 1,
+  },
   input: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
     color: '#111827',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  inputWithIcon: {
+    paddingLeft: 48,
   },
   inputFocused: {
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
+    borderColor: '#3b82f6',
+    borderWidth: 2,
+    shadowOpacity: 0.1,
+    elevation: 2,
   },
   passwordInput: {
     paddingRight: 50,
@@ -317,24 +360,24 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#111827',
-    borderRadius: 24,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-    shadowColor: '#000',
+    shadowColor: '#111827',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 3,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   submitButtonDisabled: {
-    backgroundColor: '#94a3b8',
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: '#cbd5e1',
+    shadowOpacity: 0.1,
+    elevation: 1,
   },
   submitButtonText: {
     color: '#ffffff',
@@ -359,20 +402,24 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 2,
     },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+  },
+  googleIcon: {
+    marginRight: 10,
   },
   googleButtonText: {
     color: '#374151',
