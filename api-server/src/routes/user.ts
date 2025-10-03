@@ -111,10 +111,18 @@ router.get('/stats', authenticateToken, async (req, res) => {
       joinDate = new Date().toISOString();
     }
 
-    // Calculate last active (most recent message)
+    // Calculate last active from LMS activity or conversations
     let lastActive: string | null = null;
-    if (messages && messages.length > 0) {
-      lastActive = messages[messages.length - 1].created_at;
+    if (progressStats && progressStats.length > 0) {
+      // Use most recent module completion or access
+      const lastCompletion = progressStats
+        .filter(p => p.completed_at)
+        .map(p => new Date(p.completed_at!).getTime())
+        .sort((a, b) => b - a)[0];
+
+      if (lastCompletion) {
+        lastActive = new Date(lastCompletion).toISOString();
+      }
     }
 
     const stats = {
