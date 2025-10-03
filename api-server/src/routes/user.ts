@@ -38,51 +38,69 @@ router.get('/stats', authenticateToken, async (req, res) => {
       throw new Error(`Failed to count conversations: ${conversationsError.message}`);
     }
 
-    // Get total messages count and calculate topics learned
-    const { data: messages, count: totalMessages, error: messagesError } = await supabaseServiceClient
+    // Get total messages count
+    const { count: totalMessages, error: messagesError } = await supabaseServiceClient
       .from('messages')
-      .select('text, created_at', { count: 'exact' })
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true });
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
 
     if (messagesError) {
       throw new Error(`Failed to count messages: ${messagesError.message}`);
     }
 
-    // Calculate topics learned (estimate from unique conversation starters and varied vocabulary)
-    let topicsLearned = 0;
-    if (messages && messages.length > 0) {
-      // Simple heuristic: estimate topics based on conversation variety
-      // More sophisticated topic extraction could be added later
-      const uniqueQuestionWords = new Set();
-      const greenDigitalKeywords = [
-        'sustainability', 'renewable', 'solar', 'green', 'climate', 'environment',
-        'digital', 'technology', 'coding', 'programming', 'entrepreneurship', 'innovation',
-        'business', 'agriculture', 'energy', 'recycling', 'conservation', 'skills', 'career', 'jobs'
-      ];
+    // Get LMS progress data for real learning statistics
+    const { data: progressStats, error: progressError } = await supabaseServiceClient
+      .from('user_progress')
+      .select('status, completed_at, started_at')
+      .eq('user_id', userId);
 
-      messages.forEach(message => {
-        if (message.text) {
-          const text = message.text.toLowerCase();
-          greenDigitalKeywords.forEach(keyword => {
-            if (text.includes(keyword)) {
-              uniqueQuestionWords.add(keyword);
+    if (progressError) {
+      console.warn('Failed to get LMS progress:', progressError);
+    }
+
+    // Calculate real topics learned from completed modules
+    // Only count modules that were actually started and completed
+    const topicsLearned = progressStats?.filter(p =>
+      p.status === 'completed' &&
+      p.started_at !== null &&
+      p.completed_at !== null
+    ).length || 0;
+
+    // Calculate learning streak from module completions
+    let currentStreak = 0;
+    if (progressStats && progressStats.length > 0) {
+      // Only count completions where the module was actually started
+      const completionDates = progressStats
+        .filter(p => p.completed_at && p.started_at)
+        .map(p => new Date(p.completed_at!).toDateString())
+        .sort();
+
+      if (completionDates.length > 0) {
+        const today = new Date().toDateString();
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
+
+        // Start from today or yesterday
+        let checkDate = completionDates.includes(today) ? today : yesterday;
+        let checkDateTime = new Date(checkDate).getTime();
+
+        if (completionDates.includes(checkDate)) {
+          currentStreak = 1;
+
+          // Count backwards for consecutive days
+          for (let i = 1; i < 365; i++) {
+            const prevDate = new Date(checkDateTime - i * 24 * 60 * 60 * 1000).toDateString();
+            if (completionDates.includes(prevDate)) {
+              currentStreak++;
+            } else {
+              break;
             }
-          });
+          }
         }
-      });
-
-      topicsLearned = uniqueQuestionWords.size;
+      }
     }
 
-    // Calculate days active
-    let daysActive = 0;
-    if (messages && messages.length > 0) {
-      const firstMessage = new Date(messages[0].created_at);
-      const lastMessage = new Date(messages[messages.length - 1].created_at);
-      const daysDiff = Math.ceil((lastMessage.getTime() - firstMessage.getTime()) / (1000 * 60 * 60 * 24));
-      daysActive = Math.max(1, daysDiff); // At least 1 day if they have messages
-    }
+    // Use streak as days_active (real learning activity, not chat activity)
+    const daysActive = currentStreak;
 
     // Determine join date (prefer profile created_at, fallback to current date)
     let joinDate: string;
