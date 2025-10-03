@@ -5,16 +5,6 @@ import { generateConversationTitle } from '../utils/titleGenerator';
 import learningProfileService from '../services/learningProfileService';
 import OpenAI from 'openai';
 
-// Utility function to generate conversation slug
-function generateConversationSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim()
-    .slice(0, 50);
-}
 
 const router = Router();
 
@@ -64,10 +54,9 @@ router.post('/message', authenticateToken, async (req, res) => {
     if (!convId) {
       // Generate title using GPT or fallback to simple generation
       const title = await generateConversationTitle(text);
-      const slug = generateConversationSlug(title);
       const { data: conv, error: convErr } = await supabaseServiceClient
         .from('conversations')
-        .insert({ user_id: userId, title, slug })
+        .insert({ user_id: userId, title })
         .select('*')
         .single();
       if (convErr) return res.status(500).json({ success: false, error: convErr.message });
@@ -86,10 +75,9 @@ router.post('/message', authenticateToken, async (req, res) => {
       if (!existingConv) {
         // Conversation doesn't exist, create it with the provided ID and generated title
         const title = await generateConversationTitle(text);
-        const slug = generateConversationSlug(title);
         const { data: newConv, error: createErr } = await supabaseServiceClient
           .from('conversations')
-          .insert({ id: convId, user_id: userId, title, slug })
+          .insert({ id: convId, user_id: userId, title })
           .select('*')
           .single();
         if (createErr) return res.status(500).json({ success: false, error: createErr.message });
@@ -261,17 +249,17 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
   }
 });
 
-// Update a conversation title and slug (owner-only)
+// Update a conversation title (owner-only)
 router.put('/conversations/:id', authenticateToken, async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ success: false, error: 'Unauthorized' });
     if (!supabaseServiceClient) return res.status(500).json({ success: false, error: 'Supabase not configured' });
 
     const conversationId = req.params.id;
-    const { title, slug } = req.body as { title?: string; slug?: string };
+    const { title } = req.body as { title?: string };
 
-    if (!title && !slug) {
-      return res.status(400).json({ success: false, error: 'Title or slug is required' });
+    if (!title) {
+      return res.status(400).json({ success: false, error: 'Title is required' });
     }
 
     // Ensure ownership
@@ -284,14 +272,10 @@ router.put('/conversations/:id', authenticateToken, async (req, res) => {
     if (conv.user_id !== req.user.id) return res.status(403).json({ success: false, error: 'Forbidden' });
 
     // Prepare update data
-    const updateData: any = { updated_at: new Date().toISOString() };
-    if (title) {
-      updateData.title = title.trim();
-      // Auto-generate slug from new title if not provided
-      updateData.slug = slug ? slug.trim() : generateConversationSlug(title.trim());
-    } else if (slug) {
-      updateData.slug = slug.trim();
-    }
+    const updateData: any = {
+      title: title.trim(),
+      updated_at: new Date().toISOString()
+    };
 
     // Update conversation
     const { data: updatedConv, error: updateErr } = await supabaseServiceClient
