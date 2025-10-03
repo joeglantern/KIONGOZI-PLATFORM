@@ -34,11 +34,13 @@ import EnhancedAIMessage from '../components/EnhancedAIMessage';
 import WelcomeScreen from '../components/WelcomeScreen';
 import QuickActionsMenu from '../components/QuickActionsMenu';
 import ModuleDetailModal from '../components/ModuleDetailModal';
+import TutorialOverlay from '../components/TutorialOverlay';
 import { ChatSuggestion } from '../components/SmartSuggestions';
 import { useChatStore } from '../stores/chatStore';
 import { isCommand, processCommand } from '../utils/messageProcessor';
 import { processCommand as handleCommand } from '../utils/commandProcessor';
 import { LearningModule, ModuleCategory } from '../types/lms';
+import { hasSeenTutorial } from '../utils/tutorialStorage';
 
 interface Message {
   text: string;
@@ -86,6 +88,7 @@ export default function ChatScreen() {
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showModuleDetail, setShowModuleDetail] = useState(false);
   const [selectedModule, setSelectedModule] = useState<LearningModule | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
   const chatStore = useChatStore();
 
   useEffect(() => {
@@ -94,7 +97,29 @@ export default function ChatScreen() {
 
     // Load saved dark mode preference
     loadDarkModePreference();
+
+    // Check if user has seen tutorial
+    checkTutorialStatus();
   }, []);
+
+  const checkTutorialStatus = async () => {
+    const seen = await hasSeenTutorial();
+    if (!seen) {
+      // Show tutorial after a short delay
+      setTimeout(() => {
+        setShowTutorial(true);
+      }, 1000);
+    }
+  };
+
+  const handleTutorialComplete = () => {
+    setShowTutorial(false);
+  };
+
+  const showTutorialManually = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowTutorial(true);
+  };
 
   // Keyboard handling for production builds
   useEffect(() => {
@@ -521,27 +546,6 @@ export default function ChatScreen() {
     }
   };
 
-  const handleVoiceInput = (transcription: string) => {
-    // Handle voice input transcription
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    // Set the transcribed text in the input field
-    setInputText(transcription);
-    
-    // Show feedback toast
-    showToast('🎤 Voice input received!', 'success');
-    
-    console.log('Voice transcription:', transcription);
-    
-    // Auto-send if it's a command or question
-    if (transcription.trim().length > 0) {
-      setTimeout(() => {
-        sendMessage();
-      }, 500); // Small delay to show the text was set
-    }
-  };
-
-
   const sendMessage = async () => {
     if (!inputText.trim()) return;
 
@@ -711,9 +715,7 @@ export default function ChatScreen() {
                 <View style={[styles.sidebarRect, styles.sidebarRectSmall, darkMode && styles.sidebarRectDark]} />
               </View>
             </TouchableOpacity>
-            <View style={styles.aiIcon}>
-              <Text style={styles.aiIconText}>AI</Text>
-            </View>
+            <View style={styles.aiIcon} />
           </View>
 
           {/* Center section - Title (flexible) */}
@@ -728,6 +730,18 @@ export default function ChatScreen() {
 
           {/* Right section - Actions */}
           <View style={styles.headerRight}>
+            {/* Help Button */}
+            <TouchableOpacity
+              onPress={showTutorialManually}
+              style={[styles.actionButton, darkMode && styles.actionButtonDark]}
+            >
+              <Ionicons
+                name="help-circle-outline"
+                size={20}
+                color={darkMode ? '#d1d5db' : '#6b7280'}
+              />
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -740,13 +754,6 @@ export default function ChatScreen() {
               <Text style={[styles.actionButtonText, darkMode && styles.actionButtonTextDark]}>
                 {darkMode ? '☀️' : '🌙'}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleSignOut}
-              style={[styles.actionButton, styles.signOutButton]}
-            >
-              <Text style={styles.signOutText}>Sign Out</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -896,7 +903,6 @@ export default function ChatScreen() {
             disabled={false}
             maxLength={1000}
             onQuickActionsPress={handleQuickActionsPress}
-            onVoiceInput={handleVoiceInput}
           />
         </View>
       </View>
@@ -932,6 +938,7 @@ export default function ChatScreen() {
         }}
         onShareConversation={shareConversation}
         onDeleteConversation={deleteConversation}
+        onShowTutorial={showTutorialManually}
         currentConversationId={currentConversation?.id}
       />
 
@@ -976,6 +983,13 @@ export default function ChatScreen() {
         darkMode={darkMode}
         onStartLearning={handleStartLearning}
         onBookmark={handleModuleBookmark}
+      />
+
+      {/* Tutorial Overlay */}
+      <TutorialOverlay
+        visible={showTutorial}
+        onComplete={handleTutorialComplete}
+        darkMode={darkMode}
       />
 
       {/* Custom Toast */}
@@ -1082,7 +1096,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 2,

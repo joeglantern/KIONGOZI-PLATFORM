@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -100,15 +101,20 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Animated.View style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY }],
-          },
-        ]}>
-          {/* Header */}
-          <View style={styles.header}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View style={[
+            styles.content,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY }],
+            },
+          ]}>
+            {/* Header */}
+            <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.aiIcon} />
               <Text style={styles.title}>
@@ -264,7 +270,8 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
               </Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+          </Animated.View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -278,9 +285,12 @@ const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    minHeight: Dimensions.get('window').height - 100,
+  },
+  content: {
     paddingHorizontal: 24,
     paddingVertical: 32,
   },

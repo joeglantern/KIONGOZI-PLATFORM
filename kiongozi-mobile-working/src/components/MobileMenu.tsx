@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
+import { supabase } from '../utils/supabaseClient';
 
 // Utility function for relative time formatting
 const formatRelativeTime = (dateString: string): string => {
@@ -57,6 +58,7 @@ interface MobileMenuProps {
   onOpenProfile?: () => void;
   onDeleteConversation?: (conversationId: string) => void;
   onShareConversation?: () => void;
+  onShowTutorial?: () => void;
   currentConversationId?: string;
 }
 
@@ -179,9 +181,55 @@ export default function MobileMenu({
   onOpenProfile,
   onDeleteConversation,
   onShareConversation,
+  onShowTutorial,
   currentConversationId,
 }: MobileMenuProps) {
   const { user } = useAuthStore();
+  const [userProfile, setUserProfile] = useState<{ full_name?: string } | null>(null);
+  const scrollIndicatorOpacity = useRef(new Animated.Value(1)).current;
+
+  // Load user profile data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        if (!error && data) {
+          setUserProfile(data);
+        }
+      } catch (error) {
+        console.error('Error loading user profile:', error);
+      }
+    };
+
+    loadUserProfile();
+  }, [user]);
+
+  // Animate scroll indicator
+  useEffect(() => {
+    if (conversations.length > 2) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scrollIndicatorOpacity, {
+            toValue: 0.3,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scrollIndicatorOpacity, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [conversations.length]);
 
   const menuItems = [
     {
@@ -207,6 +255,17 @@ export default function MobileMenu({
       },
     },
     {
+      icon: '🎓',
+      title: 'Show Tutorial',
+      onPress: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (onShowTutorial) {
+          onShowTutorial();
+        }
+        onClose();
+      },
+    },
+    {
       icon: darkMode ? '☀️' : '🌙',
       title: darkMode ? 'Light Mode' : 'Dark Mode',
       onPress: () => {
@@ -227,9 +286,7 @@ export default function MobileMenu({
         <View style={[styles.header, darkMode && styles.headerDark]}>
           <View style={styles.headerContent}>
             <View style={styles.logoContainer}>
-              <View style={styles.aiIcon}>
-                <Text style={styles.aiIconText}>AI</Text>
-              </View>
+              <View style={styles.aiIcon} />
               <View>
                 <Text style={[styles.headerTitle, darkMode && styles.headerTitleDark]}>
                   Kiongozi<Text style={styles.platformText}>Platform</Text>
@@ -248,21 +305,35 @@ export default function MobileMenu({
         </View>
 
         {/* User Info */}
-        <View style={[styles.userSection, darkMode && styles.userSectionDark]}>
-          <View style={styles.userAvatar}>
-            <Text style={styles.userAvatarText}>
-              {user?.email?.charAt(0).toUpperCase() || 'U'}
-            </Text>
+        <TouchableOpacity
+          style={[styles.userSection, darkMode && styles.userSectionDark]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (onOpenProfile) {
+              onOpenProfile();
+              onClose();
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.userAvatarContainer}>
+            <View style={[styles.userAvatar, darkMode && styles.userAvatarDark]}>
+              <Text style={styles.userAvatarText}>
+                {userProfile?.full_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
+            <View style={styles.onlineIndicator} />
           </View>
           <View style={styles.userInfo}>
-            <Text style={[styles.userEmail, darkMode && styles.userEmailDark]}>
-              {user?.email || 'User'}
+            <Text style={[styles.userName, darkMode && styles.userNameDark]}>
+              {userProfile?.full_name || 'User'}
             </Text>
-            <Text style={[styles.userStatus, darkMode && styles.userStatusDark]}>
-              Active learner
+            <Text style={[styles.userEmail, darkMode && styles.userEmailDark]}>
+              {user?.email || ''}
             </Text>
           </View>
-        </View>
+          <Text style={[styles.profileArrow, darkMode && styles.profileArrowDark]}>›</Text>
+        </TouchableOpacity>
 
         {/* Quick Actions & Recent Chats */}
         <View style={[styles.quickSection, darkMode && styles.quickSectionDark]}>
@@ -284,16 +355,28 @@ export default function MobileMenu({
           {/* Recent Conversations - Compact Display */}
           {conversations.length > 0 && (
             <View style={styles.recentChatsCompact}>
-              <Text style={[styles.recentChatsTitle, darkMode && styles.recentChatsTitleDark]}>
-                Recent
-              </Text>
+              <View style={styles.recentChatsHeader}>
+                <Text style={[styles.recentChatsTitle, darkMode && styles.recentChatsTitleDark]}>
+                  Recent
+                </Text>
+                {conversations.length > 2 && (
+                  <Animated.View style={{ opacity: scrollIndicatorOpacity }}>
+                    <Text style={[styles.scrollHint, darkMode && styles.scrollHintDark]}>
+                      Swipe →
+                    </Text>
+                  </Animated.View>
+                )}
+              </View>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.recentChatsScroll}
                 contentContainerStyle={styles.recentChatsContent}
+                decelerationRate="fast"
+                snapToInterval={164}
+                snapToAlignment="start"
               >
-                {conversations.slice(0, 3).map((conversation) => (
+                {conversations.slice(0, 5).map((conversation) => (
                   <TouchableOpacity
                     key={conversation.id}
                     style={[
@@ -445,7 +528,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
@@ -454,38 +537,68 @@ const styles = StyleSheet.create({
     backgroundColor: '#1f2937',
     borderBottomColor: '#374151',
   },
+  userAvatarContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
   userAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#3b82f6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  userAvatarDark: {
+    shadowOpacity: 0.5,
   },
   userAvatarText: {
     color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10b981',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
   userInfo: {
     flex: 1,
   },
-  userEmail: {
-    fontSize: 16,
+  userName: {
+    fontSize: 17,
     fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+    color: '#111827',
+    marginBottom: 2,
   },
-  userEmailDark: {
+  userNameDark: {
     color: '#f9fafb',
   },
-  userStatus: {
-    fontSize: 14,
+  userEmail: {
+    fontSize: 13,
     color: '#6b7280',
   },
-  userStatusDark: {
+  userEmailDark: {
     color: '#9ca3af',
+  },
+  profileArrow: {
+    fontSize: 24,
+    color: '#d1d5db',
+    marginLeft: 8,
+  },
+  profileArrowDark: {
+    color: '#4b5563',
   },
   menuContainer: {
     flex: 1,
@@ -613,14 +726,27 @@ const styles = StyleSheet.create({
   recentChatsCompact: {
     marginTop: 8,
   },
+  recentChatsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   recentChatsTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#6b7280',
-    marginBottom: 12,
   },
   recentChatsTitleDark: {
     color: '#9ca3af',
+  },
+  scrollHint: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#3b82f6',
+  },
+  scrollHintDark: {
+    color: '#60a5fa',
   },
   recentChatsScroll: {
     flexGrow: 0,

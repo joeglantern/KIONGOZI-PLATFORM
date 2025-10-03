@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import VoiceInputButton from './VoiceInputButton';
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +23,6 @@ interface ModernMessageInputProps {
   disabled?: boolean;
   maxLength?: number;
   onQuickActionsPress?: () => void;
-  onVoiceInput?: (text: string) => void;
 }
 
 export default function ModernMessageInput({
@@ -37,7 +35,6 @@ export default function ModernMessageInput({
   disabled = false,
   maxLength = 1000,
   onQuickActionsPress,
-  onVoiceInput,
 }: ModernMessageInputProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [inputHeight, setInputHeight] = useState(44);
@@ -190,17 +187,6 @@ export default function ModernMessageInput({
               color={darkMode ? '#9ca3af' : '#6b7280'}
             />
           </TouchableOpacity>
-        )}
-
-        {/* Voice Input Button */}
-        {onVoiceInput && (
-          <View style={{ opacity: canSend ? 0 : 1 }}>
-            <VoiceInputButton
-              onTranscription={onVoiceInput}
-              darkMode={darkMode}
-              disabled={canSend || disabled}
-            />
-          </View>
         )}
 
         {/* Send Button */}
