@@ -18,24 +18,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../stores/authStore';
+import EmailVerificationModal from '../components/EmailVerificationModal';
 
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { signIn, signUp, signInWithGoogle, loading } = useAuthStore();
+  const { signIn, signUp, signInWithGoogle, loading, resendVerificationEmail, checkEmailVerified } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [resending, setResending] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const handleFocusEmail = React.useCallback(() => setFocusedField('email'), []);
   const handleFocusPassword = React.useCallback(() => setFocusedField('password'), []);
-  const handleFocusFullName = React.useCallback(() => setFocusedField('fullName'), []);
+  const handleFocusFirstName = React.useCallback(() => setFocusedField('firstName'), []);
+  const handleFocusLastName = React.useCallback(() => setFocusedField('lastName'), []);
   const handleBlur = React.useCallback(() => setFocusedField(null), []);
 
   const togglePasswordVisibility = React.useCallback(() => {
@@ -69,24 +75,57 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
       return;
     }
 
-    if (isSignUp && !fullName) {
-      Alert.alert('Error', 'Please enter your full name');
+    if (isSignUp && (!firstName || !lastName)) {
+      Alert.alert('Error', 'Please enter your first and last name');
       return;
     }
 
     try {
       const result = isSignUp
-        ? await signUp(email, password, fullName)
+        ? await signUp(email, password, firstName, lastName)
         : await signIn(email, password);
 
       if (result.success) {
-        onLoginSuccess();
+        // Check if email verification is needed
+        if (result.needsVerification && result.email) {
+          setVerificationEmail(result.email);
+          setShowVerificationModal(true);
+        } else {
+          onLoginSuccess();
+        }
       } else {
         Alert.alert('Error', result.error || 'Authentication failed');
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Something went wrong');
     }
+  };
+
+  const handleResendEmail = async () => {
+    setResending(true);
+    const result = await resendVerificationEmail(verificationEmail);
+    setResending(false);
+
+    if (result.success) {
+      Alert.alert('Success', 'Verification email sent! Check your inbox.');
+    } else {
+      Alert.alert('Error', result.error || 'Failed to resend email');
+    }
+  };
+
+  const handleVerifyCheck = async () => {
+    // After email verification, user needs to sign in with their credentials
+    setShowVerificationModal(false);
+    Alert.alert(
+      'Email Verified!',
+      'Please sign in with your email and password to continue.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleCloseVerificationModal = () => {
+    setShowVerificationModal(false);
+    setVerificationEmail('');
   };
 
   const translateY = slideAnim.interpolate({
@@ -126,29 +165,55 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
           {/* Form Container */}
           <View style={styles.formContainer}>
             {isSignUp && (
-              <View style={styles.inputContainer}>
-                <Ionicons
-                  name="person-outline"
-                  size={20}
-                  color="#9ca3af"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.inputWithIcon,
-                    focusedField === 'fullName' && styles.inputFocused
-                  ]}
-                  placeholder="Full Name"
-                  placeholderTextColor="#9ca3af"
-                  value={fullName}
-                  onChangeText={setFullName}
-                  onFocus={handleFocusFullName}
-                  onBlur={handleBlur}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                />
-              </View>
+              <>
+                <View style={styles.inputContainer}>
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color="#9ca3af"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.inputWithIcon,
+                      focusedField === 'firstName' && styles.inputFocused
+                    ]}
+                    placeholder="First Name"
+                    placeholderTextColor="#9ca3af"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    onFocus={handleFocusFirstName}
+                    onBlur={handleBlur}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color="#9ca3af"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.inputWithIcon,
+                      focusedField === 'lastName' && styles.inputFocused
+                    ]}
+                    placeholder="Last Name"
+                    placeholderTextColor="#9ca3af"
+                    value={lastName}
+                    onChangeText={setLastName}
+                    onFocus={handleFocusLastName}
+                    onBlur={handleBlur}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+                </View>
+              </>
             )}
 
             <View style={styles.inputContainer}>
@@ -273,6 +338,16 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Email Verification Modal */}
+      <EmailVerificationModal
+        visible={showVerificationModal}
+        email={verificationEmail}
+        onResendEmail={handleResendEmail}
+        onVerifyCheck={handleVerifyCheck}
+        onClose={handleCloseVerificationModal}
+        resending={resending}
+      />
     </SafeAreaView>
   );
 }

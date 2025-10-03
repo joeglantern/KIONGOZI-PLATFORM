@@ -8,10 +8,12 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean; email?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
+  checkEmailVerified: () => Promise<{ success: boolean; error?: string }>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -73,7 +75,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email: string, password: string, fullName: string) => {
+  signUp: async (email: string, password: string, firstName: string, lastName: string) => {
     set({ loading: true });
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -81,8 +83,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         password,
         options: {
           data: {
-            full_name: fullName,
+            first_name: firstName,
+            last_name: lastName,
           },
+          emailRedirectTo: 'kiongozi://auth/callback',
         },
       });
 
@@ -91,11 +95,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: error.message };
       }
 
-      if (data.session?.access_token) {
-        await apiClient.saveAuthToken(data.session.access_token);
+      // Check if email confirmation is required
+      if (data.user && !data.session) {
+        // User created but needs email verification
+        set({ loading: false });
+        return {
+          success: true,
+          needsVerification: true,
+          email: email
+        };
       }
 
-      set({ user: data.user, loading: false });
+      // Email confirmed (auto-confirm enabled or already verified)
+      if (data.session?.access_token) {
+        await apiClient.saveAuthToken(data.session.access_token);
+        set({ user: data.user, loading: false });
+        return { success: true };
+      }
+
+      set({ loading: false });
       return { success: true };
     } catch (error: any) {
       set({ loading: false });
@@ -141,6 +159,43 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: null });
     } catch (error) {
       console.error('Sign out error:', error);
+    }
+  },
+
+  resendVerificationEmail: async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  checkEmailVerified: async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data.session?.access_token) {
+        await apiClient.saveAuthToken(data.session.access_token);
+        set({ user: data.user });
+        return { success: true };
+      }
+
+      return { success: false, error: 'Email not verified yet' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
     }
   },
 }));

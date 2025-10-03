@@ -6,6 +6,7 @@ import { useAuthStore } from './src/stores/authStore';
 import LoginScreen from './src/screens/LoginScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import { supabase } from './src/utils/supabaseClient';
+import apiClient from './src/utils/apiClient';
 
 export default function App() {
   const { user, initialized, initialize } = useAuthStore();
@@ -24,14 +25,14 @@ export default function App() {
     initializeApp();
   }, [initialize]);
 
-  // Handle deep links for OAuth callback
+  // Handle deep links for OAuth and email verification callback
   useEffect(() => {
     const handleDeepLink = async (url: string) => {
       console.log('Deep link received:', url);
 
       // Extract the query params from the URL
       if (url.includes('#access_token=')) {
-        // Supabase auth callback
+        // Supabase auth callback (OAuth & email verification)
         const params = new URLSearchParams(url.split('#')[1]);
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
@@ -42,6 +43,9 @@ export default function App() {
             access_token: accessToken,
             refresh_token: refreshToken,
           });
+
+          // Save token for API client
+          await apiClient.saveAuthToken(accessToken);
         }
       }
     };
