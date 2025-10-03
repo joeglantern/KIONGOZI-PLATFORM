@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import apiClient from '../utils/apiClient';
+import { getSupabase } from '../utils/supabaseClient';
 
 export interface User {
   id: string;
@@ -48,25 +48,50 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      // Try to get user from the API
-      const response = await apiClient.getCurrentUser();
+      // Get Supabase client (same as mobile app pattern)
+      const supabase = getSupabase();
 
-      if (response.success && response.data) {
-        setUser(response.data as any);
-      } else {
-        // If no API endpoint, try to extract from localStorage token
-        const token = getTokenFromStorage();
-        if (token) {
-          const userData = extractUserFromToken(token);
-          console.log('🔍 User data from token:', userData);
-          if (userData) {
-            setUser(userData);
-          } else {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        // Fetch full profile from database
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, email, first_name, last_name, full_name, avatar_url, role, created_at, updated_at')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Failed to fetch profile from database:', profileError);
+          // Fall back to session user data
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+            first_name: session.user.user_metadata?.first_name,
+            last_name: session.user.user_metadata?.last_name,
+            avatar_url: session.user.user_metadata?.avatar_url,
+            role: session.user.role || 'user',
+            created_at: session.user.created_at || new Date().toISOString(),
+            updated_at: session.user.updated_at || new Date().toISOString()
+          });
+        } else if (profile) {
+          console.log('✅ User profile loaded from database:', profile);
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            full_name: profile.full_name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User',
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            avatar_url: profile.avatar_url,
+            role: profile.role,
+            created_at: profile.created_at,
+            updated_at: profile.updated_at
+          });
         }
+      } else {
+        setUser(null);
       }
     } catch (err: any) {
       console.error('Failed to fetch user:', err);
@@ -85,36 +110,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     try {
       setLoading(true);
 
-      // Clear all auth-related data from localStorage
-      if (typeof window !== 'undefined') {
-        const keysToRemove = [
-          'sb-jdncfyagppohtksogzkx-auth-token',
-          'supabase_token',
-          'token',
-          'chat-dark-mode',
-          'chat-sidebar-open',
-          'chat-current-conversation'
-        ];
-
-        keysToRemove.forEach(key => {
-          localStorage.removeItem(key);
-        });
-
-        // Clear window token
-        (window as any).supabaseToken = null;
-      }
-
-      // Try to call logout endpoint
-      try {
-        await apiClient.logout();
-      } catch (err) {
-        console.log('Logout endpoint not available, continuing with local cleanup');
-      }
+      // Get Supabase client and sign out (same as mobile app)
+      const supabase = getSupabase();
+      await supabase.auth.signOut();
 
       setUser(null);
       setError(null);
 
-      // Redirect to login or home page
+      // Redirect to login page
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
@@ -123,44 +126,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(err.message || 'Logout failed');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Helper function to get token from localStorage
-  const getTokenFromStorage = (): string | null => {
-    if (typeof window === 'undefined') return null;
-
-    // Try Supabase's standard format first
-    const supabaseToken = localStorage.getItem('sb-jdncfyagppohtksogzkx-auth-token');
-    if (supabaseToken) {
-      try {
-        const parsed = JSON.parse(supabaseToken);
-        if (parsed.access_token) return parsed.access_token;
-      } catch {}
-    }
-
-    // Fallback to direct token storage
-    return localStorage.getItem('supabase_token') || localStorage.getItem('token');
-  };
-
-  // Helper function to extract user data from JWT token
-  const extractUserFromToken = (token: string): User | null => {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return {
-        id: payload.sub || payload.user_id || 'unknown',
-        email: payload.email || 'user@example.com',
-        full_name: payload.full_name || payload.name || 'User',
-        first_name: payload.first_name || payload.given_name,
-        last_name: payload.last_name || payload.family_name,
-        avatar_url: payload.avatar_url || payload.picture,
-        role: payload.role || 'user',
-        created_at: payload.created_at || new Date().toISOString(),
-        updated_at: payload.updated_at || new Date().toISOString()
-      };
-    } catch (err) {
-      console.error('Failed to extract user from token:', err);
-      return null;
     }
   };
 
