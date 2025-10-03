@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Markdown from 'react-native-marked';
 import * as Haptics from 'expo-haptics';
 
 interface Message {
@@ -49,12 +50,18 @@ export default function AIMessage({ message, darkMode, onCopy, onReact }: AIMess
         activeOpacity={0.8}
       >
         {/* Rich Text Content */}
-        <Text style={[
-          styles.messageText,
-          { color: darkMode ? '#f3f4f6' : '#1f2937' }
-        ]}>
-          {message.text}
-        </Text>
+        <Markdown
+          value={message.text}
+          theme={{
+            colors: {
+              text: darkMode ? '#f3f4f6' : '#1f2937',
+              border: darkMode ? '#374151' : '#e5e7eb',
+              link: '#3b82f6',
+              code: darkMode ? '#fbbf24' : '#dc2626',
+              codeBackground: darkMode ? '#374151' : '#f3f4f6',
+            },
+          }}
+        />
 
         {/* Reaction buttons */}
         <View style={styles.reactionContainer}>

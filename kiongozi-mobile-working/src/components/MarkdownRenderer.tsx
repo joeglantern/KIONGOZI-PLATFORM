@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import Markdown from 'react-native-marked';
 
 interface MarkdownRendererProps {
   content: string;
@@ -14,21 +15,23 @@ export default function MarkdownRenderer({
 }: MarkdownRendererProps) {
 
   if (!content || content.trim() === '') {
-    return (
-      <Text style={[styles.emptyText, { color: darkMode ? '#9ca3af' : '#6b7280' }]}>
-        No content to display
-      </Text>
-    );
+    return null;
   }
 
   return (
     <View style={[styles.container, style]}>
-      <Text style={[
-        styles.text,
-        { color: darkMode ? '#f3f4f6' : '#1f2937' }
-      ]}>
-        {content}
-      </Text>
+      <Markdown
+        value={content}
+        theme={{
+          colors: {
+            text: darkMode ? '#f3f4f6' : '#1f2937',
+            border: darkMode ? '#374151' : '#e5e7eb',
+            link: '#3b82f6',
+            code: darkMode ? '#fbbf24' : '#dc2626',
+            codeBackground: darkMode ? '#374151' : '#f3f4f6',
+          },
+        }}
+      />
     </View>
   );
 }
@@ -36,16 +39,5 @@ export default function MarkdownRenderer({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-  },
-  text: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  emptyText: {
-    fontStyle: 'italic',
-    opacity: 0.6,
-    textAlign: 'center',
-    paddingVertical: 20,
-    fontSize: 16,
   },
 });
