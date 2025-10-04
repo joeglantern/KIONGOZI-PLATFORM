@@ -21,7 +21,11 @@
     "preview": {
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "gradleCommand": ":app:assembleRelease",
+        "withoutCredentials": true
+      },
+      "cache": {
+        "disabled": true
       },
       "ios": {
         "simulator": true
