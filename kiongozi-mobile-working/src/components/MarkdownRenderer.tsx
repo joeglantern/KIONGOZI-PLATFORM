@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 interface MarkdownRendererProps {
   content: string;
@@ -66,18 +67,26 @@ export default function MarkdownRenderer({
     return elements;
   };
 
-  // Handle inline bold and inline code
+  // Handle links
+  const handleLinkPress = async (url: string) => {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      }
+    } catch (error) {
+      console.error('Error opening link:', error);
+    }
+  };
+
+  // Handle inline bold, code, and links
   const renderInlineFormatting = (text: string, darkMode: boolean) => {
     const parts: (string | JSX.Element)[] = [];
-    let currentIndex = 0;
     let partIndex = 0;
 
-    // Simple regex for **bold** and `code`
-    const boldRegex = /\*\*(.*?)\*\*/g;
-    const codeRegex = /`(.*?)`/g;
-
-    // Combine patterns
-    const combinedRegex = /(\*\*.*?\*\*|`.*?`)/g;
+    // Regex for **bold**, `code`, [text](url), and plain URLs
+    const combinedRegex = /(\*\*.*?\*\*|`.*?`|\[([^\]]+)\]\(([^)]+)\)|https?:\/\/[^\s]+)/g;
     const matches = text.match(combinedRegex);
 
     if (!matches) {
@@ -87,13 +96,16 @@ export default function MarkdownRenderer({
     text.split(combinedRegex).forEach((segment, i) => {
       if (!segment) return;
 
+      // Bold text
       if (segment.startsWith('**') && segment.endsWith('**')) {
         parts.push(
           <Text key={`bold-${partIndex++}`} style={styles.bold}>
             {segment.slice(2, -2)}
           </Text>
         );
-      } else if (segment.startsWith('`') && segment.endsWith('`')) {
+      }
+      // Inline code
+      else if (segment.startsWith('`') && segment.endsWith('`')) {
         parts.push(
           <Text
             key={`code-${partIndex++}`}
@@ -108,7 +120,42 @@ export default function MarkdownRenderer({
             {segment.slice(1, -1)}
           </Text>
         );
-      } else {
+      }
+      // Markdown links [text](url)
+      else if (segment.startsWith('[')) {
+        const linkMatch = segment.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) {
+          const linkText = linkMatch[1];
+          const url = linkMatch[2];
+          parts.push(
+            <TouchableOpacity
+              key={`link-${partIndex++}`}
+              onPress={() => handleLinkPress(url)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.link, { color: darkMode ? '#60a5fa' : '#3b82f6' }]}>
+                {linkText}
+              </Text>
+            </TouchableOpacity>
+          );
+        }
+      }
+      // Plain URLs
+      else if (segment.startsWith('http://') || segment.startsWith('https://')) {
+        parts.push(
+          <TouchableOpacity
+            key={`url-${partIndex++}`}
+            onPress={() => handleLinkPress(segment)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.link, { color: darkMode ? '#60a5fa' : '#3b82f6' }]}>
+              {segment}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+      // Regular text
+      else {
         parts.push(segment);
       }
     });
@@ -168,5 +215,10 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 4,
     paddingLeft: 8,
+  },
+  link: {
+    fontSize: 16,
+    textDecorationLine: 'underline',
+    fontWeight: '500',
   },
 });
