@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import '../chat-animations.css';
 import '../animations.css';
 import '../../sidebar.css';
@@ -51,9 +52,16 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     exportConversations
   } = useChatContext();
 
+  const router = useRouter();
+
   // Handle conversation rename (placeholder - implement API call)
   const handleConversationRename = async (id: string, newTitle: string) => {
     // TODO: Implement API call to rename conversation
+  };
+
+  // Handle navigation
+  const handleNavigate = (path: string) => {
+    router.push(path);
   };
 
   const handleSendMessage = async (text: string) => {
@@ -91,10 +99,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
               isLoadingMore={isLoadingMore}
               onExportConversations={exportConversations}
               currentPath="/chat"
-              onNavigate={(path) => {
-                // Handle navigation to other parts of the LMS
-                // TODO: Implement navigation logic or use router
-              }}
+              onNavigate={handleNavigate}
             />
           )}
         </AnimatePresence>
@@ -112,10 +117,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
           conversationsLoading={conversationsLoading}
           conversationsError={conversationsError}
           currentPath="/chat"
-          onNavigate={(path) => {
-            // Handle navigation to other parts of the LMS
-            // TODO: Implement navigation logic or use router
-          }}
+          onNavigate={handleNavigate}
         />
       )}
 

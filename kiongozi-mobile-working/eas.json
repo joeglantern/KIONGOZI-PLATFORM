@@ -11,6 +11,9 @@
         "gradleCommand": ":app:assembleDebug",
         "withoutCredentials": true
       },
+      "cache": {
+        "disabled": true
+      },
       "env": {
         "EXPO_USE_UPDATES": "0"
       }
