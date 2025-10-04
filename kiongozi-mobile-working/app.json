@@ -30,6 +30,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "RECORD_AUDIO",
+        "INTERNET",
+        "RECORD_AUDIO",
         "INTERNET"
       ]
     },
@@ -48,7 +50,8 @@
             "enableJetifier": true,
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0"
+            "buildToolsVersion": "35.0.0",
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ]
@@ -58,6 +61,12 @@
       "eas": {
         "projectId": "d41fa2af-cdf7-4c6f-8070-ade8221f15eb"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d41fa2af-cdf7-4c6f-8070-ade8221f15eb"
     }
   }
 }
