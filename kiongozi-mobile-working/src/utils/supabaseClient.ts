@@ -1,12 +1,15 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+// Try to get from app.config.js extra, fallback to process.env for dev
+const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 console.log('Supabase Config:', {
   url: supabaseUrl ? 'Set' : 'Missing',
   key: supabaseAnonKey ? 'Set' : 'Missing',
   urlValue: supabaseUrl,
+  source: Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL ? 'app.config' : 'process.env',
 });
 
 let client: SupabaseClient | undefined;
