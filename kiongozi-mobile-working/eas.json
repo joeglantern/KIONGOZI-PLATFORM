@@ -27,6 +27,14 @@
       "cache": {
         "disabled": true
       },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "",
+        "EXPO_PUBLIC_API_URL": "",
+        "EXPO_PUBLIC_OPENAI_API_KEY": "",
+        "EXPO_PUBLIC_APP_ENV": "",
+        "EXPO_PUBLIC_APP_VERSION": ""
+      },
       "ios": {
         "simulator": true
       }
