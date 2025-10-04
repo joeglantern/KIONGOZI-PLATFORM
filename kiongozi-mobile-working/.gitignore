@@ -32,6 +32,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+EXPO_ENV_VARIABLES.txt
 
 # typescript
 *.tsbuildinfo
