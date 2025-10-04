@@ -27,6 +27,7 @@
       "cache": {
         "disabled": true
       },
+      "channel": "preview",
       "ios": {
         "simulator": true
       }
