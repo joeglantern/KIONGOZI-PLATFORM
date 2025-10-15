@@ -37,3 +37,6 @@ yarn-error.log*
 
 # Netlify
 .netlify .cursor
+
+# Reference repositories (cloned for comparison)
+lms-reference/
