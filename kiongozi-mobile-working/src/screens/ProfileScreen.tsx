@@ -281,14 +281,18 @@ export default function ProfileScreen({
         {/* Quick Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statsGrid}>
-            {/* Topics Learned */}
+            {/* Topics Learned - Use LMS data if available, fallback to basic stats */}
             <View style={[styles.statCard, darkMode && styles.statCardDark]}>
               <View style={[styles.statIconContainer, styles.statIconBlue]}>
                 <Text style={styles.statIcon}>📚</Text>
               </View>
               <View style={styles.statContent}>
                 <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-                  {statsLoading ? '...' : (stats?.topics_learned ?? 0)}
+                  {statsLoading ? '...' : (
+                    stats?.learning_stats?.overview?.completed_modules ??
+                    stats?.topics_learned ??
+                    0
+                  )}
                 </Text>
                 <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
                   Topics Learned
@@ -346,70 +350,66 @@ export default function ProfileScreen({
               </View>
             </View>
 
-            {/* Enhanced LMS Stats - Only show if data available */}
-            {stats?.learning_stats?.overview && (
-              <>
-                {/* Modules Started */}
-                <View style={[styles.statCard, darkMode && styles.statCardDark]}>
-                  <View style={[styles.statIconContainer, styles.statIconCyan]}>
-                    <Text style={styles.statIcon}>🎯</Text>
-                  </View>
-                  <View style={styles.statContent}>
-                    <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-                      {stats.learning_stats.overview.total_modules_started}
-                    </Text>
-                    <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
-                      Modules Started
-                    </Text>
-                  </View>
-                </View>
+            {/* Enhanced LMS Stats - Always show with 0 fallback */}
+            {/* Modules Started */}
+            <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+              <View style={[styles.statIconContainer, styles.statIconCyan]}>
+                <Text style={styles.statIcon}>🎯</Text>
+              </View>
+              <View style={styles.statContent}>
+                <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                  {statsLoading ? '...' : (stats?.learning_stats?.overview?.total_modules_started ?? 0)}
+                </Text>
+                <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                  Modules Started
+                </Text>
+              </View>
+            </View>
 
-                {/* In Progress */}
-                <View style={[styles.statCard, darkMode && styles.statCardDark]}>
-                  <View style={[styles.statIconContainer, styles.statIconYellow]}>
-                    <Text style={styles.statIcon}>⏳</Text>
-                  </View>
-                  <View style={styles.statContent}>
-                    <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-                      {stats.learning_stats.overview.in_progress_modules}
-                    </Text>
-                    <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
-                      In Progress
-                    </Text>
-                  </View>
-                </View>
+            {/* In Progress */}
+            <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+              <View style={[styles.statIconContainer, styles.statIconYellow]}>
+                <Text style={styles.statIcon}>⏳</Text>
+              </View>
+              <View style={styles.statContent}>
+                <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                  {statsLoading ? '...' : (stats?.learning_stats?.overview?.in_progress_modules ?? 0)}
+                </Text>
+                <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                  In Progress
+                </Text>
+              </View>
+            </View>
 
-                {/* Time Spent Learning */}
-                <View style={[styles.statCard, darkMode && styles.statCardDark]}>
-                  <View style={[styles.statIconContainer, styles.statIconPink]}>
-                    <Text style={styles.statIcon}>⏰</Text>
-                  </View>
-                  <View style={styles.statContent}>
-                    <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-                      {Math.round(stats.learning_stats.overview.total_time_spent_minutes / 60)}h
-                    </Text>
-                    <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
-                      Learning Time
-                    </Text>
-                  </View>
-                </View>
+            {/* Time Spent Learning */}
+            <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+              <View style={[styles.statIconContainer, styles.statIconPink]}>
+                <Text style={styles.statIcon}>⏰</Text>
+              </View>
+              <View style={styles.statContent}>
+                <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                  {statsLoading ? '...' : Math.round((stats?.learning_stats?.overview?.total_time_spent_minutes ?? 0) / 60)}h
+                </Text>
+                <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                  Learning Time
+                </Text>
+              </View>
+            </View>
 
-                {/* Completion Rate */}
-                <View style={[styles.statCard, darkMode && styles.statCardDark]}>
-                  <View style={[styles.statIconContainer, styles.statIconTeal]}>
-                    <Text style={styles.statIcon}>✅</Text>
-                  </View>
-                  <View style={styles.statContent}>
-                    <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
-                      {stats.learning_stats.overview.completion_rate}%
-                    </Text>
-                    <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
-                      Completion Rate
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
+            {/* Completion Rate */}
+            <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+              <View style={[styles.statIconContainer, styles.statIconTeal]}>
+                <Text style={styles.statIcon}>✅</Text>
+              </View>
+              <View style={styles.statContent}>
+                <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                  {statsLoading ? '...' : (stats?.learning_stats?.overview?.completion_rate ?? 0)}%
+                </Text>
+                <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                  Completion Rate
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 

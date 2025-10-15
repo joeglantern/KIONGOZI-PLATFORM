@@ -37,11 +37,15 @@ export const useUserStats = (): UseUserStatsReturn => {
     setError(null);
 
     try {
-      // Fetch both basic user stats and detailed learning stats in parallel
-      const [userStatsResponse, learningStatsResponse] = await Promise.all([
+      // Fetch user stats, learning stats, and enrollments in parallel
+      const [userStatsResponse, learningStatsResponse, enrollmentsResponse] = await Promise.all([
         apiClient.getUserStats(),
         apiClient.getLearningStats().catch(err => {
           console.warn('Learning stats fetch failed (non-critical):', err);
+          return { success: false, error: err.message };
+        }),
+        apiClient.getUserEnrollments().catch(err => {
+          console.warn('Enrollments fetch failed (non-critical):', err);
           return { success: false, error: err.message };
         })
       ]);
@@ -50,10 +54,35 @@ export const useUserStats = (): UseUserStatsReturn => {
         throw new Error('Failed to fetch user statistics');
       }
 
-      // Merge user stats with learning stats (learning stats are optional)
+      // Calculate enrollment-based stats (like LMS web app)
+      let enrollmentStats = {
+        in_progress_courses: 0,
+        completed_courses: 0,
+        total_courses: 0
+      };
+
+      if (enrollmentsResponse.success && enrollmentsResponse.data) {
+        const enrollments = enrollmentsResponse.data;
+        enrollmentStats = {
+          in_progress_courses: enrollments.filter((e: any) => e.status === 'active').length,
+          completed_courses: enrollments.filter((e: any) => e.status === 'completed').length,
+          total_courses: enrollments.length
+        };
+      }
+
+      // Merge all stats together
       const combinedStats: UserStats = {
         ...userStatsResponse.data,
-        learning_stats: learningStatsResponse.success ? learningStatsResponse.data : undefined
+        learning_stats: learningStatsResponse.success ? {
+          ...learningStatsResponse.data,
+          overview: {
+            ...learningStatsResponse.data.overview,
+            // Override in_progress with enrollment-based count
+            in_progress_modules: enrollmentStats.in_progress_courses,
+            // Add total courses started
+            total_modules_started: enrollmentStats.total_courses
+          }
+        } : undefined
       };
 
       setStats(combinedStats);
