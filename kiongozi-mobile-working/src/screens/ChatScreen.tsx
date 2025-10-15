@@ -11,6 +11,7 @@ import {
   Dimensions,
   Keyboard,
   Animated,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -717,7 +718,10 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, darkMode && styles.containerDark]} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      style={[styles.container, darkMode && styles.containerDark]}
+      edges={['top', 'left', 'right']}
+    >
 
       {/* Header - matching web app */}
       <View
@@ -783,7 +787,11 @@ export default function ChatScreen() {
       </View>
 
       {/* Chat Content */}
-      <View style={styles.chatContainer}>
+      <KeyboardAvoidingView
+        style={styles.chatContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
         {/* Messages Container */}
 {/* Show welcome screen if no messages */}
         {!loadingMessages && messages.length === 0 && !loading ? (
@@ -804,11 +812,11 @@ export default function ChatScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             enableOnAndroid={true}
-            extraScrollHeight={Platform.OS === 'android' ? 150 : 100}
-            extraHeight={Platform.OS === 'android' ? 120 : 75}
-            enableAutomaticScroll={false}
+            extraScrollHeight={Platform.OS === 'ios' ? 20 : 150}
+            extraHeight={Platform.OS === 'ios' ? 20 : 120}
+            enableAutomaticScroll={Platform.OS === 'ios'}
             enableResetScrollToCoords={false}
-            keyboardOpeningTime={250}
+            keyboardOpeningTime={Platform.OS === 'ios' ? 0 : 250}
             viewIsInsideTabBar={false}
             innerRef={ref => {
               scrollViewRef.current = ref;
@@ -914,6 +922,9 @@ export default function ChatScreen() {
             styles.modernInputContainer,
             Platform.OS === 'android' && keyboardHeight > 0 && {
               paddingBottom: Math.max(keyboardHeight * 0.1, 10),
+            },
+            Platform.OS === 'ios' && {
+              paddingBottom: 8,
             }
           ]}
         >
@@ -929,7 +940,7 @@ export default function ChatScreen() {
             onQuickActionsPress={handleQuickActionsPress}
           />
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
       {/* Mobile Menu */}
       <MobileMenu
