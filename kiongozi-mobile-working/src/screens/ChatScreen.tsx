@@ -90,6 +90,7 @@ export default function ChatScreen() {
   const [showModuleDetail, setShowModuleDetail] = useState(false);
   const [selectedModule, setSelectedModule] = useState<LearningModule | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [layoutReady, setLayoutReady] = useState(false);
   const chatStore = useChatStore();
 
   useEffect(() => {
@@ -101,6 +102,15 @@ export default function ChatScreen() {
 
     // Check if user has seen tutorial
     checkTutorialStatus();
+
+    // Force layout recalculation after mount to fix SafeAreaView on iOS
+    if (Platform.OS === 'ios') {
+      setTimeout(() => {
+        setLayoutReady(true);
+      }, 50);
+    } else {
+      setLayoutReady(true);
+    }
   }, []);
 
   const checkTutorialStatus = async () => {
@@ -721,11 +731,13 @@ export default function ChatScreen() {
     <SafeAreaView
       style={[styles.container, darkMode && styles.containerDark]}
       edges={['top', 'left', 'right']}
+      key={layoutReady ? 'ready' : 'initial'}
     >
 
       {/* Header - matching web app */}
       <View
         style={[styles.header, darkMode ? styles.headerDark : styles.headerLight]}
+        collapsable={false}
       >
         <View style={styles.headerContent}>
           {/* Left section - Menu & Logo */}
@@ -1051,7 +1063,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 4 : 0, // Small padding for iOS to prevent header cutoff
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
