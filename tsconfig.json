@@ -24,7 +24,9 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
@@ -41,5 +43,6 @@
     "node_modules",
     "api-server",
     "supabase"
-  ]
+  ],
+  "extends": "expo/tsconfig.base"
 }

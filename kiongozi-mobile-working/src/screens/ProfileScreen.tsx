@@ -345,6 +345,71 @@ export default function ProfileScreen({
                 </Text>
               </View>
             </View>
+
+            {/* Enhanced LMS Stats - Only show if data available */}
+            {stats?.learning_stats?.overview && (
+              <>
+                {/* Modules Started */}
+                <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+                  <View style={[styles.statIconContainer, styles.statIconCyan]}>
+                    <Text style={styles.statIcon}>🎯</Text>
+                  </View>
+                  <View style={styles.statContent}>
+                    <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                      {stats.learning_stats.overview.total_modules_started}
+                    </Text>
+                    <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                      Modules Started
+                    </Text>
+                  </View>
+                </View>
+
+                {/* In Progress */}
+                <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+                  <View style={[styles.statIconContainer, styles.statIconYellow]}>
+                    <Text style={styles.statIcon}>⏳</Text>
+                  </View>
+                  <View style={styles.statContent}>
+                    <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                      {stats.learning_stats.overview.in_progress_modules}
+                    </Text>
+                    <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                      In Progress
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Time Spent Learning */}
+                <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+                  <View style={[styles.statIconContainer, styles.statIconPink]}>
+                    <Text style={styles.statIcon}>⏰</Text>
+                  </View>
+                  <View style={styles.statContent}>
+                    <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                      {Math.round(stats.learning_stats.overview.total_time_spent_minutes / 60)}h
+                    </Text>
+                    <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                      Learning Time
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Completion Rate */}
+                <View style={[styles.statCard, darkMode && styles.statCardDark]}>
+                  <View style={[styles.statIconContainer, styles.statIconTeal]}>
+                    <Text style={styles.statIcon}>✅</Text>
+                  </View>
+                  <View style={styles.statContent}>
+                    <Text style={[styles.statNumber, darkMode && styles.statNumberDark]}>
+                      {stats.learning_stats.overview.completion_rate}%
+                    </Text>
+                    <Text style={[styles.statLabel, darkMode && styles.statLabelDark]}>
+                      Completion Rate
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -624,6 +689,18 @@ const styles = StyleSheet.create({
   },
   statIconOrange: {
     backgroundColor: 'rgba(249, 115, 22, 0.1)',
+  },
+  statIconCyan: {
+    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+  },
+  statIconYellow: {
+    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+  },
+  statIconPink: {
+    backgroundColor: 'rgba(236, 72, 153, 0.1)',
+  },
+  statIconTeal: {
+    backgroundColor: 'rgba(20, 184, 166, 0.1)',
   },
   statIcon: {
     fontSize: 16,

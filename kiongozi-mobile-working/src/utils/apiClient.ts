@@ -14,6 +14,34 @@ export interface ApiResponse<T = any> {
   message?: string;
 }
 
+// Learning Statistics Types
+export interface CategoryStats {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  total: number;
+  completed: number;
+  in_progress: number;
+}
+
+export interface LearningStatsOverview {
+  total_modules_started: number;
+  completed_modules: number;
+  in_progress_modules: number;
+  bookmarked_modules: number;
+  completion_rate: number;
+  average_progress: number;
+  total_time_spent_minutes: number;
+  current_streak_days: number;
+}
+
+export interface LearningStats {
+  overview: LearningStatsOverview;
+  categories: CategoryStats[];
+  recent_activity: any[];
+}
+
 
 class ApiClient {
   private baseURL: string;

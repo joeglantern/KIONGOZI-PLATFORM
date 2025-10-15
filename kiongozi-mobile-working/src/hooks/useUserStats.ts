@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import apiClient from '../utils/apiClient';
+import apiClient, { LearningStats } from '../utils/apiClient';
 import { useAuthStore } from '../stores/authStore';
 
 export interface UserStats {
@@ -9,6 +9,8 @@ export interface UserStats {
   days_active: number;
   join_date: string;
   last_active: string | null;
+  // Extended LMS stats (optional - gracefully handles if API fails)
+  learning_stats?: LearningStats;
 }
 
 interface UseUserStatsReturn {
@@ -35,14 +37,26 @@ export const useUserStats = (): UseUserStatsReturn => {
     setError(null);
 
     try {
-      // Fetch real stats from the API
-      const response = await apiClient.getUserStats();
+      // Fetch both basic user stats and detailed learning stats in parallel
+      const [userStatsResponse, learningStatsResponse] = await Promise.all([
+        apiClient.getUserStats(),
+        apiClient.getLearningStats().catch(err => {
+          console.warn('Learning stats fetch failed (non-critical):', err);
+          return { success: false, error: err.message };
+        })
+      ]);
 
-      if (!response.success || !response.data) {
+      if (!userStatsResponse.success || !userStatsResponse.data) {
         throw new Error('Failed to fetch user statistics');
       }
 
-      setStats(response.data as UserStats);
+      // Merge user stats with learning stats (learning stats are optional)
+      const combinedStats: UserStats = {
+        ...userStatsResponse.data,
+        learning_stats: learningStatsResponse.success ? learningStatsResponse.data : undefined
+      };
+
+      setStats(combinedStats);
     } catch (err: any) {
       console.error('Failed to fetch user stats:', err);
       setError(err.message || 'Failed to load statistics');
