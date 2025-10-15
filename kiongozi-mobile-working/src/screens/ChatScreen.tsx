@@ -121,29 +121,52 @@ export default function ChatScreen() {
     setShowTutorial(true);
   };
 
-  // Keyboard handling for production builds
+  // Keyboard handling - optimized for iOS
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (event) => {
-        setKeyboardHeight(event.endCoordinates.height);
-        // Ensure auto-scroll and scroll to bottom when keyboard opens
-        setShouldAutoScroll(true);
-        scrollToBottom();
-      }
-    );
+    if (Platform.OS === 'ios') {
+      // On iOS, KeyboardAwareScrollView handles scrolling better
+      // We only track keyboard height for layout adjustments
+      const keyboardWillShowListener = Keyboard.addListener(
+        'keyboardWillShow',
+        (event) => {
+          setKeyboardHeight(event.endCoordinates.height);
+        }
+      );
 
-    const keyboardDidHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
+      const keyboardWillHideListener = Keyboard.addListener(
+        'keyboardWillHide',
+        () => {
+          setKeyboardHeight(0);
+        }
+      );
 
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
+      return () => {
+        keyboardWillShowListener.remove();
+        keyboardWillHideListener.remove();
+      };
+    } else {
+      // Android: Keep original behavior
+      const keyboardDidShowListener = Keyboard.addListener(
+        'keyboardDidShow',
+        (event) => {
+          setKeyboardHeight(event.endCoordinates.height);
+          setShouldAutoScroll(true);
+          scrollToBottom();
+        }
+      );
+
+      const keyboardDidHideListener = Keyboard.addListener(
+        'keyboardDidHide',
+        () => {
+          setKeyboardHeight(0);
+        }
+      );
+
+      return () => {
+        keyboardDidShowListener.remove();
+        keyboardDidHideListener.remove();
+      };
+    }
   }, []);
 
   // Load user's conversations from API
@@ -694,7 +717,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, darkMode && styles.containerDark]}>
+    <SafeAreaView style={[styles.container, darkMode && styles.containerDark]} edges={['top', 'left', 'right']}>
 
       {/* Header - matching web app */}
       <View
@@ -1016,7 +1039,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: Platform.OS === 'android' ? 24 : 0,
+    paddingTop: 0, // SafeAreaView handles the top padding
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },

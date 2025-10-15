@@ -43,10 +43,16 @@ export default function ModernMessageInput({
   const focusAnim = useRef(new Animated.Value(0)).current;
   const sendButtonScale = useRef(new Animated.Value(0.9)).current;
   const sendButtonRotation = useRef(new Animated.Value(0)).current;
+  const heightAnimValue = useRef(new Animated.Value(44)).current;
 
   const canSend = value.trim().length > 0 && !loading && !disabled;
 
+  // Disable focus animation on iOS to prevent glitching
   useEffect(() => {
+    if (Platform.OS === 'ios') {
+      // Skip animation on iOS
+      return;
+    }
     Animated.spring(focusAnim, {
       toValue: isFocused ? 1 : 0,
       useNativeDriver: false,
@@ -103,6 +109,10 @@ export default function ModernMessageInput({
   };
 
   const handleContentSizeChange = (event: any) => {
+    if (Platform.OS === 'ios') {
+      // Disable dynamic height on iOS to prevent glitching
+      return;
+    }
     const { height } = event.nativeEvent.contentSize;
     const maxHeight = 120; // About 4 lines
     const minHeight = 44;
@@ -110,27 +120,45 @@ export default function ModernMessageInput({
     setInputHeight(newHeight);
   };
 
-  // Animated styles
-  const containerBorderColor = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: darkMode
-      ? ['rgba(75, 85, 99, 0.3)', '#3b82f6']
-      : ['rgba(229, 231, 235, 0.8)', '#3b82f6']
-  });
+  // Animated styles - simplified for iOS
+  const containerBorderColor = Platform.OS === 'ios'
+    ? (isFocused
+        ? (darkMode ? '#3b82f6' : '#3b82f6')
+        : (darkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.8)'))
+    : focusAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: darkMode
+          ? ['rgba(75, 85, 99, 0.3)', '#3b82f6']
+          : ['rgba(229, 231, 235, 0.8)', '#3b82f6']
+      });
 
-  const containerShadowOpacity = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.05, 0.15]
-  });
+  const containerShadowOpacity = Platform.OS === 'ios'
+    ? (isFocused ? 0.15 : 0.05)
+    : focusAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.05, 0.15]
+      });
 
   const sendButtonRotationDeg = sendButtonRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '45deg']
   });
 
-  return (
-    <Animated.View
-      style={[
+  // Use regular View on iOS to prevent animation glitches
+  const ContainerComponent = Platform.OS === 'ios' ? View : Animated.View;
+
+  const containerStyle = Platform.OS === 'ios'
+    ? [
+        styles.container,
+        darkMode && styles.containerDark,
+        isFocused && styles.containerFocused,
+        isFocused && darkMode && styles.containerFocusedDark,
+        {
+          borderColor: containerBorderColor,
+          shadowOpacity: containerShadowOpacity,
+        }
+      ]
+    : [
         styles.container,
         darkMode && styles.containerDark,
         {
@@ -138,15 +166,19 @@ export default function ModernMessageInput({
           shadowOpacity: containerShadowOpacity,
           height: inputHeight,
         }
-      ]}
-    >
+      ];
+
+  return (
+    <ContainerComponent style={containerStyle}>
       {/* Text Input */}
       <TextInput
         ref={textInputRef}
         style={[
           styles.textInput,
           darkMode && styles.textInputDark,
-          { height: inputHeight - 8 }
+          Platform.OS === 'ios'
+            ? { maxHeight: 100 } // Fixed max height on iOS
+            : { height: inputHeight - 8 }
         ]}
         value={value}
         onChangeText={onChangeText}
@@ -160,7 +192,7 @@ export default function ModernMessageInput({
         returnKeyType="send"
         onSubmitEditing={handleSend}
         blurOnSubmit={false}
-        scrollEnabled={inputHeight >= 120}
+        scrollEnabled={Platform.OS === 'ios' ? true : inputHeight >= 120}
         editable={!disabled}
         textAlignVertical="top"
       />
@@ -239,7 +271,7 @@ export default function ModernMessageInput({
           </TouchableOpacity>
         </Animated.View>
       </View>
-    </Animated.View>
+    </ContainerComponent>
   );
 }
 
@@ -270,6 +302,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(75, 85, 99, 0.3)',
     shadowColor: '#ffffff',
     shadowOpacity: 0.1,
+  },
+  containerFocused: {
+    borderColor: '#3b82f6',
+    shadowOpacity: 0.15,
+  },
+  containerFocusedDark: {
+    borderColor: '#3b82f6',
+    shadowOpacity: 0.15,
   },
   textInput: {
     flex: 1,
