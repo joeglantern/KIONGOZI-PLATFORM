@@ -802,6 +802,7 @@ export default function ChatScreen() {
             scrollEventThrottle={16}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             enableOnAndroid={true}
             extraScrollHeight={Platform.OS === 'android' ? 150 : 100}
             extraHeight={Platform.OS === 'android' ? 120 : 75}

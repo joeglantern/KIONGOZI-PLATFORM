@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -105,6 +106,10 @@ export default function ModernMessageInput({
       })
     ]).start();
 
+    // Dismiss keyboard after sending
+    textInputRef.current?.blur();
+    Keyboard.dismiss();
+
     onSend();
   };
 
@@ -184,17 +189,18 @@ export default function ModernMessageInput({
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={darkMode ? '#9ca3af' : '#6b7280'}
-        multiline
+        multiline={Platform.OS === 'android'}
         maxLength={maxLength}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onContentSizeChange={handleContentSizeChange}
         returnKeyType="send"
         onSubmitEditing={handleSend}
-        blurOnSubmit={false}
+        blurOnSubmit={Platform.OS === 'ios'}
         scrollEnabled={Platform.OS === 'ios' ? true : inputHeight >= 120}
         editable={!disabled}
         textAlignVertical="top"
+        enablesReturnKeyAutomatically={true}
       />
 
       {/* Action Buttons Container */}
