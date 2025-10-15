@@ -1040,7 +1040,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 0, // SafeAreaView handles the top padding
+    paddingTop: Platform.OS === 'ios' ? 4 : 0, // Small padding for iOS to prevent header cutoff
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
