@@ -9,8 +9,10 @@ import {
   Switch,
   Modal,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
 import { useUserStats } from '../hooks/useUserStats';
@@ -204,30 +206,30 @@ export default function ProfileScreen({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="fullScreen"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.container, darkMode && styles.containerDark]}>
-        {/* Header */}
-        <View style={[styles.header, darkMode && styles.headerDark]}>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onClose();
-            }}
-            style={[styles.backButton, darkMode && styles.backButtonDark]}
-          >
-            <Text style={[styles.backButtonText, darkMode && styles.backButtonTextDark]}>
-              ←
-            </Text>
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, darkMode && styles.headerTitleDark]}>
-            Profile
-          </Text>
-          <View style={styles.placeholder} />
-        </View>
+      <SafeAreaView
+        style={[styles.container, darkMode && styles.containerDark]}
+        edges={['top', 'left', 'right']}
+      >
+        {/* Close Button - Floating in top right */}
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onClose();
+          }}
+          style={[styles.closeButton, darkMode && styles.closeButtonDark]}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="close"
+            size={28}
+            color={darkMode ? '#d1d5db' : '#4b5563'}
+          />
+        </TouchableOpacity>
 
-      <ScrollView
+        <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -502,49 +504,30 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#0f172a',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-    backdropFilter: 'blur(20px)',
-  },
-  headerDark: {
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+  closeButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  backButtonDark: {
+  closeButtonDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  backButtonText: {
-    fontSize: 20,
-    color: '#4b5563',
-  },
-  backButtonTextDark: {
-    color: '#d1d5db',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  headerTitleDark: {
-    color: '#f9fafb',
-  },
-  placeholder: {
-    width: 40,
+    shadowColor: '#fff',
+    shadowOpacity: 0.1,
   },
   scrollView: {
     flex: 1,
