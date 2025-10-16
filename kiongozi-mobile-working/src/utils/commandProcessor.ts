@@ -4,15 +4,17 @@
  */
 import { parseCommand } from './messageProcessor';
 import apiClient from './apiClient';
-import { 
-  CommandResponse, 
-  ModuleCommandResponse, 
+import {
+  CommandResponse,
+  ModuleCommandResponse,
   ProgressCommandResponse,
   CategoryCommandResponse,
   LearningModule,
   ModuleCategory,
   LearningStats,
-  UserProgress
+  LearningStatsApiResponse,
+  UserProgress,
+  CourseEnrollment
 } from '../types/lms';
 
 // Updated interface that matches our LMS types
@@ -171,18 +173,45 @@ async function handleModulesCommand(args: string[]): Promise<EnhancedCommandResp
  */
 async function handleProgressCommand(args: string[]): Promise<EnhancedCommandResponse> {
   try {
-    // Fetch user progress and stats
-    const [statsResponse, progressResponse] = await Promise.all([
+    // Fetch user progress, stats, and enrollments in parallel
+    const [statsResponse, progressResponse, allEnrollmentsResponse] = await Promise.all([
       apiClient.getLearningStats(),
-      apiClient.getUserProgress({ limit: 5 }) // Recent progress
+      apiClient.getUserProgress({ limit: 5 }), // Recent progress
+      apiClient.getUserEnrollments() // All enrollments to calculate stats
     ]);
 
     if (!statsResponse.success) {
       throw new Error(statsResponse.error || 'Failed to fetch learning stats');
     }
 
-    const stats: LearningStats = statsResponse.data;
-    const recentProgress: UserProgress[] = progressResponse.success ? 
+    // Handle the nested API response structure
+    const apiData = statsResponse.data as LearningStatsApiResponse;
+
+    // Get enrollment data for course-based stats
+    const allEnrollments = allEnrollmentsResponse.success ?
+      (allEnrollmentsResponse.data?.data || allEnrollmentsResponse.data || []) : [];
+
+    const completedCourses = allEnrollments.filter((e: any) => e.status === 'completed');
+    const inProgressCourses = allEnrollments.filter((e: any) => e.status === 'active');
+
+    // Transform nested structure to flat LearningStats structure with real enrollment data
+    const stats: LearningStats = {
+      total_modules: apiData.overview.total_modules_started,
+      completed_modules: apiData.overview.completed_modules,
+      in_progress_modules: inProgressCourses.length, // Use real enrollment count
+      bookmarked_modules: apiData.overview.bookmarked_modules,
+      total_time_spent_minutes: apiData.overview.total_time_spent_minutes,
+      completion_rate: apiData.overview.completion_rate,
+      current_streak_days: apiData.overview.current_streak_days,
+      longest_streak_days: 0, // Not in API response, keeping as 0
+      recent_activity: apiData.recent_activity || [],
+      favorite_categories: apiData.categories.map(cat => ({
+        category: cat.category,
+        modules_completed: cat.modules_completed
+      }))
+    };
+
+    const recentProgress: UserProgress[] = progressResponse.success ?
       (progressResponse.data?.data || progressResponse.data || []) : [];
 
     // Create structured response
@@ -191,7 +220,8 @@ async function handleProgressCommand(args: string[]): Promise<EnhancedCommandRes
       title: 'Your Learning Progress',
       description: `You've completed ${stats.completed_modules} out of ${stats.total_modules} modules`,
       stats,
-      recent_modules: recentProgress
+      recent_modules: recentProgress,
+      completed_courses: completedCourses
     };
 
     // Create human-readable content
@@ -201,16 +231,22 @@ async function handleProgressCommand(args: string[]): Promise<EnhancedCommandRes
     const content = `## Your Learning Progress 📊\n\n` +
       `**Overall Completion:** ${completionRate}% (${stats.completed_modules}/${stats.total_modules} modules)\n\n` +
       `**Time Invested:** ${hoursSpent} hours\n` +
-      `**Learning Streak:** ${stats.current_streak_days || 0} days 🔥\n` +
-      `**Best Streak:** ${stats.longest_streak_days || 0} days\n\n` +
-      (recentProgress.length > 0 ? 
+      `**Learning Streak:** ${stats.current_streak_days || 0} days 🔥\n\n` +
+      (completedCourses.length > 0 ?
+        `### Completed Courses ✅\n${
+          completedCourses.slice(0, 3).map(enrollment => {
+            const course = enrollment.courses;
+            return `• ${course?.title || 'Unknown Course'} (${enrollment.progress_percentage}%)`;
+          }).join('\n')
+        }${completedCourses.length > 3 ? `\n• ...and ${completedCourses.length - 3} more` : ''}\n\n` : '') +
+      (recentProgress.length > 0 ?
         `### Recent Activity\n${
-          recentProgress.map(progress => 
+          recentProgress.map(progress =>
             `• ${capitalizeFirst(progress.status.replace('_', ' '))} "${progress.module?.title || 'Module'}" (${progress.progress_percentage}%)`
           ).join('\n')
         }\n\n` : '') +
       `**Quick Stats:**\n` +
-      `• In Progress: ${stats.in_progress_modules} modules\n` +
+      `• In Progress: ${stats.in_progress_modules} courses\n` +
       `• Bookmarked: ${stats.bookmarked_modules} modules\n\n` +
       `*Keep up the excellent work! 🚀*`;
 

@@ -184,31 +184,71 @@ export default function CommandResponseCard({
           </View>
         </View>
 
+        {/* Completed Courses */}
+        {progressData.completed_courses && progressData.completed_courses.length > 0 && (
+          <View style={styles.recentActivity}>
+            <Text style={[styles.sectionTitle, darkMode && styles.sectionTitleDark]}>
+              Completed Courses ✅
+            </Text>
+            {progressData.completed_courses.slice(0, 3).map((enrollment) => {
+              const course = enrollment.courses;
+              return (
+                <View key={enrollment.id} style={[styles.activityItem, darkMode && styles.activityItemDark]}>
+                  <View style={styles.activityIcon}>
+                    <Ionicons
+                      name="trophy"
+                      size={20}
+                      color="#fbbf24"
+                    />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={[styles.activityTitle, darkMode && styles.activityTitleDark]}>
+                      {course?.title || 'Unknown Course'}
+                    </Text>
+                    <Text style={[styles.activityStatus, darkMode && styles.activityStatusDark]}>
+                      Completed • {enrollment.progress_percentage}%
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+            {progressData.completed_courses.length > 3 && (
+              <Text style={[styles.showMoreHint, darkMode && styles.showMoreHintDark]}>
+                +{progressData.completed_courses.length - 3} more completed courses
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Recent Activity */}
         {progressData.recent_modules && progressData.recent_modules.length > 0 && (
           <View style={styles.recentActivity}>
             <Text style={[styles.sectionTitle, darkMode && styles.sectionTitleDark]}>
               Recent Activity
             </Text>
-            {progressData.recent_modules.slice(0, 3).map((progress) => (
-              <View key={progress.id} style={[styles.activityItem, darkMode && styles.activityItemDark]}>
-                <View style={styles.activityIcon}>
-                  <Ionicons
-                    name={progress.status === 'completed' ? 'checkmark-circle' : 'play-circle-outline'}
-                    size={20}
-                    color={progress.status === 'completed' ? '#22c55e' : '#3b82f6'}
-                  />
+            {progressData.recent_modules.slice(0, 3).map((progress) => {
+              // Check both possible field names (module or learning_modules)
+              const moduleData = progress.module || progress.learning_modules;
+              return (
+                <View key={progress.id} style={[styles.activityItem, darkMode && styles.activityItemDark]}>
+                  <View style={styles.activityIcon}>
+                    <Ionicons
+                      name={progress.status === 'completed' ? 'checkmark-circle' : 'play-circle-outline'}
+                      size={20}
+                      color={progress.status === 'completed' ? '#22c55e' : '#3b82f6'}
+                    />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={[styles.activityTitle, darkMode && styles.activityTitleDark]}>
+                      {moduleData?.title || 'Module'}
+                    </Text>
+                    <Text style={[styles.activityStatus, darkMode && styles.activityStatusDark]}>
+                      {progress.status.replace('_', ' ').charAt(0).toUpperCase() + progress.status.slice(1).replace('_', ' ')} • {progress.progress_percentage}%
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.activityContent}>
-                  <Text style={[styles.activityTitle, darkMode && styles.activityTitleDark]}>
-                    {progress.module?.title || 'Module'}
-                  </Text>
-                  <Text style={[styles.activityStatus, darkMode && styles.activityStatusDark]}>
-                    {progress.status.replace('_', ' ').charAt(0).toUpperCase() + progress.status.slice(1).replace('_', ' ')} • {progress.progress_percentage}%
-                  </Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </View>

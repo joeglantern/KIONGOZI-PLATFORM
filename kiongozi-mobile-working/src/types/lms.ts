@@ -91,7 +91,8 @@ export interface UserProgress {
   id: string;
   user_id: string;
   module_id: string;
-  module?: LearningModule;
+  module?: LearningModule; // Alias for compatibility
+  learning_modules?: LearningModule; // Actual API response field name
   status: 'not_started' | 'in_progress' | 'completed' | 'bookmarked';
   progress_percentage: number;
   time_spent_minutes: number;
@@ -103,6 +104,7 @@ export interface UserProgress {
   updated_at: string;
 }
 
+// Flat structure for stats (used in ProfileScreen and other places)
 export interface LearningStats {
   total_modules: number;
   completed_modules: number;
@@ -117,6 +119,27 @@ export interface LearningStats {
     category: ModuleCategory;
     modules_completed: number;
   }[];
+}
+
+// Actual API response structure from /api/progress/stats
+export interface LearningStatsApiResponse {
+  overview: {
+    total_modules_started: number;
+    completed_modules: number;
+    in_progress_modules: number;
+    bookmarked_modules: number;
+    completion_rate: number;
+    average_progress: number;
+    total_time_spent_minutes: number;
+    current_streak_days: number;
+  };
+  categories: {
+    category: ModuleCategory;
+    modules_completed: number;
+    modules_in_progress: number;
+    total_modules: number;
+  }[];
+  recent_activity: UserProgress[];
 }
 
 export interface ModuleSearchResult {
@@ -148,6 +171,7 @@ export interface ProgressCommandResponse {
   description: string;
   stats: LearningStats;
   recent_modules: UserProgress[];
+  completed_courses?: CourseEnrollment[];
 }
 
 export interface CategoryCommandResponse {
