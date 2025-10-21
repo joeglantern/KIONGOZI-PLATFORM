@@ -88,3 +88,5 @@ function makeRequest(path, method, data = null) {
 
 // Run the test
 testChatbotFlow().catch(console.error);
+
+// Usage: node test-chatbot-flow.js

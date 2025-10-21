@@ -78,3 +78,11 @@ function makeRequest(path, method, data = null, token = null) {
 }
 
 testWithRealToken().catch(console.error);
+
+// API token testing script
+// Usage: node test-real-token.js
+// Replace 'PASTE_YOUR_TOKEN_HERE' with your actual Supabase access token to test authenticatif ed requests.
+// don't expose your env variables and openai API keys in this file or git repo!
+
+
+

@@ -32,6 +32,7 @@ interface EnhancedAIMessageProps {
   showTypewriter?: boolean;
   onTypewriterComplete?: () => void;
   onModulePress?: (module: any) => void;
+  onCoursePress?: (course: any) => void;
   onCategoryPress?: (category: any) => void;
 }
 
@@ -43,6 +44,7 @@ export default function EnhancedAIMessage({
   showTypewriter = false,
   onTypewriterComplete,
   onModulePress,
+  onCoursePress,
   onCategoryPress,
 }: EnhancedAIMessageProps) {
   const [isTypingComplete, setIsTypingComplete] = useState(!showTypewriter);
@@ -103,6 +105,7 @@ export default function EnhancedAIMessage({
           response={message.commandResponse}
           darkMode={darkMode}
           onModulePress={onModulePress}
+          onCoursePress={onCoursePress}
           onCategoryPress={onCategoryPress}
         />
       );

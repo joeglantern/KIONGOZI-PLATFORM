@@ -460,34 +460,223 @@ export default function ChatScreen() {
     }, 100);
   };
 
+  const sendModuleDescriptionRequest = async (module: LearningModule) => {
+    // Create a message requesting AI to describe the module
+    const moduleInfo = `Tell me about the "${module.title}" module. It's a ${module.difficulty_level} level module in the ${module.category?.name || 'General'} category that takes about ${module.estimated_duration_minutes} minutes. Here's the description: ${module.description}`;
+
+    // Create user message showing they clicked the module
+    const userMessage: Message = {
+      id: Date.now(),
+      text: `Tell me more about: ${module.title}`,
+      isUser: true,
+      type: 'chat'
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setLoading(true);
+    setShouldAutoScroll(true);
+
+    try {
+      // Save user message to backend
+      const userResponse = await apiClient.sendMessage(userMessage.text, conversationId || undefined);
+
+      if (userResponse.success) {
+        // Handle conversation ID
+        if (!conversationId && userResponse.data?.conversation_id) {
+          setConversationId(userResponse.data.conversation_id);
+
+          const newConversation = {
+            id: userResponse.data.conversation_id,
+            title: userMessage.text.substring(0, 50) + (userMessage.text.length > 50 ? '...' : ''),
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            user_id: user?.id || ''
+          };
+
+          setConversations(prev => [newConversation, ...prev]);
+          setCurrentConversation(newConversation);
+
+          chatStore.addConversation({
+            id: newConversation.id,
+            title: newConversation.title,
+            messages: messages,
+            created_at: newConversation.created_at,
+            updated_at: newConversation.updated_at
+          });
+        }
+
+        // Generate AI response with module context
+        const currentConvId = conversationId || userResponse.data?.conversation_id;
+        const aiResponse = await apiClient.generateAIResponse(moduleInfo, currentConvId, 'chat');
+
+        if (!aiResponse.success) {
+          throw new Error(aiResponse.error || 'Failed to generate AI response');
+        }
+
+        const aiResponseText = aiResponse.data?.response || aiResponse.data?.message || 'Sorry, I could not generate a response about this module.';
+
+        // Display AI response
+        const aiMessage: Message = {
+          id: Date.now() + 1,
+          text: aiResponseText,
+          isUser: false,
+          type: 'chat',
+        };
+
+        setLatestMessageId(aiMessage.id);
+        setMessages(prev => [...prev, aiMessage]);
+
+        loadConversations();
+      } else {
+        throw new Error(userResponse.error || 'Failed to send message');
+      }
+    } catch (error: any) {
+      console.error('Error requesting module description:', error);
+
+      const errorMessage: Message = {
+        id: Date.now() + 1,
+        text: 'Sorry, I encountered an error describing this module. Please try again.',
+        isUser: false,
+        type: 'chat',
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleModulePress = (module: LearningModule) => {
-    // Show module detail modal
+    // Send AI message request for module description
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    setSelectedModule(module);
-    setShowModuleDetail(true);
-    
+
     console.log('Module pressed:', {
       id: module.id,
       title: module.title,
       category: module.category?.name,
       difficulty: module.difficulty_level
     });
+
+    // Send request to AI for description
+    sendModuleDescriptionRequest(module);
+
+    showToast(`📚 Getting info about ${module.title}...`, 'info');
+  };
+
+  const sendCourseDescriptionRequest = async (course: any) => {
+    // Create a message requesting AI to describe the course
+    const courseInfo = `Tell me about the "${course.title}" course. It's a ${course.difficulty_level} level course in the ${course.category?.name || 'General'} category that takes about ${course.estimated_duration_hours} hours. Here's the description: ${course.description}${course.learning_outcomes ? ` Learning outcomes: ${course.learning_outcomes.join(', ')}` : ''}`;
+
+    // Create user message showing they clicked the course
+    const userMessage: Message = {
+      id: Date.now(),
+      text: `Tell me more about: ${course.title}`,
+      isUser: true,
+      type: 'chat'
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setLoading(true);
+    setShouldAutoScroll(true);
+
+    try {
+      // Save user message to backend
+      const userResponse = await apiClient.sendMessage(userMessage.text, conversationId || undefined);
+
+      if (userResponse.success) {
+        // Handle conversation ID
+        if (!conversationId && userResponse.data?.conversation_id) {
+          setConversationId(userResponse.data.conversation_id);
+
+          const newConversation = {
+            id: userResponse.data.conversation_id,
+            title: userMessage.text.substring(0, 50) + (userMessage.text.length > 50 ? '...' : ''),
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            user_id: user?.id || ''
+          };
+
+          setConversations(prev => [newConversation, ...prev]);
+          setCurrentConversation(newConversation);
+
+          chatStore.addConversation({
+            id: newConversation.id,
+            title: newConversation.title,
+            messages: messages,
+            created_at: newConversation.created_at,
+            updated_at: newConversation.updated_at
+          });
+        }
+
+        // Generate AI response with course context
+        const currentConvId = conversationId || userResponse.data?.conversation_id;
+        const aiResponse = await apiClient.generateAIResponse(courseInfo, currentConvId, 'chat');
+
+        if (!aiResponse.success) {
+          throw new Error(aiResponse.error || 'Failed to generate AI response');
+        }
+
+        const aiResponseText = aiResponse.data?.response || aiResponse.data?.message || 'Sorry, I could not generate a response about this course.';
+
+        // Display AI response
+        const aiMessage: Message = {
+          id: Date.now() + 1,
+          text: aiResponseText,
+          isUser: false,
+          type: 'chat',
+        };
+
+        setLatestMessageId(aiMessage.id);
+        setMessages(prev => [...prev, aiMessage]);
+
+        loadConversations();
+      } else {
+        throw new Error(userResponse.error || 'Failed to send message');
+      }
+    } catch (error: any) {
+      console.error('Error requesting course description:', error);
+
+      const errorMessage: Message = {
+        id: Date.now() + 1,
+        text: 'Sorry, I encountered an error describing this course. Please try again.',
+        isUser: false,
+        type: 'chat',
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCoursePress = (course: any) => {
+    // Send AI message request for course description
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    console.log('Course pressed:', {
+      id: course.id,
+      title: course.title,
+      category: course.category?.name,
+      difficulty: course.difficulty_level
+    });
+
+    // Send request to AI for description
+    sendCourseDescriptionRequest(course);
+
+    showToast(`📚 Getting info about ${course.title}...`, 'info');
   };
 
   const handleCategoryPress = (category: ModuleCategory) => {
-    // Handle category press by searching for modules in that category
+    // Handle category press by searching for courses in that category
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    const searchQuery = `/modules ${category.name}`;
+
+    const searchQuery = `/courses ${category.name}`;
     setInputText(searchQuery);
-    
+
     // Auto-send the command
     setTimeout(() => {
       sendMessage();
     }, 100);
-    
-    showToast(`🔍 Searching modules in ${category.name}`, 'info');
+
+    showToast(`🔍 Searching courses in ${category.name}`, 'info');
   };
 
   const handleQuickActionSelect = async (command: string) => {
@@ -868,6 +1057,7 @@ export default function ChatScreen() {
                     showTypewriter={message.id === latestMessageId}
                     onTypewriterComplete={() => setLatestMessageId(null)}
                     onModulePress={handleModulePress}
+                    onCoursePress={handleCoursePress}
                     onCategoryPress={handleCategoryPress}
                   />
                 ) : (

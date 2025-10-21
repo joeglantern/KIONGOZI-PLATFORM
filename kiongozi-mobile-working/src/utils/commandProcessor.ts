@@ -47,10 +47,6 @@ export async function processCommand(text: string): Promise<EnhancedCommandRespo
 
   try {
     switch (cmd.toLowerCase()) {
-      case 'modules':
-      case 'learn':
-        return await handleModulesCommand(args);
-      
       case 'progress':
       case 'stats':
         return await handleProgressCommand(args);
@@ -85,7 +81,7 @@ export async function processCommand(text: string): Promise<EnhancedCommandRespo
           type: 'command_response',
           command: cmd,
           title: 'Unknown Command',
-          content: `Unknown command: "${cmd}". Available commands:\n\n• \`/modules\` - View learning modules\n• \`/courses\` - View learning courses\n• \`/progress\` - Check your progress\n• \`/categories\` - Browse categories\n• \`/search [query]\` - Search modules\n• \`/enroll [course]\` - Enroll in a course\n• \`/my-courses\` - View your enrollments\n• \`/help\` - Show help`,
+          content: `Unknown command: "${cmd}". Available commands:\n\n• \`/courses\` - Browse learning courses\n• \`/progress\` - Check your progress\n• \`/categories\` - Browse categories\n• \`/my-courses\` - View your enrollments\n• \`/help\` - Show help`,
           success: false
         };
     }
@@ -96,73 +92,6 @@ export async function processCommand(text: string): Promise<EnhancedCommandRespo
       command: cmd,
       title: 'Error',
       content: `Sorry, there was an error processing the command "${cmd}". Please try again later.`,
-      success: false
-    };
-  }
-}
-
-/**
- * Handle /modules command with real API data
- */
-async function handleModulesCommand(args: string[]): Promise<EnhancedCommandResponse> {
-  try {
-    // Parse arguments for filtering
-    const filterCategory = args.length > 0 ? args.join(' ').toLowerCase() : null;
-    const limit = 8; // Show max 8 modules in chat
-    
-    // Fetch modules from API
-    const response = await apiClient.getModules({
-      featured: filterCategory ? undefined : true, // Show featured if no filter
-      search: filterCategory || undefined,
-      limit
-    });
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch modules');
-    }
-
-    const modules: LearningModule[] = response.data.data || response.data;
-    const totalCount = response.data.pagination?.total || modules.length;
-
-    // Create structured response
-    const commandResponse: ModuleCommandResponse = {
-      type: 'modules',
-      title: filterCategory ? `Modules: "${filterCategory}"` : 'Featured Learning Modules',
-      description: filterCategory 
-        ? `Found ${modules.length} modules matching "${filterCategory}"`
-        : `Here are our ${modules.length} featured learning modules`,
-      modules,
-      total_count: totalCount,
-      search_query: filterCategory || undefined
-    };
-
-    // Create human-readable content
-    const content = modules.length > 0
-      ? `${commandResponse.description}:\n\n${
-          modules.map(module => 
-            `**${module.title}**\n` +
-            `📚 ${module.category?.name || 'General'} • ${capitalizeFirst(module.difficulty_level)}\n` +
-            `⏱️ ${module.estimated_duration_minutes} min\n` +
-            `${module.description}\n`
-          ).join('\n')
-        }\n💡 *Tap any module card below to learn more!*`
-      : `No modules found${filterCategory ? ` for "${filterCategory}"` : ''}. Try browsing all categories or searching for different terms.`;
-
-    return {
-      type: 'command_response',
-      command: 'modules',
-      title: commandResponse.title,
-      content,
-      success: true,
-      data: commandResponse
-    };
-  } catch (error: any) {
-    console.error('Modules command error:', error);
-    return {
-      type: 'command_response',
-      command: 'modules',
-      title: 'Error Loading Modules',
-      content: 'Sorry, I couldn\'t load the learning modules right now. Please check your connection and try again.',
       success: false
     };
   }
@@ -393,11 +322,10 @@ async function handleCoursesCommand(args: string[]): Promise<EnhancedCommandResp
   try {
     // Parse arguments for filtering
     const filterCategory = args.length > 0 ? args.join(' ').toLowerCase() : null;
-    const limit = 6; // Show max 6 courses in chat
-    
-    // Fetch courses from API
+    const limit = 8; // Show max 8 courses in chat
+
+    // Fetch courses from API - show all published courses for better UX
     const response = await apiClient.getCourses({
-      featured: filterCategory ? undefined : true, // Show featured if no filter
       search: filterCategory || undefined,
       limit
     });
@@ -411,10 +339,10 @@ async function handleCoursesCommand(args: string[]): Promise<EnhancedCommandResp
 
     const commandResponse = {
       type: 'courses' as const,
-      title: filterCategory ? `Courses: "${filterCategory}"` : 'Featured Learning Courses',
-      description: filterCategory 
+      title: filterCategory ? `Courses: "${filterCategory}"` : 'Learning Courses',
+      description: filterCategory
         ? `Found ${courses.length} courses matching "${filterCategory}"`
-        : `Here are our ${courses.length} featured learning courses`,
+        : `Explore our ${courses.length} learning courses`,
       courses,
       total_count: totalCount,
       search_query: filterCategory || undefined
@@ -422,13 +350,14 @@ async function handleCoursesCommand(args: string[]): Promise<EnhancedCommandResp
 
     const content = courses.length > 0
       ? `${commandResponse.description}:\n\n${
-          courses.map((course: any) => 
+          courses.map((course: any) =>
             `**${course.title}**\n` +
             `📚 ${course.category?.name || 'General'} • ${capitalizeFirst(course.difficulty_level)}\n` +
             `⏱️ ${course.estimated_duration_hours}h • ${course.enrollment_count || 0} enrolled\n` +
             `${course.description}\n`
           ).join('\n')
-        }\n💡 *Tap any course card below to learn more or enroll!*`
+        }\n\n💡 *Tap any course card to learn more from me!*\n` +
+        `🌐 *To enroll and start learning, visit the full LMS web app*`
       : `No courses found${filterCategory ? ` for "${filterCategory}"` : ''}. Try browsing all categories or searching for different terms.`;
 
     return {
@@ -685,24 +614,18 @@ async function handleDropCommand(args: string[]): Promise<EnhancedCommandRespons
  */
 function handleHelpCommand(): EnhancedCommandResponse {
   const content = `## Available Commands 🤖\n\n` +
-    `**Module Commands:**\n` +
-    `• \`/modules\` - Browse featured learning modules\n` +
-    `• \`/modules [category]\` - Filter modules by category\n` +
-    `• \`/search [query]\` - Search for specific modules\n\n` +
-    `**Course Commands:**\n` +
-    `• \`/courses\` - Browse featured learning courses\n` +
+    `**Learning Commands:**\n` +
+    `• \`/courses\` - Browse all learning courses\n` +
     `• \`/courses [category]\` - Filter courses by category\n` +
-    `• \`/enroll [course]\` - Enroll in a specific course\n` +
     `• \`/my-courses\` - View your course enrollments\n` +
-    `• \`/drop [course]\` - Drop from a course\n\n` +
-    `**General Commands:**\n` +
     `• \`/categories\` - View all learning categories\n` +
-    `• \`/progress\` - View your learning progress and stats\n` +
+    `• \`/progress\` - View your learning progress and stats\n\n` +
+    `**General Commands:**\n` +
     `• \`/help\` - Show this help message\n\n` +
     `**Tips:**\n` +
-    `• You can also ask questions naturally, like "What courses are available?"\n` +
-    `• Use the suggestion cards for quick actions\n` +
-    `• Tap on course/module cards to view details and start learning\n\n` +
+    `• Ask questions naturally, like "What courses are available?"\n` +
+    `• Tap on course cards to learn more from the AI\n` +
+    `• To enroll and start learning, visit the full LMS web app\n\n` +
     `*Happy learning! 🎓*`;
 
   return {
@@ -719,7 +642,7 @@ function handleHelpCommand(): EnhancedCommandResponse {
  */
 export function isValidCommand(command: string): boolean {
   const validCommands = [
-    'modules', 'learn', 'progress', 'stats', 'categories', 'cats', 'search', 'help',
+    'progress', 'stats', 'categories', 'cats', 'help',
     'courses', 'course', 'enroll', 'my-courses', 'enrollments', 'drop', 'unenroll'
   ];
   return validCommands.includes(command.toLowerCase());
@@ -730,12 +653,9 @@ export function isValidCommand(command: string): boolean {
  */
 export function getCommandSuggestions(input: string): string[] {
   const commands = [
-    '/modules - Browse learning modules',
     '/courses - Browse learning courses',
     '/progress - Check your progress',
     '/categories - View all categories',
-    '/search [query] - Search modules',
-    '/enroll [course] - Enroll in a course',
     '/my-courses - View your enrollments',
     '/help - Show available commands'
   ];
@@ -745,7 +665,7 @@ export function getCommandSuggestions(input: string): string[] {
   }
 
   const query = input.toLowerCase().replace('/', '');
-  return commands.filter(cmd => 
+  return commands.filter(cmd =>
     cmd.toLowerCase().includes(query)
   );
 }

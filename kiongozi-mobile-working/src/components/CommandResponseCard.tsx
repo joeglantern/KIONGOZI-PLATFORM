@@ -19,6 +19,8 @@ import {
   ModuleCommandResponse,
   ProgressCommandResponse,
   CategoryCommandResponse,
+  Course,
+  CourseCommandResponse,
   LearningModule,
   ModuleCategory,
   LearningStats,
@@ -35,6 +37,7 @@ interface CommandResponseCardProps {
   };
   darkMode?: boolean;
   onModulePress?: (module: LearningModule) => void;
+  onCoursePress?: (course: Course) => void;
   onCategoryPress?: (category: ModuleCategory) => void;
 }
 
@@ -42,12 +45,18 @@ export default function CommandResponseCard({
   response,
   darkMode = false,
   onModulePress,
+  onCoursePress,
   onCategoryPress,
 }: CommandResponseCardProps) {
 
   const handleModulePress = (module: LearningModule) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onModulePress?.(module);
+  };
+
+  const handleCoursePress = (course: Course) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onCoursePress?.(course);
   };
 
   const handleCategoryPress = (category: ModuleCategory) => {
@@ -117,6 +126,77 @@ export default function CommandResponseCard({
         {moduleData.total_count && moduleData.total_count > moduleData.modules.length && (
           <Text style={[styles.showMoreHint, darkMode && styles.showMoreHintDark]}>
             Showing {moduleData.modules.length} of {moduleData.total_count} modules
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  const renderCourses = () => {
+    if (!response.data || response.data.type !== 'courses') {
+      return null;
+    }
+
+    const courseData = response.data as CourseCommandResponse;
+
+    if (!courseData.courses || courseData.courses.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons
+            name="school-outline"
+            size={48}
+            color={darkMode ? '#6b7280' : '#9ca3af'}
+          />
+          <Text style={[styles.emptyText, darkMode && styles.emptyTextDark]}>
+            No courses found
+          </Text>
+          <Text style={[styles.emptySubtext, darkMode && styles.emptySubtextDark]}>
+            Try browsing different categories or check back later
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.modulesContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.modulesScrollContent}
+        >
+          {courseData.courses.map((course) => (
+            <TouchableOpacity
+              key={course.id}
+              style={[styles.courseCard, darkMode && styles.courseCardDark]}
+              onPress={() => handleCoursePress(course)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.courseIcon, { backgroundColor: `${course.category?.color || '#3b82f6'}15` }]}>
+                <Ionicons
+                  name="school"
+                  size={24}
+                  color={course.category?.color || '#3b82f6'}
+                />
+              </View>
+              <Text style={[styles.courseTitle, darkMode && styles.courseTitleDark]} numberOfLines={2}>
+                {course.title}
+              </Text>
+              <Text style={[styles.courseCategory, darkMode && styles.courseCategoryDark]}>
+                {course.category?.name || 'General'}
+              </Text>
+              <View style={styles.courseMeta}>
+                <Text style={[styles.courseMetaText, darkMode && styles.courseMetaTextDark]}>
+                  {course.estimated_duration_hours}h • {course.difficulty_level}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Show more hint */}
+        {courseData.total_count && courseData.total_count > courseData.courses.length && (
+          <Text style={[styles.showMoreHint, darkMode && styles.showMoreHintDark]}>
+            Showing {courseData.courses.length} of {courseData.total_count} courses
           </Text>
         )}
       </View>
@@ -324,6 +404,7 @@ export default function CommandResponseCard({
       <View style={styles.content}>
         {/* Render structured responses */}
         {renderModules()}
+        {renderCourses()}
         {renderProgress()}
         {renderCategories()}
         
@@ -662,5 +743,56 @@ const styles = StyleSheet.create({
   },
   categoryDescriptionDark: {
     color: '#9ca3af',
+  },
+  // Course Styles
+  courseCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    width: 240,
+    gap: 12,
+  },
+  courseCardDark: {
+    backgroundColor: '#374151',
+    borderColor: '#4b5563',
+  },
+  courseIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  courseTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    lineHeight: 22,
+  },
+  courseTitleDark: {
+    color: '#f9fafb',
+  },
+  courseCategory: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  courseCategoryDark: {
+    color: '#9ca3af',
+  },
+  courseMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  courseMetaText: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  courseMetaTextDark: {
+    color: '#6b7280',
   },
 });
