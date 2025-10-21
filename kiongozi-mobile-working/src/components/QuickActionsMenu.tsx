@@ -38,21 +38,12 @@ interface QuickActionsMenuProps {
 const QUICK_ACTIONS: QuickAction[] = [
   // Learning Actions
   {
-    id: 'browse-modules',
-    title: 'Browse Modules',
-    description: 'Show all available learning modules',
-    icon: 'library-outline',
+    id: 'browse-courses',
+    title: 'Browse Courses',
+    description: 'Show all available learning courses',
+    icon: 'school-outline',
     color: '#3b82f6',
-    command: '/modules',
-    category: 'learning'
-  },
-  {
-    id: 'featured-modules',
-    title: 'Featured Content',
-    description: 'Show top recommended modules',
-    icon: 'star-outline',
-    color: '#fbbf24',
-    command: '/modules featured',
+    command: '/courses',
     category: 'learning'
   },
   {
@@ -65,24 +56,15 @@ const QUICK_ACTIONS: QuickAction[] = [
     category: 'learning'
   },
   {
-    id: 'green-tech',
-    title: 'Green Technology',
-    description: 'Show sustainable tech modules',
-    icon: 'leaf-outline',
-    color: '#059669',
-    command: '/modules green',
-    category: 'learning'
-  },
-  {
-    id: 'digital-skills',
-    title: 'Digital Skills',
-    description: 'Show technology & digital literacy',
-    icon: 'phone-portrait-outline',
+    id: 'my-courses',
+    title: 'My Courses',
+    description: 'View your course enrollments',
+    icon: 'book-outline',
     color: '#7c3aed',
-    command: '/modules digital',
+    command: '/my-courses',
     category: 'learning'
   },
-  
+
   // Progress Actions
   {
     id: 'my-progress',
@@ -92,45 +74,12 @@ const QUICK_ACTIONS: QuickAction[] = [
     color: '#06b6d4',
     command: '/progress',
     category: 'progress'
-  },
-  {
-    id: 'achievements',
-    title: 'Achievements',
-    description: 'Show what you\'ve accomplished',
-    icon: 'trophy-outline',
-    color: '#f59e0b',
-    command: '/progress achievements',
-    category: 'progress'
-  },
-  
-  // Search Actions
-  {
-    id: 'search-modules',
-    title: 'Search Modules',
-    description: 'Find specific content',
-    icon: 'search-outline',
-    color: '#8b5cf6',
-    command: 'search',
-    category: 'search'
-  },
-  
-  // Help Actions
-  {
-    id: 'help',
-    title: 'Help & Tips',
-    description: 'Learn how to use the platform',
-    icon: 'help-circle-outline',
-    color: '#6b7280',
-    command: '/help',
-    category: 'help'
   }
 ];
 
 const CATEGORIES = [
   { id: 'learning', name: 'Learning', icon: 'school-outline', color: '#3b82f6' },
   { id: 'progress', name: 'Progress', icon: 'trending-up-outline', color: '#06b6d4' },
-  { id: 'search', name: 'Search', icon: 'search-outline', color: '#8b5cf6' },
-  { id: 'help', name: 'Help', icon: 'help-circle-outline', color: '#6b7280' },
 ];
 
 export default function QuickActionsMenu({ 
@@ -146,13 +95,7 @@ export default function QuickActionsMenu({
 
   const handleActionPress = (action: QuickAction) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    if (action.id === 'search-modules') {
-      // For search, we'll show a simple prompt
-      onActionSelect('What would you like to search for?');
-    } else {
-      onActionSelect(action.command);
-    }
+    onActionSelect(action.command);
     onClose();
   };
 

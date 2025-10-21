@@ -19,8 +19,10 @@ import {
   ModuleCommandResponse,
   ProgressCommandResponse,
   CategoryCommandResponse,
+  EnrollmentCommandResponse,
   Course,
   CourseCommandResponse,
+  CourseEnrollment,
   LearningModule,
   ModuleCategory,
   LearningStats,
@@ -203,6 +205,102 @@ export default function CommandResponseCard({
     );
   };
 
+  const renderEnrollments = () => {
+    if (!response.data || response.data.type !== 'enrollments') {
+      return null;
+    }
+
+    const enrollmentData = response.data as EnrollmentCommandResponse;
+
+    if (!enrollmentData.enrollments || enrollmentData.enrollments.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons
+            name="school-outline"
+            size={48}
+            color={darkMode ? '#6b7280' : '#9ca3af'}
+          />
+          <Text style={[styles.emptyText, darkMode && styles.emptyTextDark]}>
+            No enrollments found
+          </Text>
+          <Text style={[styles.emptySubtext, darkMode && styles.emptySubtextDark]}>
+            Use /courses to browse and enroll in courses
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.enrollmentsContainer}>
+        {enrollmentData.enrollments.map((enrollment) => {
+          const course = enrollment.courses;
+          const statusColors = {
+            active: '#3b82f6',
+            completed: '#22c55e',
+            dropped: '#ef4444',
+            suspended: '#f59e0b'
+          };
+          const statusColor = statusColors[enrollment.status] || '#6b7280';
+
+          return (
+            <View
+              key={enrollment.id}
+              style={[styles.enrollmentCard, darkMode && styles.enrollmentCardDark]}
+            >
+              {/* Course Info */}
+              <View style={styles.enrollmentHeader}>
+                <View style={[styles.enrollmentIcon, { backgroundColor: `${statusColor}15` }]}>
+                  <Ionicons
+                    name={enrollment.status === 'completed' ? 'checkmark-circle' : 'book'}
+                    size={24}
+                    color={statusColor}
+                  />
+                </View>
+                <View style={styles.enrollmentInfo}>
+                  <Text style={[styles.enrollmentTitle, darkMode && styles.enrollmentTitleDark]} numberOfLines={2}>
+                    {course?.title || 'Unknown Course'}
+                  </Text>
+                  <Text style={[styles.enrollmentMeta, darkMode && styles.enrollmentMetaDark]}>
+                    {course?.category?.name || 'General'} • {course?.estimated_duration_hours || 0}h
+                  </Text>
+                </View>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={styles.progressBarContainer}>
+                <View style={styles.progressBarTrack}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${enrollment.progress_percentage}%`, backgroundColor: statusColor }
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.progressBarText, darkMode && styles.progressBarTextDark]}>
+                  {enrollment.progress_percentage}%
+                </Text>
+              </View>
+
+              {/* Status Badge */}
+              <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
+                <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                  {enrollment.status.replace('_', ' ').toUpperCase()}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+
+        {/* Show more hint */}
+        {enrollmentData.total_count && enrollmentData.total_count > enrollmentData.enrollments.length && (
+          <Text style={[styles.showMoreHint, darkMode && styles.showMoreHintDark]}>
+            Showing {enrollmentData.enrollments.length} of {enrollmentData.total_count} enrollments
+          </Text>
+        )}
+      </View>
+    );
+  };
+
   const renderProgress = () => {
     if (!response.data || response.data.type !== 'progress') {
       return null;
@@ -335,42 +433,88 @@ export default function CommandResponseCard({
     );
   };
 
+  // Helper function to get valid Ionicon name
+  const getValidIconName = (iconName: string | undefined, categoryName: string): any => {
+    // If no icon provided, map category names to icons
+    if (!iconName) {
+      const iconMap: Record<string, string> = {
+        'security': 'shield-checkmark-outline',
+        'web development': 'code-slash-outline',
+        'mobile': 'phone-portrait-outline',
+        'data science': 'analytics-outline',
+        'cloud': 'cloud-outline',
+        'ai': 'bulb-outline',
+        'business': 'briefcase-outline',
+        'design': 'color-palette-outline',
+        'marketing': 'megaphone-outline',
+        'default': 'folder-outline'
+      };
+      const lowerName = categoryName.toLowerCase();
+      return iconMap[lowerName] || iconMap['default'];
+    }
+
+    // List of common valid Ionicon names
+    const validIcons = [
+      'shield-checkmark-outline', 'code-slash-outline', 'phone-portrait-outline',
+      'analytics-outline', 'cloud-outline', 'bulb-outline', 'briefcase-outline',
+      'color-palette-outline', 'megaphone-outline', 'folder-outline', 'book-outline',
+      'school-outline', 'laptop-outline', 'server-outline', 'globe-outline'
+    ];
+
+    // If icon name includes 'outline', check if it's valid
+    if (iconName.includes('-outline') && validIcons.includes(iconName)) {
+      return iconName;
+    }
+
+    // Try adding '-outline' suffix if not present
+    const outlineVersion = iconName.endsWith('-outline') ? iconName : `${iconName}-outline`;
+    if (validIcons.includes(outlineVersion)) {
+      return outlineVersion;
+    }
+
+    // Default fallback
+    return 'folder-outline';
+  };
+
   const renderCategories = () => {
     if (!response.data || response.data.type !== 'categories') {
       return null;
     }
 
     const categoryData = response.data as CategoryCommandResponse;
-    
+
     return (
       <View style={styles.categoriesContainer}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesScrollContent}
         >
-          {categoryData.categories.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-              style={[styles.categoryCard, darkMode && styles.categoryCardDark]}
-              onPress={() => handleCategoryPress(category)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.categoryIcon, { backgroundColor: `${category.color}15` }]}>
-                <Ionicons 
-                  name={category.icon as any} 
-                  size={24} 
-                  color={category.color} 
-                />
-              </View>
-              <Text style={[styles.categoryName, darkMode && styles.categoryNameDark]}>
-                {category.name}
-              </Text>
-              <Text style={[styles.categoryDescription, darkMode && styles.categoryDescriptionDark]} numberOfLines={2}>
-                {category.description}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {categoryData.categories.map((category) => {
+            const validIconName = getValidIconName(category.icon, category.name);
+            return (
+              <TouchableOpacity
+                key={category.id}
+                style={[styles.categoryCard, darkMode && styles.categoryCardDark]}
+                onPress={() => handleCategoryPress(category)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.categoryIcon, { backgroundColor: `${category.color}15` }]}>
+                  <Ionicons
+                    name={validIconName}
+                    size={24}
+                    color={category.color}
+                  />
+                </View>
+                <Text style={[styles.categoryName, darkMode && styles.categoryNameDark]}>
+                  {category.name}
+                </Text>
+                <Text style={[styles.categoryDescription, darkMode && styles.categoryDescriptionDark]} numberOfLines={2}>
+                  {category.description}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
     );
@@ -405,6 +549,7 @@ export default function CommandResponseCard({
         {/* Render structured responses */}
         {renderModules()}
         {renderCourses()}
+        {renderEnrollments()}
         {renderProgress()}
         {renderCategories()}
         
@@ -794,5 +939,88 @@ const styles = StyleSheet.create({
   },
   courseMetaTextDark: {
     color: '#6b7280',
+  },
+  // Enrollment Styles
+  enrollmentsContainer: {
+    gap: 16,
+  },
+  enrollmentCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    gap: 12,
+  },
+  enrollmentCardDark: {
+    backgroundColor: '#374151',
+    borderColor: '#4b5563',
+  },
+  enrollmentHeader: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  enrollmentIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  enrollmentInfo: {
+    flex: 1,
+  },
+  enrollmentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  enrollmentTitleDark: {
+    color: '#f9fafb',
+  },
+  enrollmentMeta: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  enrollmentMetaDark: {
+    color: '#9ca3af',
+  },
+  progressBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressBarTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressBarText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+    minWidth: 40,
+    textAlign: 'right',
+  },
+  progressBarTextDark: {
+    color: '#9ca3af',
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
