@@ -15,9 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.kiongozi.mobile",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice input functionality.",
-        "NSSpeechRecognitionUsageDescription": "This app needs access to speech recognition to convert your voice to text."
+        "NSSpeechRecognitionUsageDescription": "This app needs access to speech recognition to convert your voice to text.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
