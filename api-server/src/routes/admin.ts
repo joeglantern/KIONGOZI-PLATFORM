@@ -147,6 +147,104 @@ router.get('/users/:userId', async (req, res) => {
   }
 });
 
+// Get user's course enrollments (admin only)
+router.get('/users/:userId/enrollments', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const {
+      status,
+      limit = '20',
+      offset = '0'
+    } = req.query;
+
+    // Verify user exists
+    const { data: userExists } = await supabaseServiceClient
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (!userExists) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    let query = supabaseServiceClient
+      .from('course_enrollments')
+      .select(`
+        id,
+        enrolled_at,
+        status,
+        progress_percentage,
+        completed_at,
+        certificate_issued,
+        last_accessed_at,
+        created_at,
+        updated_at,
+        courses (
+          id,
+          title,
+          description,
+          difficulty_level,
+          estimated_duration_hours,
+          category:module_categories (
+            id,
+            name,
+            color,
+            icon
+          ),
+          author:profiles!courses_author_id_fkey (
+            full_name,
+            email
+          )
+        )
+      `)
+      .eq('user_id', userId);
+
+    // Filter by status if provided
+    if (status && ['active', 'completed', 'dropped', 'suspended'].includes(status as string)) {
+      query = query.eq('status', status);
+    }
+
+    // Apply pagination and ordering
+    const limitNum = Math.min(parseInt(limit as string, 10) || 20, 100);
+    const offsetNum = parseInt(offset as string, 10) || 0;
+
+    query = query
+      .order('last_accessed_at', { ascending: false })
+      .range(offsetNum, offsetNum + limitNum - 1);
+
+    const { data: enrollments, error, count } = await query;
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch user enrollments',
+        details: error.message
+      });
+    }
+
+    res.json({
+      success: true,
+      data: enrollments || [],
+      pagination: {
+        limit: limitNum,
+        offset: offsetNum,
+        total: count || enrollments?.length || 0
+      }
+    });
+  } catch (error: any) {
+    console.error('Admin user enrollments fetch error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
 // Update user status (ban/unban/activate/deactivate)
 router.patch('/users/:userId/status', async (req, res) => {
   try {
