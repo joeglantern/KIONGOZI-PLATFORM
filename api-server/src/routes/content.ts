@@ -168,12 +168,25 @@ router.post('/modules', authenticateToken, async (req, res) => {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    if (!hasContentPermissions(req.user.role)) {
-      return res.status(403).json({ success: false, error: 'Insufficient permissions to create modules' });
-    }
-
     if (!supabaseServiceClient) {
       return res.status(500).json({ success: false, error: 'Database not configured' });
+    }
+
+    // Fetch user's role from database (JWT might not have latest role)
+    const { data: profiles, error: profileError } = await supabaseServiceClient
+      .from('profiles')
+      .select('role')
+      .eq('id', req.user.id);
+
+    if (profileError || !profiles || profiles.length === 0) {
+      return res.status(403).json({ success: false, error: 'User profile not found' });
+    }
+
+    const userRole = profiles[0].role || 'user';
+    req.user.role = userRole; // Update role from database
+
+    if (!hasContentPermissions(userRole)) {
+      return res.status(403).json({ success: false, error: 'Insufficient permissions to create modules' });
     }
 
     const {
