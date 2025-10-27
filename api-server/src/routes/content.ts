@@ -227,6 +227,8 @@ router.post('/modules', authenticateToken, async (req, res) => {
       published_at: status === 'published' ? new Date().toISOString() : null
     };
 
+    console.log('🔧 [POST /modules] Attempting to create module with data:', JSON.stringify(moduleData, null, 2));
+
     const { data: module, error: moduleError } = await supabaseServiceClient
       .from('learning_modules')
       .insert(moduleData)
@@ -234,8 +236,11 @@ router.post('/modules', authenticateToken, async (req, res) => {
       .single();
 
     if (moduleError) {
+      console.error('❌ [POST /modules] Module creation failed:', moduleError);
       return res.status(500).json({ success: false, error: moduleError.message });
     }
+
+    console.log('✅ [POST /modules] Module created successfully:', module);
 
     // Add tags if provided
     if (tags.length > 0) {
