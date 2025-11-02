@@ -328,10 +328,9 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
           const newConversation: Conversation = {
             id: workingConversationId,
             title: text.trim().substring(0, 50) + (text.trim().length > 50 ? '...' : ''),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            user_id: '', // Will be updated when refreshConversations completes
-            message_count: 1
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            messageCount: 1
           };
 
           // Add to conversations list at the top
