@@ -31,7 +31,8 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
     currentConversationId,
     showExportModal,
     setShowExportModal,
-    exportConversations
+    exportConversations,
+    openLoginModal
   } = useChatContext();
 
   const { user, logout } = useUser();
@@ -115,6 +116,23 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
                 <p className="text-base text-gray-600 max-w-xl mx-auto">
                   Ask me anything about your learning journey, digital transformation, or green technologies.
                 </p>
+
+                {/* Subtle login prompt for unauthenticated users */}
+                {!user && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.6 }}
+                    className="mt-4"
+                  >
+                    <button
+                      onClick={openLoginModal}
+                      className="text-sm text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
+                    >
+                      Sign in to save your conversations
+                    </button>
+                  </motion.div>
+                )}
               </motion.div>
 
               {/* Centered Input */}

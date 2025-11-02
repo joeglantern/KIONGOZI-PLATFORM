@@ -55,6 +55,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user) {
+        // Store token in window for API client (critical for avoiding race conditions)
+        if (typeof window !== 'undefined') {
+          (window as any).supabaseToken = session.access_token;
+        }
+
         // Fetch full profile from database
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -91,12 +96,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           });
         }
       } else {
+        // No session - clear token
+        if (typeof window !== 'undefined') {
+          (window as any).supabaseToken = '';
+        }
         setUser(null);
       }
     } catch (err: any) {
       console.error('Failed to fetch user:', err);
       setError(err.message || 'Failed to fetch user data');
       setUser(null);
+      // Clear token on error
+      if (typeof window !== 'undefined') {
+        (window as any).supabaseToken = '';
+      }
     } finally {
       setLoading(false);
     }
@@ -117,6 +130,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setUser(null);
       setError(null);
 
+      // Clear token from window
+      if (typeof window !== 'undefined') {
+        (window as any).supabaseToken = '';
+      }
+
       // Redirect to login page
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
@@ -124,6 +142,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } catch (err: any) {
       console.error('Logout failed:', err);
       setError(err.message || 'Logout failed');
+      // Clear token even on error
+      if (typeof window !== 'undefined') {
+        (window as any).supabaseToken = '';
+      }
     } finally {
       setLoading(false);
     }

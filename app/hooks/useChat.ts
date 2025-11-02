@@ -77,6 +77,10 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
   // Export modal
   const [showExportModal, setShowExportModal] = useState(false);
 
+  // Auth modal
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalView, setAuthModalView] = useState<'login' | 'signup'>('login');
+
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
 
@@ -553,6 +557,16 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     setShowExportModal(prev => !prev);
   }, []);
 
+  const openLoginModal = useCallback(() => {
+    setAuthModalView('login');
+    setShowAuthModal(true);
+  }, []);
+
+  const openSignupModal = useCallback(() => {
+    setAuthModalView('signup');
+    setShowAuthModal(true);
+  }, []);
+
   const handleTypingComplete = useCallback((messageId: number) => {
     setMessages(prev =>
       prev.map(msg =>
@@ -655,6 +669,8 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     docGenEnabled,
     showToolsMenu,
     showExportModal,
+    showAuthModal,
+    authModalView,
     isMobile,
 
     // Actions
@@ -683,6 +699,12 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     setShowToolsMenu,
     toggleExportModal,
     setShowExportModal,
+
+    // Auth modal actions
+    setShowAuthModal,
+    setAuthModalView,
+    openLoginModal,
+    openSignupModal,
 
     // Export functions
     exportConversations: handleExportConversations,

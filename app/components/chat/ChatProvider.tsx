@@ -190,6 +190,20 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     }
   }, [chatState.currentConversationId]);
 
+  // Listen for auth:required events from ApiClient
+  useEffect(() => {
+    const handleAuthRequired = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('🔐 [ChatProvider] Auth required event received:', customEvent.detail);
+
+      // Open login modal when auth is required
+      chatState.openLoginModal();
+    };
+
+    window.addEventListener('auth:required', handleAuthRequired);
+    return () => window.removeEventListener('auth:required', handleAuthRequired);
+  }, [chatState.openLoginModal]);
+
   // Prevent hydration mismatch by only rendering after client-side mount
   if (!isClient) {
     return (

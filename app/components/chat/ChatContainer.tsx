@@ -9,11 +9,13 @@ import '../../sidebar.css';
 import '../input-glow.css';
 import '../send-effects.css';
 import { useChatContext } from './ChatProvider';
+import { useUser } from '../../contexts/UserContext';
 import ChatInput from './ChatInput';
 import CleanLMSSidebar from './CleanLMSSidebar';
 import CleanMobileMenu from './CleanMobileMenu';
 import ModernChatLayout from './ModernChatLayout';
 import ChatErrorBoundary from './ChatErrorBoundary';
+import AuthModalManager from '../auth/AuthModalManager';
 
 interface ChatContainerProps {
   hideInput?: boolean;
@@ -49,10 +51,22 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     conversationsError,
     hasMoreConversations,
     isLoadingMore,
-    exportConversations
+    exportConversations,
+    showAuthModal,
+    authModalView,
+    setShowAuthModal
   } = useChatContext();
 
+  const { refreshUser } = useUser();
   const router = useRouter();
+
+  // Handle successful authentication
+  const handleAuthSuccess = async () => {
+    console.log('✅ [ChatContainer] Authentication successful, refreshing user data');
+    // Refresh user data to update the token
+    await refreshUser();
+    // Modal will close automatically via onSuccess callback
+  };
 
   // Handle conversation rename (placeholder - implement API call)
   const handleConversationRename = async (id: string, newTitle: string) => {
@@ -185,6 +199,14 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
           onClick={() => setSelectedArtifact(null)}
         />
       )}
+
+      {/* Authentication Modal */}
+      <AuthModalManager
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleAuthSuccess}
+        initialView={authModalView}
+      />
     </div>
   );
 };

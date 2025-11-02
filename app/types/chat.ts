@@ -97,6 +97,10 @@ export interface ChatState {
   // Export modal
   showExportModal: boolean;
 
+  // Auth modal
+  showAuthModal: boolean;
+  authModalView: 'login' | 'signup';
+
   // Mobile
   isMobile: boolean;
 }
@@ -152,6 +156,12 @@ export interface ChatActions {
   toggleExportModal: () => void;
   setShowExportModal: (show: boolean) => void;
   exportConversations: (conversationIds: string[], format: 'text' | 'markdown' | 'json', includeMetadata: boolean) => Promise<void>;
+
+  // Auth modal actions
+  setShowAuthModal: (show: boolean) => void;
+  setAuthModalView: (view: 'login' | 'signup') => void;
+  openLoginModal: () => void;
+  openSignupModal: () => void;
 }
 
 // Combined chat context interface

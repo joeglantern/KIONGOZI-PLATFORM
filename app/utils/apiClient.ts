@@ -279,6 +279,19 @@ class ApiClient {
             return this.retryRequestWithNewToken(endpoint, options);
           } else {
             console.error('❌ [ApiClient] Token refresh failed, user needs to re-authenticate');
+
+            // Emit custom event for auth failure so UI can show login modal
+            if (typeof window !== 'undefined') {
+              const authEvent = new CustomEvent('auth:required', {
+                detail: {
+                  reason: 'token_refresh_failed',
+                  endpoint,
+                  timestamp: new Date().toISOString()
+                }
+              });
+              window.dispatchEvent(authEvent);
+              console.log('📢 [ApiClient] Dispatched auth:required event');
+            }
           }
         }
 
