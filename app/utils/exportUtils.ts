@@ -261,7 +261,7 @@ export function getExportPreview(
     estimatedSize += conv.title.length * 2; // Title overhead
     if (conv.messages) {
       conv.messages.forEach(msg => {
-        estimatedSize += msg.content.length;
+        estimatedSize += (msg.text || '').length;
         estimatedSize += 100; // Metadata overhead per message
       });
     }
