@@ -132,11 +132,11 @@ const MessageList: React.FC<MessageListProps> = ({
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-4 opacity-50">
                 <Image
-                  src="/images/ai-head-icon.svg"
-                  alt="AI Assistant"
+                  src="/Kiongozi.png"
+                  alt="Kiongozi"
                   width={64}
                   height={64}
-                  className="w-full h-full"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <p className="text-lg font-medium mb-2">Ready to help!</p>
@@ -169,11 +169,11 @@ const MessageList: React.FC<MessageListProps> = ({
             <div className="flex items-start w-full">
               <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden flex items-center justify-center mr-3">
                 <Image
-                  src="/images/ai-head-icon.svg"
-                  alt="AI Assistant"
+                  src="/Kiongozi.png"
+                  alt="Kiongozi"
                   width={28}
                   height={28}
-                  className="w-full h-full"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">

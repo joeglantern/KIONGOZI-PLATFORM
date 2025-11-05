@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -64,8 +65,14 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
         {/* Platform Title - Shows when sidebar is collapsed on desktop */}
         {!isMobile && showSidebar && isSidebarCollapsed && (
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center">
-              <span className="text-white font-bold text-xs">K</span>
+            <div className="w-6 h-6 relative flex-shrink-0">
+              <Image
+                src="/Kiongozi.png"
+                alt="Kiongozi"
+                width={24}
+                height={24}
+                className="w-full h-full object-contain"
+              />
             </div>
             <h1 className="font-semibold text-gray-900">Kiongozi Platform</h1>
           </div>

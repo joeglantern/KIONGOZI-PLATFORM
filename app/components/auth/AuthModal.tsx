@@ -6,6 +6,7 @@
  * Handles backdrop, animations, and escape key
  */
 import React, { useEffect } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -70,7 +71,18 @@ export default function AuthModal({
             >
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 relative flex-shrink-0">
+                    <Image
+                      src="/Kiongozi.png"
+                      alt="Kiongozi"
+                      width={32}
+                      height={32}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+                </div>
                 {showCloseButton && (
                   <button
                     onClick={onClose}

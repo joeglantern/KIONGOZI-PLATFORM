@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { useRouter, usePathname } from 'next/navigation';
 import {
@@ -160,8 +161,14 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
             transition={{ delay: 0.1 }}
             className="flex items-center space-x-3"
           >
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">K</span>
+            <div className="w-8 h-8 relative flex-shrink-0">
+              <Image
+                src="/Kiongozi.png"
+                alt="Kiongozi"
+                width={32}
+                height={32}
+                className="w-full h-full object-contain"
+              />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm text-gray-900 truncate">Kiongozi Platform</h3>

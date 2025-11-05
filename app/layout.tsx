@@ -3,7 +3,7 @@ import './globals.css'
 import ClientProvider from './components/ClientProvider'
 
 export const metadata: Metadata = {
-  title: 'AI Chatbot',
+  title: 'Kiongozi Chat',
   description: 'An AI-powered chatbot for conversations and assistance.',
   viewport: {
     width: 'device-width',
@@ -12,8 +12,8 @@ export const metadata: Metadata = {
     userScalable: false,
   },
   icons: {
-    icon: '/images/ai-head-icon.svg',
-    apple: '/images/ai-head-icon.svg',
+    icon: '/Kiongozi.png',
+    apple: '/Kiongozi.png',
   }
 }
 
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/images/ai-head-icon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/Kiongozi.png" type="image/png" />
       </head>
       <body className="min-h-screen" suppressHydrationWarning>
         <ClientProvider>
