@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     userScalable: false,
   },
   icons: {
-    icon: '/Kiongozi.png',
+    icon: '/favicon.svg',
     apple: '/Kiongozi.png',
   }
 }
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/Kiongozi.png" type="image/png" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
       <body className="min-h-screen" suppressHydrationWarning>
         <ClientProvider>
