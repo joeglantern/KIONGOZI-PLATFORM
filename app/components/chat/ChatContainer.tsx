@@ -54,7 +54,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     exportConversations,
     showAuthModal,
     authModalView,
-    setShowAuthModal
+    setShowAuthModal,
+    setShowExportModal
   } = useChatContext();
 
   const { refreshUser } = useUser();
