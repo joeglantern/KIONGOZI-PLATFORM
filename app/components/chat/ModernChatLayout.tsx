@@ -74,7 +74,7 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
                 className="w-full h-full object-contain"
               />
             </div>
-            <h1 className="font-semibold text-gray-900">Kiongozi Platform</h1>
+            <h1 className="font-semibold text-gray-900">Kiongozi Chat</h1>
           </div>
         )}
 

@@ -171,8 +171,7 @@ const CleanLMSSidebar: React.FC<CleanLMSSidebarProps> = ({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm text-gray-900 truncate">Kiongozi Platform</h3>
-              <p className="text-xs text-gray-500">Learning Management System</p>
+              <h3 className="font-semibold text-sm text-gray-900 truncate">Kiongozi Chat</h3>
             </div>
           </motion.div>
         )}
