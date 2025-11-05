@@ -132,6 +132,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
           conversationsError={conversationsError}
           currentPath="/chat"
           onNavigate={handleNavigate}
+          setShowExportModal={setShowExportModal}
         />
       )}
 
