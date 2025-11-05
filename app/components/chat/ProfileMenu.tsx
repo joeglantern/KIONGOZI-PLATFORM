@@ -147,7 +147,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               className="w-8 h-8 rounded-full object-cover"
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
               <span className="text-white text-sm font-medium">
                 {initials}
               </span>
@@ -187,7 +187,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
                     className="w-10 h-10 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
                     <span className="text-white font-medium">
                       {initials}
                     </span>
