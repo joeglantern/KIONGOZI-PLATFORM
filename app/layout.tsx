@@ -5,6 +5,12 @@ import ClientProvider from './components/ClientProvider'
 export const metadata: Metadata = {
   title: 'AI Chatbot',
   description: 'An AI-powered chatbot for conversations and assistance.',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
   icons: {
     icon: '/images/ai-head-icon.svg',
     apple: '/images/ai-head-icon.svg',

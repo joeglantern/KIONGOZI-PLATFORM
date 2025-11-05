@@ -46,7 +46,7 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="h-full max-h-screen flex flex-col bg-[#f7f7f8] transition-colors duration-300 relative overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#f7f7f8] transition-colors duration-300 relative overflow-hidden">
       {/* Corner Controls - Fixed to this container, not the viewport */}
       <div className="flex items-center justify-between px-4 py-3 z-50 flex-shrink-0">
         {/* Mobile menu button - Left side */}
@@ -178,7 +178,8 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.4 }}
-              className="flex-shrink-0 p-4 sm:p-6"
+              className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6"
+              style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
             >
               <div className="w-full max-w-2xl mx-auto">
                 {children}

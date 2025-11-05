@@ -13,6 +13,7 @@ import {
   X,
   Search,
   Settings,
+  Download,
   HelpCircle
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
@@ -34,6 +35,7 @@ interface CleanMobileMenuProps {
   onNavigate?: (path: string) => void;
   conversationsLoading?: boolean;
   conversationsError?: string | null;
+  setShowExportModal?: (show: boolean) => void;
 }
 
 const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
@@ -46,11 +48,32 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
   currentPath = '/chat',
   onNavigate,
   conversationsLoading = false,
-  conversationsError = null
+  conversationsError = null,
+  setShowExportModal
 }) => {
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Format timestamp helper
+  const formatTimestamp = (timestamp: string): string => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+
+    if (diffInDays > 0) {
+      return diffInDays === 1 ? '1 day ago' : `${diffInDays} days ago`;
+    } else if (diffInHours > 0) {
+      return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
+    } else if (diffInMinutes > 0) {
+      return diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`;
+    } else {
+      return 'Just now';
+    }
+  };
 
   // Handle conversation navigation with URL routing
   const handleConversationClick = (conversation: Conversation) => {
@@ -98,10 +121,10 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
     onOpenChange(false);
   };
 
-  // Match sidebar behavior exactly - always show first 5 recent conversations
-  const recentConversations = conversations.slice(0, 5);
+  // Match sidebar behavior exactly - always show first 8 recent conversations
+  const recentConversations = conversations.slice(0, 8);
 
-  // Apply search filter only for display, but keep the 5-item limit consistent
+  // Apply search filter only for display, but keep the 8-item limit consistent
   const displayedConversations = searchQuery
     ? recentConversations.filter(conv =>
         conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -180,22 +203,40 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Recent</h4>
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            onNewConversation();
-                            onOpenChange(false);
-                          }}
-                          className="h-6 w-6"
+                      <div className="flex items-center gap-1">
+                        {setShowExportModal && conversations.length > 0 && (
+                          <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setShowExportModal(true)}
+                              className="h-6 w-6"
+                              title="Export conversations"
+                            >
+                              <Download size={14} />
+                            </Button>
+                          </motion.div>
+                        )}
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                         >
-                          <Plus size={14} />
-                        </Button>
-                      </motion.div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              onNewConversation();
+                              onOpenChange(false);
+                            }}
+                            className="h-6 w-6"
+                          >
+                            <Plus size={14} />
+                          </Button>
+                        </motion.div>
+                      </div>
                     </div>
 
                     {/* Search Input */}
@@ -212,8 +253,16 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
                           placeholder="Search conversations..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-200 focus:outline-none transition-colors min-h-[44px]"
+                          className="w-full pl-10 pr-10 py-3 text-sm border border-gray-200 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-200 focus:outline-none transition-colors min-h-[44px]"
                         />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
                       </motion.div>
                     )}
                   </div>
@@ -238,9 +287,22 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                             }`}
                           >
-                            <div className="truncate font-medium">{conv.title}</div>
+                            <div className="truncate font-medium">
+                              {conv.title.length > 30 ? conv.title.substring(0, 30) + '...' : conv.title}
+                            </div>
                             <div className="text-xs text-gray-500 truncate mt-1">
-                              {conv.lastMessage}
+                              {conv.lastMessage && conv.lastMessage.length > 40
+                                ? conv.lastMessage.substring(0, 40) + '...'
+                                : conv.lastMessage}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                              <span>{formatTimestamp(conv.updatedAt)}</span>
+                              {conv.messageCount && (
+                                <>
+                                  <span>•</span>
+                                  <span>{conv.messageCount} messages</span>
+                                </>
+                              )}
                             </div>
                           </motion.button>
                         </motion.div>
