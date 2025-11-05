@@ -153,7 +153,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     >
       {isUser ? (
         /* User Message - Keep as bubble */
-        <div className="relative max-w-[85vw] sm:max-w-xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm bg-gray-900 text-white rounded-3xl rounded-br-lg">
+        <div className="relative max-w-[85vw] sm:max-w-xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm bg-blue-500 text-white rounded-3xl rounded-br-lg">
           {renderMessageContent()}
         </div>
       ) : (
