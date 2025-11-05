@@ -12,9 +12,7 @@ import {
   Plus,
   X,
   Search,
-  Settings,
-  Download,
-  HelpCircle
+  Download
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -106,11 +104,6 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
     { icon: TrendingUp, label: 'Progress', path: '/progress' },
   ];
 
-  const quickActions = [
-    { icon: Settings, label: 'Settings', path: '/settings' },
-    { icon: HelpCircle, label: 'Help', path: '/help' },
-  ];
-
   const handleNavigate = (path: string) => {
     onNavigate?.(path);
     onOpenChange(false);
@@ -145,14 +138,6 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
                   className="border-0 p-0 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800"
                 />
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onOpenChange(false)}
-                className="h-8 w-8 flex-shrink-0"
-              >
-                <X size={16} />
-              </Button>
             </div>
           </SheetHeader>
 
@@ -369,37 +354,7 @@ const CleanMobileMenu: React.FC<CleanMobileMenuProps> = ({
                 }}
               />
             </motion.div>
-
-            {/* Quick Actions */}
-            <motion.div
-              className="mt-6 pt-4 border-t border-gray-100"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.3 }}
-            >
-              <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Quick Actions</h4>
-              <div className="grid grid-cols-2 gap-3">
-                {quickActions.map((action, index) => {
-                  const Icon = action.icon;
-                  return (
-                    <motion.button
-                      key={action.path}
-                      onClick={() => handleNavigate(action.path)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.5 + index * 0.1, duration: 0.2 }}
-                      className="flex flex-col items-center justify-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200 min-h-[60px]"
-                    >
-                      <Icon size={18} className="text-gray-600 mb-1" />
-                      <span className="text-xs font-medium text-gray-700">{action.label}</span>
-                    </motion.button>
-                  );
-                })}
-              </div>
-                </motion.div>
-              </div>
+          </div>
             </ScrollArea>
           </div>
         </div>
