@@ -12,6 +12,7 @@ import {
   Keyboard,
   Animated,
   KeyboardAvoidingView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -943,7 +944,11 @@ export default function ChatScreen() {
                 <View style={[styles.sidebarRect, styles.sidebarRectSmall, darkMode && styles.sidebarRectDark]} />
               </View>
             </TouchableOpacity>
-            <View style={styles.aiIcon} />
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Center section - Title (flexible) */}
@@ -1318,13 +1323,10 @@ const styles = StyleSheet.create({
     width: 12,
     height: 4,
   },
-  aiIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#3b82f6',
+  headerLogo: {
+    width: 45,
+    height: 30,
+    marginLeft: 8,
   },
   aiIconText: {
     color: '#ffffff',

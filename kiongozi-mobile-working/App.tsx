@@ -7,10 +7,12 @@ import LoginScreen from './src/screens/LoginScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import { supabase } from './src/utils/supabaseClient';
 import apiClient from './src/utils/apiClient';
+import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
 
 export default function App() {
   const { user, initialized, initialize } = useAuthStore();
   const [isReady, setIsReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -24,6 +26,16 @@ export default function App() {
     };
     initializeApp();
   }, [initialize]);
+
+  // Hide splash screen after 3 seconds once app is ready
+  useEffect(() => {
+    if (isReady && initialized) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isReady, initialized]);
 
   // Handle deep links for OAuth and email verification callback
   useEffect(() => {
@@ -66,6 +78,11 @@ export default function App() {
       subscription.remove();
     };
   }, []);
+
+  // Show splash screen during initialization or for 3 seconds after ready
+  if (showSplash) {
+    return <AnimatedSplashScreen />;
+  }
 
   if (!isReady || !initialized) {
     return (

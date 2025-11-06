@@ -13,6 +13,7 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -155,7 +156,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
             {/* Header */}
             <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <View style={styles.aiIcon} />
+              <Image
+                source={require('../../assets/logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <Text style={styles.title}>
                 {isSignUp ? 'Create an account' : 'Sign in'}
               </Text>
@@ -379,13 +384,10 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'center',
   },
-  aiIcon: {
-    width: 28,
-    height: 28,
-    backgroundColor: '#3b82f6',
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoImage: {
+    width: 60,
+    height: 40,
+    marginRight: 12,
   },
   aiIconText: {
     color: '#ffffff',

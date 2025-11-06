@@ -10,6 +10,7 @@ import {
   Modal,
   RefreshControl,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -246,6 +247,15 @@ export default function ProfileScreen({
           />
         }
       >
+        {/* Logo */}
+        <View style={styles.logoSection}>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.profileLogo}
+            resizeMode="contain"
+          />
+        </View>
+
         {/* User Info Section */}
         <View style={[styles.userSection, darkMode && styles.userSectionDark]}>
           <View style={styles.avatarContainer}>
@@ -531,6 +541,15 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  logoSection: {
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  profileLogo: {
+    width: 70,
+    height: 47,
   },
   userSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
