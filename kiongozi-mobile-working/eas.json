@@ -30,7 +30,8 @@
       "channel": "preview",
       "ios": {
         "simulator": true
-      }
+      },
+      "node": "22.11.0"
     },
     "production": {
       "android": {
