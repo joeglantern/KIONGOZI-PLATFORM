@@ -93,6 +93,12 @@ log_info "Step 3: Installing dependencies and building..."
 log_info "Building LMS..."
 cd "$DEPLOY_DIR"
 npm install --production=false
+
+# Export env vars for build process
+export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+export NEXT_PUBLIC_API_URL="$API_URL"
+
 npm run build
 log_success "LMS built successfully"
 
