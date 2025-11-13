@@ -4,6 +4,9 @@
       "eas": {
         "projectId": "dde01388-b297-4016-8a8f-a75d91cf6650"
       }
+    },
+    "android": {
+      "package": "com.joe_lib_an.kenyanyouthciviceducation"
     }
   }
 }

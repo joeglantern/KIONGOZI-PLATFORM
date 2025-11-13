@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "npm config set legacy-peer-deps true"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -33,6 +34,9 @@
   },
   "devDependencies": {
     "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "@types/react": "~19.1.0"
   },
   "private": true
 }
