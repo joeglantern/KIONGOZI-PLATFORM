@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Animated,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
@@ -287,7 +288,11 @@ export default function MobileMenu({
         <View style={[styles.header, darkMode && styles.headerDark]}>
           <View style={styles.headerContent}>
             <View style={styles.logoContainer}>
-              <View style={styles.aiIcon} />
+              <Image
+                source={require('../../assets/logo.png')}
+                style={styles.aiIcon}
+                resizeMode="contain"
+              />
               <View>
                 <Text style={[styles.headerTitle, darkMode && styles.headerTitleDark]}>
                   Kiongozi<Text style={styles.platformText}>Platform</Text>
@@ -489,10 +494,6 @@ const styles = StyleSheet.create({
   aiIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   aiIconText: {
     color: '#ffffff',

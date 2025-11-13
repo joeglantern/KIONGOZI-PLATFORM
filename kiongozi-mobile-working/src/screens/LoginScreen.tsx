@@ -24,7 +24,7 @@ import EmailVerificationModal from '../components/EmailVerificationModal';
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { signIn, signUp, signInWithGoogle, loading, resendVerificationEmail, checkEmailVerified } = useAuthStore();
+  const { signIn, signUp, loading, resendVerificationEmail, checkEmailVerified } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -87,9 +87,9 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
         : await signIn(email, password);
 
       if (result.success) {
-        // Check if email verification is needed
-        if (result.needsVerification && result.email) {
-          setVerificationEmail(result.email);
+        // Check if email verification is needed (only for signUp)
+        if (isSignUp && 'needsVerification' in result && result.needsVerification && 'email' in result && result.email) {
+          setVerificationEmail(String(result.email));
           setShowVerificationModal(true);
         } else {
           onLoginSuccess();
@@ -297,35 +297,6 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   {isSignUp ? 'Create Account' : 'Continue'}
                 </Text>
               )}
-            </TouchableOpacity>
-
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Google Sign In */}
-            <TouchableOpacity
-              style={styles.googleButton}
-              onPress={async () => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                const result = await signInWithGoogle();
-                if (!result.success && result.error) {
-                  Alert.alert('Error', result.error);
-                }
-              }}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="logo-google"
-                size={20}
-                color="#DB4437"
-                style={styles.googleIcon}
-              />
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
             </TouchableOpacity>
           </View>
 

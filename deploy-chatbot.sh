@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Kiongozi Chatbot Deployment Script
-# Deploys Next.js chatbot to VPS with best practices
+
 
 set -e  # Exit on any error
 

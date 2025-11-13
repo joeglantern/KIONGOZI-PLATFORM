@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Kiongozi LMS Deployment Script
-# Deploys LMS and Moderator Dashboard to VPS with best practices
+
 
 set -e  # Exit on any error
 

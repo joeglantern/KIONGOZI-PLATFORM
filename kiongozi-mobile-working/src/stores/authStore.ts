@@ -24,7 +24,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     try {
       // Get current session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      // If refresh token is invalid, clear the session silently
+      if (error) {
+        console.log('Session restoration failed (token may be expired), clearing session');
+        await supabase.auth.signOut({ scope: 'local' });
+        await apiClient.removeAuthToken();
+        set({ user: null, initialized: true });
+        return;
+      }
 
       if (session?.access_token) {
         // Save token for API client
@@ -36,16 +45,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Listen for auth changes
       supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session?.access_token) {
-          await apiClient.saveAuthToken(session.access_token);
-          set({ user: session.user });
-        } else {
+        if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+          if (session?.access_token) {
+            await apiClient.saveAuthToken(session.access_token);
+            set({ user: session.user });
+          }
+        } else if (event === 'SIGNED_OUT') {
           await apiClient.removeAuthToken();
           set({ user: null });
         }
       });
     } catch (error) {
       console.error('Auth initialization error:', error);
+      // Clear any stale data
+      await apiClient.removeAuthToken();
       set({ user: null, initialized: true });
     }
   },
