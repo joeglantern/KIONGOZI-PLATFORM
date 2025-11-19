@@ -68,6 +68,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -83,6 +84,7 @@ export default function ChatScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showExportModal, setShowExportModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const scrollButtonOpacity = useRef(new Animated.Value(0)).current;
   const [latestMessageId, setLatestMessageId] = useState<number | null>(null);
@@ -416,6 +418,15 @@ export default function ChatScreen() {
         scrollViewRef.current?.scrollToEnd({ animated });
       }, 100);
     }
+  };
+
+  const stopGenerating = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    setIsGenerating(false);
   };
 
   const handleScroll = (event: any) => {
@@ -784,6 +795,13 @@ export default function ChatScreen() {
     const messageText = inputText.trim();
     setInputText('');
     setLoading(true);
+    setIsGenerating(true);
+
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
     // Ensure user is at the bottom for new messages
     setShouldAutoScroll(true);
@@ -804,10 +822,11 @@ export default function ChatScreen() {
         setMessages(prev => [...prev, commandMessage]);
         setLatestMessageId(commandMessage.id);
         setLoading(false);
+        setIsGenerating(false);
         return;
       } catch (error: any) {
         console.error('Command processing failed:', error);
-        
+
         const errorMessage: Message = {
           id: Date.now() + 1,
           text: error.message || 'Command failed. Please try again.',
@@ -817,6 +836,7 @@ export default function ChatScreen() {
 
         setMessages(prev => [...prev, errorMessage]);
         setLoading(false);
+        setIsGenerating(false);
         return;
       }
     }
@@ -907,7 +927,9 @@ export default function ChatScreen() {
                   : msg
               )
             );
-          }
+          },
+          // Pass abort signal for cancellation
+          abortControllerRef.current?.signal
         );
       } else {
         throw new Error(userResponse.error || 'Failed to send message');
@@ -925,6 +947,8 @@ export default function ChatScreen() {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
+      setIsGenerating(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -1167,6 +1191,8 @@ export default function ChatScreen() {
             placeholder="Ask me anything..."
             darkMode={darkMode}
             loading={loading}
+            isGenerating={isGenerating}
+            onStopGenerating={stopGenerating}
             disabled={false}
             maxLength={1000}
             onQuickActionsPress={handleQuickActionsPress}

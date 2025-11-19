@@ -21,6 +21,8 @@ interface ModernMessageInputProps {
   placeholder?: string;
   darkMode?: boolean;
   loading?: boolean;
+  isGenerating?: boolean;
+  onStopGenerating?: () => void;
   disabled?: boolean;
   maxLength?: number;
   onQuickActionsPress?: () => void;
@@ -33,6 +35,8 @@ export default function ModernMessageInput({
   placeholder = "Ask me anything...",
   darkMode = false,
   loading = false,
+  isGenerating = false,
+  onStopGenerating,
   disabled = false,
   maxLength = 1000,
   onQuickActionsPress,
@@ -239,42 +243,62 @@ export default function ModernMessageInput({
             }
           ]}
         >
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              canSend && (darkMode ? styles.sendButtonActiveDark : styles.sendButtonActive),
-              !canSend && styles.sendButtonInactive
-            ]}
-            onPress={handleSend}
-            disabled={!canSend}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <Animated.View
-                style={{
-                  transform: [{
-                    rotate: sendButtonRotation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0deg', '360deg']
-                    })
-                  }]
-                }}
-              >
-                <Ionicons
-                  name="hourglass"
-                  size={18}
-                  color="#ffffff"
-                />
-              </Animated.View>
-            ) : (
+          {isGenerating && onStopGenerating ? (
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                styles.stopButtonActive,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onStopGenerating();
+              }}
+              activeOpacity={0.8}
+            >
               <Ionicons
-                name="send-outline"
+                name="stop"
                 size={18}
-                color={canSend ? "#ffffff" : (darkMode ? '#6b7280' : '#9ca3af')}
-                style={{ transform: [{ rotate: '-45deg' }] }}
+                color="#ffffff"
               />
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                canSend && (darkMode ? styles.sendButtonActiveDark : styles.sendButtonActive),
+                !canSend && styles.sendButtonInactive
+              ]}
+              onPress={handleSend}
+              disabled={!canSend}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <Animated.View
+                  style={{
+                    transform: [{
+                      rotate: sendButtonRotation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '360deg']
+                      })
+                    }]
+                  }}
+                >
+                  <Ionicons
+                    name="hourglass"
+                    size={18}
+                    color="#ffffff"
+                  />
+                </Animated.View>
+              ) : (
+                <Ionicons
+                  name="send-outline"
+                  size={18}
+                  color={canSend ? "#ffffff" : (darkMode ? '#6b7280' : '#9ca3af')}
+                  style={{ transform: [{ rotate: '-45deg' }] }}
+                />
+              )}
+            </TouchableOpacity>
+          )}
         </Animated.View>
       </View>
     </ContainerComponent>
@@ -383,5 +407,16 @@ const styles = StyleSheet.create({
   },
   sendButtonInactive: {
     backgroundColor: '#e5e7eb',
+  },
+  stopButtonActive: {
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });
