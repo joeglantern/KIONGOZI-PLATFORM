@@ -1108,9 +1108,6 @@ export default function ChatScreen() {
               <View style={styles.loadingWrapper}>
                 <View style={[styles.loadingContainer, darkMode && styles.loadingContainerDark]}>
                   <LoadingDots />
-                  <Text style={[styles.loadingText, darkMode && styles.loadingTextDark]}>
-                    Thinking...
-                  </Text>
                 </View>
               </View>
             )}
