@@ -13,6 +13,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
   onInputChange,
   onSendMessage,
   isLoading = false,
+  isGenerating = false,
+  onStopGenerating,
   isDisabled = false,
   placeholder = "Ask a question...",
   maxLength = 10000,
@@ -22,7 +24,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
 
@@ -36,14 +37,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
     onInputChange('');
 
     try {
-      setIsGenerating(true);
       await onSendMessage(message);
     } catch (error) {
       console.error('Error sending message:', error);
       // Restore input on error
       onInputChange(message);
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -93,12 +91,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
     onInputChange(command);
     setShowQuickActions(false);
     inputRef.current?.focus();
-  };
-
-
-  const stopGeneration = () => {
-    setIsGenerating(false);
-    // This would typically cancel the ongoing request
   };
 
   // Handle keyboard shortcuts
@@ -157,13 +149,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
             />
 
             {/* Send/Stop button */}
-            {isGenerating ? (
+            {isGenerating && onStopGenerating ? (
               <Button
                 type="button"
-                onClick={stopGeneration}
+                onClick={onStopGenerating}
                 size="sm"
                 variant="destructive"
                 className="rounded-lg w-7 h-7 p-0 min-w-7 shrink-0"
+                title="Stop generating"
               >
                 <StopCircle size={16} />
               </Button>

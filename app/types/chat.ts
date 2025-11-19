@@ -111,6 +111,7 @@ export interface ChatActions {
   sendMessage: (text: string) => Promise<void>;
   setInput: (input: string) => void;
   clearMessages: () => void;
+  regenerateLastResponse: () => Promise<void>;
 
   // Conversation actions
   createNewConversation: () => void;
@@ -141,6 +142,9 @@ export interface ChatActions {
   startVoiceInput: () => void;
   stopVoiceInput: () => void;
   setVoiceInputState: (state: VoiceInputState) => void;
+
+  // Generation control
+  stopGenerating: () => void;
 
   // Focus actions
   setInputFocused: (focused: boolean) => void;
@@ -173,6 +177,8 @@ export interface MessageBubbleProps {
   isTyping?: boolean;
   showAvatar?: boolean;
   onArtifactClick?: (artifact: Artifact) => void;
+  isLastAiMessage?: boolean;
+  onRegenerate?: () => void;
 }
 
 export interface MessageListProps {
@@ -180,6 +186,7 @@ export interface MessageListProps {
   isLoading?: boolean;
   typingMessageId?: number | null;
   onArtifactClick?: (artifact: Artifact) => void;
+  onRegenerate?: () => void;
   className?: string;
 }
 
@@ -188,6 +195,8 @@ export interface ChatInputProps {
   onInputChange: (value: string) => void;
   onSendMessage: (text: string) => Promise<void>;
   isLoading?: boolean;
+  isGenerating?: boolean;
+  onStopGenerating?: () => void;
   isDisabled?: boolean;
   placeholder?: string;
   maxLength?: number;

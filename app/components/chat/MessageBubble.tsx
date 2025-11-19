@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import type { MessageBubbleProps } from '../../types/chat';
@@ -12,18 +12,57 @@ import ResearchOutput from '../ResearchOutput';
 import CommandResponseBubble from './CommandResponseBubble';
 import CommandResponseCard from './CommandResponseCard';
 
+// Copy icon component
+const CopyIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+  </svg>
+);
+
+// Checkmark icon component
+const CheckIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg>
+);
+
+// Regenerate icon component
+const RegenerateIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 2v6h-6"></path>
+    <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+    <path d="M3 22v-6h6"></path>
+    <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+  </svg>
+);
+
 const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isTyping = false,
   showAvatar = true,
-  onArtifactClick
+  onArtifactClick,
+  isLastAiMessage = false,
+  onRegenerate
 }) => {
   const { settings } = useChatContext();
   const { darkMode } = settings;
+  const [isCopied, setIsCopied] = useState(false);
 
   const isWelcomeMessage = message.text?.includes('What can I do for you?') || false;
   const isUser = message.isUser;
 
+  const handleCopyMessage = async () => {
+    if (!message.text) return;
+
+    try {
+      await navigator.clipboard.writeText(message.text);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy message:', err);
+    }
+  };
 
   const handleTypingComplete = () => {
     // This would typically be handled by parent component
@@ -168,7 +207,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         </div>
       ) : (
         /* AI Message - No bubble, full width, rich text */
-        <div className="w-full max-w-4xl mx-auto">
+        <div className="group w-full max-w-4xl mx-auto">
           {/* AI Avatar */}
           {showAvatar && (
             <div className="flex items-center mb-3">
@@ -187,6 +226,34 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div className="text-gray-900 dark:text-gray-100 leading-relaxed">
             {renderMessageContent()}
           </div>
+
+          {/* Action buttons - only show for completed messages with text */}
+          {message.text && message.text.trim() !== '' && message.text !== '...' && !isTyping && (
+            <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 hover:!opacity-100 transition-opacity duration-200">
+              <button
+                onClick={handleCopyMessage}
+                className={`
+                  p-1.5 rounded-md transition-all duration-200
+                  ${isCopied
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }
+                `}
+                title={isCopied ? 'Copied!' : 'Copy message'}
+              >
+                {isCopied ? <CheckIcon /> : <CopyIcon />}
+              </button>
+              {isLastAiMessage && onRegenerate && (
+                <button
+                  onClick={onRegenerate}
+                  className="p-1.5 rounded-md transition-all duration-200 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  title="Regenerate response"
+                >
+                  <RegenerateIcon />
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Artifacts */}
           {message.artifacts && message.artifacts.length > 0 && (

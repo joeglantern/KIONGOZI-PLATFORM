@@ -13,6 +13,7 @@ const MessageList: React.FC<MessageListProps> = ({
   isLoading = false,
   typingMessageId = null,
   onArtifactClick,
+  onRegenerate,
   className = ''
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -87,27 +88,52 @@ const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages, isNearBottom, userHasScrolled]);
 
-  // Progressive scroll during typing
+  // Progressive scroll during typing or streaming
   useEffect(() => {
-    if (typingMessageId !== null && isNearBottom && !userHasScrolled) {
-      const container = containerRef.current;
-      if (!container) return;
+    const container = containerRef.current;
+    if (!container || messages.length === 0) return;
 
-      const progressiveScroll = setInterval(() => {
+    const lastMessage = messages[messages.length - 1];
+    const isStreaming = !lastMessage.isUser && !lastMessage.isTypingComplete;
+    const isTyping = typingMessageId !== null;
+
+    // Only scroll if we're typing/streaming and user is near bottom
+    if ((isTyping || isStreaming) && isNearBottom && !userHasScrolled) {
+      // Use requestAnimationFrame for smoother scrolling during streaming
+      const scrollFrame = requestAnimationFrame(() => {
         const { scrollTop, scrollHeight, clientHeight } = container;
         const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
 
-        if (distanceFromBottom > 100) {
+        if (distanceFromBottom > 20) {
           container.scrollTo({
-            top: container.scrollHeight,
+            top: scrollHeight,
             behavior: 'smooth'
           });
         }
-      }, 1000);
+      });
 
-      return () => clearInterval(progressiveScroll);
+      return () => cancelAnimationFrame(scrollFrame);
     }
-  }, [typingMessageId, isNearBottom, userHasScrolled]);
+  }, [messages, typingMessageId, isNearBottom, userHasScrolled]);
+
+  // Additional effect to scroll on each message text update during streaming
+  const lastMessageText = messages.length > 0 ? messages[messages.length - 1].text : '';
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+
+    // Only for AI messages that are still streaming
+    if (!lastMessage.isUser && !lastMessage.isTypingComplete && isNearBottom && !userHasScrolled) {
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'auto' // Use 'auto' for faster scroll during rapid updates
+        });
+      });
+    }
+  }, [lastMessageText, isNearBottom, userHasScrolled]);
 
   const scrollToBottom = () => {
     const container = containerRef.current;
@@ -146,16 +172,24 @@ const MessageList: React.FC<MessageListProps> = ({
         )}
 
         {/* Messages */}
-        {messages.map((message, index) => (
-          <div key={`message-${message.id}`} className="message-container">
-            <MessageBubble
-              message={message}
-              isTyping={typingMessageId === message.id && !message.isTypingComplete}
-              showAvatar={!message.isUser}
-              onArtifactClick={onArtifactClick}
-            />
-          </div>
-        ))}
+        {messages.map((message, index) => {
+          // Determine if this is the last AI message
+          const isLastAiMessage = !message.isUser &&
+            messages.slice(index + 1).every(m => m.isUser);
+
+          return (
+            <div key={`message-${message.id}`} className="message-container">
+              <MessageBubble
+                message={message}
+                isTyping={typingMessageId === message.id && !message.isTypingComplete}
+                showAvatar={!message.isUser}
+                onArtifactClick={onArtifactClick}
+                isLastAiMessage={isLastAiMessage}
+                onRegenerate={onRegenerate}
+              />
+            </div>
+          );
+        })}
 
         {/* Loading indicator */}
         {isLoading && (

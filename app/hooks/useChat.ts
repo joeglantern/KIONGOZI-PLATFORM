@@ -471,6 +471,108 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     setInput('');
   }, [clearMessages]);
 
+  const regenerateLastResponse = useCallback(async () => {
+    if (messages.length < 2 || isLoading || isGenerating) return;
+
+    // Find the last AI message and the user message before it
+    let lastAiIndex = -1;
+    let lastUserMessage = '';
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (!messages[i].isUser && lastAiIndex === -1) {
+        lastAiIndex = i;
+      } else if (messages[i].isUser && lastAiIndex !== -1) {
+        lastUserMessage = messages[i].text;
+        break;
+      }
+    }
+
+    if (lastAiIndex === -1 || !lastUserMessage) return;
+
+    // Remove the last AI message
+    setMessages(prev => prev.slice(0, lastAiIndex));
+
+    setIsLoading(true);
+    setIsGenerating(true);
+
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    try {
+      // Create new AI message placeholder
+      const aiMessageId = generateUniqueId();
+      const aiMessage: Message = {
+        id: aiMessageId,
+        text: '',
+        isUser: false,
+        type: mode,
+        isTypingComplete: false,
+        artifacts: []
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+
+      let fullResponseText = '';
+
+      // Generate new AI response
+      await apiClient.generateAIResponseStream(
+        lastUserMessage,
+        currentConversationId || undefined,
+        mode,
+        (chunk: string) => {
+          fullResponseText += chunk;
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === aiMessageId
+                ? { ...msg, text: fullResponseText }
+                : msg
+            )
+          );
+        },
+        (metadata: any) => {
+          const { content, artifacts } = processMessageContent(fullResponseText);
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    text: content,
+                    isTypingComplete: true,
+                    artifacts: artifacts || []
+                  }
+                : msg
+            )
+          );
+        },
+        (error: string) => {
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    text: fullResponseText || 'Sorry, I encountered an error. Please try again.',
+                    isTypingComplete: true
+                  }
+                : msg
+            )
+          );
+        },
+        abortControllerRef.current?.signal
+      );
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error regenerating response:', error);
+      }
+    } finally {
+      setIsLoading(false);
+      setIsGenerating(false);
+      abortControllerRef.current = null;
+    }
+  }, [messages, isLoading, isGenerating, mode, currentConversationId]);
+
   const deleteConversation = useCallback(async (conversationId: string) => {
     try {
       const response = await apiClient.deleteConversation(conversationId);
@@ -529,6 +631,15 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
 
   const stopVoiceInput = useCallback(() => {
     setVoiceInputState('idle');
+  }, []);
+
+  const stopGenerating = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setIsGenerating(false);
   }, []);
 
   const toggleProgressiveDoc = useCallback(() => {
@@ -660,6 +771,7 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     setInput,
     clearMessages,
     createNewConversation,
+    regenerateLastResponse,
     loadConversation,
     deleteConversation,
     updateConversation,
@@ -674,6 +786,7 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
     setSelectedArtifact,
     startVoiceInput,
     stopVoiceInput,
+    stopGenerating,
     setVoiceInputState,
     setInputFocused,
     toggleProgressiveDoc,

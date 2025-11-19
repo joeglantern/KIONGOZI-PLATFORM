@@ -33,7 +33,8 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
     showExportModal,
     setShowExportModal,
     exportConversations,
-    openLoginModal
+    openLoginModal,
+    regenerateLastResponse
   } = useChatContext();
 
   const { user, logout } = useUser();
@@ -176,6 +177,7 @@ const ModernChatLayout: React.FC<ModernChatLayoutProps> = ({ children }) => {
                 <MessageList
                   messages={messages}
                   className="h-full"
+                  onRegenerate={regenerateLastResponse}
                 />
               </div>
             </div>

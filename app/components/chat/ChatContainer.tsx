@@ -30,9 +30,11 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     messages,
     input,
     isLoading,
+    isGenerating,
     sendMessage,
     setInput,
     setInputFocused,
+    stopGenerating,
     selectedArtifact,
     setSelectedArtifact,
     isMobile,
@@ -147,6 +149,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
                 onInputChange={handleInputChange}
                 onSendMessage={handleSendMessage}
                 isLoading={isLoading}
+                isGenerating={isGenerating}
+                onStopGenerating={stopGenerating}
                 placeholder="Ask a question..."
                 onFocusChange={setInputFocused}
               />
