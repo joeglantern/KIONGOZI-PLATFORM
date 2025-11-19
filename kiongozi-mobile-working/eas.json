@@ -14,8 +14,10 @@
       "cache": {
         "disabled": true
       },
+      "node": "22.11.0",
       "env": {
-        "EXPO_USE_UPDATES": "0"
+        "EXPO_USE_UPDATES": "0",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
     "preview": {
@@ -40,7 +42,14 @@
       "android": {
         "buildType": "apk"
       },
-      "channel": "production"
+      "channel": "production",
+      "cache": {
+        "disabled": true
+      },
+      "node": "22.11.0",
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      }
     }
   },
   "submit": {
