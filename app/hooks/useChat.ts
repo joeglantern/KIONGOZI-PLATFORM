@@ -341,118 +341,101 @@ export const useChat = (initialConversationId?: string): UseChatReturn => {
         }
       }
 
-      // Step 2: Generate AI response
-      console.log('🌐 [Chat Debug] Sending AI generation request with:', {
+      // Step 2: Generate AI response with streaming
+      console.log('🌐 [Chat Debug] Sending streaming AI generation request with:', {
         text: text.trim(),
         conversationId: workingConversationId,
         mode
       });
 
-      const response = await apiClient.generateAIResponse(
+      // Create AI message with empty text initially
+      const aiMessageId = generateUniqueId();
+      const aiMessage: Message = {
+        id: aiMessageId,
+        text: '',
+        isUser: false,
+        type: mode,
+        isTypingComplete: false,
+        artifacts: []
+      };
+
+      // Add empty AI message to show streaming indicator
+      setMessages(prev => [...prev, aiMessage]);
+
+      let fullResponseText = '';
+
+      // Use streaming API
+      await apiClient.generateAIResponseStream(
         text.trim(),
         workingConversationId || undefined,
-        mode
-      );
-
-      console.log('📡 [Chat Debug] API Response received:', response);
-
-      if (response.success && response.data) {
-        // Debug the full API response structure
-        console.log('🔍 [Chat Debug] Full API response structure:', JSON.stringify(response.data, null, 2));
-
-        // Use standardized response field (API now consistently returns 'response')
-        const aiMessageText = (response.data as any).response || '';
-
-        console.log('🤖 [Chat Debug] Extracted AI message text:', aiMessageText);
-        console.log('🔍 [Chat Debug] API metadata:', (response.data as any).metadata);
-
-        // Simplified validation - should always have response field now
-        let finalMessageText = aiMessageText;
-        if (!finalMessageText || finalMessageText.trim() === '') {
-          console.log('⚠️ [Chat Debug] No response text found in standardized field');
-
-          // Fallback search only as backup (should not be needed with standardized API)
-          const searchForMessage = (obj: any, path: string = ''): string => {
-            if (typeof obj === 'string' && obj.trim().length > 10) {
-              console.log('🔍 [Chat Debug] Found potential message at path:', path, '=', obj.substring(0, 100) + '...');
-              return obj;
-            }
-            if (typeof obj === 'object' && obj !== null) {
-              for (const [key, value] of Object.entries(obj)) {
-                const result = searchForMessage(value, path ? `${path}.${key}` : key);
-                if (result) return result;
-              }
-            }
-            return '';
-          };
-
-          finalMessageText = searchForMessage(response.data) ||
-                           'I received your message but encountered an issue processing the response. Please try again.';
-
-          console.log('🔍 [Chat Debug] Final extracted message:', finalMessageText);
-        }
-
-        // Process message content and detect artifacts
-        const { content, artifacts } = processMessageContent(finalMessageText);
-        console.log('🔧 [Chat Debug] Processed message content:', { content, artifacts });
-
-        const aiMessage: Message = {
-          id: generateUniqueId(),
-          text: content,
-          isUser: false,
-          type: mode,
-          isTypingComplete: false,
-          artifacts: artifacts || []
-        };
-
-        console.log('🤖 [Chat Debug] Created AI message:', aiMessage);
-
-        setMessages(prev => {
-          const newMessages = [...prev, aiMessage];
-          console.log('📝 [Chat Debug] Updated messages with AI message. Total count:', newMessages.length);
-          console.log('📝 [Chat Debug] All messages:', newMessages);
-          return newMessages;
-        });
-
-        // Set up typing effect
-        if (settings.showTypingEffect) {
-          console.log('⌨️ [Chat Debug] Setting up typing effect for message:', aiMessage.id);
-          setTypingMessageId(aiMessage.id);
-        } else {
-          console.log('⚡ [Chat Debug] Marking message as complete immediately');
-          // Mark as complete immediately if typing effect is disabled
+        mode,
+        // onChunk - update message text progressively
+        (chunk: string) => {
+          fullResponseText += chunk;
           setMessages(prev =>
             prev.map(msg =>
-              msg.id === aiMessage.id
-                ? { ...msg, isTypingComplete: true }
+              msg.id === aiMessageId
+                ? { ...msg, text: fullResponseText }
                 : msg
             )
           );
-        }
+        },
+        // onComplete - finalize the message
+        (metadata: any) => {
+          console.log('✅ [Chat Debug] Streaming complete. Metadata:', metadata);
 
-        // Generate title for new conversations (we now have the conversation ID from earlier)
-        if (workingConversationId && !currentConversationId) {
-          try {
-            const generatedTitle = formatConversationTitle(text.trim());
-            console.log('🏷️ [Chat Debug] Generated title for new conversation:', generatedTitle);
+          // Process final message content for artifacts
+          const { content, artifacts } = processMessageContent(fullResponseText);
 
-            // Update the conversation title via API
-            await apiClient.updateConversationTitle(workingConversationId, generatedTitle);
-            console.log('✅ [Chat Debug] Successfully saved conversation title');
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    text: content,
+                    isTypingComplete: true,
+                    artifacts: artifacts || []
+                  }
+                : msg
+            )
+          );
 
-            // Refresh conversations list to show the new title
-            await refreshConversations();
-          } catch (titleError) {
-            console.warn('⚠️ [Chat Debug] Failed to update conversation title:', titleError);
-            // Still refresh conversations even if title update failed
-            await refreshConversations();
-          }
-        } else {
-          // For existing conversations, still refresh the list to update last message
+          // Refresh conversations to update last message
+          refreshConversations();
+        },
+        // onError - handle streaming errors
+        (error: string) => {
+          console.error('❌ [Chat Debug] Streaming error:', error);
+
+          // Update the message to show error
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    text: fullResponseText || 'Sorry, I encountered an error processing your message. Please try again.',
+                    isTypingComplete: true
+                  }
+                : msg
+            )
+          );
+        },
+        // Pass abort signal for cancellation
+        abortControllerRef.current?.signal
+      );
+
+      // Generate title for new conversations
+      if (workingConversationId && !currentConversationId) {
+        try {
+          const generatedTitle = formatConversationTitle(text.trim());
+          console.log('🏷️ [Chat Debug] Generated title for new conversation:', generatedTitle);
+          await apiClient.updateConversationTitle(workingConversationId, generatedTitle);
+          console.log('✅ [Chat Debug] Successfully saved conversation title');
+          await refreshConversations();
+        } catch (titleError) {
+          console.warn('⚠️ [Chat Debug] Failed to update conversation title:', titleError);
           await refreshConversations();
         }
-      } else {
-        console.error('❌ [Chat Debug] API response failed:', response);
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {

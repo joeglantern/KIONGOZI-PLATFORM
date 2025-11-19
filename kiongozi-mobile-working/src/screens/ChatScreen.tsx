@@ -855,32 +855,60 @@ export default function ChatScreen() {
           });
         }
 
-        // Step 2: Generate AI response via backend API
+        // Step 2: Generate AI response with streaming
         const currentConvId = conversationId || userResponse.data?.conversation_id;
-        const aiResponse = await apiClient.generateAIResponse(messageText, currentConvId, 'chat');
 
-        if (!aiResponse.success) {
-          throw new Error(aiResponse.error || 'Failed to generate AI response');
-        }
-
-        const aiResponseText = aiResponse.data?.response || aiResponse.data?.message || 'Sorry, I could not generate a response.';
-
-        // Backend should automatically save the AI response, so no manual save needed
-
-        // Step 4: Display AI response to user
+        // Create AI message with empty text initially for streaming
+        const aiMessageId = Date.now() + 1;
         const aiMessage: Message = {
-          id: Date.now() + 1,
-          text: aiResponseText,
+          id: aiMessageId,
+          text: '',
           isUser: false,
           type: 'chat',
         };
 
-        setLatestMessageId(aiMessage.id); // Track for typewriter effect
+        setLatestMessageId(aiMessageId);
         setMessages(prev => [...prev, aiMessage]);
 
+        let fullResponseText = '';
 
-        // Refresh conversations list to show updated conversation
-        loadConversations();
+        // Use streaming API
+        await apiClient.generateAIResponseStream(
+          messageText,
+          currentConvId,
+          'chat',
+          // onChunk - update message text progressively
+          (chunk: string) => {
+            fullResponseText += chunk;
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, text: fullResponseText }
+                  : msg
+              )
+            );
+          },
+          // onComplete - finalize the message
+          (metadata: any) => {
+            console.log('Streaming complete. Metadata:', metadata);
+            // Refresh conversations list to show updated conversation
+            loadConversations();
+          },
+          // onError - handle streaming errors
+          (error: string) => {
+            console.error('Streaming error:', error);
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? {
+                      ...msg,
+                      text: fullResponseText || 'Sorry, I encountered an error. Please try again.'
+                    }
+                  : msg
+              )
+            );
+          }
+        );
       } else {
         throw new Error(userResponse.error || 'Failed to send message');
       }

@@ -527,6 +527,108 @@ class ApiClient {
     });
   }
 
+  // Generate AI response with streaming
+  async generateAIResponseStream(
+    message: string,
+    conversationId: string | undefined,
+    type: 'chat' | 'research' = 'chat',
+    onChunk: (chunk: string) => void,
+    onComplete: (metadata: any) => void,
+    onError: (error: string) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const url = `${this.baseURL}/chat/ai-response/stream`;
+    const token = this.getAuthToken();
+
+    if (!token) {
+      onError('No authentication token available');
+      return;
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': 'Kiongozi-Frontend/1.0',
+        },
+        body: JSON.stringify({
+          message,
+          conversation_id: conversationId,
+          type
+        }),
+        signal
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        onError(errorData.error || `HTTP ${response.status}`);
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        onError('No response stream available');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.error) {
+                onError(data.error);
+                return;
+              }
+
+              if (data.done) {
+                onComplete(data.metadata || {});
+              } else if (data.content) {
+                onChunk(data.content);
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse SSE data:', line);
+            }
+          }
+        }
+      }
+
+      // Process any remaining buffer
+      if (buffer.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(buffer.slice(6));
+          if (data.done) {
+            onComplete(data.metadata || {});
+          } else if (data.content) {
+            onChunk(data.content);
+          }
+        } catch {
+          // Ignore incomplete data
+        }
+      }
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Stream aborted by user');
+        return;
+      }
+      onError(error.message || 'Streaming error');
+    }
+  }
+
   /**
    * Learning Management System (LMS) Methods
    */
@@ -901,6 +1003,7 @@ export const {
   deleteConversation,
   updateConversationTitle,
   generateAIResponse,
+  generateAIResponseStream,
   // LMS Methods
   getModuleCategories,
   getLearningModules,

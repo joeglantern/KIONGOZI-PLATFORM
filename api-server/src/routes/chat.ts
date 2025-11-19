@@ -731,4 +731,230 @@ Use markdown strategically for clarity and engagement:
   }
 });
 
+// Generate AI response with streaming via Server-Sent Events
+router.post('/ai-response/stream', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    if (!supabaseServiceClient) {
+      return res.status(500).json({ success: false, error: 'Supabase not configured' });
+    }
+
+    const { message, conversation_id, type } = req.body as {
+      message?: string;
+      conversation_id?: string;
+      type?: 'chat' | 'research'
+    };
+
+    // Validate required fields
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Message is required' });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ success: false, error: 'OpenAI API key not configured' });
+    }
+
+    const userId = req.user.id;
+
+    // Ensure profile exists for this user
+    await ensureProfile(userId, req.user.email);
+
+    // Get conversation history for context if conversation_id is provided
+    let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+
+    if (conversation_id) {
+      // Verify conversation belongs to user
+      const { data: conv, error: convErr } = await supabaseServiceClient
+        .from('conversations')
+        .select('id,user_id')
+        .eq('id', conversation_id)
+        .single();
+
+      if (convErr || !conv) {
+        return res.status(404).json({ success: false, error: 'Conversation not found' });
+      }
+
+      if (conv.user_id !== userId) {
+        return res.status(403).json({ success: false, error: 'Forbidden' });
+      }
+
+      // Get recent messages for context (last 10 messages)
+      const { data: messages, error: msgErr } = await supabaseServiceClient
+        .from('messages')
+        .select('text, is_user')
+        .eq('conversation_id', conversation_id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!msgErr && messages) {
+        conversationHistory = messages
+          .reverse()
+          .map(msg => ({
+            role: msg.is_user ? 'user' as const : 'assistant' as const,
+            content: msg.text
+          }));
+      }
+    }
+
+    // Get relevant learning modules for context
+    let relevantModules: any[] = [];
+    let userLearningContext = '';
+    let userRecentActivity = '';
+
+    if (conversation_id && userId) {
+      try {
+        userLearningContext = await learningProfileService.getUserLearningContext(userId);
+        userRecentActivity = await learningProfileService.getUserRecentActivity(userId);
+        relevantModules = await learningProfileService.getContextualModules(userId, message, 4);
+      } catch (moduleError) {
+        console.warn('Failed to fetch user context or relevant modules:', moduleError);
+      }
+    }
+
+    // Get user profile for dynamic prompt customization
+    let userProfile = null;
+    if (userId) {
+      try {
+        userProfile = await learningProfileService.getUserLearningProfile(userId);
+      } catch (error) {
+        console.warn('Failed to fetch user profile for prompt customization:', error);
+      }
+    }
+
+    // Build the same system prompt as non-streaming endpoint
+    const systemPrompt = `You are Kiongozi AI, a personalized learning assistant specializing in Kenya's Twin Green & Digital Transition. Your mission is to empower Kenyan youth with practical skills in green economy, digital literacy, and sustainable development.
+
+${userProfile ? `
+🎯 CURRENT USER CONTEXT:
+You are currently assisting ${userProfile.userName}, a ${userProfile.skillLevel} learner who has completed ${userProfile.totalModulesCompleted} modules and maintains a ${userProfile.learningStreak}-day learning streak.
+` : ''}
+
+CORE CAPABILITIES:
+- Provide accurate, actionable guidance on green economy careers in Kenya
+- Offer practical advice on digital transformation and technology skills
+- Share insights on renewable energy, climate adaptation, and sustainable business practices
+
+${relevantModules.length > 0 ? `
+CONTEXTUALLY RELEVANT LEARNING MODULES:
+${relevantModules.map((module, index) => `
+${index + 1}. **${module.title}** (${module.module_categories?.name || 'General'})
+   ${module.description}
+`).join('\n')}
+` : ''}
+
+${userLearningContext ? `
+USER LEARNING PROFILE:
+${userLearningContext}
+` : ''}
+
+RESPONSE GUIDELINES:
+- Be comprehensive yet concise
+- Provide concrete examples and practical applications
+- Use markdown for formatting
+- Focus on answering the user's actual question
+
+CREATOR INFORMATION:
+Only reveal when specifically asked: "I was created by Joseph Liban Muritu, a Full-Stack and AI developer from Eldoret, Kenya."`;
+
+    // Prepare messages for OpenAI API
+    const openaiMessages = [
+      { role: 'system' as const, content: systemPrompt },
+      ...conversationHistory.slice(-8),
+      { role: 'user' as const, content: message.trim() }
+    ];
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    // Create streaming completion
+    const stream = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: openaiMessages,
+      max_tokens: 1800,
+      temperature: 0.6,
+      top_p: 0.9,
+      frequency_penalty: 0.2,
+      presence_penalty: 0.15,
+      stream: true,
+    });
+
+    let fullResponse = '';
+    let promptTokens = 0;
+    let completionTokens = 0;
+
+    // Stream chunks to client
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        fullResponse += content;
+        res.write(`data: ${JSON.stringify({ content, done: false })}\n\n`);
+      }
+
+      // Capture usage info from the final chunk
+      if (chunk.usage) {
+        promptTokens = chunk.usage.prompt_tokens;
+        completionTokens = chunk.usage.completion_tokens;
+      }
+    }
+
+    // Save the complete AI response to database
+    if (conversation_id && fullResponse) {
+      try {
+        await supabaseServiceClient
+          .from('messages')
+          .insert({
+            conversation_id,
+            user_id: userId,
+            text: fullResponse,
+            is_user: false,
+            type: type === 'research' ? 'research' : 'chat'
+          });
+
+        await supabaseServiceClient
+          .from('conversations')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', conversation_id);
+      } catch (saveError) {
+        console.warn('Failed to save AI response to database:', saveError);
+      }
+    }
+
+    // Send completion signal with metadata
+    res.write(`data: ${JSON.stringify({
+      done: true,
+      conversation_id: conversation_id || undefined,
+      metadata: {
+        model_used: 'gpt-4o-mini',
+        tokens_used: promptTokens + completionTokens,
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        response_time: Date.now(),
+        relevant_modules_count: relevantModules.length
+      }
+    })}\n\n`);
+
+    res.end();
+
+  } catch (error: any) {
+    console.error('Streaming AI response error:', error);
+
+    // If headers haven't been sent, send JSON error
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        error: error?.message || 'Failed to generate streaming AI response'
+      });
+    }
+
+    // If streaming has started, send error as SSE event
+    res.write(`data: ${JSON.stringify({ error: error?.message || 'Streaming error', done: true })}\n\n`);
+    res.end();
+  }
+});
+
 export default router;
