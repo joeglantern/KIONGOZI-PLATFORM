@@ -32,13 +32,6 @@ export default function AIMessage({ message, darkMode, onCopy, onReact }: AIMess
 
   return (
     <View style={[styles.aiMessageContainer, darkMode && styles.aiMessageContainerDark]}>
-      {/* AI Avatar */}
-      <View style={styles.avatarContainer}>
-        <View style={[styles.aiAvatar, darkMode && styles.aiAvatarDark]}>
-          <Text style={styles.avatarText}>AI</Text>
-        </View>
-      </View>
-
       {/* Message Content */}
       <TouchableOpacity
         style={styles.messageContent}
@@ -99,34 +92,12 @@ export default function AIMessage({ message, darkMode, onCopy, onReact }: AIMess
 
 const styles = StyleSheet.create({
   aiMessageContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
     marginBottom: 20,
     paddingHorizontal: 16,
     width: '100%',
   },
   aiMessageContainerDark: {
     // Container doesn't need background color changes
-  },
-  avatarContainer: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  aiAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiAvatarDark: {
-    backgroundColor: '#60a5fa',
-  },
-  avatarText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   messageContent: {
     flex: 1,

@@ -206,15 +206,6 @@ export default function EnhancedAIMessage({
 
   return (
     <View style={styles.container}>
-      {/* AI Avatar - smaller and positioned at top left */}
-      <View style={styles.avatarContainer}>
-        <View style={[styles.avatar, darkMode && styles.avatarDark]}>
-          <View style={styles.aiIcon}>
-            <View style={styles.aiIconInner} />
-          </View>
-        </View>
-      </View>
-
       {/* Message Content - Full width, no bubble */}
       <View style={styles.contentContainer}>
         <TouchableOpacity
@@ -282,44 +273,13 @@ export default function EnhancedAIMessage({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
     marginBottom: 24,
-    paddingHorizontal: 12, // Reduced from 16 for more width
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    alignItems: 'flex-start',
-  },
-  avatarContainer: {
-    marginRight: 10, // Reduced from 12 for more width
-    marginTop: 2,
-  },
-  avatar: {
-    width: 24, // Reduced from 28 for more content space
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarDark: {
-    backgroundColor: '#1d4ed8',
-  },
-  aiIcon: {
-    width: 14, // Proportionally reduced
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiIconInner: {
-    width: 5, // Proportionally reduced
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#3b82f6',
   },
   contentContainer: {
     flex: 1,
-    minWidth: 0, // Allow content to shrink
+    minWidth: 0,
   },
   messageArea: {
     width: '100%',

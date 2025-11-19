@@ -40,3 +40,4 @@ yarn-error.log*
 
 # Reference repositories (cloned for comparison)
 lms-reference/
+api-server/KIONGOZI-API.env
