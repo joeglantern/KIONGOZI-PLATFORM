@@ -429,6 +429,96 @@ export default function ChatScreen() {
     setIsGenerating(false);
   };
 
+  const regenerateLastResponse = async () => {
+    if (messages.length < 2 || loading || isGenerating) return;
+
+    // Find the last AI message and the user message before it
+    let lastAiIndex = -1;
+    let lastUserMessage = '';
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (!messages[i].isUser && lastAiIndex === -1) {
+        lastAiIndex = i;
+      } else if (messages[i].isUser && lastAiIndex !== -1) {
+        lastUserMessage = messages[i].text;
+        break;
+      }
+    }
+
+    if (lastAiIndex === -1 || !lastUserMessage) return;
+
+    // Remove the last AI message
+    setMessages(prev => prev.slice(0, lastAiIndex));
+
+    setLoading(true);
+    setIsGenerating(true);
+
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    try {
+      // Create new AI message placeholder
+      const aiMessageId = Date.now() + 1;
+      const aiMessage: Message = {
+        id: aiMessageId,
+        text: '',
+        isUser: false,
+        type: 'chat',
+      };
+
+      setLatestMessageId(aiMessageId);
+      setMessages(prev => [...prev, aiMessage]);
+
+      let fullResponseText = '';
+
+      // Generate new AI response
+      await apiClient.generateAIResponseStream(
+        lastUserMessage,
+        conversationId || undefined,
+        'chat',
+        (chunk: string) => {
+          fullResponseText += chunk;
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === aiMessageId
+                ? { ...msg, text: fullResponseText }
+                : msg
+            )
+          );
+        },
+        (metadata: any) => {
+          console.log('Regeneration complete. Metadata:', metadata);
+          loadConversations();
+        },
+        (error: string) => {
+          console.error('Regeneration error:', error);
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    text: fullResponseText || 'Sorry, I encountered an error. Please try again.'
+                  }
+                : msg
+            )
+          );
+        },
+        abortControllerRef.current?.signal
+      );
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error regenerating response:', error);
+      }
+    } finally {
+      setLoading(false);
+      setIsGenerating(false);
+      abortControllerRef.current = null;
+    }
+  };
+
   const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 50; // Increased threshold for better UX
@@ -1116,6 +1206,8 @@ export default function ChatScreen() {
                     onModulePress={handleModulePress}
                     onCoursePress={handleCoursePress}
                     onCategoryPress={handleCategoryPress}
+                    isLastAiMessage={index === messages.length - 1 && !message.isUser}
+                    onRegenerate={regenerateLastResponse}
                   />
                 ) : (
                   <AIMessage

@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -34,6 +33,8 @@ interface EnhancedAIMessageProps {
   onModulePress?: (module: any) => void;
   onCoursePress?: (course: any) => void;
   onCategoryPress?: (category: any) => void;
+  isLastAiMessage?: boolean;
+  onRegenerate?: () => void;
 }
 
 export default function EnhancedAIMessage({
@@ -46,27 +47,17 @@ export default function EnhancedAIMessage({
   onModulePress,
   onCoursePress,
   onCategoryPress,
+  isLastAiMessage = false,
+  onRegenerate,
 }: EnhancedAIMessageProps) {
   const [isTypingComplete, setIsTypingComplete] = useState(!showTypewriter);
-  const [showActions, setShowActions] = useState(false);
   const [processedMessage, setProcessedMessage] = useState<any>(null);
-  
-  const actionOpacity = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
     // Process the message content
     const processed = processMessageContent(message.text);
     setProcessedMessage(processed);
   }, [message.text]);
-
-  useEffect(() => {
-    // Animate action buttons
-    Animated.timing(actionOpacity, {
-      toValue: showActions ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [showActions, actionOpacity]);
 
   const handleTypewriterComplete = () => {
     setIsTypingComplete(true);
@@ -90,11 +81,6 @@ export default function EnhancedAIMessage({
   const handleReaction = (reaction: 'like' | 'dislike') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onReact?.(message.id, reaction);
-  };
-
-  const handleLongPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowActions(!showActions);
   };
 
   const renderMessageContent = () => {
@@ -208,23 +194,13 @@ export default function EnhancedAIMessage({
     <View style={styles.container}>
       {/* Message Content - Full width, no bubble */}
       <View style={styles.contentContainer}>
-        <TouchableOpacity
-          style={styles.messageArea}
-          onLongPress={handleLongPress}
-          activeOpacity={1}
-        >
+        <View style={styles.messageArea}>
           {renderMessageContent()}
           {renderMessageStats()}
-        </TouchableOpacity>
+        </View>
 
-        {/* Action Buttons - positioned below content */}
-        <Animated.View
-          style={[
-            styles.actionsContainer,
-            { opacity: actionOpacity }
-          ]}
-          pointerEvents={showActions ? 'auto' : 'none'}
-        >
+        {/* Action Buttons - always visible */}
+        <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.actionButton, darkMode && styles.actionButtonDark]}
             onPress={handleCopy}
@@ -235,6 +211,22 @@ export default function EnhancedAIMessage({
               color={darkMode ? '#9ca3af' : '#6b7280'}
             />
           </TouchableOpacity>
+
+          {isLastAiMessage && onRegenerate && (
+            <TouchableOpacity
+              style={[styles.actionButton, darkMode && styles.actionButtonDark]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onRegenerate();
+              }}
+            >
+              <Ionicons
+                name="refresh-outline"
+                size={16}
+                color={darkMode ? '#9ca3af' : '#6b7280'}
+              />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[
@@ -265,7 +257,7 @@ export default function EnhancedAIMessage({
               color={message.reaction === 'dislike' ? '#ef4444' : (darkMode ? '#9ca3af' : '#6b7280')}
             />
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </View>
     </View>
   );
