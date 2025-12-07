@@ -41,7 +41,7 @@ npm install
 
 # 5. Build the application
 echo "🔨 Building application..."
-npm run build
+CI=true npm run build
 
 # 6. Stop existing PM2 process if running
 echo "🛑 Stopping existing PM2 process..."

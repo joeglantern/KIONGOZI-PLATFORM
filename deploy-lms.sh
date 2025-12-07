@@ -99,7 +99,7 @@ export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
 export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 export NEXT_PUBLIC_API_URL="$API_URL"
 
-npm run build
+CI=true npm run build
 log_success "LMS built successfully"
 
 # Step 4: Configure PM2

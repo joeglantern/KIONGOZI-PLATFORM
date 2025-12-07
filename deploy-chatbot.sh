@@ -97,7 +97,7 @@ log_success "tsconfig.json fixed"
 # Step 4: Install Dependencies and Build
 log_info "Step 4: Installing dependencies and building..."
 npm install --production=false --legacy-peer-deps
-npm run build
+CI=true npm run build
 log_success "Chatbot built successfully"
 
 # Step 5: Create PM2 Ecosystem Config
