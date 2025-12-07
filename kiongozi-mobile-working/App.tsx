@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, ActivityIndicator, Linking } from 'react-native';
+import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from './src/stores/authStore';
 import LoginScreen from './src/screens/LoginScreen';
 import ChatScreen from './src/screens/ChatScreen';
-import { supabase } from './src/utils/supabaseClient';
-import apiClient from './src/utils/apiClient';
 import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
+import { useSupabaseDeepLink } from './src/hooks/useSupabaseDeepLink';
 
 export default function App() {
   const { user, initialized, initialize } = useAuthStore();
@@ -37,47 +36,13 @@ export default function App() {
     }
   }, [isReady, initialized]);
 
-  // Handle deep links for OAuth and email verification callback
-  useEffect(() => {
-    const handleDeepLink = async (url: string) => {
-      console.log('Deep link received:', url);
-
-      // Extract the query params from the URL
-      if (url.includes('#access_token=')) {
-        // Supabase auth callback (OAuth & email verification)
-        const params = new URLSearchParams(url.split('#')[1]);
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-
-        if (accessToken && refreshToken) {
-          // Set the session
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          // Save token for API client
-          await apiClient.saveAuthToken(accessToken);
-        }
-      }
-    };
-
-    // Listen for incoming deep links
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      handleDeepLink(url);
-    });
-
-    // Check if app was opened via deep link
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink(url);
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
+  // Handle deep links for Supabase authentication (email verification, OAuth)
+  useSupabaseDeepLink({
+    onAuthSuccess: () => {
+      // Re-initialize to refresh user state
+      initialize();
+    }
+  });
 
   // Show splash screen during initialization or for 3 seconds after ready
   if (showSplash) {

@@ -325,17 +325,24 @@ async function handleCoursesCommand(args: string[]): Promise<EnhancedCommandResp
     const limit = 8; // Show max 8 courses in chat
 
     // Fetch courses from API - show all published courses for better UX
-    const response = await apiClient.getCourses({
-      search: filterCategory || undefined,
-      limit
-    });
+    const params: any = { limit };
+    if (filterCategory) {
+      params.search = filterCategory;
+    }
+    const response = await apiClient.getCourses(params);
+
+    console.log('Courses API Response:', JSON.stringify(response, null, 2));
 
     if (!response.success || !response.data) {
+      console.error('Courses fetch failed:', response.error);
       throw new Error(response.error || 'Failed to fetch courses');
     }
 
-    const courses = response.data.data || response.data;
+    // Handle response structure: API returns { success, data: [...], pagination }
+    const courses = Array.isArray(response.data) ? response.data : (response.data.data || response.data);
     const totalCount = response.data.pagination?.total || courses.length;
+
+    console.log('Parsed courses count:', courses.length);
 
     const commandResponse = {
       type: 'courses' as const,

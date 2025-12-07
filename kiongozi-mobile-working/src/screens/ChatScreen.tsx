@@ -51,6 +51,7 @@ interface Message {
   type?: 'chat' | 'research';
   reaction?: 'like' | 'dislike' | null;
   commandResponse?: any;
+  isLoading?: boolean;
 }
 
 interface Conversation {
@@ -460,51 +461,43 @@ export default function ChatScreen() {
     abortControllerRef.current = new AbortController();
 
     try {
-      // Create new AI message placeholder
+      // Create AI message placeholder with loading state immediately
       const aiMessageId = Date.now() + 1;
       const aiMessage: Message = {
         id: aiMessageId,
         text: '',
         isUser: false,
         type: 'chat',
+        isLoading: true, // Show loading dots inside message
       };
 
       setLatestMessageId(aiMessageId);
       setMessages(prev => [...prev, aiMessage]);
+      setLoading(false); // Hide separate loading indicator
 
+      // Generate new AI response with streaming
       let fullResponseText = '';
-
-      // Generate new AI response
       await apiClient.generateAIResponseStream(
         lastUserMessage,
         conversationId || undefined,
         'chat',
         (chunk: string) => {
           fullResponseText += chunk;
+          // Update message with text and remove loading state
           setMessages(prev =>
             prev.map(msg =>
               msg.id === aiMessageId
-                ? { ...msg, text: fullResponseText }
+                ? { ...msg, text: fullResponseText, isLoading: false }
                 : msg
             )
           );
         },
         (metadata: any) => {
-          console.log('Regeneration complete. Metadata:', metadata);
+          // On complete - refresh conversations list
           loadConversations();
         },
         (error: string) => {
-          console.error('Regeneration error:', error);
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === aiMessageId
-                ? {
-                    ...msg,
-                    text: fullResponseText || 'Sorry, I encountered an error. Please try again.'
-                  }
-                : msg
-            )
-          );
+          throw new Error(error);
         },
         abortControllerRef.current?.signal
       );
@@ -968,57 +961,44 @@ export default function ChatScreen() {
         // Step 2: Generate AI response with streaming
         const currentConvId = conversationId || userResponse.data?.conversation_id;
 
-        // Create AI message with empty text initially for streaming
+        // Create AI message placeholder with loading state immediately
         const aiMessageId = Date.now() + 1;
         const aiMessage: Message = {
           id: aiMessageId,
           text: '',
           isUser: false,
           type: 'chat',
+          isLoading: true, // Show loading dots inside message
         };
 
         setLatestMessageId(aiMessageId);
         setMessages(prev => [...prev, aiMessage]);
+        setLoading(false); // Hide separate loading indicator
 
+        // Use streaming API for progressive response
         let fullResponseText = '';
-
-        // Use streaming API
         await apiClient.generateAIResponseStream(
           messageText,
           currentConvId,
           'chat',
-          // onChunk - update message text progressively
           (chunk: string) => {
             fullResponseText += chunk;
+            // Update message with text and remove loading state
             setMessages(prev =>
               prev.map(msg =>
                 msg.id === aiMessageId
-                  ? { ...msg, text: fullResponseText }
+                  ? { ...msg, text: fullResponseText, isLoading: false }
                   : msg
               )
             );
           },
-          // onComplete - finalize the message
           (metadata: any) => {
-            console.log('Streaming complete. Metadata:', metadata);
-            // Refresh conversations list to show updated conversation
+            // On complete - refresh conversations list
             loadConversations();
           },
-          // onError - handle streaming errors
           (error: string) => {
-            console.error('Streaming error:', error);
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === aiMessageId
-                  ? {
-                      ...msg,
-                      text: fullResponseText || 'Sorry, I encountered an error. Please try again.'
-                    }
-                  : msg
-              )
-            );
+            throw new Error(error);
           },
-          // Pass abort signal for cancellation
           abortControllerRef.current?.signal
         );
       } else {

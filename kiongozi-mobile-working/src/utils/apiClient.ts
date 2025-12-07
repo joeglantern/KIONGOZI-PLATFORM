@@ -246,50 +246,28 @@ class ApiClient {
     }
 
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'User-Agent': 'Kiongozi-Mobile/1.0',
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversation_id: conversationId,
-          type
-        }),
-        signal
-      });
+      // Use XMLHttpRequest for SSE streaming (works in React Native)
+      const xhr = new XMLHttpRequest();
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `HTTP ${response.status}`;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // Use status code if can't parse
-        }
-        onError(errorMessage);
-        return;
+      // Handle abort signal
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          xhr.abort();
+        });
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        onError('No response stream available');
-        return;
-      }
+      let lastProcessedLength = 0;
+      let hasCompleted = false;
 
-      const decoder = new TextDecoder();
-      let buffer = '';
+      xhr.onprogress = () => {
+        if (hasCompleted) return;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const responseText = xhr.responseText || '';
+        const newData = responseText.slice(lastProcessedLength);
+        if (!newData) return;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        lastProcessedLength = responseText.length;
+        const lines = newData.split('\n');
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
@@ -297,11 +275,13 @@ class ApiClient {
               const data = JSON.parse(line.slice(6));
 
               if (data.error) {
+                hasCompleted = true;
                 onError(data.error);
                 return;
               }
 
               if (data.done) {
+                hasCompleted = true;
                 onComplete(data.metadata || {});
               } else if (data.content) {
                 onChunk(data.content);
@@ -311,21 +291,42 @@ class ApiClient {
             }
           }
         }
-      }
+      };
 
-      // Process any remaining buffer
-      if (buffer.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(buffer.slice(6));
-          if (data.done) {
-            onComplete(data.metadata || {});
-          } else if (data.content) {
-            onChunk(data.content);
+      xhr.onload = () => {
+        if (xhr.status !== 200) {
+          let errorMessage = `HTTP ${xhr.status}`;
+          try {
+            const errorData = JSON.parse(xhr.responseText);
+            errorMessage = errorData.error || errorMessage;
+          } catch {
+            // Use status code if can't parse
           }
-        } catch {
-          // Ignore incomplete data
+          onError(errorMessage);
+        } else if (!hasCompleted) {
+          // Stream ended without completion message
+          onComplete({});
         }
-      }
+      };
+
+      xhr.onerror = () => {
+        onError('Network request failed');
+      };
+
+      xhr.onabort = () => {
+        console.log('Stream aborted by user');
+      };
+
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('User-Agent', 'Kiongozi-Mobile/1.0');
+
+      xhr.send(JSON.stringify({
+        message: userMessage,
+        conversation_id: conversationId,
+        type
+      }));
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -434,7 +435,11 @@ class ApiClient {
   }) {
     const queryString = new URLSearchParams(params as any).toString();
     const endpoint = `/api/v1/content/courses${queryString ? `?${queryString}` : ''}`;
-    return this.request(endpoint, { method: 'GET' });
+    console.log('🔍 getCourses URL:', `${this.baseURL}${endpoint}`);
+    console.log('🔍 getCourses params:', JSON.stringify(params));
+    const result = await this.request(endpoint, { method: 'GET' });
+    console.log('🔍 getCourses result:', JSON.stringify(result).substring(0, 200));
+    return result;
   }
 
   // Get a specific course by ID

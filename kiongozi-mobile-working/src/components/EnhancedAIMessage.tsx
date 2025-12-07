@@ -11,6 +11,7 @@ import * as Clipboard from 'expo-clipboard';
 import TypewriterText from './TypewriterText';
 import MarkdownRenderer from './MarkdownRenderer';
 import CommandResponseCard from './CommandResponseCard';
+import LoadingDots from './LoadingDots';
 import { processMessageContent } from '../utils/messageProcessor';
 import { CommandResponse } from '../utils/commandProcessor';
 
@@ -21,6 +22,7 @@ interface Message {
   type?: 'chat' | 'research';
   reaction?: 'like' | 'dislike' | null;
   commandResponse?: CommandResponse;
+  isLoading?: boolean;
 }
 
 interface EnhancedAIMessageProps {
@@ -84,6 +86,15 @@ export default function EnhancedAIMessage({
   };
 
   const renderMessageContent = () => {
+    // Show loading dots if message is in loading state
+    if (message.isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <LoadingDots />
+        </View>
+      );
+    }
+
     // Handle command responses first
     if (message.commandResponse) {
       return (
@@ -105,22 +116,8 @@ export default function EnhancedAIMessage({
       );
     }
 
-    // Show typewriter effect for new messages
-    if (showTypewriter && !isTypingComplete) {
-      return (
-        <TypewriterText
-          text={message.text}
-          speed={60} // Characters per second
-          onComplete={handleTypewriterComplete}
-          darkMode={darkMode}
-          showCursor={true}
-          startDelay={300}
-          style={[styles.messageText, darkMode && styles.messageTextDark]}
-        />
-      );
-    }
-
-    // Show markdown rendered content for completed messages
+    // Skip typewriter effect - streaming already provides progressive text display
+    // Show markdown rendered content for messages with formatting
     if (processedMessage.hasCode || processedMessage.hasLinks || message.text.includes('#') || message.text.includes('**')) {
       return (
         <MarkdownRenderer
@@ -199,65 +196,67 @@ export default function EnhancedAIMessage({
           {renderMessageStats()}
         </View>
 
-        {/* Action Buttons - always visible */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, darkMode && styles.actionButtonDark]}
-            onPress={handleCopy}
-          >
-            <Ionicons
-              name="copy-outline"
-              size={16}
-              color={darkMode ? '#9ca3af' : '#6b7280'}
-            />
-          </TouchableOpacity>
-
-          {isLastAiMessage && onRegenerate && (
+        {/* Action Buttons - only show when message has content, typing is complete, and not loading */}
+        {message.text && isTypingComplete && !message.isLoading && (
+          <View style={styles.actionsContainer}>
             <TouchableOpacity
               style={[styles.actionButton, darkMode && styles.actionButtonDark]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onRegenerate();
-              }}
+              onPress={handleCopy}
             >
               <Ionicons
-                name="refresh-outline"
+                name="copy-outline"
                 size={16}
                 color={darkMode ? '#9ca3af' : '#6b7280'}
               />
             </TouchableOpacity>
-          )}
 
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              darkMode && styles.actionButtonDark,
-              message.reaction === 'like' && styles.actionButtonActive
-            ]}
-            onPress={() => handleReaction('like')}
-          >
-            <Ionicons
-              name={message.reaction === 'like' ? 'thumbs-up' : 'thumbs-up-outline'}
-              size={16}
-              color={message.reaction === 'like' ? '#22c55e' : (darkMode ? '#9ca3af' : '#6b7280')}
-            />
-          </TouchableOpacity>
+            {isLastAiMessage && onRegenerate && (
+              <TouchableOpacity
+                style={[styles.actionButton, darkMode && styles.actionButtonDark]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onRegenerate();
+                }}
+              >
+                <Ionicons
+                  name="refresh-outline"
+                  size={16}
+                  color={darkMode ? '#9ca3af' : '#6b7280'}
+                />
+              </TouchableOpacity>
+            )}
 
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              darkMode && styles.actionButtonDark,
-              message.reaction === 'dislike' && styles.actionButtonActive
-            ]}
-            onPress={() => handleReaction('dislike')}
-          >
-            <Ionicons
-              name={message.reaction === 'dislike' ? 'thumbs-down' : 'thumbs-down-outline'}
-              size={16}
-              color={message.reaction === 'dislike' ? '#ef4444' : (darkMode ? '#9ca3af' : '#6b7280')}
-            />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                darkMode && styles.actionButtonDark,
+                message.reaction === 'like' && styles.actionButtonActive
+              ]}
+              onPress={() => handleReaction('like')}
+            >
+              <Ionicons
+                name={message.reaction === 'like' ? 'thumbs-up' : 'thumbs-up-outline'}
+                size={16}
+                color={message.reaction === 'like' ? '#22c55e' : (darkMode ? '#9ca3af' : '#6b7280')}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                darkMode && styles.actionButtonDark,
+                message.reaction === 'dislike' && styles.actionButtonActive
+              ]}
+              onPress={() => handleReaction('dislike')}
+            >
+              <Ionicons
+                name={message.reaction === 'dislike' ? 'thumbs-down' : 'thumbs-down-outline'}
+                size={16}
+                color={message.reaction === 'dislike' ? '#ef4444' : (darkMode ? '#9ca3af' : '#6b7280')}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -275,6 +274,9 @@ const styles = StyleSheet.create({
   },
   messageArea: {
     width: '100%',
+  },
+  loadingContainer: {
+    paddingVertical: 8,
   },
   messageText: {
     fontSize: 16,
