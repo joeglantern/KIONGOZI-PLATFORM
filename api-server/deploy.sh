@@ -68,7 +68,7 @@ if [ ! -f ".env" ]; then
     echo "Creating template .env file..."
     cat > .env << 'EOF'
 # Server Configuration
-PORT=3001
+PORT=3002
 NODE_ENV=production
 
 # Supabase Configuration
@@ -111,7 +111,7 @@ echo -e "${GREEN}=========================================="
 echo "  Deployment Complete!"
 echo "==========================================${NC}"
 echo ""
-echo "API server running on port 3001"
+echo "API server running on port 3002"
 echo ""
 echo "Next steps:"
 echo "1. Configure nginx (run: sudo nano /etc/nginx/sites-available/kiongozi-api)"
