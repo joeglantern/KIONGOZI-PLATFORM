@@ -42,7 +42,7 @@
   "exclude": [
     "node_modules",
     "api-server",
-    "supabase"
-  ],
-  "extends": "expo/tsconfig.base"
+    "supabase",
+    "kiongozi-mobile-working"
+  ]
 }

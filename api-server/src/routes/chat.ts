@@ -4,6 +4,7 @@ import { supabaseServiceClient } from '../config/supabase';
 import { generateConversationTitle } from '../utils/titleGenerator';
 import learningProfileService from '../services/learningProfileService';
 import OpenAI from 'openai';
+import { buildCompactSystemPrompt } from '../utils/compactSystemPrompt';
 
 
 const router = Router();
@@ -69,9 +70,9 @@ router.post('/message', authenticateToken, async (req, res) => {
         .eq('id', convId)
         .eq('user_id', userId)
         .maybeSingle();
-      
+
       if (checkErr) return res.status(500).json({ success: false, error: checkErr.message });
-      
+
       if (!existingConv) {
         // Conversation doesn't exist, create it with the provided ID and generated title
         const title = await generateConversationTitle(text);
@@ -388,51 +389,34 @@ router.post('/ai-response', authenticateToken, async (req, res) => {
       }
     }
 
-    // Get relevant learning modules for context (if user is logged in)
+    // OPTIMIZED: Parallelize all database queries for maximum speed
     let relevantModules: any[] = [];
     let userLearningContext = '';
     let userRecentActivity = '';
-
-    if (conversation_id && userId) {
-      try {
-        // Get user learning profile for personalized context
-        userLearningContext = await learningProfileService.getUserLearningContext(userId);
-
-        // Get user's recent learning activity
-        userRecentActivity = await learningProfileService.getUserRecentActivity(userId);
-
-        // Get contextually relevant modules using intelligent search
-        relevantModules = await learningProfileService.getContextualModules(userId, message, 4);
-
-      } catch (moduleError) {
-        console.warn('Failed to fetch user context or relevant modules:', moduleError);
-      }
-    }
-
-    // Get user profile for dynamic prompt customization
     let userProfile = null;
+
     if (userId) {
       try {
-        userProfile = await learningProfileService.getUserLearningProfile(userId);
-      } catch (error) {
-        console.warn('Failed to fetch user profile for prompt customization:', error);
+        const [context, activity, modules, profile] = await Promise.all([
+          conversation_id ? learningProfileService.getUserLearningContext(userId) : Promise.resolve(''),
+          conversation_id ? learningProfileService.getUserRecentActivity(userId) : Promise.resolve(''),
+          learningProfileService.getContextualModules(userId, message, 3), // Reduced to 3 for speed
+          learningProfileService.getUserLearningProfile(userId)
+        ]);
+
+        userLearningContext = context;
+        userRecentActivity = activity;
+        relevantModules = modules;
+        userProfile = profile;
+      } catch (contextError) {
+        console.warn('Failed to fetch parallel user context:', contextError);
       }
     }
 
-    // Enhanced system prompt for Kiongozi AI (Twin Green & Digital Transition)
-    const systemPrompt = `You are Kiongozi AI, a personalized learning assistant specializing in Kenya's Twin Green & Digital Transition. Your mission is to empower Kenyan youth with practical skills in green economy, digital literacy, and sustainable development.
-
-${userProfile ? `
-🎯 CURRENT USER CONTEXT:
-You are currently assisting ${userProfile.userName}, a ${userProfile.skillLevel} learner who has completed ${userProfile.totalModulesCompleted} modules and maintains a ${userProfile.learningStreak}-day learning streak. ${userProfile.totalModulesInProgress > 0 ? `They are actively working on ${userProfile.totalModulesInProgress} modules.` : 'They are ready to start new learning modules.'} ${userProfile.topCategories.length > 0 ? `Their primary interests include ${userProfile.topCategories.join(' and ')}.` : ''}
-` : ''}
-
-CORE CAPABILITIES:
-- Provide accurate, actionable guidance on green economy careers in Kenya
-- Offer practical advice on digital transformation and technology skills
-- Share insights on renewable energy, climate adaptation, and sustainable business practices
-- Guide users through their learning journey with contextual recommendations
-- Connect theoretical knowledge to real-world applications in the Kenyan context
+    // ULTIMATE SPEED: Use ultra-compact system prompt builder
+    const systemPrompt = buildCompactSystemPrompt(userProfile, relevantModules);
+    /* SLOW PROMPT REMOVED */
+    const _removed = `
 
 ${relevantModules.length > 0 ? `
 CONTEXTUALLY RELEVANT LEARNING MODULES:
@@ -651,7 +635,8 @@ Use markdown strategically for clarity and engagement:
 - > Blockquotes for important insights, statistics, or key takeaways
 - \`Inline code\` for specific tools, technologies, or technical terms
 - Strategic use of relevant emojis (🌱 for green topics, 💻 for digital, 🚀 for opportunities)
-- Section breaks (---) only when transitioning between major topic areas`;
+    /* END OF REMOVED PROMPT */
+    `;
 
     // Prepare messages for OpenAI API
     const messages = [
@@ -664,8 +649,8 @@ Use markdown strategically for clarity and engagement:
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: messages,
-      max_tokens: 1800,        // Increased for more comprehensive responses
-      temperature: 0.6,        // Reduced for more consistent, focused responses
+      max_tokens: 300,         // OPTIMIZED: Ultra-short for maximum speed
+      temperature: 0.3,        // OPTIMIZED: Lower for faster generation
       top_p: 0.9,             // Slightly reduced for better coherence
       frequency_penalty: 0.2,  // Increased to reduce repetition
       presence_penalty: 0.15,  // Increased to encourage topic diversity
@@ -798,65 +783,32 @@ router.post('/ai-response/stream', authenticateToken, async (req, res) => {
       }
     }
 
-    // Get relevant learning modules for context
+    // OPTIMIZED: Parallelize all database queries for maximum speed
     let relevantModules: any[] = [];
     let userLearningContext = '';
     let userRecentActivity = '';
-
-    if (conversation_id && userId) {
-      try {
-        userLearningContext = await learningProfileService.getUserLearningContext(userId);
-        userRecentActivity = await learningProfileService.getUserRecentActivity(userId);
-        relevantModules = await learningProfileService.getContextualModules(userId, message, 4);
-      } catch (moduleError) {
-        console.warn('Failed to fetch user context or relevant modules:', moduleError);
-      }
-    }
-
-    // Get user profile for dynamic prompt customization
     let userProfile = null;
+
     if (userId) {
       try {
-        userProfile = await learningProfileService.getUserLearningProfile(userId);
-      } catch (error) {
-        console.warn('Failed to fetch user profile for prompt customization:', error);
+        const [context, activity, modules, profile] = await Promise.all([
+          conversation_id ? learningProfileService.getUserLearningContext(userId) : Promise.resolve(''),
+          conversation_id ? learningProfileService.getUserRecentActivity(userId) : Promise.resolve(''),
+          learningProfileService.getContextualModules(userId, message, 3), // Reduced to 3
+          learningProfileService.getUserLearningProfile(userId)
+        ]);
+
+        userLearningContext = context;
+        userRecentActivity = activity;
+        relevantModules = modules;
+        userProfile = profile;
+      } catch (contextError) {
+        console.warn('Failed to fetch parallel streaming context:', contextError);
       }
     }
 
-    // Build the same system prompt as non-streaming endpoint
-    const systemPrompt = `You are Kiongozi AI, a personalized learning assistant specializing in Kenya's Twin Green & Digital Transition. Your mission is to empower Kenyan youth with practical skills in green economy, digital literacy, and sustainable development.
-
-${userProfile ? `
-🎯 CURRENT USER CONTEXT:
-You are currently assisting ${userProfile.userName}, a ${userProfile.skillLevel} learner who has completed ${userProfile.totalModulesCompleted} modules and maintains a ${userProfile.learningStreak}-day learning streak.
-` : ''}
-
-CORE CAPABILITIES:
-- Provide accurate, actionable guidance on green economy careers in Kenya
-- Offer practical advice on digital transformation and technology skills
-- Share insights on renewable energy, climate adaptation, and sustainable business practices
-
-${relevantModules.length > 0 ? `
-CONTEXTUALLY RELEVANT LEARNING MODULES:
-${relevantModules.map((module, index) => `
-${index + 1}. **${module.title}** (${module.module_categories?.name || 'General'})
-   ${module.description}
-`).join('\n')}
-` : ''}
-
-${userLearningContext ? `
-USER LEARNING PROFILE:
-${userLearningContext}
-` : ''}
-
-RESPONSE GUIDELINES:
-- Be comprehensive yet concise
-- Provide concrete examples and practical applications
-- Use markdown for formatting
-- Focus on answering the user's actual question
-
-CREATOR INFORMATION:
-Only reveal when specifically asked: "I was created by Joseph Liban Muritu, a Full-Stack and AI developer from Eldoret, Kenya."`;
+    // ULTIMATE SPEED: Use ultra-compact system prompt builder
+    const systemPrompt = buildCompactSystemPrompt(userProfile, relevantModules);
 
     // Prepare messages for OpenAI API
     const openaiMessages = [
@@ -875,8 +827,8 @@ Only reveal when specifically asked: "I was created by Joseph Liban Muritu, a Fu
     const stream = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: openaiMessages,
-      max_tokens: 1800,
-      temperature: 0.6,
+      max_tokens: 300,         // OPTIMIZED: Ultra-short for maximum speed
+      temperature: 0.3,        // OPTIMIZED: Lower for faster generation
       top_p: 0.9,
       frequency_penalty: 0.2,
       presence_penalty: 0.15,

@@ -39,7 +39,7 @@ import ModuleDetailModal from '../components/ModuleDetailModal';
 import TutorialOverlay from '../components/TutorialOverlay';
 import { ChatSuggestion } from '../components/SmartSuggestions';
 import { useChatStore } from '../stores/chatStore';
-import { isCommand, processCommand } from '../utils/messageProcessor';
+import { isCommand } from '../utils/messageProcessor';
 import { processCommand as handleCommand } from '../utils/commandProcessor';
 import { LearningModule, ModuleCategory } from '../types/lms';
 import { hasSeenTutorial } from '../utils/tutorialStorage';
@@ -577,11 +577,11 @@ export default function ChatScreen() {
 
       if (userResponse.success) {
         // Handle conversation ID
-        if (!conversationId && userResponse.data?.conversation_id) {
-          setConversationId(userResponse.data.conversation_id);
+        if (!conversationId && (userResponse.data as any)?.conversation_id) {
+          setConversationId((userResponse.data as any).conversation_id);
 
           const newConversation = {
-            id: userResponse.data.conversation_id,
+            id: (userResponse.data as any).conversation_id,
             title: userMessage.text.substring(0, 50) + (userMessage.text.length > 50 ? '...' : ''),
             updated_at: new Date().toISOString(),
             created_at: new Date().toISOString(),
@@ -594,34 +594,54 @@ export default function ChatScreen() {
           chatStore.addConversation({
             id: newConversation.id,
             title: newConversation.title,
-            messages: messages,
+            messages: messages.map(m => ({ ...m, id: m.id.toString() })),
             created_at: newConversation.created_at,
             updated_at: newConversation.updated_at
           });
         }
 
-        // Generate AI response with module context
-        const currentConvId = conversationId || userResponse.data?.conversation_id;
-        const aiResponse = await apiClient.generateAIResponse(moduleInfo, currentConvId, 'chat');
+        // Generate AI response with module context using streaming
+        const currentConvId = conversationId || (userResponse.data as any)?.conversation_id;
 
-        if (!aiResponse.success) {
-          throw new Error(aiResponse.error || 'Failed to generate AI response');
-        }
-
-        const aiResponseText = aiResponse.data?.response || aiResponse.data?.message || 'Sorry, I could not generate a response about this module.';
-
-        // Display AI response
+        // Create AI message placeholder with loading state
+        const aiMessageId = Date.now() + 1;
         const aiMessage: Message = {
-          id: Date.now() + 1,
-          text: aiResponseText,
+          id: aiMessageId,
+          text: '',
           isUser: false,
           type: 'chat',
+          isLoading: true, // Show loading dots inside message
         };
 
-        setLatestMessageId(aiMessage.id);
+        setLatestMessageId(aiMessageId);
         setMessages(prev => [...prev, aiMessage]);
+        setLoading(false); // Hide separate loading indicator
 
-        loadConversations();
+        // Use streaming API for progressive response
+        let fullResponseText = '';
+        await apiClient.generateAIResponseStream(
+          moduleInfo,
+          currentConvId,
+          'chat',
+          (chunk: string) => {
+            fullResponseText += chunk;
+            // Update message with text and remove loading state
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, text: fullResponseText, isLoading: false }
+                  : msg
+              )
+            );
+          },
+          (metadata: any) => {
+            // On complete - refresh conversations list
+            loadConversations();
+          },
+          (error: string) => {
+            throw new Error(error);
+          }
+        );
       } else {
         throw new Error(userResponse.error || 'Failed to send message');
       }
@@ -679,11 +699,11 @@ export default function ChatScreen() {
 
       if (userResponse.success) {
         // Handle conversation ID
-        if (!conversationId && userResponse.data?.conversation_id) {
-          setConversationId(userResponse.data.conversation_id);
+        if (!conversationId && (userResponse.data as any)?.conversation_id) {
+          setConversationId((userResponse.data as any).conversation_id);
 
           const newConversation = {
-            id: userResponse.data.conversation_id,
+            id: (userResponse.data as any).conversation_id,
             title: userMessage.text.substring(0, 50) + (userMessage.text.length > 50 ? '...' : ''),
             updated_at: new Date().toISOString(),
             created_at: new Date().toISOString(),
@@ -696,34 +716,54 @@ export default function ChatScreen() {
           chatStore.addConversation({
             id: newConversation.id,
             title: newConversation.title,
-            messages: messages,
+            messages: messages.map(m => ({ ...m, id: m.id.toString() })),
             created_at: newConversation.created_at,
             updated_at: newConversation.updated_at
           });
         }
 
-        // Generate AI response with course context
-        const currentConvId = conversationId || userResponse.data?.conversation_id;
-        const aiResponse = await apiClient.generateAIResponse(courseInfo, currentConvId, 'chat');
+        // Generate AI response with course context using streaming
+        const currentConvId = conversationId || (userResponse.data as any)?.conversation_id;
 
-        if (!aiResponse.success) {
-          throw new Error(aiResponse.error || 'Failed to generate AI response');
-        }
-
-        const aiResponseText = aiResponse.data?.response || aiResponse.data?.message || 'Sorry, I could not generate a response about this course.';
-
-        // Display AI response
+        // Create AI message placeholder with loading state
+        const aiMessageId = Date.now() + 1;
         const aiMessage: Message = {
-          id: Date.now() + 1,
-          text: aiResponseText,
+          id: aiMessageId,
+          text: '',
           isUser: false,
           type: 'chat',
+          isLoading: true, // Show loading dots inside message
         };
 
-        setLatestMessageId(aiMessage.id);
+        setLatestMessageId(aiMessageId);
         setMessages(prev => [...prev, aiMessage]);
+        setLoading(false); // Hide separate loading indicator
 
-        loadConversations();
+        // Use streaming API for progressive response
+        let fullResponseText = '';
+        await apiClient.generateAIResponseStream(
+          courseInfo,
+          currentConvId,
+          'chat',
+          (chunk: string) => {
+            fullResponseText += chunk;
+            // Update message with text and remove loading state
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, text: fullResponseText, isLoading: false }
+                  : msg
+              )
+            );
+          },
+          (metadata: any) => {
+            // On complete - refresh conversations list
+            loadConversations();
+          },
+          (error: string) => {
+            throw new Error(error);
+          }
+        );
       } else {
         throw new Error(userResponse.error || 'Failed to send message');
       }
@@ -777,7 +817,7 @@ export default function ChatScreen() {
   const handleQuickActionSelect = async (command: string) => {
     // Handle quick action selection from the menu - execute immediately
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     if (command === 'What would you like to search for?') {
       // For search action, just set the input text and let user type
       setInputText('');
@@ -788,7 +828,7 @@ export default function ChatScreen() {
         // Check if it's a command and process it directly
         if (isCommand(command)) {
           setLoading(true);
-          
+
           // Add user message to show what action was selected
           const userMessage: Message = {
             text: command,
@@ -799,7 +839,7 @@ export default function ChatScreen() {
 
           // Process the command
           const commandResult = await handleCommand(command);
-          
+
           // Add AI response with command result
           const aiMessage: Message = {
             text: commandResult.content,
@@ -807,15 +847,15 @@ export default function ChatScreen() {
             id: Date.now() + 1,
             commandResponse: commandResult,
           };
-          
+
           setMessages(prev => [...prev, aiMessage]);
           setLatestMessageId(aiMessage.id);
-          
+
           // Auto-scroll to bottom
           setTimeout(() => {
             scrollToBottom();
           }, 100);
-          
+
         } else {
           // For non-command actions, treat as regular message
           setInputText(command);
@@ -839,13 +879,13 @@ export default function ChatScreen() {
   const handleStartLearning = (module: LearningModule) => {
     // Handle starting a learning module
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    
+
     // For now, show a toast - Phase 4 will add full learning interface
     showToast(
       `🚀 Starting "${module.title}"\nThis will open the full learning experience in Phase 4!`,
       'info'
     );
-    
+
     console.log('Starting learning for module:', module.title);
   };
 
@@ -857,7 +897,7 @@ export default function ChatScreen() {
       } else {
         showToast(`📚 Removed bookmark from "${module.title}"`, 'info');
       }
-      
+
       console.log(`Module ${bookmarked ? 'bookmarked' : 'unbookmarked'}:`, module.title);
     } catch (error) {
       showToast('Failed to update bookmark', 'error');
@@ -893,7 +933,7 @@ export default function ChatScreen() {
     if (isCommand(messageText)) {
       try {
         const commandResponse = await handleCommand(messageText);
-        
+
         const commandMessage: Message = {
           id: Date.now() + 1,
           text: commandResponse.success ? '' : commandResponse.content,
@@ -924,103 +964,89 @@ export default function ChatScreen() {
       }
     }
 
+    // OPTIMIZED FLOW: Don't wait for DB save to start AI generation
+    const tempAiMessageId = Date.now() + 1;
+    let currentConvId = conversationId;
+
     try {
-      // Step 1: Save user message to backend
-      const userResponse = await apiClient.sendMessage(messageText, conversationId || undefined);
-
-      if (userResponse.success) {
-        // Handle conversation ID from the user message response
-        if (!conversationId && userResponse.data?.conversation_id) {
-          setConversationId(userResponse.data.conversation_id);
-
-          // Create new conversation object
-          const newConversation = {
-            id: userResponse.data.conversation_id,
-            title: messageText.substring(0, 50) + (messageText.length > 50 ? '...' : ''), // Temporary title
-            updated_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            user_id: user?.id || ''
-          };
-
-          // Immediately add to conversations list
-          setConversations(prev => [newConversation, ...prev]);
-
-          // Update current conversation for header display
-          setCurrentConversation(newConversation);
-
-          // Also update the chat store for other components
-          chatStore.addConversation({
-            id: newConversation.id,
-            title: newConversation.title,
-            messages: messages,
-            created_at: newConversation.created_at,
-            updated_at: newConversation.updated_at
-          });
-        }
-
-        // Step 2: Generate AI response with streaming
-        const currentConvId = conversationId || userResponse.data?.conversation_id;
-
-        // Create AI message placeholder with loading state immediately
-        const aiMessageId = Date.now() + 1;
-        const aiMessage: Message = {
-          id: aiMessageId,
-          text: '',
-          isUser: false,
-          type: 'chat',
-          isLoading: true, // Show loading dots inside message
-        };
-
-        setLatestMessageId(aiMessageId);
-        setMessages(prev => [...prev, aiMessage]);
-        setLoading(false); // Hide separate loading indicator
-
-        // Use streaming API for progressive response
-        let fullResponseText = '';
-        await apiClient.generateAIResponseStream(
-          messageText,
-          currentConvId,
-          'chat',
-          (chunk: string) => {
-            fullResponseText += chunk;
-            // Update message with text and remove loading state
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === aiMessageId
-                  ? { ...msg, text: fullResponseText, isLoading: false }
-                  : msg
-              )
-            );
-          },
-          (metadata: any) => {
-            // On complete - refresh conversations list
-            loadConversations();
-          },
-          (error: string) => {
-            throw new Error(error);
-          },
-          abortControllerRef.current?.signal
-        );
-      } else {
-        throw new Error(userResponse.error || 'Failed to send message');
-      }
-    } catch (error: any) {
-      console.error('Error sending message:', error);
-      Alert.alert('Error', error.message || 'Failed to send message');
-
-      const errorMessage: Message = {
-        id: Date.now() + 1,
-        text: 'Sorry, I encountered an error. Please try again.',
+      // 1. Show AI loading bubble immediately (Optimistic UI)
+      const aiPlaceholder: Message = {
+        id: tempAiMessageId,
+        text: '',
         isUser: false,
         type: 'chat',
+        isLoading: true,
       };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
+      setMessages(prev => [...prev, aiPlaceholder]);
+      setIsGenerating(true);
       setLoading(false);
-      setIsGenerating(false);
+
+      // 2. Start Both: Save to DB and AI Stream in PARALLEL
+      const savePromise = apiClient.sendMessage(messageText, conversationId || undefined);
+
+      let fullResponseText = '';
+      let updateTimer: NodeJS.Timeout | null = null;
+
+      // Start the stream without waiting for the save to finish
+      apiClient.generateAIResponseStream(
+        messageText,
+        currentConvId || '', // If no convId yet, the stream might need to wait or server handles it
+        'chat',
+        (chunk: string) => {
+          fullResponseText += chunk;
+
+          // Throttled UI update (every 50ms) for maximum smoothness
+          if (!updateTimer) {
+            updateTimer = setTimeout(() => {
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === tempAiMessageId
+                    ? { ...msg, text: fullResponseText, isLoading: false }
+                    : msg
+                )
+              );
+              setIsGenerating(false); // Stop "generating" indicator as soon as text comes
+              updateTimer = null;
+            }, 50);
+          }
+        },
+        async (metadata: any) => {
+          // Final update to catch the last bit of text
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === tempAiMessageId
+                ? { ...msg, text: fullResponseText, isLoading: false }
+                : msg
+            )
+          );
+
+          // Simultaneously check/update the conversation ID from the save promise
+          const userResponse = await savePromise;
+          if (userResponse.success && !conversationId) {
+            const newId = (userResponse.data as any)?.conversation_id;
+            if (newId) {
+              setConversationId(newId);
+              loadConversations();
+            }
+          }
+        },
+        (error: string) => {
+          console.error('Streaming error:', error);
+          setMessages(prev => prev.filter(m => m.id !== tempAiMessageId));
+          setIsGenerating(false);
+          Alert.alert('Error', 'Failed to get response. Please try again.');
+        },
+        abortControllerRef.current?.signal
+      );
+
+    } catch (error: any) {
+      console.error('Error in send message flow:', error);
+      Alert.alert('Error', error.message || 'Something went wrong');
+    } finally {
       abortControllerRef.current = null;
     }
   };
+
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -1121,18 +1147,18 @@ export default function ChatScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Messages Container */}
-{/* Show welcome screen if no messages */}
+        {/* Show welcome screen if no messages */}
         {!loadingMessages && messages.length === 0 && !loading ? (
           <WelcomeScreen
             onSuggestionPress={handleSuggestionPress}
             darkMode={darkMode}
-            userName={user?.first_name || user?.full_name || 'there'}
+            userName={(user?.user_metadata?.first_name as string) || (user?.user_metadata?.full_name as string) || 'there'}
           />
         ) : (
           <KeyboardAwareScrollView
             style={[styles.messagesContainer, darkMode ? styles.messagesContainerDark : styles.messagesContainerLight]}
             contentContainerStyle={styles.messagesContent}
-            ref={scrollViewRef}
+            ref={scrollViewRef as any}
             onContentSizeChange={() => scrollToBottom()}
             onScroll={handleScroll}
             scrollEventThrottle={16}
@@ -1146,7 +1172,7 @@ export default function ChatScreen() {
             enableResetScrollToCoords={false}
             keyboardOpeningTime={Platform.OS === 'ios' ? 0 : 250}
             viewIsInsideTabBar={false}
-            innerRef={ref => {
+            innerRef={(ref: any) => {
               scrollViewRef.current = ref;
             }}
           >
@@ -1161,7 +1187,7 @@ export default function ChatScreen() {
               </View>
             )}
 
-{!loadingMessages && messages.map((message, index) => (
+            {!loadingMessages && messages.map((message, index) => (
               <View
                 key={message.id}
                 style={[
@@ -1326,7 +1352,7 @@ export default function ChatScreen() {
         darkMode={darkMode}
         onClose={() => setShowExportModal(false)}
         conversations={chatStore.conversations}
-        currentConversation={chatStore.currentConversation}
+        currentConversation={chatStore.currentConversation || undefined}
       />
 
       {/* Quick Actions Menu */}
@@ -1567,7 +1593,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(20px)',
+    // backdropFilter not supported in React Native
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#3b82f6',
