@@ -18,7 +18,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 REPO_URL="https://github.com/joeglantern/KIONGOZI-PLATFORM.git"
 DEPLOY_DIR="$HOME/kiongozi-web"
 APP_PORT=3003
-APP_NAME="kiongozi-webapp"
+APP_NAME="kiongozi-chat"
 
 echo ""
 log_info "========================================="
