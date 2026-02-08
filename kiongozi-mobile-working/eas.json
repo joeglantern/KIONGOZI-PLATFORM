@@ -39,8 +39,12 @@
       }
     },
     "production": {
+      "distribution": "store",
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
       },
       "channel": "production",
       "cache": {
