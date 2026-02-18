@@ -41,17 +41,33 @@ export function useSupabaseDeepLink(options?: UseSupabaseDeepLinkOptions) {
 
   async function handleDeepLink({ url }: { url: string }) {
     try {
-      const { hostname, queryParams } = Linking.parse(url)
+      const { hostname, path, queryParams } = Linking.parse(url)
 
-      console.log('Deep link received:', { hostname, url })
+      console.log('Deep link received:', { hostname, path, url })
 
-      if (hostname === 'auth-callback') {
-        const { access_token, refresh_token } = queryParams as Record<string, string>
+      // kiongozi://auth/callback → hostname='auth', path='/callback'
+      // Also handle kiongozi://auth-callback for backwards compatibility
+      const isAuthCallback =
+        (hostname === 'auth' && path === '/callback') ||
+        hostname === 'auth-callback'
+
+      if (isAuthCallback) {
+        // Tokens can come from query params or hash fragments
+        // Supabase may send them as ?access_token=...&refresh_token=...
+        // or as #access_token=...&refresh_token=...
+        let access_token = (queryParams as Record<string, string>)?.access_token
+        let refresh_token = (queryParams as Record<string, string>)?.refresh_token
+
+        // Also check for hash fragment tokens (Supabase implicit flow)
+        if (!access_token && url.includes('#')) {
+          const hashParams = new URLSearchParams(url.split('#')[1])
+          access_token = hashParams.get('access_token') || ''
+          refresh_token = hashParams.get('refresh_token') || ''
+        }
 
         if (access_token && refresh_token) {
           console.log('Setting Supabase session from deep link...')
 
-          // Set Supabase session
           const { data, error } = await supabase.auth.setSession({
             access_token,
             refresh_token
@@ -69,11 +85,9 @@ export function useSupabaseDeepLink(options?: UseSupabaseDeepLinkOptions) {
 
           console.log('Session set successfully:', data.user?.email)
 
-          // Call success callback
           if (options?.onAuthSuccess) {
             options.onAuthSuccess()
           } else {
-            // Show success message if no callback provided
             Alert.alert(
               'Success!',
               'You have been signed in successfully.',
@@ -81,7 +95,18 @@ export function useSupabaseDeepLink(options?: UseSupabaseDeepLinkOptions) {
             )
           }
         } else {
-          console.warn('No tokens found in deep link')
+          // No tokens — might be an email verification confirmation
+          // Try refreshing the session to pick up the verified status
+          console.log('No tokens in deep link, attempting session refresh...')
+          const { data, error } = await supabase.auth.refreshSession()
+          if (!error && data.session) {
+            console.log('Session refreshed after email verification')
+            if (options?.onAuthSuccess) {
+              options.onAuthSuccess()
+            }
+          } else {
+            console.warn('No tokens found and session refresh failed')
+          }
         }
       }
     } catch (error) {

@@ -19,12 +19,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../stores/authStore';
-import EmailVerificationModal from '../components/EmailVerificationModal';
 
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { signIn, signUp, loading, resendVerificationEmail, checkEmailVerified } = useAuthStore();
+  const { signIn, signUp, loading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -32,9 +31,6 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState('');
-  const [resending, setResending] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -87,13 +83,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
         : await signIn(email, password);
 
       if (result.success) {
-        // Check if email verification is needed (only for signUp)
-        if (isSignUp && 'needsVerification' in result && result.needsVerification && 'email' in result && result.email) {
-          setVerificationEmail(String(result.email));
-          setShowVerificationModal(true);
-        } else {
-          onLoginSuccess();
-        }
+        onLoginSuccess();
       } else {
         Alert.alert('Error', result.error || 'Authentication failed');
       }
@@ -102,32 +92,6 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
     }
   };
 
-  const handleResendEmail = async () => {
-    setResending(true);
-    const result = await resendVerificationEmail(verificationEmail);
-    setResending(false);
-
-    if (result.success) {
-      Alert.alert('Success', 'Verification email sent! Check your inbox.');
-    } else {
-      Alert.alert('Error', result.error || 'Failed to resend email');
-    }
-  };
-
-  const handleVerifyCheck = async () => {
-    // After email verification, user needs to sign in with their credentials
-    setShowVerificationModal(false);
-    Alert.alert(
-      'Email Verified!',
-      'Please sign in with your email and password to continue.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleCloseVerificationModal = () => {
-    setShowVerificationModal(false);
-    setVerificationEmail('');
-  };
 
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
@@ -155,175 +119,166 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
           ]}>
             {/* Header */}
             <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('../../assets/logo.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.title}>
-                {isSignUp ? 'Create an account' : 'Sign in'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Form Container */}
-          <View style={styles.formContainer}>
-            {isSignUp && (
-              <>
-                <View style={styles.inputContainer}>
-                  <Ionicons
-                    name="person-outline"
-                    size={20}
-                    color="#9ca3af"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.inputWithIcon,
-                      focusedField === 'firstName' && styles.inputFocused
-                    ]}
-                    placeholder="First Name"
-                    placeholderTextColor="#9ca3af"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    onFocus={handleFocusFirstName}
-                    onBlur={handleBlur}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                  />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Ionicons
-                    name="person-outline"
-                    size={20}
-                    color="#9ca3af"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.inputWithIcon,
-                      focusedField === 'lastName' && styles.inputFocused
-                    ]}
-                    placeholder="Last Name"
-                    placeholderTextColor="#9ca3af"
-                    value={lastName}
-                    onChangeText={setLastName}
-                    onFocus={handleFocusLastName}
-                    onBlur={handleBlur}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                  />
-                </View>
-              </>
-            )}
-
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color="#9ca3af"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.inputWithIcon,
-                  focusedField === 'email' && styles.inputFocused
-                ]}
-                placeholder="Email address"
-                placeholderTextColor="#9ca3af"
-                value={email}
-                onChangeText={setEmail}
-                onFocus={handleFocusEmail}
-                onBlur={handleBlur}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                autoCorrect={false}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#9ca3af"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.inputWithIcon,
-                  styles.passwordInput,
-                  focusedField === 'password' && styles.inputFocused
-                ]}
-                placeholder="Password"
-                placeholderTextColor="#9ca3af"
-                value={password}
-                onChangeText={setPassword}
-                onFocus={handleFocusPassword}
-                onBlur={handleBlur}
-                secureTextEntry={!showPassword}
-                autoComplete="password"
-                autoCorrect={false}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={togglePasswordVisibility}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color="#64748b"
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('../../assets/logo.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
                 />
+                <Text style={styles.title}>
+                  {isSignUp ? 'Create an account' : 'Sign in'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Form Container */}
+            <View style={styles.formContainer}>
+              {isSignUp && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <Ionicons
+                      name="person-outline"
+                      size={20}
+                      color="#9ca3af"
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.inputWithIcon,
+                        focusedField === 'firstName' && styles.inputFocused
+                      ]}
+                      placeholder="First Name"
+                      placeholderTextColor="#9ca3af"
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      onFocus={handleFocusFirstName}
+                      onBlur={handleBlur}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Ionicons
+                      name="person-outline"
+                      size={20}
+                      color="#9ca3af"
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.inputWithIcon,
+                        focusedField === 'lastName' && styles.inputFocused
+                      ]}
+                      placeholder="Last Name"
+                      placeholderTextColor="#9ca3af"
+                      value={lastName}
+                      onChangeText={setLastName}
+                      onFocus={handleFocusLastName}
+                      onBlur={handleBlur}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </>
+              )}
+
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color="#9ca3af"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.inputWithIcon,
+                    focusedField === 'email' && styles.inputFocused
+                  ]}
+                  placeholder="Email address"
+                  placeholderTextColor="#9ca3af"
+                  value={email}
+                  onChangeText={setEmail}
+                  onFocus={handleFocusEmail}
+                  onBlur={handleBlur}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="#9ca3af"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.inputWithIcon,
+                    styles.passwordInput,
+                    focusedField === 'password' && styles.inputFocused
+                  ]}
+                  placeholder="Password"
+                  placeholderTextColor="#9ca3af"
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={handleFocusPassword}
+                  onBlur={handleBlur}
+                  secureTextEntry={!showPassword}
+                  autoComplete="password"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={togglePasswordVisibility}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color="#64748b"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitButton, (loading || !email || !password) && styles.submitButtonDisabled]}
+                onPress={handleSubmit}
+                disabled={loading || !email || !password}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.submitButtonText}>
+                    {isSignUp ? 'Create Account' : 'Continue'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[styles.submitButton, (loading || !email || !password) && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={loading || !email || !password}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.submitButtonText}>
-                  {isSignUp ? 'Create Account' : 'Continue'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Switch Auth Mode */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-            </Text>
-            <TouchableOpacity onPress={toggleAuthMode} style={styles.switchButton}>
-              <Text style={styles.switchText}>
-                {isSignUp ? 'Sign In' : 'Sign Up'}
+            {/* Switch Auth Mode */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                {isSignUp ? 'Already have an account?' : "Don't have an account?"}
               </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity onPress={toggleAuthMode} style={styles.switchButton}>
+                <Text style={styles.switchText}>
+                  {isSignUp ? 'Sign In' : 'Sign Up'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Email Verification Modal */}
-      <EmailVerificationModal
-        visible={showVerificationModal}
-        email={verificationEmail}
-        onResendEmail={handleResendEmail}
-        onVerifyCheck={handleVerifyCheck}
-        onClose={handleCloseVerificationModal}
-        resending={resending}
-      />
     </SafeAreaView>
   );
 }

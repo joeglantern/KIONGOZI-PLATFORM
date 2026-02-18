@@ -44,7 +44,7 @@ log_info "Step 2: Creating environment file..."
 cat > .env.local << 'ENVEOF'
 NEXT_PUBLIC_SUPABASE_URL=https://jdncfyagppohtksogzkx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkbmNmeWFncHBvaHRrc29nemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODg3NzgsImV4cCI6MjA3MDI2NDc3OH0.mQwRTAu2UYwsF_cmlIQLVVVuCTDMHjsBrxWdWPMQMFQ
-NEXT_PUBLIC_API_URL=http://156.67.25.84/api/v1
+NEXT_PUBLIC_API_URL=http://156.67.25.84
 ENVEOF
 log_success "Environment file created"
 
@@ -63,7 +63,7 @@ log_success "Dependencies installed"
 log_info "Step 4: Building Next.js app..."
 export NEXT_PUBLIC_SUPABASE_URL="https://jdncfyagppohtksogzkx.supabase.co"
 export NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkbmNmeWFncHBvaHRrc29nemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODg3NzgsImV4cCI6MjA3MDI2NDc3OH0.mQwRTAu2UYwsF_cmlIQLVVVuCTDMHjsBrxWdWPMQMFQ"
-export NEXT_PUBLIC_API_URL="http://156.67.25.84/api/v1"
+export NEXT_PUBLIC_API_URL="http://156.67.25.84"
 
 npm run build
 log_success "Build complete"

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Kiongozi - Green & Digital Skills",
-    "slug": "kiongozi",
+    "name": "Kiongozi Chat",
+    "slug": "kiongozi-mobile-working",
     "version": "1.0.0",
     "description": "AI-powered learning for Kenya's Green Economy & Digital Transformation",
     "orientation": "portrait",
@@ -17,11 +17,20 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.kiongozi.mobile",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice input functionality.",
         "NSSpeechRecognitionUsageDescription": "This app needs access to speech recognition to convert your voice to text.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSExceptionDomains": {
+            "156.67.25.84": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
       }
     },
     "android": {
@@ -59,10 +68,10 @@
         }
       ]
     ],
-    "owner": "joe_lib_an",
+    "owner": "afosi",
     "extra": {
       "eas": {
-        "projectId": "d41fa2af-cdf7-4c6f-8070-ade8221f15eb"
+        "projectId": "740d5736-9f10-4329-b2f5-0ffbb99d5d46"
       }
     },
     "runtimeVersion": {
