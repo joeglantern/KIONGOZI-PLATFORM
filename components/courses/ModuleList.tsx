@@ -29,20 +29,20 @@ export function ModuleList({ modules, isEnrolled, courseId }: ModuleListProps) {
     return (
         <div className="space-y-3">
             {sortedModules.map((courseModule, index) => {
-                const module = courseModule.learning_modules;
-                const isCompleted = module.user_progress?.[0]?.completed || false;
+                const learningModule = courseModule.learning_modules;
+                const isCompleted = learningModule.user_progress?.[0]?.completed || false;
                 const moduleNumber = index + 1;
 
                 return (
                     <div
-                        key={module.id}
+                        key={learningModule.id}
                         className={`bg-white rounded-lg border-2 p-4 transition-all ${isEnrolled
-                                ? 'border-gray-200 hover:border-orange-300 hover:shadow-md cursor-pointer'
-                                : 'border-gray-100 opacity-75'
+                            ? 'border-gray-200 hover:border-orange-300 hover:shadow-md cursor-pointer'
+                            : 'border-gray-100 opacity-75'
                             }`}
                         onClick={() => {
                             if (isEnrolled) {
-                                window.location.href = `/courses/${courseId}/modules/${module.id}`;
+                                window.location.href = `/courses/${courseId}/modules/${learningModule.id}`;
                             }
                         }}
                     >
@@ -68,7 +68,7 @@ export function ModuleList({ modules, isEnrolled, courseId }: ModuleListProps) {
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2 mb-1">
                                     <h4 className={`font-semibold ${isEnrolled ? 'text-gray-900' : 'text-gray-500'}`}>
-                                        {module.title}
+                                        {learningModule.title}
                                     </h4>
                                     {courseModule.is_required && (
                                         <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium flex-shrink-0">
@@ -77,15 +77,15 @@ export function ModuleList({ modules, isEnrolled, courseId }: ModuleListProps) {
                                     )}
                                 </div>
 
-                                {module.description && (
-                                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{module.description}</p>
+                                {learningModule.description && (
+                                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{learningModule.description}</p>
                                 )}
 
                                 <div className="flex items-center gap-4 text-xs text-gray-500">
-                                    {module.estimated_duration_minutes && (
+                                    {learningModule.estimated_duration_minutes && (
                                         <div className="flex items-center gap-1">
                                             <Clock className="w-3.5 h-3.5" />
-                                            <span>{module.estimated_duration_minutes} min</span>
+                                            <span>{learningModule.estimated_duration_minutes} min</span>
                                         </div>
                                     )}
                                     <div className="flex items-center gap-1">
