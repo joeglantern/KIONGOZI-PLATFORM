@@ -20,7 +20,10 @@
       "Bash(node execute-fix-steps.js:*)",
       "Bash(start https://supabase.com/dashboard/project/jdncfyagppohtksogzkx/sql/new)",
       "Bash(\"c:\\\\Users\\\\user\\\\Desktop\\\\Kiongozi-LMS\\\\OPTIMIZATION_VISUAL_SUMMARY.txt\":*)",
-      "Bash(\"c:\\\\Users\\\\user\\\\Desktop\\\\Kiongozi-LMS\\\\next.config.js\":*)"
+      "Bash(\"c:\\\\Users\\\\user\\\\Desktop\\\\Kiongozi-LMS\\\\next.config.js\":*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
