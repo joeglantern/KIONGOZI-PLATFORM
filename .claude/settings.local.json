@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node check-schema.js:*)",
+      "Bash(node check-integrity.js:*)",
+      "Bash(del explore-db.js check-schema.js check-integrity.js)",
+      "Bash(npx ts-node:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(ls:*)",
+      "Bash(npx tsx:*)",
+      "Bash(curl:*)",
+      "Bash(node -e:*)",
+      "Bash(node debug-enrollments.js:*)",
+      "Bash(node list-all-courses.js:*)",
+      "Bash(cd:*)",
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "Bash(node run-sql-direct.js:*)",
+      "Bash(node execute-fix-steps.js:*)",
+      "Bash(start https://supabase.com/dashboard/project/jdncfyagppohtksogzkx/sql/new)",
+      "Bash(\"c:\\\\Users\\\\user\\\\Desktop\\\\Kiongozi-LMS\\\\OPTIMIZATION_VISUAL_SUMMARY.txt\":*)",
+      "Bash(\"c:\\\\Users\\\\user\\\\Desktop\\\\Kiongozi-LMS\\\\next.config.js\":*)"
+    ]
+  }
+}

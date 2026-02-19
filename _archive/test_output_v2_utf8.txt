@@ -1,0 +1,25 @@
+﻿[dotenv@17.2.3] injecting env (7) from .env.local -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
+≡ƒÜÇ Starting auth flow test for: test_42624@test.com
+≡ƒöù Supabase URL: https://jdncfyagppohtksogzkx.supabase.co
+≡ƒô¥ Testing Signup...
+node.exe : Γ¥î 
+Signup failed: email 
+rate limit exceeded
+At C:\Program Files\n
+odejs\npx.ps1:29 
+char:3
++   & $NODE_EXE 
+$NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Γ¥î Sig   
+ nup fail... limi    
+t exceeded:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 

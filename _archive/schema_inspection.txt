@@ -1,0 +1,69 @@
+﻿[dotenv@17.2.3] injecting env (7) from .env.local -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+≡ƒº¼ Comprehensive Schema Inspection
+
+--- Course Columns ---
+[
+  'id',
+  'title',
+  'description',
+  'overview',
+  'category_id',
+  'difficulty_level',
+  'estimated_duration_hours',
+  'prerequisites',
+  'learning_outcomes',
+  'author_id',
+  'status',
+  'review_status',
+  'published_at',
+  'featured',
+  'enrollment_count',
+  'view_count',
+  'created_at',
+  'updated_at'
+]
+
+--- Learning Module Columns ---
+[
+  'id',
+  'title',
+  'description',
+  'content',
+  'category_id',
+  'difficulty_level',
+  'estimated_duration_minutes',
+  'learning_objectives',
+  'keywords',
+  'author_id',
+  'status',
+  'published_at',
+  'featured',
+  'view_count',
+  'created_at',
+  'updated_at'
+]
+
+--- Course Module (Join) Columns ---
+[
+  'id',
+  'course_id',
+  'module_id',
+  'order_index',
+  'is_required',
+  'created_at'
+]
+
+--- Profile Columns ---
+[
+  'id',             'email',
+  'full_name',      'role',
+  'created_at',     'updated_at',
+  'first_name',     'last_name',
+  'status',         'last_login_at',
+  'login_count',    'banned_at',
+  'banned_by',      'ban_reason',
+  'deactivated_at', 'deactivated_by',
+  'total_xp',       'level'
+]
+
+≡ƒÅü Inspection complete.

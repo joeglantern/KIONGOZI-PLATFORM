@@ -1,0 +1,26 @@
+﻿[dotenv@17.2.3] injecting env (7) from .env.local -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+≡ƒôè Total Database Counts
+
+≡ƒæñ Total Profiles: 20
+≡ƒôû Total Courses: 18
+≡ƒôÜ Total Categories: 16
+
+≡ƒôï Course Titles:
+1. SQL Database Mastery
+2. Web Development Bootcamp
+3. Full Stack JavaScript
+4. Data Structures and Algorithms
+5. Leadership and Team Management
+6. Entrepreneurship Essentials
+7. Climate Change and Environmental Policy
+8. Data Analytics with Python
+9. Cybersecurity Essentials
+10. Python for Beginners
+11. Green Technology Foundations
+12. Introduction to Web Development
+13. Introduction to Green Energy
+14. Sustainable Agriculture Practices
+15. Digital Marketing Fundamentals
+16. DevOps and CI/CD
+17. iOS App Development with Swift
+18. Machine Learning Foundations

@@ -1,0 +1,4 @@
+﻿[dotenv@17.2.3] injecting env (7) from .env.local -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+≡ƒÜÇ Starting auth flow test for: test_60777@test.com
+≡ƒöù Supabase URL: https://jdncfyagppohtksogzkx.supabase.co
+≡ƒô¥ Testing Signup...

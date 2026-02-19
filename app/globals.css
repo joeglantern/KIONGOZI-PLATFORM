@@ -42,9 +42,11 @@ body {
   0% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-10px);
   }
+
   100% {
     transform: translateY(0px);
   }
@@ -60,9 +62,11 @@ body {
   0% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
+
   100% {
     background-position: 0% 50%;
   }
@@ -72,9 +76,11 @@ body {
   0% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-10px);
   }
+
   100% {
     transform: translateY(0px);
   }
@@ -106,9 +112,11 @@ body {
   0% {
     box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.2);
   }
+
   70% {
     box-shadow: 0 0 0 15px rgba(124, 58, 237, 0);
   }
+
   100% {
     box-shadow: 0 0 0 0 rgba(124, 58, 237, 0);
   }
@@ -137,8 +145,10 @@ body {
 }
 
 .scrollbar-none {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 /* Add a nice visual hover effect for collapsed sidebar items */
@@ -174,7 +184,8 @@ body {
 .sidebar-tooltip[title]:hover::before {
   content: attr(title);
   position: absolute;
-  left: 60px; /* Width of collapsed sidebar */
+  left: 60px;
+  /* Width of collapsed sidebar */
   top: 50%;
   transform: translateY(-50%);
   background: rgba(17, 24, 39, 0.9);
@@ -211,9 +222,17 @@ body {
 
 /* Add the pulse animation for the send button */
 @keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
+  0% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.6;
+  }
 }
 
 @layer base {
@@ -277,12 +296,98 @@ body {
 
   }
 
+  :root.high-contrast {
+    /* Semantic variables for High Contrast (Yellow on Black) */
+    --bg-primary: #000000;
+    --bg-secondary: #000000;
+    --bg-tertiary: #111111;
+    --bg-elevated: #000000;
+    --bg-surface: #000000;
+
+    --text-primary: #ffff00;
+    --text-secondary: #ffffff;
+    --text-tertiary: #ffffff;
+    --text-inverse: #000000;
+
+    --border-primary: #ffffff;
+    --border-secondary: #ffff00;
+    --border-focus: #ffff00;
+
+    --interactive-primary: #ffff00;
+    --interactive-primary-hover: #ffffff;
+    --interactive-accent: #ffffff;
+
+    /* ShadCN / Tailwind Compatibility for High Contrast */
+    --background: 0 0% 0%;
+    --foreground: 60 100% 50%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 60 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 60 100% 50%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 100%;
+    --accent: 0 0% 20%;
+    --accent-foreground: 60 100% 50%;
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 60 100% 50%;
+  }
+
+  /* Force Global High Contrast Visibility */
+  :root.high-contrast * {
+    border-color: #ffffff !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  :root.high-contrast h1,
+  :root.high-contrast h2,
+  :root.high-contrast h3,
+  :root.high-contrast h4,
+  :root.high-contrast p,
+  :root.high-contrast span,
+  :root.high-contrast label,
+  :root.high-contrast input,
+  :root.high-contrast textarea {
+    color: #ffff00 !important;
+    /* Force Yellow for visibility */
+  }
+
+  :root.high-contrast a,
+  :root.high-contrast button {
+    background-color: #000000 !important;
+    color: #ffff00 !important;
+    border: 2px solid #ffff00 !important;
+    text-decoration: underline !important;
+  }
+
+  :root.high-contrast a:hover,
+  :root.high-contrast button:hover {
+    background-color: #ffff00 !important;
+    color: #000000 !important;
+  }
+
+  :root.high-contrast div[class*="bg-gray-"],
+  :root.high-contrast div[class*="bg-orange-"],
+  :root.high-contrast div[class*="bg-white"],
+  :root.high-contrast aside,
+  :root.high-contrast nav,
+  :root.high-contrast header,
+  :root.high-contrast footer {
+    background-color: #000000 !important;
+    background-image: none !important;
+  }
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -297,9 +402,8 @@ body {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
 }
-
- 

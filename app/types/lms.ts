@@ -1,5 +1,22 @@
 // Learning Management System Type Definitions
 
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  role?: string;
+  level?: number;
+  total_xp?: number;
+  current_streak?: number;
+  max_streak?: number;
+  last_activity_date?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ModuleCategory {
   id: string;
   name: string;
@@ -226,6 +243,20 @@ export interface CategoryCommandResponse {
   categories: ModuleCategory[];
 }
 
+export interface CreateChatRoomCommandResponse {
+  type: 'create_chat_room';
+  title: string;
+  description: string;
+  room_id: string;
+}
+
+export interface ListChatRoomsCommandResponse {
+  type: 'list_chat_rooms';
+  title: string;
+  description: string;
+  rooms: any[];
+}
+
 export interface CourseCommandResponse {
   type: 'courses';
   title: string;
@@ -241,7 +272,9 @@ export type CommandResponse =
   | ModuleCommandResponse
   | ProgressCommandResponse
   | CategoryCommandResponse
-  | CourseCommandResponse;
+  | CourseCommandResponse
+  | CreateChatRoomCommandResponse
+  | ListChatRoomsCommandResponse;
 
 // Enhanced interface for command processing
 export interface EnhancedCommandResponse {
@@ -262,4 +295,8 @@ export interface LearningPath {
   estimated_duration_minutes: number;
   difficulty_level: 'beginner' | 'intermediate' | 'advanced';
   prerequisites?: string[];
+}
+
+export interface CourseEnrollmentWithCourse extends CourseEnrollment {
+  course: Course;
 }

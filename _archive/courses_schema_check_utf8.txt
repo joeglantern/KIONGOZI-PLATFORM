@@ -1,0 +1,11 @@
+﻿node.exe : [eval].ts(1,152): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+At C:\Program Files\nodejs\npx.ps1:29 char:3
++   & $NODE_EXE $NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([eval].ts(1,152... type 'string'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Type 'undefined' is not assignable to type 'string'.
+[eval].ts(1,1): error TS1127: Invalid character.
+[eval].ts(1,371): error TS1002: Unterminated string literal.
+

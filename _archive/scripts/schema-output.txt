@@ -1,0 +1,113 @@
+=== DATABASE SCHEMA ===
+
+--- TABLES ---
+
+TABLE: profiles (20 rows)
+  Columns: id, email, full_name, role, created_at, updated_at, first_name, last_name, status, last_login_at, login_count, banned_at, banned_by, ban_reason, deactivated_at, deactivated_by, total_xp, level
+
+TABLE: courses (18 rows)
+  Columns: id, title, description, overview, category_id, difficulty_level, estimated_duration_hours, prerequisites, learning_outcomes, author_id, status, review_status, published_at, featured, enrollment_count, view_count, created_at, updated_at
+
+TABLE: modules (null rows)
+  Columns: 
+
+TABLE: lessons (null rows)
+  Columns: 
+
+TABLE: quizzes (3 rows)
+  Columns: id, module_id, title, description, passing_score, time_limit_minutes, max_attempts, show_correct_answers, randomize_questions, is_required, created_at, updated_at
+
+TABLE: quiz_questions (6 rows)
+  Columns: id, quiz_id, question_text, question_type, points, order_index, explanation, created_at, updated_at
+
+TABLE: course_enrollments (12 rows)
+  Columns: id, user_id, course_id, enrolled_at, status, progress_percentage, completed_at, certificate_issued, last_accessed_at, created_at, updated_at
+
+TABLE: user_progress (11 rows)
+  Columns: id, user_id, module_id, status, progress_percentage, time_spent_minutes, started_at, completed_at, last_accessed_at, notes, created_at, updated_at, course_id, xp_earned
+
+TABLE: user_badges (5 rows)
+  Columns: id, user_id, badge_id, earned_at
+
+TABLE: badges (15 rows)
+  Columns: id, name, description, icon, color, category, requirement_type, requirement_value, created_at
+
+TABLE: categories (null rows)
+  Columns: 
+
+TABLE: quiz_attempts (1 rows)
+  Columns: id, quiz_id, user_id, score, points_earned, total_points, time_spent_seconds, status, passed, started_at, completed_at, created_at
+
+TABLE: quiz_answers (null rows)
+  Columns: 
+
+TABLE: certificates (null rows)
+  Columns: 
+
+TABLE: user_streaks (null rows)
+  Columns: 
+
+TABLE: xp_transactions (null rows)
+  Columns: 
+
+TABLE: notifications (0 rows)
+  Columns: 
+
+TABLE: course_categories (null rows)
+  Columns: 
+
+TABLE: lesson_content (null rows)
+  Columns: 
+
+TABLE: user_achievements (null rows)
+  Columns: 
+
+TABLE: achievements (null rows)
+  Columns: 
+
+
+--- RPC FUNCTIONS ---
+RPC get_top_learners: FAIL - column p.user_id does not exist
+RPC get_leaderboard_with_context: FAIL - column p.user_id does not exist
+RPC get_user_rank: FAIL - column p.user_id does not exist
+RPC refresh_leaderboard: OK (object)
+
+
+--- PROFILES SAMPLE ---
+{"id":"3dfa9762-add8-4cfa-9967-fb95042ff503","email":"libanjoe7@gmail.com","full_name":"Joe  Liban","role":"admin","created_at":"2025-09-05T00:15:53.837742+00:00","updated_at":"2025-09-05T00:17:20.866733+00:00","first_name":"Joe ","last_name":"Liban","status":"active","last_login_at":null,"login_count":0,"banned_at":null,"banned_by":null,"ban_reason":null,"deactivated_at":null,"deactivated_by":null,"total_xp":0,"level":1}
+{"id":"29ae547b-760f-4dae-92fe-79a031a7a520","email":"kiptooelvis084@gmail.com","full_name":"Elvis Kwonyike ","role":"user","created_at":"2025-10-04T08:16:42.788298+00:00","updated_at":"2025-10-04T08:16:42.788298+00:00","first_name":"Elvis","last_name":"Kwonyike ","status":"active","last_login_at":null,"login_count":0,"banned_at":null,"banned_by":null,"ban_reason":null,"deactivated_at":null,"deactivated_by":null,"total_xp":0,"level":1}
+{"id":"8e9ad57b-9106-4a78-bad2-7edc6ac0c678","email":"elishaseme99@gmail.com","full_name":" ","role":"user","created_at":"2025-10-06T07:25:54.060874+00:00","updated_at":"2025-10-06T07:25:54.060874+00:00","first_name":null,"last_name":null,"status":"active","last_login_at":null,"login_count":0,"banned_at":null,"banned_by":null,"ban_reason":null,"deactivated_at":null,"deactivated_by":null,"total_xp":0,"level":1}
+{"id":"e97bc594-38c2-4e25-9721-54630c36c2a7","email":"kebasomor12@gmail.com","full_name":"Morara Kebaso","role":"user","created_at":"2025-10-06T14:28:56.189168+00:00","updated_at":"2025-10-06T14:28:56.189168+00:00","first_name":"Morara","last_name":"Kebaso","status":"active","last_login_at":null,"login_count":0,"banned_at":null,"banned_by":null,"ban_reason":null,"deactivated_at":null,"deactivated_by":null,"total_xp":0,"level":1}
+{"id":"7668ca34-3d96-4908-a829-b9dd58f6d77f","email":"briztechsolutions@gmail.com","full_name":"Brian  Briz","role":"user","created_at":"2025-10-06T18:13:53.79714+00:00","updated_at":"2025-10-06T18:13:53.79714+00:00","first_name":"Brian ","last_name":"Briz","status":"active","last_login_at":null,"login_count":0,"banned_at":null,"banned_by":null,"ban_reason":null,"deactivated_at":null,"deactivated_by":null,"total_xp":0,"level":1}
+
+
+--- USER_PROGRESS SAMPLE ---
+{"id":"9aa31060-09d4-4b9b-b6fb-078186d67edb","user_id":"3dfa9762-add8-4cfa-9967-fb95042ff503","module_id":"5fb2cd5f-97ea-4fa9-930e-0b5fe7c8fec7","status":"completed","progress_percentage":100,"time_spent_minutes":0,"started_at":null,"completed_at":"2026-02-11T19:02:43.689+00:00","last_accessed_at":"2026-02-11T19:02:44.465216+00:00","notes":null,"created_at":"2026-02-11T19:02:44.465216+00:00","updated_at":"2026-02-11T19:02:44.465216+00:00","course_id":null,"xp_earned":0}
+{"id":"0a53d446-3528-4d90-a34e-02eab4a4c941","user_id":"3dfa9762-add8-4cfa-9967-fb95042ff503","module_id":"2fc5f6be-0603-449b-afc2-22c890e4d3b4","status":"completed","progress_percentage":100,"time_spent_minutes":0,"started_at":null,"completed_at":"2026-02-11T19:05:56.022+00:00","last_accessed_at":"2026-02-11T19:05:56.768187+00:00","notes":null,"created_at":"2026-02-11T19:05:56.768187+00:00","updated_at":"2026-02-11T19:05:56.768187+00:00","course_id":null,"xp_earned":0}
+{"id":"dda1aa79-b10f-469f-b2c7-a36f926c9c4e","user_id":"3dfa9762-add8-4cfa-9967-fb95042ff503","module_id":"d0ba85a7-0029-4a88-a2be-13f7cf6811cf","status":"completed","progress_percentage":100,"time_spent_minutes":0,"started_at":null,"completed_at":"2026-02-11T19:08:04.826+00:00","last_accessed_at":"2026-02-11T19:02:43.941494+00:00","notes":null,"created_at":"2026-02-11T19:02:43.941494+00:00","updated_at":"2026-02-11T19:08:05.528269+00:00","course_id":null,"xp_earned":0}
+{"id":"5af5eb95-410f-4d8f-b76f-6f5c98db3ea4","user_id":"08be0480-70a5-4e3d-9c22-e4f789a90d7b","module_id":"301e2044-2cf5-47f1-a652-df524daa68e2","status":"completed","progress_percentage":100,"time_spent_minutes":0,"started_at":null,"completed_at":"2026-02-13T00:52:54.231+00:00","last_accessed_at":"2026-02-13T00:52:54.410816+00:00","notes":null,"created_at":"2026-02-13T00:52:54.410816+00:00","updated_at":"2026-02-13T00:52:54.410816+00:00","course_id":null,"xp_earned":0}
+{"id":"2bfdbafd-3ddf-47bb-b0aa-f16a9bbaf6c3","user_id":"08be0480-70a5-4e3d-9c22-e4f789a90d7b","module_id":"b4f4a650-6c2a-436c-aac7-4be5f56cf958","status":"completed","progress_percentage":100,"time_spent_minutes":0,"started_at":null,"completed_at":"2026-02-13T07:59:58.611+00:00","last_accessed_at":"2026-02-13T07:59:59.497156+00:00","notes":null,"created_at":"2026-02-13T07:59:59.497156+00:00","updated_at":"2026-02-13T07:59:59.497156+00:00","course_id":null,"xp_earned":0}
+
+
+--- COURSE_ENROLLMENTS SAMPLE ---
+{"id":"c9b000fd-4ec9-4281-ae0b-1171c6684559","user_id":"3dfa9762-add8-4cfa-9967-fb95042ff503","course_id":"40f2a65d-b865-42b6-8132-6c24563f8cec","enrolled_at":"2025-10-06T04:49:32.920264+00:00","status":"active","progress_percentage":0,"completed_at":null,"certificate_issued":false,"last_accessed_at":"2025-10-06T04:49:32.920264+00:00","created_at":"2025-10-06T04:49:32.920264+00:00","updated_at":"2026-02-11T19:03:18.641978+00:00"}
+{"id":"205a28b6-8381-4f9a-b2e1-742f774428c8","user_id":"3dfa9762-add8-4cfa-9967-fb95042ff503","course_id":"eeb91b89-9485-47c4-9ed4-59e24167195e","enrolled_at":"2025-10-11T09:55:25.212053+00:00","status":"active","progress_percentage":0,"completed_at":null,"certificate_issued":false,"last_accessed_at":"2025-10-11T09:55:25.212053+00:00","created_at":"2025-10-11T09:55:25.212053+00:00","updated_at":"2026-02-11T19:03:19.072548+00:00"}
+{"id":"4c6f5623-274d-4cce-9130-14993d058ddc","user_id":"3dfa9762-add8-4cfa-9967-fb95042ff503","course_id":"e2f8c178-2ab9-4b56-b922-7f6081aa1b88","enrolled_at":"2025-10-06T04:36:59.214176+00:00","status":"active","progress_percentage":0,"completed_at":null,"certificate_issued":false,"last_accessed_at":"2025-10-06T04:36:59.214176+00:00","created_at":"2025-10-06T04:36:59.214176+00:00","updated_at":"2026-02-11T19:03:19.488232+00:00"}
+{"id":"7d691ce5-0629-4b7a-ac26-1fa5486b21f0","user_id":"3dfa9762-add8-4cfa-9967-fb95042ff503","course_id":"a911c3e7-f138-4fa2-bfaf-9427841231b1","enrolled_at":"2025-10-26T22:45:10.701219+00:00","status":"active","progress_percentage":0,"completed_at":null,"certificate_issued":false,"last_accessed_at":"2025-10-26T22:45:10.701219+00:00","created_at":"2025-10-26T22:45:10.701219+00:00","updated_at":"2026-02-11T19:03:19.944178+00:00"}
+{"id":"4517e01d-ff96-44ea-9009-da9e5dc63eca","user_id":"3dfa9762-add8-4cfa-9967-fb95042ff503","course_id":"66fd1314-12e3-44b7-b9c9-4ab71a03d775","enrolled_at":"2025-10-15T16:42:16.561122+00:00","status":"active","progress_percentage":0,"completed_at":null,"certificate_issued":false,"last_accessed_at":"2025-10-15T16:42:16.561122+00:00","created_at":"2025-10-15T16:42:16.561122+00:00","updated_at":"2026-02-11T19:03:20.436265+00:00"}
+
+
+--- USER_BADGES SAMPLE ---
+{"id":"d77cfa1b-0355-4ace-a353-9459c9af7585","user_id":"08be0480-70a5-4e3d-9c22-e4f789a90d7b","badge_id":"516a86f7-7798-44e7-98ef-a0dc89bed151","earned_at":"2026-02-13T08:00:04.287003"}
+{"id":"c8e9d6b8-6d90-4451-bde8-f534b6ea9fa9","user_id":"08be0480-70a5-4e3d-9c22-e4f789a90d7b","badge_id":"a7e807ff-8675-4e32-b412-6473bc1bda97","earned_at":"2026-02-13T08:00:04.533385"}
+{"id":"d4836a60-b603-4563-823e-004e7fabe85d","user_id":"08be0480-70a5-4e3d-9c22-e4f789a90d7b","badge_id":"6de26902-01ea-44cf-8479-d0279fb8d242","earned_at":"2026-02-13T08:24:09.772348"}
+{"id":"2ae734b4-bfc3-48ab-9717-80b0ccfe4074","user_id":"08be0480-70a5-4e3d-9c22-e4f789a90d7b","badge_id":"b0a4e4a0-fcbb-4942-af93-15ae01b8724f","earned_at":"2026-02-14T15:30:25.093588"}
+{"id":"d4358a98-d513-48c5-be12-2aa586ca0252","user_id":"08be0480-70a5-4e3d-9c22-e4f789a90d7b","badge_id":"65201d8a-a8dd-4fc0-bc91-5f9da9b76e01","earned_at":"2026-02-14T15:30:36.6029"}
+
+
+--- XP_TRANSACTIONS SAMPLE ---
+Error: Could not find the table 'public.xp_transactions' in the schema cache
+
+
+--- QUIZ_ATTEMPTS SAMPLE ---
+{"id":"88eb6ce3-35c6-4b79-8ead-6db74773baca","quiz_id":"68d9cc58-c40a-4370-9d0f-41fd8e2a5a39","user_id":"08be0480-70a5-4e3d-9c22-e4f789a90d7b","score":0,"points_earned":0,"total_points":20,"time_spent_seconds":25,"status":"completed","passed":false,"started_at":"2026-02-13T15:19:12.437+00:00","completed_at":"2026-02-13T15:19:37.903+00:00","created_at":"2026-02-13T15:19:13.799199+00:00"}
