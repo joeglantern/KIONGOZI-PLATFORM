@@ -8,19 +8,23 @@ export async function GET(request: Request) {
     const next = searchParams.get('next') ?? '/dashboard';
 
     if (code) {
-        const supabase = await createClient();
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (!error) {
-            const forwardedHost = request.headers.get('x-forwarded-host'); // original origin before load balancer
-            const isLocalEnv = origin.startsWith('http://localhost');
-            if (isLocalEnv) {
-                // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-                return NextResponse.redirect(`${origin}${next}`);
-            } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}`);
-            } else {
-                return NextResponse.redirect(`${origin}${next}`);
+        try {
+            const supabase = await createClient();
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if (!error) {
+                const forwardedHost = request.headers.get('x-forwarded-host'); // original origin before load balancer
+                const isLocalEnv = origin.startsWith('http://localhost');
+                if (isLocalEnv) {
+                    return NextResponse.redirect(`${origin}${next}`);
+                } else if (forwardedHost) {
+                    return NextResponse.redirect(`https://${forwardedHost}${next}`);
+                } else {
+                    return NextResponse.redirect(`${origin}${next}`);
+                }
             }
+            console.error('Auth callback error:', error);
+        } catch (e) {
+            console.error('Auth callback exception:', e);
         }
     }
 
