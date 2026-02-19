@@ -150,7 +150,7 @@ export default function CertificatesPage() {
                 const enriched = await Promise.all(data.map(async (cert) => {
                     const { data: courseData } = await supabase
                         .from('courses')
-                        .select('title, thumbnail_url')
+                        .select('title, module_categories(name)')
                         .eq('id', cert.course_id)
                         .single();
                     return { ...cert, course: courseData };
