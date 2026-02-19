@@ -13,14 +13,14 @@ import {
     Sparkles
 } from 'lucide-react';
 import { useUser } from '@/app/contexts/UserContext';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 export function InstructorSidebar() {
     const pathname = usePathname();
     const { user } = useUser();
     const router = useRouter();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();

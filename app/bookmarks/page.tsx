@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
 import {
@@ -33,7 +33,7 @@ interface SavedItem {
 }
 
 export default function BookmarksPage() {
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const { user } = useUser();
     const [bookmarks, setBookmarks] = useState<SavedItem[]>([]);
     const [loading, setLoading] = useState(true);

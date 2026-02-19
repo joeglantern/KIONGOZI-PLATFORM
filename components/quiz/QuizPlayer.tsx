@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { Button } from '@/components/ui/button';
 import {
     ChevronRight,
@@ -46,7 +46,7 @@ interface Option {
 }
 
 export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerProps) {
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const [loading, setLoading] = useState(true);
     const [quiz, setQuiz] = useState<QuizData | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);

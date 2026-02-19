@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
 import {
@@ -43,7 +43,7 @@ interface GroupedNotes {
 }
 
 export default function NotesPage() {
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const { user } = useUser();
     const [notes, setNotes] = useState<NoteEntry[]>([]);
     const [loading, setLoading] = useState(true);

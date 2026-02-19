@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,7 +35,7 @@ export default function EditCoursePage() {
     const params = useParams();
     const router = useRouter();
     const { user } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const { theme } = useTheme();
     const courseId = params.id as string;
 

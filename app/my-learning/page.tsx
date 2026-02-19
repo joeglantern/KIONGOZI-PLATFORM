@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -25,7 +25,7 @@ const ITEMS_PER_PAGE = 6;
 
 export default function MyLearningPage() {
     const { user } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
 
     const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);

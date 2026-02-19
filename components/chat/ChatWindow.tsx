@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import {
     Send,
@@ -37,7 +37,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ roomId, recipientName, recipientRole }: ChatWindowProps) {
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const { user } = useUser();
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');

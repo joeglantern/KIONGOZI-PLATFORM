@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import {
@@ -23,7 +23,7 @@ interface CourseStats {
 
 export default function InstructorAnalyticsPage() {
     const { user } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const [courses, setCourses] = useState<CourseStats[]>([]);
     const [totalStudents, setTotalStudents] = useState(0);
     const [loading, setLoading] = useState(true);

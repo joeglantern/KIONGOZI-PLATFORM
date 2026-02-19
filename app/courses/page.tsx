@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { CourseCard } from '@/components/courses/CourseCard';
 import { BookOpen, Loader2, Search, Filter, X } from 'lucide-react';
@@ -17,7 +17,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export default function CoursesPage() {
     const { user } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
 
     const [courses, setCourses] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);

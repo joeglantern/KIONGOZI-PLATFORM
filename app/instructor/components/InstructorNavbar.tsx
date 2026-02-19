@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from '@/app/contexts/UserContext';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ interface InstructorNavbarProps {
 export function InstructorNavbar({ onMenuClick }: InstructorNavbarProps) {
     const { user, profile } = useUser();
     const router = useRouter();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const { theme, toggleTheme } = useTheme();
 
     const handleSignOut = async () => {

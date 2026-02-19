@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { Bookmark, BookmarkCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ export function BookmarkButton({
     size = 'md',
     showLabel = false
 }: BookmarkButtonProps) {
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const { user } = useUser();
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [loading, setLoading] = useState(true);

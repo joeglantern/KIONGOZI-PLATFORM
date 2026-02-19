@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import {
     MessageSquare,
@@ -33,7 +33,7 @@ interface RoomListProps {
 }
 
 export function RoomList({ onSelectRoom, currentRoomId }: RoomListProps) {
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const { user } = useUser();
     const [searchQuery, setSearchQuery] = useState('');
 

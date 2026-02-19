@@ -3,14 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { Button } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
 import { UserPlus, Mail, Loader2, AlertCircle, CheckCircle, Sparkles, User } from 'lucide-react';
 
 export default function SignupPage() {
   const router = useRouter();
-  const supabase = createBrowserClient();
+  const supabase = createClient();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');

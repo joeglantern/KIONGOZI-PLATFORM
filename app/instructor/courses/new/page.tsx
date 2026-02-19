@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,7 +24,7 @@ import { useEffect } from 'react';
 export default function CreateCoursePage() {
     const { user } = useUser();
     const router = useRouter();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const [loading, setLoading] = useState(false);
     const { theme } = useTheme();
     const fileInputRef = useRef<HTMLInputElement>(null);

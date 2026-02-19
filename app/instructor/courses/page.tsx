@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +32,7 @@ interface CourseData {
 
 export default function InstructorCoursesPage() {
     const { user } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
 import {
@@ -30,7 +30,7 @@ import { ContinueLearningBanner } from '@/components/dashboard/ContinueLearningB
 
 export default function DashboardPage() {
     const { user, profile } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
 
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [badges, setBadges] = useState<any[]>([]);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { Button } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
 import { Loader2, AlertCircle, CheckCircle, Sparkles, Lock } from 'lucide-react';
@@ -11,7 +11,7 @@ import Link from 'next/link';
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createBrowserClient();
+  const supabase = createClient();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

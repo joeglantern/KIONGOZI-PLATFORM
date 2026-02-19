@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
@@ -34,7 +34,7 @@ export function Navbar() {
     const role = profile?.role;
     const router = useRouter();
     const pathname = usePathname();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const { theme, toggleTheme } = useTheme();

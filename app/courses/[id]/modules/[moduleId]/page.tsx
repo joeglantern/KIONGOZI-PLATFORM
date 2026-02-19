@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { MarkdownRenderer } from '@/components/learning/MarkdownRenderer';
 import { ModuleSidebar } from '@/components/learning/ModuleSidebar';
@@ -47,7 +47,7 @@ export default function ModuleViewerPage() {
     const params = useParams();
     const router = useRouter();
     const { user, refreshProfile } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const queryClient = useQueryClient();
 
     const courseId = params.id as string;

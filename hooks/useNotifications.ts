@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 
 export interface Notification {
@@ -18,7 +18,7 @@ export interface Notification {
 
 export function useNotifications() {
     const { user } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
 

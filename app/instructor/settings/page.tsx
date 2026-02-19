@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import {
     Settings,
     Bell,
@@ -34,7 +34,7 @@ const tabs = [
 export default function InstructorSettingsPage() {
     const { user, profile, refreshProfile } = useUser();
     const { contrast, setContrast, fontScale, setFontScale } = useTheme();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
     const [activeTab, setActiveTab] = useState('account');
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);

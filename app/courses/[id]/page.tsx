@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { ModuleList } from '@/components/courses/ModuleList';
 import {
@@ -31,7 +31,7 @@ export default function CourseDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { user } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
 
     const courseId = params.id as string;
 

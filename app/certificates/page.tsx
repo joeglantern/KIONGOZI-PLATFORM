@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/app/utils/supabase/client';
+import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -86,7 +86,7 @@ const generateCertificateHTML = (cert: any, userName: string) => {
 
 export default function CertificatesPage() {
     const { user, profile } = useUser();
-    const supabase = createBrowserClient();
+    const supabase = createClient();
 
     const [certificates, setCertificates] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
