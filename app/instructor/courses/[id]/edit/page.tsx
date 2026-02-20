@@ -171,7 +171,7 @@ export default function EditCoursePage() {
                 title: moduleData.learning_modules.title,
                 description: moduleData.learning_modules.description || '',
                 content: moduleData.learning_modules.content || '',
-                content_type: moduleData.learning_modules.content_type || 'text',
+                media_type: moduleData.learning_modules.media_type || 'text',
                 media_url: moduleData.learning_modules.media_url || '',
                 transcription: moduleData.learning_modules.transcription || '',
                 estimated_duration_minutes: moduleData.learning_modules.estimated_duration_minutes || 30,
@@ -181,7 +181,7 @@ export default function EditCoursePage() {
                 title: '',
                 description: '',
                 content: '',
-                content_type: 'text',
+                media_type: 'text',
                 media_url: '',
                 transcription: '',
                 estimated_duration_minutes: 30,
@@ -205,7 +205,7 @@ export default function EditCoursePage() {
                         title: editingModule.title,
                         description: editingModule.description,
                         content: editingModule.content,
-                        content_type: editingModule.content_type,
+                        media_type: editingModule.media_type,
                         media_url: editingModule.media_url,
                         transcription: editingModule.transcription,
                         estimated_duration_minutes: editingModule.estimated_duration_minutes,
@@ -221,7 +221,7 @@ export default function EditCoursePage() {
                         title: editingModule.title,
                         description: editingModule.description,
                         content: editingModule.content,
-                        content_type: editingModule.content_type,
+                        media_type: editingModule.media_type,
                         media_url: editingModule.media_url,
                         transcription: editingModule.transcription,
                         estimated_duration_minutes: editingModule.estimated_duration_minutes,
@@ -285,7 +285,7 @@ export default function EditCoursePage() {
             setEditingModule((prev: any) => ({
                 ...prev,
                 media_url: publicUrl,
-                content_type: file.type.startsWith('video/') ? 'video' : 'audio'
+                media_type: file.type.startsWith('video/') ? 'video' : 'audio'
             }));
         } catch (error) {
             console.error('Error uploading media:', error);
@@ -590,7 +590,7 @@ export default function EditCoursePage() {
                                                     <h3 className="font-bold text-gray-900 dark:text-white">{m.learning_modules.title}</h3>
                                                     <div className="flex items-center gap-3 mt-1">
                                                         <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest border border-gray-100 dark:border-gray-800 px-2 py-0.5 rounded">
-                                                            {m.learning_modules.content_type || 'text'}
+                                                            {m.learning_modules.media_type || 'text'}
                                                         </span>
                                                         <span className="text-[10px] font-bold text-gray-400">
                                                             {m.learning_modules.estimated_duration_minutes} min
@@ -670,8 +670,8 @@ export default function EditCoursePage() {
                                                 {['text', 'video', 'audio'].map((type) => (
                                                     <button
                                                         key={type}
-                                                        onClick={() => setEditingModule({ ...editingModule, content_type: type })}
-                                                        className={`flex-1 py-4 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest transition-all ${editingModule.content_type === type ? 'bg-orange-50 text-orange-600 border-orange-500' : 'bg-white dark:bg-gray-800 text-gray-400 border-gray-100 dark:border-gray-800'}`}
+                                                        onClick={() => setEditingModule({ ...editingModule, media_type: type })}
+                                                        className={`flex-1 py-4 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest transition-all ${editingModule.media_type === type ? 'bg-orange-50 text-orange-600 border-orange-500' : 'bg-white dark:bg-gray-800 text-gray-400 border-gray-100 dark:border-gray-800'}`}
                                                     >
                                                         {type}
                                                     </button>
@@ -679,7 +679,7 @@ export default function EditCoursePage() {
                                             </div>
                                         </div>
 
-                                        {editingModule.content_type !== 'text' && (
+                                        {editingModule.media_type !== 'text' && (
                                             <div className="space-y-4">
                                                 <label className="text-xs font-black text-gray-400 uppercase tracking-widest">
                                                     Media Upload (Up to 1GB)
@@ -691,7 +691,7 @@ export default function EditCoursePage() {
                                                     {editingModule.media_url ? (
                                                         <div className="w-full h-full flex items-center justify-center p-8 bg-black/5">
                                                             <div className="text-center">
-                                                                {editingModule.content_type === 'video' ? <Video className="w-12 h-12 text-orange-500 mx-auto mb-2" /> : <Music className="w-12 h-12 text-orange-500 mx-auto mb-2" />}
+                                                                {editingModule.media_type === 'video' ? <Video className="w-12 h-12 text-orange-500 mx-auto mb-2" /> : <Music className="w-12 h-12 text-orange-500 mx-auto mb-2" />}
                                                                 <p className="text-xs font-bold text-gray-500 truncate max-w-[200px]">{editingModule.media_url.split('/').pop()}</p>
                                                             </div>
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -703,7 +703,7 @@ export default function EditCoursePage() {
                                                             <div className="w-14 h-14 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-center mx-auto mb-4">
                                                                 {uploadingMedia ? <Loader2 className="w-6 h-6 animate-spin text-orange-500" /> : <UploadCloud className="w-6 h-6 text-gray-300" />}
                                                             </div>
-                                                            <p className="text-xs font-bold text-gray-900 dark:text-white">Click to Upload {editingModule.content_type}</p>
+                                                            <p className="text-xs font-bold text-gray-900 dark:text-white">Click to Upload {editingModule.media_type}</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -712,7 +712,7 @@ export default function EditCoursePage() {
                                                     ref={mediaInputRef}
                                                     onChange={handleMediaUpload}
                                                     className="hidden"
-                                                    accept={editingModule.content_type === 'video' ? 'video/*' : 'audio/*'}
+                                                    accept={editingModule.media_type === 'video' ? 'video/*' : 'audio/*'}
                                                 />
                                             </div>
                                         )}

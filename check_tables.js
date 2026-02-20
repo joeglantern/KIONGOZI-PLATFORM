@@ -23,7 +23,7 @@ async function checkTables() {
     if (error) {
         console.error("Error checking table:", error);
     } else {
-        console.log("Table exists! Row count:", data); // valid response means table exists (count might be null if head:true but that's fine, no error is key)
+        console.log("Table exists! Row count:", data);
     }
 }
 

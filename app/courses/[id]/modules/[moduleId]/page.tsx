@@ -69,7 +69,7 @@ export default function ModuleViewerPage() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('courses')
-                .select('id, title, thumbnail_url')
+                .select('id, title')
                 .eq('id', courseId)
                 .single();
             if (error) throw error;
@@ -92,7 +92,7 @@ export default function ModuleViewerPage() {
                         title,
                         description,
                         estimated_duration_minutes,
-                        content_type
+                        media_type
                     )
                 `)
                 .eq('course_id', courseId)
@@ -563,18 +563,17 @@ export default function ModuleViewerPage() {
                     <main className="flex-1 overflow-y-auto overflow-x-hidden">
                         <div className="max-w-4xl mx-auto px-4 py-8 sm:px-8 sm:py-12">
                             {/* Conditional Media Player */}
-                            {moduleData.content_type === 'video' && moduleData.media_url && (
+                            {moduleData.media_type === 'video' && moduleData.media_url && (
                                 <div className="mb-10 rounded-2xl overflow-hidden aspect-video bg-black relative group shadow-2xl border border-gray-800">
                                     <video
                                         src={moduleData.media_url}
                                         controls
                                         className="w-full h-full object-contain"
-                                        poster={course.thumbnail_url}
                                     />
                                 </div>
                             )}
 
-                            {moduleData.content_type === 'audio' && moduleData.media_url && (
+                            {moduleData.media_type === 'audio' && moduleData.media_url && (
                                 <div className="mb-10 p-8 rounded-3xl bg-orange-500 shadow-xl border border-orange-400">
                                     <div className="flex flex-col items-center gap-6">
                                         <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white shadow-inner">
@@ -593,7 +592,7 @@ export default function ModuleViewerPage() {
                                 </div>
                             )}
 
-                            {moduleData.content_type === 'text' && (
+                            {moduleData.media_type === 'text' && (
                                 <div className="mb-10 rounded-2xl overflow-hidden aspect-video bg-gray-100 relative group border border-gray-200 shadow-sm">
                                     <div className="absolute inset-0 bg-gray-50 mix-blend-overlay" />
                                     <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
