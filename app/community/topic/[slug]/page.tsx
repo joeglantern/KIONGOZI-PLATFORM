@@ -14,9 +14,10 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
     const { data: { user } } = await supabase.auth.getUser();
 
     // Admin client for profile lookups
+    const fallbackKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+        fallbackKey!
     );
 
     // Get topic details
@@ -50,13 +51,17 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
     let postsWithProfiles = [];
     if (posts && posts.length > 0) {
         const userIds = Array.from(new Set(posts.map(p => p.user_id).filter(Boolean)));
+        let profiles = null;
 
-        const { data: profiles } = await supabaseAdmin
-            .from('profiles')
-            .select('id, full_name, avatar_url')
-            .in('id', userIds);
+        if (userIds.length > 0) {
+            const { data } = await supabaseAdmin
+                .from('profiles')
+                .select('id, full_name, avatar_url')
+                .in('id', userIds as string[]);
+            profiles = data;
+        }
 
-        const profileMap = new Map(profiles?.map(p => [p.id, p]));
+        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
 
         postsWithProfiles = posts.map(post => ({
             ...post,

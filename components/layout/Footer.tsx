@@ -71,12 +71,12 @@ export function Footer() {
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/instructors" className="hover:text-orange-400 transition-colors">
+                                <Link href="/community" className="hover:text-orange-400 transition-colors">
                                     Become an Instructor
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/pricing" className="hover:text-orange-400 transition-colors">
+                                <Link href="/community" className="hover:text-orange-400 transition-colors">
                                     Pricing
                                 </Link>
                             </li>
@@ -98,12 +98,12 @@ export function Footer() {
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/privacy" className="hover:text-orange-400 transition-colors">
+                                <Link href="/community" className="hover:text-orange-400 transition-colors">
                                     Privacy Policy
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/terms" className="hover:text-orange-400 transition-colors">
+                                <Link href="/community" className="hover:text-orange-400 transition-colors">
                                     Terms of Service
                                 </Link>
                             </li>
@@ -117,9 +117,7 @@ export function Footer() {
                         <p className="text-gray-400 text-sm">
                             © {currentYear} Kiongozi LMS. All rights reserved.
                         </p>
-                        <p className="text-gray-400 text-sm flex items-center mt-4 md:mt-0">
-                            Made with <Heart className="w-4 h-4 mx-1 text-red-500 fill-current" /> for Kenya's future leaders
-                        </p>
+
                     </div>
                 </div>
             </div>
