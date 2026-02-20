@@ -199,30 +199,6 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
-
-      {/* Footer / Legal */}
-      <footer className="bg-gray-900 text-gray-400 py-12 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h3 className="text-white font-bold text-lg mb-4">The Kiongozi Platform</h3>
-            <p className="text-sm max-w-sm">
-              Our purpose is to empower Kenya's youth by providing an interactive learning platform focused on Green Tech, Innovation, Leadership, and Digital Literacy. We connect learners with real-world skills and community mentorship.
-            </p>
-          </div>
-          <div className="flex flex-col md:items-end space-y-3">
-            <h3 className="text-white font-bold text-lg mb-1">Legal & Resources</h3>
-            <Link href="/privacy-policy" className="text-sm hover:text-white transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="/terms-of-service" className="text-sm hover:text-white transition-colors">
-              Terms of Service
-            </Link>
-            <p className="text-xs pt-4 border-t border-gray-800 mt-2">
-              © {new Date().getFullYear()} Kiongozi.org. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
