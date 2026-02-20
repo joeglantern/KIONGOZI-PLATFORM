@@ -51,6 +51,23 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Civic/Climate Theme Extension
+        civic: {
+          green: {
+            DEFAULT: "#2E7D32", // Forest Green
+            light: "#4CAF50",
+            dark: "#1B5E20",
+          },
+          earth: {
+            DEFAULT: "#795548", // Brown
+            light: "#D7CCC8",
+            dark: "#3E2723",
+          },
+          clay: {
+            DEFAULT: "#D84315", // Burnt Orange
+            light: "#FFCCBC",
+          }
+        }
       },
       borderRadius: {
         lg: "var(--radius)",

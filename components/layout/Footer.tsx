@@ -61,12 +61,12 @@ export function Footer() {
                         <h3 className="text-white font-semibold mb-4">Platform</h3>
                         <ul className="space-y-2">
                             <li>
-                                <Link href="/browse" className="hover:text-orange-400 transition-colors">
+                                <Link href="/courses" className="hover:text-orange-400 transition-colors">
                                     Browse Courses
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/about" className="hover:text-orange-400 transition-colors">
+                                <Link href="/community" className="hover:text-orange-400 transition-colors">
                                     About Us
                                 </Link>
                             </li>
@@ -88,12 +88,12 @@ export function Footer() {
                         <h3 className="text-white font-semibold mb-4">Support</h3>
                         <ul className="space-y-2">
                             <li>
-                                <Link href="/help" className="hover:text-orange-400 transition-colors">
+                                <Link href="/community" className="hover:text-orange-400 transition-colors">
                                     Help Center
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/contact" className="hover:text-orange-400 transition-colors">
+                                <Link href="/community" className="hover:text-orange-400 transition-colors">
                                     Contact Us
                                 </Link>
                             </li>

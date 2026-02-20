@@ -15,19 +15,14 @@ import {
     Home,
     BookOpen,
     User,
+    Users,
     LogOut,
     Settings,
-    Search,
     GraduationCap,
     LayoutDashboard,
     Moon,
     Sun,
 } from 'lucide-react';
-
-interface NavbarProps {
-    user?: any;
-    role?: string;
-}
 
 export function Navbar() {
     const { user, profile } = useUser();
@@ -90,7 +85,7 @@ export function Navbar() {
                                         Home
                                     </Button>
                                 </Link>
-                                <Link href="/browse">
+                                <Link href="/courses">
                                     <Button
                                         variant="ghost"
                                         className={`${isActive('/browse') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
@@ -98,6 +93,16 @@ export function Navbar() {
                                     >
                                         <BookOpen className="w-4 h-4 mr-2" />
                                         Browse Courses
+                                    </Button>
+                                </Link>
+                                <Link href="/community">
+                                    <Button
+                                        variant="ghost"
+                                        className={`${isActive('/community') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
+                                            }`}
+                                    >
+                                        <Users className="w-4 h-4 mr-2" />
+                                        Community
                                     </Button>
                                 </Link>
                             </>
@@ -131,6 +136,16 @@ export function Navbar() {
                                     >
                                         <GraduationCap className="w-4 h-4 mr-2" />
                                         My Learning
+                                    </Button>
+                                </Link>
+                                <Link href="/community">
+                                    <Button
+                                        variant="ghost"
+                                        className={`${isActive('/community') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
+                                            }`}
+                                    >
+                                        <Users className="w-4 h-4 mr-2" />
+                                        Community
                                     </Button>
                                 </Link>
                                 {isInstructor && (
@@ -244,6 +259,12 @@ export function Navbar() {
                                         Browse Courses
                                     </Button>
                                 </Link>
+                                <Link href="/community" onClick={() => setMobileMenuOpen(false)}>
+                                    <Button variant="ghost" className="w-full justify-start">
+                                        <Users className="w-4 h-4 mr-2" />
+                                        Community
+                                    </Button>
+                                </Link>
                                 <div className="pt-3 border-t border-gray-200 space-y-2">
                                     <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
                                         <Button variant="outline" className="w-full">
@@ -275,6 +296,12 @@ export function Navbar() {
                                     <Button variant="ghost" className="w-full justify-start">
                                         <GraduationCap className="w-4 h-4 mr-2" />
                                         My Learning
+                                    </Button>
+                                </Link>
+                                <Link href="/community" onClick={() => setMobileMenuOpen(false)}>
+                                    <Button variant="ghost" className="w-full justify-start">
+                                        <Users className="w-4 h-4 mr-2" />
+                                        Community
                                     </Button>
                                 </Link>
                                 {isInstructor && (

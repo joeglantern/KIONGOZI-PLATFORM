@@ -73,6 +73,12 @@ export default function LandingPage() {
                   <span>Browse Courses</span>
                 </Button>
               </Link>
+              <Link href="/community">
+                <Button variant="outline" className="border-2 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-500 px-8 py-6 text-lg rounded-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
+                  <Users className="w-5 h-5" />
+                  <span>Join Community</span>
+                </Button>
+              </Link>
             </div>
 
             {/* Stats */}
