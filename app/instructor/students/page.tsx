@@ -18,7 +18,7 @@ import {
 
 interface StudentData {
     user_id: string;
-    full_name: string;
+    username: string;
     email: string;
     course_title: string;
     progress_percentage: number;
@@ -72,7 +72,7 @@ export default function InstructorStudentsPage() {
             const userIds = enrollments.map(e => e.user_id);
             const { data: profiles } = await supabase
                 .from('profiles')
-                .select('id, full_name, email, avatar_url')
+                .select('id, username, email, avatar_url')
                 .in('id', userIds);
 
             const profileMap = Object.fromEntries(profiles?.map(p => [p.id, p]) || []);
@@ -82,7 +82,7 @@ export default function InstructorStudentsPage() {
                 const profile = profileMap[e.user_id];
                 return {
                     user_id: e.user_id,
-                    full_name: profile?.full_name || 'Unknown User',
+                    username: profile?.username || 'unknown_user',
                     email: profile?.email || '',
                     avatar_url: profile?.avatar_url,
                     course_title: courseMap[e.course_id] || 'Unknown Course',
@@ -101,7 +101,7 @@ export default function InstructorStudentsPage() {
     };
 
     const filteredStudents = students.filter(s =>
-        s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.course_title.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -164,11 +164,11 @@ export default function InstructorStudentsPage() {
                                         <tr key={`${student.user_id}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
-                                                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                                                        {student.full_name[0]}
+                                                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0 uppercase tracking-widest">
+                                                        {student.username[0]}
                                                     </div>
                                                     <div className="ml-4">
-                                                        <div className="text-sm font-bold text-gray-900 dark:text-white">{student.full_name}</div>
+                                                        <div className="text-sm font-bold text-gray-900 dark:text-white">@{student.username}</div>
                                                         <div className="text-sm text-gray-500">{student.email}</div>
                                                     </div>
                                                 </div>

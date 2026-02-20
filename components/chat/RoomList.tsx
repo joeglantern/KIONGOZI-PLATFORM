@@ -21,7 +21,7 @@ interface Room {
     participants?: {
         user_id: string;
         profiles: {
-            full_name: string;
+            username: string;
             role: string;
         };
     }[];
@@ -64,7 +64,7 @@ export function RoomList({ onSelectRoom, currentRoomId }: RoomListProps) {
                     participants:chat_participants(
                         user_id,
                         profiles:profiles(
-                            full_name,
+                            username,
                             role
                         )
                     )
@@ -82,7 +82,7 @@ export function RoomList({ onSelectRoom, currentRoomId }: RoomListProps) {
     const filteredRooms = rooms.filter(room => {
         if (room.type === 'private') {
             const otherParticipant = room.participants?.find(p => p.user_id !== user?.id);
-            const name = otherParticipant?.profiles?.full_name || 'Anonymous';
+            const name = otherParticipant?.profiles?.username || 'Anonymous';
             return name.toLowerCase().includes(searchQuery.toLowerCase());
         }
         return (room.name || 'Group Chat').toLowerCase().includes(searchQuery.toLowerCase());
@@ -129,7 +129,7 @@ export function RoomList({ onSelectRoom, currentRoomId }: RoomListProps) {
 
                             if (room.type === 'private') {
                                 const otherParticipant = room.participants?.find(p => p.user_id !== user?.id);
-                                displayName = otherParticipant?.profiles?.full_name || 'Anonymous';
+                                displayName = otherParticipant?.profiles?.username ? `@${otherParticipant.profiles.username}` : 'Anonymous';
                                 displayRole = otherParticipant?.profiles?.role || 'Member';
                                 displayIcon = <User className="w-5 h-5" />;
                             }

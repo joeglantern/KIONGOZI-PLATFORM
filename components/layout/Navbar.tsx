@@ -25,8 +25,7 @@ import {
 } from 'lucide-react';
 
 export function Navbar() {
-    const { user, profile } = useUser();
-    const role = profile?.role;
+    const { user, profile, signOut } = useUser();
     const router = useRouter();
     const pathname = usePathname();
     const supabase = createClient();
@@ -41,12 +40,6 @@ export function Navbar() {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
-
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        router.push('/');
-        router.refresh();
-    };
 
     const isActive = (path: string) => pathname === path;
     const isInstructor = profile?.role === 'instructor' || profile?.role === 'admin';
@@ -189,7 +182,7 @@ export function Navbar() {
                                             <p className="text-sm font-medium text-gray-900 truncate">
                                                 {user.email}
                                             </p>
-                                            <p className="text-xs text-gray-500 capitalize">{role || 'user'}</p>
+                                            <p className="text-xs text-gray-500 capitalize">{profile?.role || 'user'}</p>
                                         </div>
                                         <div className="py-1">
                                             <Link href="/profile">
@@ -205,7 +198,7 @@ export function Navbar() {
                                                 </button>
                                             </Link>
                                             <button
-                                                onClick={handleSignOut}
+                                                onClick={signOut}
                                                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
                                             >
                                                 <LogOut className="w-4 h-4" />
@@ -327,7 +320,7 @@ export function Navbar() {
                                     </Link>
                                     <Button
                                         onClick={() => {
-                                            handleSignOut();
+                                            signOut();
                                             setMobileMenuOpen(false);
                                         }}
                                         variant="ghost"

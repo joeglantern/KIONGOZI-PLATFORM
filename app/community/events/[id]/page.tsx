@@ -27,7 +27,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     // Fetch profile separately to avoid RLS join failures
     const { data: creatorProfile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('username')
         .eq('id', event.created_by)
         .maybeSingle();
 
@@ -86,7 +86,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">{event.title}</h1>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-                            <span>Organized by <span className="font-medium text-foreground">{creatorProfile?.full_name || 'Anonymous'}</span></span>
+                            <span>Organized by <span className="font-medium text-foreground">@{creatorProfile?.username || 'anonymous'}</span></span>
                         </div>
 
                         <div className="space-y-4 border-t border-b border-border py-6 mb-6">

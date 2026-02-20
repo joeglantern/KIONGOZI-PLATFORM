@@ -24,7 +24,7 @@ interface Message {
     is_read: boolean;
     created_at: string;
     profiles?: {
-        full_name: string;
+        username: string;
         avatar_url?: string;
         role: string;
     };
@@ -81,7 +81,7 @@ export function ChatWindow({ roomId, recipientName, recipientRole }: ChatWindowP
                 .select(`
                     *,
                     profiles:sender_id (
-                        full_name,
+                        username,
                         role
                     )
                 `)

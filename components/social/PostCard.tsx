@@ -101,7 +101,7 @@ export default function PostCard({ post, currentUserId }: PostProps) {
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: `Post by ${post.profiles?.full_name || 'Anonymous'} on Kiongozi`,
+                    title: `Post by @${post.profiles?.username || 'anonymous'} on Kiongozi`,
                     text: post.content.slice(0, 100) + '...',
                     url: url,
                 });
@@ -127,16 +127,16 @@ export default function PostCard({ post, currentUserId }: PostProps) {
                 <div className="flex items-center gap-3">
                     <Link href={`/community/profile/${post.user_id || 'anonymous'}`}>
                         <Avatar className="h-10 w-10 ring-2 ring-background border border-civic-earth/20 transition-transform group-hover:scale-105">
-                            <AvatarImage src={post.profiles?.avatar_url || ''} alt={post.profiles?.full_name || 'Anonymous'} />
+                            <AvatarImage src={post.profiles?.avatar_url || ''} alt={post.profiles?.username || 'Anonymous'} />
                             <AvatarFallback className="bg-civic-green text-white font-bold">
-                                {(post.profiles?.full_name || post.anonymous_name || 'AN').slice(0, 2).toUpperCase()}
+                                {(post.profiles?.username || post.anonymous_name || 'AN').slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                         </Avatar>
                     </Link>
                     <div className="grid gap-0.5">
                         <div className="flex items-center gap-2">
                             <Link href={`/community/profile/${post.user_id || 'anonymous'}`} className="font-semibold text-sm hover:text-civic-green transition-colors">
-                                {post.profiles?.full_name || post.anonymous_name || 'Anonymous'}
+                                @{post.profiles?.username || post.anonymous_name || 'anonymous'}
                             </Link>
                             <span className="text-xs text-muted-foreground">
                                 • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}

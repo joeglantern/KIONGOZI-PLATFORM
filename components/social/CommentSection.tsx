@@ -30,7 +30,7 @@ export default function CommentSection({ postId, currentUser }: CommentSectionPr
                 .select(`
           *,
           profiles:user_id (
-            full_name
+            username
           )
         `)
                 .eq('post_id', postId)
@@ -96,7 +96,7 @@ export default function CommentSection({ postId, currentUser }: CommentSectionPr
                 .select(`
                   *,
                   profiles:user_id (
-                    full_name
+                    username
                   )
                 `)
                 .single();
@@ -166,7 +166,7 @@ export default function CommentSection({ postId, currentUser }: CommentSectionPr
                     <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
                         <AvatarImage src={currentUser?.user_metadata?.avatar_url} />
                         <AvatarFallback className="bg-civic-green text-white">
-                            {currentUser ? (currentUser.user_metadata?.full_name || 'ME').slice(0, 2).toUpperCase() : 'AN'}
+                            {currentUser ? 'ME' : 'AN'}
                         </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 gap-2 flex flex-col">

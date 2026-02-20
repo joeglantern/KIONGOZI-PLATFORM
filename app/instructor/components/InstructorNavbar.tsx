@@ -24,16 +24,10 @@ interface InstructorNavbarProps {
 }
 
 export function InstructorNavbar({ onMenuClick }: InstructorNavbarProps) {
-    const { user, profile } = useUser();
+    const { user, profile, signOut } = useUser();
     const router = useRouter();
     const supabase = createClient();
     const { theme, toggleTheme } = useTheme();
-
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        router.push('/');
-        router.refresh();
-    };
 
     return (
         <nav className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 lg:px-8 transition-colors">
@@ -88,7 +82,7 @@ export function InstructorNavbar({ onMenuClick }: InstructorNavbarProps) {
                     <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                         <div className="p-3 border-b border-gray-100 dark:border-gray-800">
                             <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                {profile?.full_name || 'Instructor'}
+                                @{profile?.username || 'instructor'}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                         </div>
@@ -106,7 +100,7 @@ export function InstructorNavbar({ onMenuClick }: InstructorNavbarProps) {
                                 </button>
                             </Link>
                             <button
-                                onClick={handleSignOut}
+                                onClick={signOut}
                                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2 transition-colors"
                             >
                                 <LogOut className="w-4 h-4" />

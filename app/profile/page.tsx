@@ -33,7 +33,7 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
-        full_name: '',
+        username: '',
         bio: ''
     });
 
@@ -42,7 +42,7 @@ export default function ProfilePage() {
             setFormData({
                 first_name: profile.first_name || '',
                 last_name: profile.last_name || '',
-                full_name: profile.full_name || '',
+                username: profile.username || '',
                 bio: profile.bio || ''
             });
         }
@@ -62,7 +62,8 @@ export default function ProfilePage() {
                 .update({
                     first_name: formData.first_name,
                     last_name: formData.last_name,
-                    full_name: formData.full_name,
+                    full_name: `${formData.first_name.trim()} ${formData.last_name.trim()}`,
+                    username: formData.username.trim() ? formData.username.trim().toLowerCase() : null,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', user.id);
@@ -129,6 +130,12 @@ export default function ProfilePage() {
                                             <Shield className="w-3.5 h-3.5 text-orange-500" />
                                             <span className="text-xs font-black text-orange-700 uppercase">{profile?.role}</span>
                                         </div>
+                                        {profile?.username && (
+                                            <div className="flex items-center space-x-1.5 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">
+                                                <User className="w-3.5 h-3.5 text-blue-500" />
+                                                <span className="text-xs font-bold text-blue-700">@{profile.username}</span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-3 gap-4">
                                         <div className="text-center md:text-left">
@@ -196,14 +203,18 @@ export default function ProfilePage() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Display Name (Visible to others)</label>
-                                            <input
-                                                type="text"
-                                                value={formData.full_name}
-                                                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500/30 transition-all font-bold text-gray-900"
-                                                placeholder="e.g. Leader Lion"
-                                            />
+                                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Unique Username</label>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">@</span>
+                                                <input
+                                                    type="text"
+                                                    value={formData.username}
+                                                    onChange={(e) => setFormData({ ...formData, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })}
+                                                    className="w-full pl-9 pr-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500/30 transition-all font-bold text-gray-900"
+                                                    placeholder="unique_handle"
+                                                    minLength={3}
+                                                />
+                                            </div>
                                         </div>
 
                                         {error && (
