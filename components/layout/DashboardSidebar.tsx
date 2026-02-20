@@ -164,7 +164,7 @@ export function DashboardSidebar() {
                         </div>
                         {!isCollapsed && (
                             <div className="overflow-hidden">
-                                <div className="text-sm font-black text-gray-900 line-clamp-1">{profile?.full_name || 'Learner'}</div>
+                                <div className="text-sm font-black text-gray-900 line-clamp-1">@{profile?.username || 'learner'}</div>
                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{profile?.role || 'Student'}</div>
                             </div>
                         )}

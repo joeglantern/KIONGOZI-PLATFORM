@@ -41,7 +41,7 @@ async function Feed() {
         if (userIds.length > 0) {
             const { data } = await supabaseAdmin
                 .from('profiles')
-                .select('id, full_name, avatar_url')
+                .select('id, username, avatar_url')
                 .in('id', userIds as string[]);
             profiles = data;
         }

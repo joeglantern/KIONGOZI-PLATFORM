@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/app/utils/supabaseClient';
 import type { User } from '@supabase/supabase-js';
 
@@ -10,6 +11,7 @@ interface UserProfile {
   full_name: string;
   first_name: string;
   last_name: string;
+  username?: string;
   role: 'user' | 'instructor' | 'admin';
   status: string;
   total_xp: number;
@@ -35,9 +37,24 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
+  const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Profile completion interceptor
+  useEffect(() => {
+    if (!loading && user && profile) {
+      const isMissingInfo = !profile.username || !profile.first_name?.trim() || !profile.last_name?.trim();
+      const isCurrentlyCompleting = pathname === '/complete-profile';
+
+      // Prevent routing loops
+      if (isMissingInfo && !isCurrentlyCompleting) {
+        router.replace('/complete-profile');
+      }
+    }
+  }, [loading, user, profile, pathname, router]);
 
   // Memoize fetchProfile
   const fetchProfile = async (userId: string) => {

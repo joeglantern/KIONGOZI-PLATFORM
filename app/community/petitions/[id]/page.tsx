@@ -22,7 +22,7 @@ export default async function PetitionDetailPage({ params }: { params: Promise<{
         .select(`
             *,
             profiles:created_by (
-                full_name
+                username
             )
         `)
         .eq('id', id)
@@ -74,10 +74,10 @@ export default async function PetitionDetailPage({ params }: { params: Promise<{
 
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6 pb-6 border-b border-border">
                             <div className="flex items-center gap-2">
-                                <div className="h-8 w-8 rounded-full bg-civic-green/10 flex items-center justify-center text-civic-green-dark font-bold">
-                                    {(petition.profiles?.full_name || 'AN').slice(0, 2).toUpperCase()}
+                                <div className="h-8 w-8 rounded-full bg-civic-green/10 flex items-center justify-center text-civic-green-dark font-bold uppercase tracking-widest text-xs">
+                                    {(petition.profiles?.username || 'AN').slice(0, 2).toUpperCase()}
                                 </div>
-                                <span>Started by <span className="font-medium text-foreground">{petition.profiles?.full_name || 'Anonymous'}</span></span>
+                                <span>Started by <span className="font-medium text-foreground">@{petition.profiles?.username || 'anonymous'}</span></span>
                             </div>
                             <span>•</span>
                             <span>{formatDistanceToNow(new Date(petition.created_at), { addSuffix: true })}</span>

@@ -30,7 +30,7 @@ export function LeaderboardWidget() {
             // 1. Fetch Top 10 (buffer for scrolling)
             const { data: topUsers, error: topError } = await supabase
                 .from('profiles')
-                .select('id, email, full_name, total_xp, level')
+                .select('id, email, username, total_xp, level')
                 .order('total_xp', { ascending: false })
                 .limit(10);
 
@@ -69,7 +69,7 @@ export function LeaderboardWidget() {
             if (topUsers) {
                 const mappedLeaderboard = topUsers.map((d: any, i: number) => ({
                     user_id: d.id,
-                    display_name: (d.full_name || '').trim() || (d.email || '').split('@')[0] || 'Learner',
+                    display_name: (d.username || '').trim() || (d.email || '').split('@')[0] || 'Learner',
                     total_xp: d.total_xp || 0,
                     level: d.level || 1,
                     rank: i + 1,
@@ -83,14 +83,14 @@ export function LeaderboardWidget() {
                     // Fetch user details for the pinned bottom row
                     const { data: fullUserData } = await supabase
                         .from('profiles')
-                        .select('id, email, full_name, total_xp, level')
+                        .select('id, email, username, total_xp, level')
                         .eq('id', user.id)
                         .single();
 
                     if (fullUserData) {
                         setCurrentUserEntry({
                             user_id: fullUserData.id,
-                            display_name: (fullUserData.full_name || '').trim() || (fullUserData.email || '').split('@')[0] || 'Learner',
+                            display_name: (fullUserData.username || '').trim() || (fullUserData.email || '').split('@')[0] || 'Learner',
                             total_xp: fullUserData.total_xp || 0,
                             level: fullUserData.level || 1,
                             rank: userRank,

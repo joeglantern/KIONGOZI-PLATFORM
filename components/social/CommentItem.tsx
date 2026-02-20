@@ -41,7 +41,7 @@ export function CommentItem({ comment, replies, currentUser, onReply, depth = 0 
                 <Avatar className="h-8 w-8 h-8 w-8 ring-2 ring-background">
                     <AvatarImage src={comment.profiles?.avatar_url || ''} />
                     <AvatarFallback className="bg-civic-green-light text-white">
-                        {(comment.profiles?.full_name || comment.anonymous_name || 'AN').slice(0, 2).toUpperCase()}
+                        {(comment.profiles?.username || comment.anonymous_name || 'AN').slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                 </Avatar>
 
@@ -49,7 +49,7 @@ export function CommentItem({ comment, replies, currentUser, onReply, depth = 0 
                     <div className="bg-muted/30 p-3 rounded-lg rounded-tl-none border border-border/50">
                         <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-semibold text-sm text-foreground">
-                                {comment.profiles?.full_name || comment.anonymous_name || 'Anonymous'}
+                                @{comment.profiles?.username || comment.anonymous_name || 'anonymous'}
                             </span>
                             <span className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
@@ -77,7 +77,7 @@ export function CommentItem({ comment, replies, currentUser, onReply, depth = 0 
                             <div className="flex-1">
                                 <form onSubmit={handleReplySubmit}>
                                     <Textarea
-                                        placeholder={`Reply to ${comment.profiles?.full_name || 'Anonymous'}...`}
+                                        placeholder={`Reply to @${comment.profiles?.username || 'anonymous'}...`}
                                         value={replyContent}
                                         onChange={(e) => setReplyContent(e.target.value)}
                                         className="min-h-[60px] text-sm bg-background"

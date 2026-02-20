@@ -11,7 +11,7 @@ interface Review {
     rating: number;
     review_text: string;
     created_at: string;
-    profiles?: { full_name: string; first_name: string };
+    profiles?: { username: string; first_name: string };
 }
 
 interface CourseReviewsProps {
@@ -38,7 +38,7 @@ export function CourseReviews({ courseId }: CourseReviewsProps) {
         try {
             const { data, error } = await supabase
                 .from('course_reviews')
-                .select('*, profiles(full_name, first_name)')
+                .select('*, profiles(username, first_name)')
                 .eq('course_id', courseId)
                 .order('created_at', { ascending: false });
 
@@ -170,7 +170,7 @@ export function CourseReviews({ courseId }: CourseReviewsProps) {
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-gray-900 dark:text-white">
-                                        {review.profiles?.full_name || review.profiles?.first_name || 'Student'}
+                                        @{review.profiles?.username || review.profiles?.first_name || 'student'}
                                     </p>
                                     <StarRating rating={review.rating} size="w-3 h-3" />
                                 </div>

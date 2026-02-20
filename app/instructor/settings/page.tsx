@@ -41,7 +41,7 @@ export default function InstructorSettingsPage() {
     const [error, setError] = useState<string | null>(null);
 
     const [form, setForm] = useState({
-        full_name: profile?.full_name || '',
+        username: profile?.username || '',
         first_name: profile?.first_name || '',
         last_name: profile?.last_name || '',
     });
@@ -50,7 +50,7 @@ export default function InstructorSettingsPage() {
     useEffect(() => {
         if (profile) {
             setForm({
-                full_name: profile.full_name || '',
+                username: profile.username || '',
                 first_name: profile.first_name || '',
                 last_name: profile.last_name || '',
             });
@@ -67,7 +67,7 @@ export default function InstructorSettingsPage() {
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({
-                    full_name: form.full_name,
+                    username: form.username.trim() ? form.username.trim().toLowerCase() : null,
                     first_name: form.first_name,
                     last_name: form.last_name,
                     updated_at: new Date().toISOString()
@@ -176,13 +176,16 @@ export default function InstructorSettingsPage() {
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Full Name (Display Name)</label>
-                                            <input
-                                                type="text"
-                                                value={form.full_name}
-                                                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-orange-500 transition-all"
-                                            />
+                                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Unique Username</label>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">@</span>
+                                                <input
+                                                    type="text"
+                                                    value={form.username}
+                                                    onChange={(e) => setForm({ ...form, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })}
+                                                    className="w-full pl-9 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                                                />
+                                            </div>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Instructor ID (Reference)</label>
