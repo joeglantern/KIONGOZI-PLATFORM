@@ -44,18 +44,27 @@ export default function EventActions({ event, currentUser, rsvpStatusProp }: Eve
                 setRsvpStatus(null);
                 toast({ description: "RSVP removed." });
             } else {
-                // Upsert
-                const { error } = await supabase
-                    .from('social_event_rsvps')
-                    .upsert({
-                        event_id: event.id,
-                        user_id: currentUser.id,
-                        status: status
-                    }, {
-                        onConflict: 'event_id,user_id'
-                    });
+                // If changing an existing RSVP status, update it. If new, insert it.
+                if (rsvpStatus) {
+                    const { error } = await supabase
+                        .from('social_event_rsvps')
+                        .update({ status: status })
+                        .eq('event_id', event.id)
+                        .eq('user_id', currentUser.id);
 
-                if (error) throw error;
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabase
+                        .from('social_event_rsvps')
+                        .insert({
+                            event_id: event.id,
+                            user_id: currentUser.id,
+                            status: status
+                        });
+
+                    if (error) throw error;
+                }
+
                 setRsvpStatus(status);
                 toast({
                     title: status === 'going' ? "You're going!" : "Interest saved.",
