@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/Footer';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { OfflineDetector } from '@/components/ui/OfflineDetector';
 import { ConditionalMain } from '@/components/layout/ConditionalMain';
+import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'Kiongozi LMS - Empowering Kenya\'s Future Leaders',
@@ -34,6 +35,7 @@ export default function RootLayout({
                   </ErrorBoundary>
                 </ConditionalMain>
                 <Footer />
+                <Toaster />
               </div>
             </ThemeProvider>
           </UserProvider>
