@@ -43,7 +43,8 @@
     "recharts": "^3.7.0",
     "remark-gfm": "^4.0.0",
     "tailwind-merge": "^2.5.4",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "use-sound": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.19",

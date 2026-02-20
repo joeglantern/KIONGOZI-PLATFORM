@@ -7,10 +7,12 @@ import { createClient } from '@/app/utils/supabaseClient';
 import { Button } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
 import { LogIn, Mail, Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { toast } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,15 +43,19 @@ export default function LoginPage() {
         // Redirect based on role
         if (profile?.role === 'admin') {
           router.push('/admin/dashboard');
+          toast({ title: 'Success', description: 'Logged in successfully as Admin.' });
         } else if (profile?.role === 'instructor') {
           router.push('/instructor/dashboard');
+          toast({ title: 'Success', description: 'Logged in successfully as Instructor.' });
         } else {
           router.push('/dashboard');
+          toast({ title: 'Success', description: 'Logged in successfully.' });
         }
         router.refresh();
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
+      toast({ title: 'Login Failed', description: err.message || 'Failed to sign in', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -169,7 +175,8 @@ export default function LoginPage() {
                 },
               })
               if (error) {
-                setError(error.message)
+                setError(error.message);
+                toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
               }
             }}
             className="w-full border border-gray-300 hover:bg-gray-50 py-3 rounded-lg font-semibold transition-all flex items-center justify-center space-x-2 mb-6"
