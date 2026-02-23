@@ -14,6 +14,7 @@ import {
     UserCheck,
     AlertTriangle
 } from 'lucide-react';
+import { AnalyticsDashboard } from '@/components/admin/AnalyticsDashboard';
 
 export default function AdminDashboardPage() {
     const { profile } = useUser();
@@ -32,51 +33,11 @@ export default function AdminDashboardPage() {
                         </p>
                     </div>
 
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                                    <Users className="w-6 h-6 text-blue-600" />
-                                </div>
-                                <TrendingUp className="w-5 h-5 text-green-500" />
-                            </div>
-                            <div className="text-3xl font-bold text-gray-900 mb-1">20</div>
-                            <div className="text-sm text-gray-600">Total Users</div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                                    <BookOpen className="w-6 h-6 text-purple-600" />
-                                </div>
-                            </div>
-                            <div className="text-3xl font-bold text-gray-900 mb-1">22</div>
-                            <div className="text-sm text-gray-600">Total Courses</div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                                    <UserCheck className="w-6 h-6 text-green-600" />
-                                </div>
-                            </div>
-                            <div className="text-3xl font-bold text-gray-900 mb-1">20</div>
-                            <div className="text-sm text-gray-600">Active Users</div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                                    <AlertTriangle className="w-6 h-6 text-amber-600" />
-                                </div>
-                            </div>
-                            <div className="text-3xl font-bold text-gray-900 mb-1">0</div>
-                            <div className="text-sm text-gray-600">Pending Reviews</div>
-                        </div>
+                    {/* Main Content Area */}
+                    <div className="mb-12">
+                        <AnalyticsDashboard />
                     </div>
 
-                    {/* Main Content */}
                     <div className="grid lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 space-y-6">
                             {/* Quick Actions */}

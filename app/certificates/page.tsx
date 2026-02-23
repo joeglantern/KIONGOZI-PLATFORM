@@ -6,7 +6,7 @@ import { useUser } from '@/app/contexts/UserContext';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { Award, Loader2, Download, Eye, ShieldCheck, FileText, Search } from 'lucide-react';
+import { Award, Loader2, Download, Eye, ShieldCheck, FileText, Search, Linkedin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
@@ -114,6 +114,16 @@ export default function CertificatesPage() {
             win.document.write(html);
             win.document.close();
         }
+    };
+
+    const handleShareToLinkedIn = (cert: any) => {
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://learn.kiongozi.org';
+        const verificationUrl = `${baseUrl}/verify/${cert.verification_code}`;
+        const courseTitle = cert.course?.title || 'Kiongozi Professional Course';
+
+        const linkedinUrl = `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(courseTitle)}&organizationName=${encodeURIComponent('The Kiongozi Platform')}&issueYear=${new Date(cert.issued_at).getFullYear()}&issueMonth=${new Date(cert.issued_at).getMonth() + 1}&certId=${encodeURIComponent(cert.certificate_number)}&certUrl=${encodeURIComponent(verificationUrl)}`;
+
+        window.open(linkedinUrl, '_blank');
     };
 
     const fetchCertificates = async () => {
@@ -264,7 +274,7 @@ export default function CertificatesPage() {
                                             </div>
 
                                             {/* Actions */}
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-2 gap-3 mb-3">
                                                 <Button
                                                     variant="outline"
                                                     className="rounded-2xl border-gray-100 text-xs font-black uppercase tracking-widest h-12 flex items-center justify-center gap-2"
@@ -279,6 +289,12 @@ export default function CertificatesPage() {
                                                     <Eye className="w-4 h-4" /> Preview
                                                 </Button>
                                             </div>
+                                            <Button
+                                                className="w-full rounded-2xl bg-[#0077b5] hover:bg-[#00669c] text-white text-xs font-black uppercase tracking-widest h-12 flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/10"
+                                                onClick={() => handleShareToLinkedIn(cert)}
+                                            >
+                                                <Linkedin className="w-4 h-4" /> Add to LinkedIn
+                                            </Button>
                                         </div>
                                     </motion.div>
                                 ))}
