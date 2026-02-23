@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/app/utils/supabaseClient';
@@ -58,9 +59,14 @@ export function Navbar() {
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
                     <Link href="/" className="flex items-center space-x-2 group">
-                        <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
-                            <Sparkles className="w-5 h-5 text-white" />
-                        </div>
+                        <Image
+                            src="/logo.png"
+                            alt="Kiongozi Logo"
+                            width={40}
+                            height={40}
+                            className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
+                            priority
+                        />
                         <span className="text-xl font-bold text-gray-900 dark:text-white">Kiongozi</span>
                     </Link>
 
