@@ -1,3 +1,13 @@
+const withSerwist = (nextConfig) => {
+  if (process.env.NODE_ENV === 'production') {
+    return require("@serwist/next").default({
+      swSrc: "app/sw.ts",
+      swDest: "public/sw.js",
+    })(nextConfig);
+  }
+  return nextConfig;
+};
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -34,4 +44,5 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withSerwist(nextConfig);
+

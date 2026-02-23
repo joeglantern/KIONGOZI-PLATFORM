@@ -29,6 +29,23 @@ export default function ProfilePage() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [badges, setBadges] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchBadges = async () => {
+            if (!user) return;
+            const { data } = await supabase
+                .from('user_badges')
+                .select(`
+                    id,
+                    earned_at,
+                    badges!inner(id, name, description, icon, xp_reward)
+                `)
+                .eq('user_id', user.id);
+            if (data) setBadges(data);
+        };
+        fetchBadges();
+    }, [user, supabase]);
 
     const [formData, setFormData] = useState({
         first_name: '',
@@ -148,7 +165,7 @@ export default function ProfilePage() {
                                         </div>
                                         <div className="text-center md:text-left">
                                             <div className="text-xl font-black text-blue-600">
-                                                {profile?.total_badges || 0}
+                                                {badges.length || 0}
                                             </div>
                                             <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Badges</div>
                                         </div>
@@ -257,8 +274,32 @@ export default function ProfilePage() {
                                 </section>
                             </div>
 
-                            {/* Sidebar Info */}
+                            {/* Sidebar Info & Badges */}
                             <div className="space-y-8">
+                                {/* Badges Section */}
+                                <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm">
+                                    <h4 className="text-lg font-black text-gray-900 tracking-tight mb-6 flex items-center gap-2">
+                                        <Trophy className="w-5 h-5 text-amber-500" />
+                                        Earned Badges
+                                    </h4>
+
+                                    {badges.length === 0 ? (
+                                        <div className="text-center p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                            <p className="text-sm font-bold text-gray-500 mb-1">No badges yet</p>
+                                            <p className="text-xs text-gray-400">Complete courses and community actions to earn badges.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {badges.map((ub) => (
+                                                <div key={ub.id} className="flex flex-col items-center text-center p-4 bg-orange-50 rounded-2xl border border-orange-100 transition-transform hover:scale-105">
+                                                    <div className="text-4xl mb-2 filter drop-shadow-sm">{ub.badges.icon}</div>
+                                                    <h5 className="text-xs font-black text-gray-900 leading-tight">{ub.badges.name}</h5>
+                                                    <span className="text-[10px] font-bold text-orange-600 mt-1">+{ub.badges.xp_reward} XP</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="bg-gray-900 rounded-[2rem] p-8 text-white relative overflow-hidden">
                                     <div className="relative z-10">
                                         <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">

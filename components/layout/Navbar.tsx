@@ -23,6 +23,7 @@ import {
     LayoutDashboard,
     Moon,
     Sun,
+    Map as MapIcon,
 } from 'lucide-react';
 
 export function Navbar() {
@@ -104,6 +105,16 @@ export function Navbar() {
                                         Community
                                     </Button>
                                 </Link>
+                                <Link href="/impact-map">
+                                    <Button
+                                        variant="ghost"
+                                        className={`${isActive('/impact-map') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
+                                            }`}
+                                    >
+                                        <MapIcon className="w-4 h-4 mr-2" />
+                                        Impact Map
+                                    </Button>
+                                </Link>
                             </>
                         ) : (
                             <>
@@ -147,6 +158,16 @@ export function Navbar() {
                                         Community
                                     </Button>
                                 </Link>
+                                <Link href="/impact-map">
+                                    <Button
+                                        variant="ghost"
+                                        className={`${isActive('/impact-map') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
+                                            }`}
+                                    >
+                                        <MapIcon className="w-4 h-4 mr-2" />
+                                        Impact Map
+                                    </Button>
+                                </Link>
                                 {isInstructor && (
                                     <Link href="/instructor/dashboard">
                                         <Button
@@ -167,8 +188,9 @@ export function Navbar() {
                                 <NotificationDropdown />
                                 <button
                                     onClick={toggleTheme}
-                                    className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:ring-2 focus:ring-orange-500 focus:outline-none"
                                     title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                                    aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                                 >
                                     {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                                 </button>
@@ -233,9 +255,11 @@ export function Navbar() {
                     {/* Mobile Menu Button */}
                     <button
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100"
+                        className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                        aria-label="Toggle Navigation Menu"
+                        aria-expanded={mobileMenuOpen}
                     >
-                        {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                        {mobileMenuOpen ? <X className="w-6 h-6 aria-hidden={true}" /> : <Menu className="w-6 h-6 aria-hidden={true}" />}
                     </button>
                 </div>
             </div>
@@ -301,6 +325,12 @@ export function Navbar() {
                                     <Button variant="ghost" className="w-full justify-start">
                                         <Users className="w-4 h-4 mr-2" />
                                         Community
+                                    </Button>
+                                </Link>
+                                <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)}>
+                                    <Button variant="ghost" className="w-full justify-start">
+                                        <MapIcon className="w-4 h-4 mr-2" />
+                                        Impact Map
                                     </Button>
                                 </Link>
                                 {isInstructor && (

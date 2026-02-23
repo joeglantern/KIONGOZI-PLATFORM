@@ -34,20 +34,18 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto">
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-flex items-center bg-orange-100 rounded-full px-4 py-2 text-sm font-medium text-orange-700 border border-orange-200 mb-6">
-              <Sparkles className="w-4 h-4 mr-2" />
               Empowering Kenya's Future Leaders
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-              Master Skills in
+              Empowering <br />
               <span className="block text-orange-600">
-                Green Tech & Innovation
+                Kenyan Leaders
               </span>
             </h1>
 
             <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Interactive courses designed for Kenya's youth. Build real-world skills in sustainability,
-              digital innovation, and leadership.
+              Join the premier platform for civic education, community advocacy, and impactful action across Kenya.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

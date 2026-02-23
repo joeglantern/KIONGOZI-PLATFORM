@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Share2, Copy } from 'lucide-react';
+import { CheckCircle2, Share2, Copy, FileSignature } from 'lucide-react';
 import { createClient } from '@/app/utils/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AnimatedToast, ToastAction } from '@/components/gamification/AnimatedToast';
 
 interface PetitionActionsProps {
     petition: any;
@@ -15,6 +16,7 @@ interface PetitionActionsProps {
 export default function PetitionActions({ petition, currentUser, hasSignedProp }: PetitionActionsProps) {
     const [hasSigned, setHasSigned] = useState(hasSignedProp);
     const [isSigning, setIsSigning] = useState(false);
+    const [actionToast, setActionToast] = useState<ToastAction | null>(null);
     const { toast } = useToast();
     const supabase = createClient();
 
@@ -48,14 +50,19 @@ export default function PetitionActions({ petition, currentUser, hasSignedProp }
                 }
             } else {
                 setHasSigned(true);
-                // We could refresh the page here to update server count, 
-                // but for UX let's just show success. 
-                // The progress bar won't update until refresh in this specific component 
-                // unless we pass state down, but that's fine for detail view.
-                toast({
-                    title: "Signed!",
-                    description: "Thank you for your support.",
-                    className: "bg-civic-green text-white border-none"
+
+                // Award Gamification XP for Civic Action (50 XP for petition)
+                await supabase.rpc('award_civic_action', {
+                    user_uuid: currentUser.id,
+                    xp_amount: 50
+                });
+
+                // Trigger the beautiful animated toast
+                setActionToast({
+                    id: Date.now().toString(),
+                    message: "Petition Signed!",
+                    xpAwarded: 50,
+                    icon: <FileSignature className="w-6 h-6" />
                 });
             }
         } catch (error: any) {
@@ -111,6 +118,8 @@ export default function PetitionActions({ petition, currentUser, hasSignedProp }
                 <Share2 className="mr-2 h-4 w-4" />
                 Share Petition
             </Button>
+
+            <AnimatedToast action={actionToast} onClose={() => setActionToast(null)} />
         </div>
     );
 }
