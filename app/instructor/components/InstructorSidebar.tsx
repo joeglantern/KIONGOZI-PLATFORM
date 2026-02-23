@@ -1,5 +1,6 @@
 "use client";
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -37,9 +38,13 @@ export function InstructorSidebar() {
             {/* Logo */}
             <div className="p-6 border-b border-gray-100 dark:border-gray-800">
                 <Link href="/instructor/dashboard" className="flex items-center space-x-2 group">
-                    <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-all">
-                        <Sparkles className="w-4 h-4 text-white" />
-                    </div>
+                    <Image
+                        src="/logo.png"
+                        alt="Kiongozi Logo"
+                        width={32}
+                        height={32}
+                        className="w-8 h-8 object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
+                    />
                     <span className="text-lg font-bold text-gray-900 dark:text-white">Kiongozi <span className="text-orange-500 text-xs uppercase tracking-wider ml-1">Instructor</span></span>
                 </Link>
             </div>

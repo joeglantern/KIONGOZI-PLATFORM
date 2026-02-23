@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabaseClient';
 import { Button } from '@/components/ui/button';
@@ -95,10 +96,15 @@ function ResetPasswordForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
       <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-600 mb-4">
-            <Lock className="w-8 h-8 text-white" />
-          </div>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <Image
+            src="/logo.png"
+            alt="Kiongozi Logo"
+            width={80}
+            height={80}
+            className="w-20 h-20 object-contain drop-shadow-lg mb-4"
+            priority
+          />
           <h1 className="text-4xl font-bold text-orange-600 mb-2">
             Reset Password
           </h1>

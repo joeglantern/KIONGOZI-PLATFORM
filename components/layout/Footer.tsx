@@ -1,5 +1,6 @@
 "use client";
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sparkles, Mail, Github, Twitter, Linkedin, Heart } from 'lucide-react';
@@ -19,9 +20,13 @@ export function Footer() {
                     {/* Brand */}
                     <div className="col-span-1 md:col-span-2">
                         <div className="flex items-center space-x-2 mb-4">
-                            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-md">
-                                <Sparkles className="w-5 h-5 text-white" />
-                            </div>
+                            <Image
+                                src="/logo.png"
+                                alt="Kiongozi Logo"
+                                width={40}
+                                height={40}
+                                className="w-10 h-10 object-contain drop-shadow-sm"
+                            />
                             <span className="text-xl font-bold text-white">Kiongozi</span>
                         </div>
                         <p className="text-gray-400 mb-4 max-w-md">
