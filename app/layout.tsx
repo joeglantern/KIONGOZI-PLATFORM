@@ -11,8 +11,26 @@ import { ConditionalMain } from '@/components/layout/ConditionalMain';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Kiongozi LMS - Empowering Kenya\'s Future Leaders',
-  description: 'Master skills in green tech, digital innovation, and leadership. Interactive courses designed for Kenya\'s youth.',
+  title: 'The Kiongozi Platform | Empowering Civic Action & Climate Advocacy',
+  description: 'Join Kenya\'s premier community for green tech, civic governance, and climate advocacy. Master skills, organize events, and drive real-world impact.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://learn.kiongozi.org'),
+  openGraph: {
+    title: 'The Kiongozi Platform',
+    description: 'Empowering civic action, climate advocacy, and green tech innovation across Kenya.',
+    url: 'https://learn.kiongozi.org',
+    siteName: 'Kiongozi Platform',
+    locale: 'en_KE',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'The Kiongozi Platform',
+    description: 'Empowering civic action and climate advocacy.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
