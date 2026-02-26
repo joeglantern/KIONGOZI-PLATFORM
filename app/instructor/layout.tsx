@@ -7,7 +7,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useUser } from '@/app/contexts/UserContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function InstructorLayout({
     children,
@@ -31,11 +31,23 @@ export default function InstructorLayout({
         }
     }, [user, profile, loading, router]);
 
-    // Show loading while checking auth
+    // Show layout skeleton while checking auth
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            <div className="flex min-h-screen bg-gray-50/50 dark:bg-gray-950">
+                <div className="hidden lg:block w-64 bg-white border-r border-gray-100" />
+                <div className="flex-1 lg:ml-64">
+                    <div className="h-16 bg-white border-b border-gray-100" />
+                    <div className="p-8 space-y-4">
+                        <Skeleton className="h-8 w-48" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {[...Array(4)].map((_, i) => (
+                                <Skeleton key={i} className="h-24 rounded-2xl" />
+                            ))}
+                        </div>
+                        <Skeleton className="h-64 rounded-2xl" />
+                    </div>
+                </div>
             </div>
         );
     }

@@ -6,76 +6,158 @@ import { useUser } from '@/app/contexts/UserContext';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { Award, Loader2, Download, Eye, ShieldCheck, FileText, Search, Linkedin } from 'lucide-react';
+import { Award, Download, Eye, ShieldCheck, FileText, Search, Linkedin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { CertificatesSkeleton } from '@/components/ui/Skeleton';
 
 const generateCertificateHTML = (cert: any, userName: string) => {
     const courseTitle = cert.course?.title || 'Course';
     const issuedDate = new Date(cert.issued_at).toLocaleDateString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric'
     });
+    const currentYear = new Date().getFullYear();
 
     return `<!DOCTYPE html>
 <html>
 <head>
     <title>Certificate - ${courseTitle}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@400;600;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@400;600;700;900&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; }
-        .certificate {
-            width: 1056px; height: 816px; background: white; position: relative;
-            border: 3px solid #c9975b; padding: 60px; font-family: 'Inter', sans-serif;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        @page { size: A4 landscape; margin: 0; }
+        body { 
+            display: flex; justify-content: center; align-items: center; 
+            min-height: 100vh; background: #f3f4f6; font-family: 'Inter', sans-serif;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;
         }
-        .certificate::before {
-            content: ''; position: absolute; top: 12px; left: 12px; right: 12px; bottom: 12px;
-            border: 1.5px solid #e8d5b8; pointer-events: none;
+        .certificate-wrapper {
+            width: 297mm; height: 210mm; /* A4 Landscape */
+            background: #ffffff;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            display: flex;
         }
-        .header { text-align: center; margin-bottom: 30px; }
-        .logo-text { font-family: 'Inter', sans-serif; font-weight: 900; font-size: 28px; color: #ea580c; letter-spacing: 8px; text-transform: uppercase; }
-        .title { font-family: 'Playfair Display', serif; font-size: 48px; font-weight: 900; color: #1a1a1a; text-align: center; margin: 20px 0 10px; letter-spacing: 2px; }
-        .subtitle { text-align: center; font-size: 13px; color: #999; font-weight: 700; text-transform: uppercase; letter-spacing: 6px; margin-bottom: 40px; }
-        .presented { text-align: center; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 4px; font-weight: 600; }
-        .recipient { font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 700; text-align: center; color: #ea580c; margin: 15px 0; border-bottom: 2px solid #e8d5b8; display: inline-block; padding-bottom: 8px; }
-        .recipient-wrap { text-align: center; }
-        .course-label { text-align: center; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 4px; font-weight: 600; margin-top: 30px; }
-        .course-name { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; text-align: center; color: #1a1a1a; margin: 10px 0 40px; }
-        .footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; position: absolute; bottom: 60px; left: 60px; right: 60px; }
-        .footer-item { text-align: center; }
-        .footer-label { font-size: 9px; color: #aaa; text-transform: uppercase; letter-spacing: 3px; font-weight: 700; margin-top: 8px; }
-        .footer-value { font-size: 12px; color: #333; font-weight: 700; }
-        .seal { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #c9975b; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #fef3c7, #fde68a); }
-        .seal-text { font-size: 9px; font-weight: 900; color: #92400e; text-transform: uppercase; letter-spacing: 1px; text-align: center; line-height: 1.3; }
+        /* Background decorative elements */
+        .bg-shape-1 {
+            position: absolute; top: -150px; left: -150px;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(234, 88, 12, 0.04) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%; z-index: 1;
+        }
+        .bg-shape-2 {
+            position: absolute; bottom: -200px; right: -100px;
+            width: 800px; height: 800px;
+            background: radial-gradient(circle, rgba(234, 88, 12, 0.08) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%; z-index: 1;
+        }
+        .bg-pattern {
+            position: absolute; inset: 0;
+            background-image: radial-gradient(rgba(234, 88, 12, 0.03) 1px, transparent 1px);
+            background-size: 24px 24px; z-index: 1;
+        }
+        .side-accent {
+            width: 16px; height: 100%;
+            background: linear-gradient(180deg, #ea580c 0%, #fb923c 100%);
+            z-index: 2;
+        }
+        .content {
+            flex: 1; padding: 60px 80px; position: relative; z-index: 10;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .logo-group { display: flex; flex-direction: column; }
+        .logo-text { font-family: 'Inter', sans-serif; font-weight: 900; font-size: 28px; color: #111827; letter-spacing: -1px; }
+        .logo-text span { color: #ea580c; }
+        .logo-sub { font-size: 10px; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 3px; margin-top: 2px; }
+        .cert-id { text-align: right; }
+        .cert-id-label { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; margin-bottom: 4px; }
+        .cert-id-value { font-family: monospace; font-size: 12px; color: #4b5563; font-weight: 600; background: #f3f4f6; padding: 6px 12px; border-radius: 6px; }
+
+        .main-body { text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .award-title { font-family: 'Playfair Display', serif; font-size: 64px; font-weight: 900; color: #111827; margin-bottom: 15px; letter-spacing: -1px; }
+        .award-subtitle { font-size: 14px; color: #ea580c; font-weight: 800; text-transform: uppercase; letter-spacing: 6px; margin-bottom: 40px; }
+        .presented-to { font-size: 16px; color: #6b7280; margin-bottom: 20px; font-style: italic; }
+        .recipient-name { 
+            font-family: 'Playfair Display', serif; font-size: 72px; font-weight: 700; color: #ea580c; 
+            line-height: 1.1; margin-bottom: 30px; padding: 0 40px;
+        }
+        .reason { font-size: 16px; color: #6b7280; margin-bottom: 10px; }
+        .course-name { font-family: 'Inter', sans-serif; font-size: 32px; font-weight: 900; color: #111827; max-width: 800px; line-height: 1.2; letter-spacing: -0.5px; }
+
+        .footer { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 20px; }
+        .signature-block { display: flex; flex-direction: column; align-items: center; width: 200px; }
+        .date-text { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 800; color: #111827; margin-bottom: 8px; }
+        .signature-line { width: 100%; height: 2px; background: #e5e7eb; margin-bottom: 12px; }
+        .signature-name { font-size: 14px; color: #111827; font-weight: 800; }
+        .signature-title { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; font-weight: 600; }
+
+        .seal-container { position: relative; width: 140px; height: 140px; display: flex; justify-content: center; align-items: center; }
+        .seal-outer { position: absolute; inset: 0; background: #ea580c; border-radius: 50%; opacity: 0.05; transform: scale(1.1); }
+        .seal-inner { width: 110px; height: 110px; background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; box-shadow: 0 10px 30px -5px rgba(234, 88, 12, 0.5); position: relative; z-index: 2; }
+        .seal-icon { font-size: 32px; margin-bottom: 4px; font-family: 'Playfair Display', serif; font-weight: 700; font-style: italic; }
+        .seal-text { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; }
+        .seal-year { font-size: 9px; opacity: 0.9; margin-top: 4px; font-weight: 600; letter-spacing: 1px; }
+
         @media print {
-            body { background: white; }
-            .certificate { box-shadow: none; border: 3px solid #c9975b; }
+            body { background: white; margin: 0; padding: 0; min-height: auto; }
+            .certificate-wrapper { box-shadow: none; border: none; width: 100%; height: 99vh; }
         }
     </style>
 </head>
 <body>
-    <div class="certificate">
-        <div class="header">
-            <div class="logo-text">Kiongozi</div>
-        </div>
-        <div class="title">Certificate of Completion</div>
-        <div class="subtitle">This is to certify that</div>
-        <div class="presented">is proudly awarded to</div>
-        <div class="recipient-wrap"><span class="recipient">${userName}</span></div>
-        <div class="course-label">for successfully completing</div>
-        <div class="course-name">${courseTitle}</div>
-        <div class="footer">
-            <div class="footer-item">
-                <div class="footer-value">${issuedDate}</div>
-                <div class="footer-label">Date Issued</div>
+    <div class="certificate-wrapper">
+        <div class="bg-shape-1"></div>
+        <div class="bg-shape-2"></div>
+        <div class="bg-pattern"></div>
+        <div class="side-accent"></div>
+        
+        <div class="content">
+            <div class="header">
+                <div class="logo-group">
+                    <div class="logo-text">Kiongozi<span>.</span></div>
+                    <div class="logo-sub">Learning Platform</div>
+                </div>
+                <div class="cert-id">
+                    <div class="cert-id-label">Verify ID</div>
+                    <div class="cert-id-value">${cert.certificate_number}</div>
+                </div>
             </div>
-            <div class="seal">
-                <div class="seal-text">Verified<br/>✓</div>
+
+            <div class="main-body">
+                <div class="award-title">Certificate of Completion</div>
+                <div class="award-subtitle">Verified Achievement</div>
+                <div class="presented-to">This is proudly presented to</div>
+                <div class="recipient-name">${userName}</div>
+                <div class="reason">For successfully completing the program</div>
+                <div class="course-name">${courseTitle}</div>
             </div>
-            <div class="footer-item">
-                <div class="footer-value">${cert.certificate_number}</div>
-                <div class="footer-label">Certificate ID</div>
+
+            <div class="footer">
+                <div class="signature-block">
+                    <div class="date-text">${issuedDate}</div>
+                    <div class="signature-line"></div>
+                    <div class="signature-name">Date of Issue</div>
+                    <div class="signature-title">Official Record</div>
+                </div>
+
+                <div class="seal-container">
+                    <div class="seal-outer"></div>
+                    <div class="seal-inner">
+                        <div class="seal-icon">K</div>
+                        <div class="seal-text">Verified</div>
+                        <div class="seal-year">EST. ${currentYear}</div>
+                    </div>
+                </div>
+
+                <div class="signature-block">
+                    <!-- Signature representation -->
+                    <div style="font-family: 'Playfair Display', serif; font-size: 28px; font-style: italic; color: #111827; margin-bottom: 4px; line-height: 1;">A. Kiongozi</div>
+                    <div class="signature-line"></div>
+                    <div class="signature-name">Program Director</div>
+                    <div class="signature-title">Kiongozi Platform</div>
+                </div>
             </div>
         </div>
     </div>
@@ -226,10 +308,7 @@ export default function CertificatesPage() {
                         ]} />
 
                         {loading ? (
-                            <div className="flex flex-col items-center justify-center py-20">
-                                <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
-                                <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Authenticating credentials...</p>
-                            </div>
+                            <CertificatesSkeleton />
                         ) : filteredCertificates.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {filteredCertificates.map((cert) => (

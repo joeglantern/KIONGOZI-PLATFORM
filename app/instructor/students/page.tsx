@@ -12,9 +12,9 @@ import {
     Mail,
     MoreVertical,
     Users,
-    Loader2,
     BookOpen
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface StudentData {
     user_id: string;
@@ -135,8 +135,39 @@ export default function InstructorStudentsPage() {
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center py-20">
-                        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 dark:bg-gray-800/50">
+                                    <tr>
+                                        {['Student', 'Course', 'Progress', 'Status', 'Actions'].map(h => (
+                                            <th key={h} className="px-6 py-4 text-left">
+                                                <div className="h-3 w-16 bg-gray-200 animate-pulse rounded" />
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {[...Array(6)].map((_, i) => (
+                                        <tr key={i}>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+                                                    <div className="space-y-1.5">
+                                                        <Skeleton className="h-4 w-28" />
+                                                        <Skeleton className="h-3 w-36" />
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4"><Skeleton className="h-4 w-32" /></td>
+                                            <td className="px-6 py-4"><Skeleton className="h-2 w-24 rounded-full" /></td>
+                                            <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                                            <td className="px-6 py-4 text-right"><Skeleton className="h-8 w-8 rounded-lg ml-auto" /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 ) : filteredStudents.length === 0 ? (
                     <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800">

@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { CourseCard } from '@/components/courses/CourseCard';
-import { BookOpen, Loader2, Search, Filter, X } from 'lucide-react';
+import { CourseGridSkeleton } from '@/components/ui/Skeleton';
+import { BookOpen, Search, Filter, X } from 'lucide-react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Pagination } from '@/components/ui/Pagination';
@@ -63,51 +64,34 @@ export default function CoursesPage() {
         if (!user) return;
 
         try {
-            // Fetch categories
-            const { data: categoriesData } = await supabase
-                .from('module_categories')
-                .select('id, name, color')
-                .order('name');
+            // Run all three queries in parallel for faster loading
+            const [categoriesResult, coursesResult, enrollmentsResult, allEnrollmentsResult] = await Promise.all([
+                supabase.from('module_categories').select('id, name, color').order('name'),
+                supabase.from('courses').select(`*, module_categories(name, color), course_modules(learning_modules(media_type))`).eq('status', 'published'),
+                supabase.from('course_enrollments').select('id, course_id, progress_percentage, status').eq('user_id', user.id),
+                // Single batch query for ALL enrollment counts (fixes N+1)
+                supabase.from('course_enrollments').select('course_id'),
+            ]);
 
-            setCategories(categoriesData || []);
+            if (coursesResult.error) throw coursesResult.error;
 
-            // Fetch all courses
-            const { data: coursesData, error: coursesError } = await supabase
-                .from('courses')
-                .select(`
-                    *,
-                    module_categories(name, color)
-                `)
-                .eq('status', 'published');
-
-            if (coursesError) throw coursesError;
-
-            // Fetch user's enrollments
-            const { data: enrollmentsData } = await supabase
-                .from('course_enrollments')
-                .select('id, course_id, progress_percentage, status')
-                .eq('user_id', user.id);
+            setCategories(categoriesResult.data || []);
 
             const enrollmentMap = new Map(
-                (enrollmentsData || []).map(e => [e.course_id, [e]])
+                (enrollmentsResult.data || []).map(e => [e.course_id, [e]])
             );
 
-            // Combine courses with enrollment data and counts
-            const coursesWithCounts = await Promise.all(
-                (coursesData || []).map(async (course) => {
-                    const userEnrollment = enrollmentMap.get(course.id) || [];
-                    const { count } = await supabase
-                        .from('course_enrollments')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('course_id', course.id);
+            // Count enrollments per course from batch result
+            const countMap = new Map<string, number>();
+            (allEnrollmentsResult.data || []).forEach(e => {
+                countMap.set(e.course_id, (countMap.get(e.course_id) || 0) + 1);
+            });
 
-                    return {
-                        ...course,
-                        course_enrollments: userEnrollment,
-                        enrollment_count: count || 0,
-                    };
-                })
-            );
+            const coursesWithCounts = (coursesResult.data || []).map(course => ({
+                ...course,
+                course_enrollments: enrollmentMap.get(course.id) || [],
+                enrollment_count: countMap.get(course.id) || 0,
+            }));
 
             setCourses(coursesWithCounts);
 
@@ -118,7 +102,7 @@ export default function CoursesPage() {
             }));
 
             localStorage.setItem(CACHE_KEY_CATEGORIES, JSON.stringify({
-                data: categoriesData || [],
+                data: categoriesResult.data || [],
                 timestamp: Date.now()
             }));
 
@@ -304,10 +288,7 @@ export default function CoursesPage() {
                         <div className="lg:col-span-3">
                             {/* Loading State */}
                             {loading && filteredCourses.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[2.5rem] border border-orange-50 shadow-sm">
-                                    <Loader2 className="w-12 h-12 animate-spin text-orange-500 mb-4" />
-                                    <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Scanning Catalog...</span>
-                                </div>
+                                <CourseGridSkeleton count={6} />
                             )}
 
                             {/* Empty State */}

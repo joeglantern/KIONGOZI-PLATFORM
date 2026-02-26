@@ -1,32 +1,35 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { createClient } from '@/app/utils/supabaseClient';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
+import { DashboardSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import {
     BookOpen,
-    Trophy,
     Zap,
-    TrendingUp,
-    Clock,
     Target,
     ArrowRight,
-    Loader2,
-    Award,
-    Medal,
-    Star,
     Flame
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { calculateLevel } from '@/lib/gamification';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
-import { LeaderboardWidget } from '@/components/dashboard/LeaderboardWidget';
-import { XPLineChart } from '@/components/dashboard/XPLineChart';
-import { CategoryBarChart } from '@/components/dashboard/CategoryBarChart';
 import { ContinueLearningBanner } from '@/components/dashboard/ContinueLearningBanner';
+
+// Lazy-load heavy chart & widget components
+const LeaderboardWidget = dynamic(() => import('@/components/dashboard/LeaderboardWidget').then(m => ({ default: m.LeaderboardWidget })), {
+    loading: () => <div className="bg-white rounded-3xl border border-gray-100 p-5"><Skeleton className="h-48 w-full" /></div>,
+});
+const XPLineChart = dynamic(() => import('@/components/dashboard/XPLineChart').then(m => ({ default: m.XPLineChart })), {
+    loading: () => <Skeleton className="h-full w-full rounded-xl" />,
+});
+const CategoryBarChart = dynamic(() => import('@/components/dashboard/CategoryBarChart').then(m => ({ default: m.CategoryBarChart })), {
+    loading: () => <Skeleton className="h-full w-full rounded-xl" />,
+});
 
 export default function DashboardPage() {
     const { user, profile } = useUser();
@@ -50,34 +53,50 @@ export default function DashboardPage() {
         try {
             setLoading(true);
 
-            // Fetch Enrollments with explicit join syntax
-            const { data: enrollmentData, error: enrollError } = await supabase
-                .from('course_enrollments')
-                .select(`
-                    id,
-                    progress_percentage,
-                    last_accessed_at,
-                    status,
-                    courses (
+            // Parallel fetch: enrollments, categories, and badges all at once
+            const [enrollResult, categoriesResult, badgeResult] = await Promise.all([
+                supabase
+                    .from('course_enrollments')
+                    .select(`
                         id,
-                        title,
-                        description,
-                        difficulty_level,
-                        category_id
-                    ),
-                    updated_at
-                `)
-                .eq('user_id', user.id)
-                .order('last_accessed_at', { ascending: false });
+                        progress_percentage,
+                        last_accessed_at,
+                        status,
+                        courses (
+                            id,
+                            title,
+                            description,
+                            difficulty_level,
+                            category_id
+                        ),
+                        updated_at
+                    `)
+                    .eq('user_id', user.id)
+                    .order('last_accessed_at', { ascending: false }),
+                supabase.from('module_categories').select('id, name, color'),
+                supabase
+                    .from('user_badges')
+                    .select(`
+                        earned_at,
+                        badges (
+                            id,
+                            name,
+                            icon,
+                            description
+                        )
+                    `)
+                    .eq('user_id', user.id)
+                    .order('earned_at', { ascending: false }),
+            ]);
+
+            const { data: enrollmentData, error: enrollError } = enrollResult;
 
             if (enrollError) {
                 console.error('Enrollment fetch error details:', enrollError);
                 throw enrollError;
             }
 
-            // Fetch categories separately
-            const { data: categories } = await supabase.from('module_categories').select('id, name, color');
-            const categoryMap = new Map((categories || []).map(c => [c.id, c]));
+            const categoryMap = new Map((categoriesResult.data || []).map(c => [c.id, c]));
 
             const processedEnrollments = (enrollmentData || [])
                 .map(en => {
@@ -96,23 +115,9 @@ export default function DashboardPage() {
 
             setEnrollments(processedEnrollments);
 
-            // Fetch Badges
-            const { data: badgeData, error: badgeError } = await supabase
-                .from('user_badges')
-                .select(`
-                    earned_at,
-                    badges (
-                        id,
-                        name,
-                        icon,
-                        description
-                    )
-                `)
-                .eq('user_id', user.id)
-                .order('earned_at', { ascending: false });
-
-            if (badgeError) console.error('Badge fetch error:', badgeError);
-            setBadges(badgeData || []);
+            // Use parallel-fetched badge data
+            if (badgeResult.error) console.error('Badge fetch error:', badgeResult.error);
+            setBadges(badgeResult.data || []);
 
             // Calculate stats
             const totalCourses = enrollmentData?.length || 0;
@@ -270,7 +275,7 @@ export default function DashboardPage() {
 
                         {/* Learning Insights Section */}
                         <div className="mb-8">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[400px]">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[250px] lg:h-[400px]">
                                 <div className="h-full">
                                     <XPLineChart data={chartDataState.xpHistory} />
                                 </div>
@@ -293,9 +298,7 @@ export default function DashboardPage() {
                                 </div>
 
                                 {loading ? (
-                                    <div className="flex items-center justify-center py-20">
-                                        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                                    </div>
+                                    <DashboardSkeleton />
                                 ) : enrollments.length > 0 ? (
                                     <div className="space-y-4">
                                         {enrollments.map((enrollment) => {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
+import { useQuery } from '@tanstack/react-query';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
@@ -14,9 +15,10 @@ import {
     Clock,
     CheckCircle2,
     ArrowRight,
-    Loader2,
     Calendar,
-    Star
+    Star,
+    PlayCircle,
+    FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,41 +27,38 @@ const ITEMS_PER_PAGE = 6;
 
 export default function MyLearningPage() {
     const { user } = useUser();
-    const supabase = createClient();
+    // Stable client — never re-created on re-render
+    const supabase = useMemo(() => createClient(), []);
 
-    const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
 
-    useEffect(() => {
-        if (user) {
-            fetchEnrolledCourses();
-        }
-    }, [user]);
-
-    const fetchEnrolledCourses = async () => {
-        try {
-            setLoading(true);
+    const { data: enrolledCourses = [], isLoading: loading } = useQuery({
+        queryKey: ['my-enrolled-courses', user?.id],
+        queryFn: async () => {
             const { data, error } = await supabase
                 .from('course_enrollments')
                 .select(`
                     *,
                     courses (
-                        *
+                        *,
+                        course_modules (
+                            learning_modules (
+                                media_type
+                            )
+                        )
                     )
                 `)
-                .eq('user_id', user?.id)
+                .eq('user_id', user!.id)
                 .order('updated_at', { ascending: false });
 
             if (error) throw error;
-            setEnrolledCourses(data || []);
-        } catch (error) {
-            console.error('Error fetching enrolled courses:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+            return data || [];
+        },
+        enabled: !!user,
+        staleTime: 5 * 60 * 1000, // 5 minutes — cached between navigations
+    });
+
 
     const filteredCourses = enrolledCourses.filter(enrollment =>
         enrollment.courses?.title?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -114,9 +113,33 @@ export default function MyLearningPage() {
                             <Breadcrumb items={[{ label: 'My Learning' }]} />
 
                             {loading ? (
-                                <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm">
-                                    <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
-                                    <p className="text-gray-400 font-black uppercase tracking-widest text-[10px]">Assembling your classroom...</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {[...Array(4)].map((_, i) => (
+                                        <div key={i} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
+                                            <div className="p-8 space-y-5">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="h-5 w-20 bg-gray-200 animate-pulse rounded-full" />
+                                                    <div className="h-5 w-16 bg-gray-200 animate-pulse rounded-full" />
+                                                </div>
+                                                <div className="h-7 w-3/4 bg-gray-200 animate-pulse rounded-lg" />
+                                                <div className="flex gap-4">
+                                                    <div className="h-4 w-20 bg-gray-100 animate-pulse rounded-lg" />
+                                                    <div className="h-4 w-20 bg-gray-100 animate-pulse rounded-lg" />
+                                                </div>
+                                                <div className="space-y-2 pt-2">
+                                                    <div className="flex justify-between">
+                                                        <div className="h-3 w-24 bg-gray-100 animate-pulse rounded" />
+                                                        <div className="h-3 w-10 bg-gray-100 animate-pulse rounded" />
+                                                    </div>
+                                                    <div className="w-full h-3.5 bg-gray-100 rounded-full" />
+                                                </div>
+                                            </div>
+                                            <div className="px-8 py-5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                                                <div className="h-4 w-32 bg-gray-200 animate-pulse rounded" />
+                                                <div className="h-12 w-12 bg-gray-200 animate-pulse rounded-2xl" />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : filteredCourses.length === 0 ? (
                                 <div className="bg-white rounded-[2.5rem] p-16 text-center border border-gray-100 shadow-sm overflow-hidden relative">
@@ -149,72 +172,97 @@ export default function MyLearningPage() {
                                                     transition={{ delay: idx * 0.05, duration: 0.3 }}
                                                     className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-xl hover:shadow-orange-500/5 transition-all flex flex-col"
                                                 >
-                                                    <div className="p-8 flex-1">
-                                                        <div className="flex items-center justify-between mb-8">
-                                                            <div className="flex items-center space-x-2">
-                                                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2.5 py-1 bg-gray-50 rounded-full border border-gray-100">
-                                                                    {enrollment.status}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center space-x-1.5 text-orange-500 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100/50">
-                                                                <Star className="w-3 h-3 fill-orange-500" />
-                                                                <span className="text-[10px] font-black uppercase tracking-tighter">Lvl {enrollment.courses.difficulty_level || 'Elite'}</span>
-                                                            </div>
-                                                        </div>
+                                                    {(() => {
+                                                        const hasVideo = enrollment.courses?.course_modules?.some((cm: any) => cm.learning_modules?.media_type === 'video');
+                                                        const hasText = enrollment.courses?.course_modules?.some((cm: any) => cm.learning_modules?.media_type === 'text');
+                                                        let mediaLabel = 'Standard Course';
+                                                        if (hasVideo && hasText) mediaLabel = 'Video & Text';
+                                                        else if (hasVideo) mediaLabel = 'Video Course';
+                                                        else if (hasText) mediaLabel = 'Text Course';
 
-                                                        <h3 className="text-2xl font-black text-gray-900 group-hover:text-orange-600 transition-colors mb-4 leading-tight">
-                                                            {enrollment.courses.title}
-                                                        </h3>
+                                                        return (
+                                                            <>
+                                                                <div className="p-8 flex-1">
+                                                                    <div className="flex items-center justify-between mb-8">
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                                                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2.5 py-1 bg-gray-50 rounded-full border border-gray-100">
+                                                                                {enrollment.status}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-1.5 text-orange-500 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100/50">
+                                                                            <Star className="w-3 h-3 fill-orange-500" />
+                                                                            <span className="text-[10px] font-black uppercase tracking-tighter">Lvl {enrollment.courses.difficulty_level || 'Elite'}</span>
+                                                                        </div>
+                                                                    </div>
 
-                                                        <div className="flex items-center space-x-5 mb-10 text-gray-400 text-[10px] font-black uppercase tracking-widest">
-                                                            <div className="flex items-center space-x-2">
-                                                                <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
-                                                                    <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
+                                                                    <h3 className="text-2xl font-black text-gray-900 group-hover:text-orange-600 transition-colors mb-4 leading-tight">
+                                                                        {enrollment.courses.title}
+                                                                    </h3>
+
+                                                                    <div className="flex items-center space-x-5 mb-10 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
+                                                                                <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
+                                                                            </div>
+                                                                            <span>{enrollment.courses.duration_hours || '12'}h Total</span>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
+                                                                                <Calendar className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
+                                                                            </div>
+                                                                            <span>Active Path</span>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
+                                                                                {hasVideo && hasText ? (
+                                                                                    <PlayCircle className="w-3.5 h-3.5 text-orange-400 group-hover:text-orange-500" />
+                                                                                ) : hasVideo ? (
+                                                                                    <PlayCircle className="w-3.5 h-3.5 text-orange-400 group-hover:text-orange-500" />
+                                                                                ) : (
+                                                                                    <FileText className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-500" />
+                                                                                )}
+                                                                            </div>
+                                                                            <span className="text-gray-500 group-hover:text-gray-700">{mediaLabel}</span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="space-y-4">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Mastery Level</span>
+                                                                            <span className="text-xs font-black text-orange-600">{enrollment.progress_percentage || 0}%</span>
+                                                                        </div>
+                                                                        <div className="w-full h-3.5 bg-gray-100 rounded-full overflow-hidden border border-gray-50 p-0.5">
+                                                                            <motion.div
+                                                                                initial={{ width: 0 }}
+                                                                                animate={{ width: `${enrollment.progress_percentage || 0}%` }}
+                                                                                className="h-full bg-orange-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.3)]"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
-                                                                <span>{enrollment.courses.duration_hours || '12'}h Total</span>
-                                                            </div>
-                                                            <div className="flex items-center space-x-2">
-                                                                <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
-                                                                    <Calendar className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
+
+                                                                <div className="px-8 py-6 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between group-hover:bg-orange-50 transition-colors">
+                                                                    <div className="flex items-center space-x-3">
+                                                                        <div className={`p-2 rounded-xl border transition-all ${enrollment.progress_percentage === 100
+                                                                            ? 'bg-green-50 border-green-100 text-green-600'
+                                                                            : 'bg-white border-gray-100 text-gray-300 group-hover:text-orange-500 group-hover:border-orange-100'
+                                                                            }`}>
+                                                                            <CheckCircle2 className="w-4 h-4" />
+                                                                        </div>
+                                                                        <span className="text-xs font-black uppercase tracking-tight text-gray-500 group-hover:text-orange-700 transition-colors">
+                                                                            {enrollment.progress_percentage === 100 ? 'Course Complete' : 'Continue Journey'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <Link href={`/courses/${enrollment.course_id}`}>
+                                                                        <button className="p-3.5 bg-white text-gray-900 rounded-2xl shadow-sm border border-gray-100 group-hover:bg-orange-600 group-hover:text-white group-hover:border-transparent group-hover:shadow-lg group-hover:shadow-orange-600/20 transition-all active:scale-95">
+                                                                            <ArrowRight className="w-5 h-5" />
+                                                                        </button>
+                                                                    </Link>
                                                                 </div>
-                                                                <span>Active Path</span>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Mastery Level</span>
-                                                                <span className="text-xs font-black text-orange-600">{enrollment.progress_percentage || 0}%</span>
-                                                            </div>
-                                                            <div className="w-full h-3.5 bg-gray-100 rounded-full overflow-hidden border border-gray-50 p-0.5">
-                                                                <motion.div
-                                                                    initial={{ width: 0 }}
-                                                                    animate={{ width: `${enrollment.progress_percentage || 0}%` }}
-                                                                    className="h-full bg-orange-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.3)]"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="px-8 py-6 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between group-hover:bg-orange-50 transition-colors">
-                                                        <div className="flex items-center space-x-3">
-                                                            <div className={`p-2 rounded-xl border transition-all ${enrollment.progress_percentage === 100
-                                                                ? 'bg-green-50 border-green-100 text-green-600'
-                                                                : 'bg-white border-gray-100 text-gray-300 group-hover:text-orange-500 group-hover:border-orange-100'
-                                                                }`}>
-                                                                <CheckCircle2 className="w-4 h-4" />
-                                                            </div>
-                                                            <span className="text-xs font-black uppercase tracking-tight text-gray-500 group-hover:text-orange-700 transition-colors">
-                                                                {enrollment.progress_percentage === 100 ? 'Course Complete' : 'Continue Journey'}
-                                                            </span>
-                                                        </div>
-                                                        <Link href={`/courses/${enrollment.course_id}`}>
-                                                            <button className="p-3.5 bg-white text-gray-900 rounded-2xl shadow-sm border border-gray-100 group-hover:bg-orange-600 group-hover:text-white group-hover:border-transparent group-hover:shadow-lg group-hover:shadow-orange-600/20 transition-all active:scale-95">
-                                                                <ArrowRight className="w-5 h-5" />
-                                                            </button>
-                                                        </Link>
-                                                    </div>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </motion.div>
                                             ))}
                                         </AnimatePresence>

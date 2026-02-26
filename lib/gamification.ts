@@ -89,6 +89,8 @@ export async function checkAndAwardBadges(supabase: SupabaseClient, userId: stri
 
                 if (!error) {
                     newBadges.push(badge);
+                } else {
+                    console.error(`Error awarding badge ${badge.id}:`, error);
                 }
             }
         }
@@ -106,42 +108,46 @@ export async function checkAndAwardBadges(supabase: SupabaseClient, userId: stri
 export async function updateUserStreak(supabase: SupabaseClient, userId: string) {
     try {
         // 1. Fetch current profile
+        // NOTE: Supabase migration uses longest_streak and last_action_date
         const { data: profile, error: fetchError } = await supabase
             .from('profiles')
-            .select('current_streak, max_streak, last_activity_date')
+            .select('current_streak, longest_streak, last_action_date')
             .eq('id', userId)
             .single();
 
         if (fetchError) throw fetchError;
 
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().split('T')[0];
+        const today = now.toISOString().split('T')[0];
 
-        const lastActivity = profile.last_activity_date;
+        // Get yesterday's date string for streak comparison
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        // last_action_date is a timestamptz in DB — extract date portion for comparison
+        const lastActionDate = profile.last_action_date
+            ? new Date(profile.last_action_date).toISOString().split('T')[0]
+            : null;
+
         let newStreak = profile.current_streak || 0;
-        let maxStreak = profile.max_streak || 0;
+        let longestStreak = profile.longest_streak || 0;
 
-        if (!lastActivity) {
+        if (!lastActionDate) {
             newStreak = 1;
+        } else if (lastActionDate === today) {
+            // Already updated today, return early
+            return { currentStreak: newStreak, longestStreak };
+        } else if (lastActionDate === yesterdayStr) {
+            // Consecutive day — extend streak
+            newStreak += 1;
         } else {
-            const lastDate = new Date(lastActivity);
-            const diffTime = Math.abs(now.getTime() - lastDate.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (lastActivity === today) {
-                // Already updated today
-                return { currentStreak: newStreak, maxStreak };
-            } else if (diffDays === 1) {
-                // Consecutive day
-                newStreak += 1;
-            } else {
-                // Streak broken
-                newStreak = 1;
-            }
+            // Streak broken (gap of 2+ days)
+            newStreak = 1;
         }
 
-        if (newStreak > maxStreak) {
-            maxStreak = newStreak;
+        if (newStreak > longestStreak) {
+            longestStreak = newStreak;
         }
 
         // 2. Update profile
@@ -149,16 +155,16 @@ export async function updateUserStreak(supabase: SupabaseClient, userId: string)
             .from('profiles')
             .update({
                 current_streak: newStreak,
-                max_streak: maxStreak,
-                last_activity_date: today
+                longest_streak: longestStreak,
+                last_action_date: new Date().toISOString(), // store as timestamptz
             })
             .eq('id', userId);
 
         if (updateError) throw updateError;
 
-        return { currentStreak: newStreak, maxStreak };
-    } catch (error) {
-        console.error('Error updating streak:', error);
+        return { currentStreak: newStreak, longestStreak };
+    } catch (error: any) {
+        console.error('Error updating streak:', error?.message || error);
         return null;
     }
 }

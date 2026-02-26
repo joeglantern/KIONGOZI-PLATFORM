@@ -255,122 +255,123 @@ export function Navbar() {
                     {/* Mobile Menu Button */}
                     <button
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                        className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 active:scale-90 transition-all duration-150 focus:ring-2 focus:ring-orange-500 focus:outline-none"
                         aria-label="Toggle Navigation Menu"
                         aria-expanded={mobileMenuOpen}
                     >
-                        {mobileMenuOpen ? <X className="w-6 h-6 aria-hidden={true}" /> : <Menu className="w-6 h-6 aria-hidden={true}" />}
+                        {mobileMenuOpen ? <X className="w-6 h-6" aria-hidden="true" /> : <Menu className="w-6 h-6" aria-hidden="true" />}
                     </button>
                 </div>
             </div>
 
             {/* Mobile Menu */}
-            {mobileMenuOpen && (
-                <div className="md:hidden bg-white border-t border-gray-200 shadow-lg">
-                    <div className="px-4 py-3 space-y-2">
-                        {!user ? (
-                            <>
-                                <Link href="/" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="ghost" className="w-full justify-start">
-                                        <Home className="w-4 h-4 mr-2" />
-                                        Home
+            <div
+                className={`md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg overflow-hidden transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+            >
+                <div className="px-4 py-3 space-y-2">
+                    {!user ? (
+                        <>
+                            <Link href="/" onClick={() => setMobileMenuOpen(false)}>
+                                <Button variant="ghost" className="w-full justify-start">
+                                    <Home className="w-4 h-4 mr-2" />
+                                    Home
+                                </Button>
+                            </Link>
+                            <Link href="/courses" onClick={() => setMobileMenuOpen(false)}>
+                                <Button variant="ghost" className="w-full justify-start">
+                                    <BookOpen className="w-4 h-4 mr-2" />
+                                    Browse Courses
+                                </Button>
+                            </Link>
+                            <Link href="/community" onClick={() => setMobileMenuOpen(false)}>
+                                <Button variant="ghost" className="w-full justify-start">
+                                    <Users className="w-4 h-4 mr-2" />
+                                    Community
+                                </Button>
+                            </Link>
+                            <div className="pt-3 border-t border-gray-200 space-y-2">
+                                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                                    <Button variant="outline" className="w-full">
+                                        Sign In
                                     </Button>
                                 </Link>
-                                <Link href="/courses" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="ghost" className="w-full justify-start">
-                                        <BookOpen className="w-4 h-4 mr-2" />
-                                        Browse Courses
+                                <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+                                    <Button className="w-full bg-orange-500">
+                                        Get Started
                                     </Button>
                                 </Link>
-                                <Link href="/community" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="ghost" className="w-full justify-start">
-                                        <Users className="w-4 h-4 mr-2" />
-                                        Community
-                                    </Button>
-                                </Link>
-                                <div className="pt-3 border-t border-gray-200 space-y-2">
-                                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                                        <Button variant="outline" className="w-full">
-                                            Sign In
-                                        </Button>
-                                    </Link>
-                                    <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                                        <Button className="w-full bg-orange-500">
-                                            Get Started
-                                        </Button>
-                                    </Link>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="ghost" className="w-full justify-start">
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                                <Button variant="ghost" className="w-full justify-start">
+                                    <LayoutDashboard className="w-4 h-4 mr-2" />
+                                    Dashboard
+                                </Button>
+                            </Link>
+                            <Link href="/courses" onClick={() => setMobileMenuOpen(false)}>
+                                <Button variant="ghost" className="w-full justify-start">
+                                    <BookOpen className="w-4 h-4 mr-2" />
+                                    Browse
+                                </Button>
+                            </Link>
+                            <Link href="/my-learning" onClick={() => setMobileMenuOpen(false)}>
+                                <Button variant="ghost" className="w-full justify-start">
+                                    <GraduationCap className="w-4 h-4 mr-2" />
+                                    My Learning
+                                </Button>
+                            </Link>
+                            <Link href="/community" onClick={() => setMobileMenuOpen(false)}>
+                                <Button variant="ghost" className="w-full justify-start">
+                                    <Users className="w-4 h-4 mr-2" />
+                                    Community
+                                </Button>
+                            </Link>
+                            <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)}>
+                                <Button variant="ghost" className="w-full justify-start">
+                                    <MapIcon className="w-4 h-4 mr-2" />
+                                    Impact Map
+                                </Button>
+                            </Link>
+                            {isInstructor && (
+                                <Link href="/instructor/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                                    <Button className="w-full justify-start bg-orange-500 text-white font-bold">
                                         <LayoutDashboard className="w-4 h-4 mr-2" />
-                                        Dashboard
+                                        Instructor Panel
                                     </Button>
                                 </Link>
-                                <Link href="/courses" onClick={() => setMobileMenuOpen(false)}>
+                            )}
+                            <div className="pt-3 border-t border-gray-200 space-y-2">
+                                <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
                                     <Button variant="ghost" className="w-full justify-start">
-                                        <BookOpen className="w-4 h-4 mr-2" />
-                                        Browse
+                                        <User className="w-4 h-4 mr-2" />
+                                        Profile
                                     </Button>
                                 </Link>
-                                <Link href="/my-learning" onClick={() => setMobileMenuOpen(false)}>
+                                <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>
                                     <Button variant="ghost" className="w-full justify-start">
-                                        <GraduationCap className="w-4 h-4 mr-2" />
-                                        My Learning
+                                        <Settings className="w-4 h-4 mr-2" />
+                                        Settings
                                     </Button>
                                 </Link>
-                                <Link href="/community" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="ghost" className="w-full justify-start">
-                                        <Users className="w-4 h-4 mr-2" />
-                                        Community
-                                    </Button>
-                                </Link>
-                                <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="ghost" className="w-full justify-start">
-                                        <MapIcon className="w-4 h-4 mr-2" />
-                                        Impact Map
-                                    </Button>
-                                </Link>
-                                {isInstructor && (
-                                    <Link href="/instructor/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                                        <Button className="w-full justify-start bg-orange-500 text-white font-bold">
-                                            <LayoutDashboard className="w-4 h-4 mr-2" />
-                                            Instructor Panel
-                                        </Button>
-                                    </Link>
-                                )}
-                                <div className="pt-3 border-t border-gray-200 space-y-2">
-                                    <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
-                                        <Button variant="ghost" className="w-full justify-start">
-                                            <User className="w-4 h-4 mr-2" />
-                                            Profile
-                                        </Button>
-                                    </Link>
-                                    <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>
-                                        <Button variant="ghost" className="w-full justify-start">
-                                            <Settings className="w-4 h-4 mr-2" />
-                                            Settings
-                                        </Button>
-                                    </Link>
-                                    <Button
-                                        onClick={() => {
-                                            signOut();
-                                            setMobileMenuOpen(false);
-                                        }}
-                                        variant="ghost"
-                                        className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    >
-                                        <LogOut className="w-4 h-4 mr-2" />
-                                        Sign Out
-                                    </Button>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                                <Button
+                                    onClick={() => {
+                                        signOut();
+                                        setMobileMenuOpen(false);
+                                    }}
+                                    variant="ghost"
+                                    className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                    <LogOut className="w-4 h-4 mr-2" />
+                                    Sign Out
+                                </Button>
+                            </div>
+                        </>
+                    )}
                 </div>
-            )}
+            </div>
         </nav>
     );
 }

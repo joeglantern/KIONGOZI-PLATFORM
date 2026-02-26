@@ -35,14 +35,14 @@ export function ModuleSidebar({ modules, currentModuleId, courseId, courseTitle 
                 <div className="flex items-center justify-between mb-4">
                     <Link
                         href={`/courses/${courseId}`}
-                        className="flex items-center space-x-2 text-gray-500 hover:text-orange-600 transition-colors"
+                        className="group flex flex-1 items-center space-x-2 text-gray-500 hover:text-orange-600 transition-colors p-2 -ml-2 rounded-xl hover:bg-orange-50"
                     >
-                        <ArrowLeft className="h-4 w-4" />
-                        <span className="text-sm font-medium">Back to Course</span>
+                        <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                        <span className="text-sm font-bold uppercase tracking-wide">Back to Course</span>
                     </Link>
                 </div>
 
-                <h1 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2">
+                <h1 className="text-lg font-medium text-gray-900 mb-3 line-clamp-2">
                     {courseTitle}
                 </h1>
 
@@ -54,7 +54,7 @@ export function ModuleSidebar({ modules, currentModuleId, courseId, courseTitle 
                     />
                 </div>
                 <div className="flex justify-between items-center">
-                    <p className="text-xs font-semibold text-gray-500">
+                    <p className="text-xs font-medium text-gray-500">
                         {progressPercentage}% Complete
                     </p>
                     <p className="text-[10px] text-gray-400 font-medium">
@@ -98,7 +98,7 @@ export function ModuleSidebar({ modules, currentModuleId, courseId, courseTitle 
                                 </div>
 
                                 <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-semibold truncate ${isActive ? 'text-orange-700' : 'text-gray-700'
+                                    <p className={`text-sm font-medium truncate ${isActive ? 'text-orange-700' : 'text-gray-700'
                                         }`}>
                                         {module.title}
                                     </p>

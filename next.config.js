@@ -16,8 +16,11 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   reactStrictMode: true,
+  compress: true,
+  poweredByHeader: false,
   images: {
     minimumCacheTTL: 31536000,
+    formats: ['image/avif', 'image/webp'],
   },
   outputFileTracingRoot: require('path').join(__dirname),
   async rewrites() {
@@ -37,6 +40,16 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // Cache HTML pages with stale-while-revalidate for faster perceived navigation
+        source: '/((?!api).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=60, stale-while-revalidate=300',
           },
         ],
       },

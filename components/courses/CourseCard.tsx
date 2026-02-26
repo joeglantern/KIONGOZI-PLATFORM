@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Clock, Users, TrendingUp } from 'lucide-react';
+import { BookOpen, Clock, Users, TrendingUp, PlayCircle, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -24,6 +24,11 @@ interface CourseCardProps {
         _count?: {
             enrollments: number;
         };
+        course_modules?: Array<{
+            learning_modules?: {
+                media_type?: string;
+            };
+        }>;
     };
 }
 
@@ -39,6 +44,14 @@ export function CourseCard({ course }: CourseCardProps) {
     };
 
     const difficultyColor = difficultyColors[course.difficulty_level as keyof typeof difficultyColors] || difficultyColors.beginner;
+
+    const hasVideo = course.course_modules?.some((cm: any) => cm.learning_modules?.media_type === 'video');
+    const hasText = course.course_modules?.some((cm: any) => cm.learning_modules?.media_type === 'text');
+
+    let mediaLabel = 'Standard Course';
+    if (hasVideo && hasText) mediaLabel = 'Video & Text';
+    else if (hasVideo) mediaLabel = 'Video Course';
+    else if (hasText) mediaLabel = 'Text Course';
 
     return (
         <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group">
@@ -100,6 +113,16 @@ export function CourseCard({ course }: CourseCardProps) {
                             <span>{course._count.enrollments} enrolled</span>
                         </div>
                     )}
+                    <div className="flex items-center gap-1">
+                        {hasVideo && hasText ? (
+                            <PlayCircle className="w-4 h-4 text-orange-500" />
+                        ) : hasVideo ? (
+                            <PlayCircle className="w-4 h-4 text-orange-500" />
+                        ) : (
+                            <FileText className="w-4 h-4 text-blue-500" />
+                        )}
+                        <span className="font-medium text-gray-600">{mediaLabel}</span>
+                    </div>
                     <div className={`px-2 py-0.5 rounded-full border text-xs font-medium ${difficultyColor}`}>
                         {course.difficulty_level}
                     </div>

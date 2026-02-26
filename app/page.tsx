@@ -80,7 +80,7 @@ export default function LandingPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 mt-16 max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mt-16 max-w-2xl mx-auto">
               <div className="text-center">
                 <div className="text-3xl font-bold text-gray-900 mb-1">20+</div>
                 <div className="text-sm text-gray-600">Expert Courses</div>
@@ -183,7 +183,7 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="py-20 bg-orange-600">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
             Ready to Start Your Journey?
           </h2>
           <p className="text-xl text-orange-100 mb-8">
@@ -194,6 +194,21 @@ export default function LandingPage() {
               <span>Get Started for Free</span>
               <ArrowRight className="w-5 h-5" />
             </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Legal Links Bar */}
+      <section className="py-6 bg-gray-100 border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-sm text-gray-500">
+          <Link href="/privacy-policy" className="hover:text-orange-600 transition-colors underline">
+            Privacy Policy
+          </Link>
+          <Link href="/terms-of-service" className="hover:text-orange-600 transition-colors underline">
+            Terms of Service
+          </Link>
+          <Link href="/cookie-notice" className="hover:text-orange-600 transition-colors underline">
+            Cookie Notice
           </Link>
         </div>
       </section>

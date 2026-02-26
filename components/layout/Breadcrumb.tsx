@@ -21,7 +21,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
     const homeHref = isInstructor ? '/instructor/dashboard' : '/dashboard';
 
     return (
-        <nav className="flex mb-8 items-center space-x-2 text-xs font-black uppercase tracking-widest text-gray-400 overflow-x-auto pb-2 scrollbar-hide">
+        <nav className="flex mb-8 items-center space-x-2 text-[11px] font-medium text-gray-400 overflow-x-auto pb-2 scrollbar-hide">
             <Link
                 href={homeHref}
                 className="flex items-center hover:text-orange-500 transition-colors bg-white px-3 py-1.5 rounded-xl border border-gray-100 shadow-sm"
