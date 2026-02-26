@@ -45,7 +45,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
         .from("user_certificates")
         .select(`
       *,
-      profiles:user_id (full_name, avatar_url),
+      profiles:user_id (full_name),
       courses:course_id (title, description, thumbnail_url)
     `)
         .eq("verification_code", code)

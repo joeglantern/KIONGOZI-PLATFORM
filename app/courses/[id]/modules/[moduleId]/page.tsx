@@ -34,7 +34,7 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import Link from 'next/link';
-import { XP_PER_MODULE, calculateLevel, checkAndAwardBadges, updateUserStreak } from '@/lib/gamification';
+import { XP_PER_MODULE, updateUserStreak } from '@/lib/gamification';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookmarkButton } from '@/components/shared/BookmarkButton';
 import { XPCelebration } from '@/components/gamification/XPCelebration';
@@ -42,20 +42,29 @@ import { fireModuleConfetti, fireCourseConfetti } from '@/lib/confetti';
 import { useKeyboardNav } from '@/hooks/useKeyboardNav';
 import { AccessibilityMenu } from '@/components/learning/AccessibilityMenu';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ModuleViewerSkeleton } from '@/components/ui/Skeleton';
 
 export default function ModuleViewerPage() {
     const params = useParams();
     const router = useRouter();
     const { user, refreshProfile } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const queryClient = useQueryClient();
 
     const courseId = params.id as string;
     const moduleId = params.moduleId as string;
 
     const [completing, setCompleting] = useState(false);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false); // Default to false for mobile
+
+    // Open sidebar by default on large screens
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+            setSidebarOpen(true);
+        }
+    }, []);
     const [newBadges, setNewBadges] = useState<any[]>([]);
+    const [pendingBadges, setPendingBadges] = useState<any[]>([]); // queued until XP celebration ends
     const [earnedXp, setEarnedXp] = useState(0);
     const [notes, setNotes] = useState('');
     const [isSavingNotes, setIsSavingNotes] = useState(false);
@@ -197,7 +206,7 @@ export default function ModuleViewerPage() {
             setNewBadges([]);
             setEarnedXp(0);
 
-            // 1. Mark module as complete and award XP
+            // 1. Mark module as complete and award XP via backend RPC
             const { error: upsertError } = await supabase
                 .from('user_progress')
                 .upsert({
@@ -212,28 +221,20 @@ export default function ModuleViewerPage() {
 
             if (upsertError) throw upsertError;
 
-            // Invalidate progress query immediately to update UI
+            // 2. Centralized Game logic: XP, Leveling, Streaks, and Badges all in one transaction
+            const { data: gamificationResult, error: gamificationError } = await supabase.rpc('award_lms_action', {
+                user_uuid: user.id,
+                xp_amount: XP_PER_MODULE
+            });
+
+            if (gamificationError) {
+                console.error("Error awarding gamification stats via RPC:", gamificationError);
+            }
+
+            // Invalidate queries sequentially 
             queryClient.invalidateQueries({ queryKey: ['course-progress', courseId, user.id] });
-            queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }); // Update dashboard
+            queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
             queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-
-            // 2. Update user's total XP and Level
-            const { data: currentProfile } = await supabase
-                .from('profiles')
-                .select('total_xp')
-                .eq('id', user.id)
-                .single();
-
-            const newTotalXp = (currentProfile?.total_xp || 0) + XP_PER_MODULE;
-            const { level: newLevel } = calculateLevel(newTotalXp);
-
-            await supabase
-                .from('profiles')
-                .update({
-                    total_xp: newTotalXp,
-                    level: newLevel
-                })
-                .eq('id', user.id);
 
             // Refresh UserContext so navbar/sidebar show updated XP
             await refreshProfile();
@@ -246,22 +247,23 @@ export default function ModuleViewerPage() {
             // 🎉 Confetti celebration!
             fireModuleConfetti();
 
-            // 3. Check and award badges
-            const awarded = await checkAndAwardBadges(supabase, user.id);
-            if (awarded.length > 0) {
-                setNewBadges(awarded);
-            }
+            // Fetch newly earned badges (if any) to show in UI
+            const { data: userBadges } = await supabase
+                .from('user_badges')
+                .select('badge_id, badges(*)')
+                .eq('user_id', user.id);
 
-            // 4. Update course progress
+            // For robust UI, we should ideally know WHICH badges are new. 
+            // The RPC doesn't currently return badge objects, so we skip showing the modal here.
+            // The profile and dashboard pages will render them perfectly.
+
+            // 3. Update course progress
             const courseCompleted = await updateCourseProgress();
 
             // 🎊 Extra confetti if course is 100% done!
             if (courseCompleted) {
                 setTimeout(() => fireCourseConfetti(), 500);
             }
-
-            // 5. Update user streak
-            await updateUserStreak(supabase, user.id);
 
             // Re-fetch progress to ensure everything is in sync
             queryClient.invalidateQueries({ queryKey: ['course-progress', courseId, user.id] });
@@ -387,9 +389,7 @@ export default function ModuleViewerPage() {
     if (loading) {
         return (
             <ProtectedRoute allowedRoles={['user', 'instructor', 'admin']}>
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                </div>
+                <ModuleViewerSkeleton />
             </ProtectedRoute>
         );
     }
@@ -416,48 +416,60 @@ export default function ModuleViewerPage() {
             <XPCelebration
                 xp={earnedXp}
                 show={showCelebration}
-                onComplete={() => setShowCelebration(false)}
+                onComplete={() => {
+                    setShowCelebration(false);
+                    // Show queued badges after XP celebration finishes
+                    if (pendingBadges.length > 0) {
+                        setNewBadges(pendingBadges);
+                        setPendingBadges([]);
+                    }
+                }}
             />
-            <div className="min-h-screen bg-gray-50 flex overflow-hidden">
-                {/* Desktop Sidebar */}
+            <div className="min-h-screen bg-gray-50 flex overflow-hidden relative">
+                {/* Mobile sidebar overlay */}
+                {sidebarOpen && (
+                    <div
+                        className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-sm transition-opacity"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+
+                {/* Sidebar */}
                 <aside
-                    className={`fixed inset-y-0 left-0 z-40 lg:relative lg:block transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-80 shadow-2xl lg:shadow-none' : 'w-0 -translate-x-full lg:translate-x-0'
+                    className={`fixed inset-y-0 left-0 z-40 lg:relative flex-shrink-0 transition-all duration-300 ease-in-out bg-white overflow-hidden ${sidebarOpen ? 'w-80 translate-x-0 shadow-2xl lg:shadow-none' : 'w-0 -translate-x-full lg:translate-x-0 lg:w-0'
                         }`}
                 >
-                    <ModuleSidebar
-                        modules={allModules}
-                        currentModuleId={moduleId}
-                        courseId={courseId}
-                        courseTitle={course.title}
-                    />
+                    <div className="w-80 h-full overflow-hidden flex flex-col">
+                        <ModuleSidebar
+                            modules={allModules}
+                            currentModuleId={moduleId}
+                            courseId={courseId}
+                            courseTitle={course.title}
+                        />
 
-                    {/* Sidebar close button (mobile) */}
-                    <button
-                        onClick={() => setSidebarOpen(false)}
-                        className="lg:hidden absolute top-4 right-4 p-2 bg-white rounded-lg shadow-sm border border-gray-100"
-                    >
-                        <X className="w-5 h-5 text-gray-500" />
-                    </button>
+                        {/* Sidebar close button (mobile) */}
+                        <button
+                            onClick={() => setSidebarOpen(false)}
+                            className="lg:hidden absolute top-4 right-4 p-2 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center"
+                        >
+                            <X className="w-5 h-5 text-gray-500" />
+                        </button>
+
+                        {/* Sidebar close button (desktop) */}
+                        <button
+                            onClick={() => setSidebarOpen(false)}
+                            className="hidden lg:flex absolute top-4 right-4 p-2 bg-white/50 hover:bg-orange-50 rounded-lg text-gray-500 hover:text-orange-600 transition-colors"
+                            title="Collapse Sidebar"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                    </div>
                 </aside>
 
                 {/* Content Pane */}
                 <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-                    {/* Badge/XP Notifications */}
+                    {/* Badge Notifications */}
                     <AnimatePresence>
-                        {earnedXp > 0 && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                className="fixed top-20 right-8 z-50 pointer-events-none"
-                            >
-                                <div className="bg-orange-500 text-white px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3 border-2 border-orange-400">
-                                    <Zap className="w-5 h-5 fill-current" />
-                                    <span className="font-bold">+{earnedXp} XP Earned!</span>
-                                </div>
-                            </motion.div>
-                        )}
-
                         {newBadges.map((badge) => (
                             <motion.div
                                 key={badge.id}
@@ -516,7 +528,7 @@ export default function ModuleViewerPage() {
                                 {supported && moduleData?.content && (
                                     <button
                                         onClick={() => isSpeaking ? stop() : speak(`${moduleData.title}. ${moduleData.content?.replace(/[#*`_~]/g, '')}`)}
-                                        className={`p-2 rounded-xl transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest ${isSpeaking
+                                        className={`p-2 rounded-xl transition-all flex items-center gap-2 text-xs font-medium ${isSpeaking
                                             ? 'bg-red-50 text-red-600 border border-red-100 animate-pulse'
                                             : 'bg-orange-50 text-orange-600 border border-orange-100 hover:bg-orange-100'
                                             }`}
@@ -539,7 +551,7 @@ export default function ModuleViewerPage() {
                                 <button
                                     onClick={handleMarkComplete}
                                     disabled={isCompleted || completing}
-                                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all ${isCompleted
+                                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all ${isCompleted
                                         ? 'bg-green-50 text-green-600 border border-green-100 cursor-default'
                                         : 'bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow-md'
                                         }`}

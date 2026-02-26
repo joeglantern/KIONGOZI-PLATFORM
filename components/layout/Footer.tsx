@@ -33,6 +33,13 @@ export function Footer() {
                             Empowering Kenya's youth with skills for the green economy and digital future.
                             Learn, grow, and lead with purpose.
                         </p>
+                        <a
+                            href="mailto:user.support@kiongozi.org"
+                            className="inline-flex items-center space-x-2 text-gray-400 hover:text-orange-400 transition-colors mb-4"
+                        >
+                            <Mail className="w-4 h-4" />
+                            <span className="text-sm">user.support@kiongozi.org</span>
+                        </a>
                         <div className="flex items-center space-x-4">
                             <a
                                 href="https://twitter.com"
@@ -72,17 +79,12 @@ export function Footer() {
                             </li>
                             <li>
                                 <Link href="/community" className="hover:text-orange-400 transition-colors">
-                                    About Us
+                                    Community
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/community" className="hover:text-orange-400 transition-colors">
-                                    Become an Instructor
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/community" className="hover:text-orange-400 transition-colors">
-                                    Pricing
+                                <Link href="/impact-map" className="hover:text-orange-400 transition-colors">
+                                    Impact Map
                                 </Link>
                             </li>
                         </ul>
@@ -93,14 +95,9 @@ export function Footer() {
                         <h3 className="text-white font-semibold mb-4">Support</h3>
                         <ul className="space-y-2">
                             <li>
-                                <Link href="/community" className="hover:text-orange-400 transition-colors">
-                                    Help Center
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/community" className="hover:text-orange-400 transition-colors">
+                                <a href="mailto:user.support@kiongozi.org" className="hover:text-orange-400 transition-colors">
                                     Contact Us
-                                </Link>
+                                </a>
                             </li>
                             <li>
                                 <Link href="/privacy-policy" className="hover:text-orange-400 transition-colors">
@@ -123,11 +120,21 @@ export function Footer() {
 
                 {/* Bottom Bar */}
                 <div className="mt-12 pt-8 border-t border-gray-800">
-                    <div className="flex flex-col md:flex-row items-center justify-between">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <p className="text-gray-400 text-sm">
                             © {currentYear} Kiongozi LMS. All rights reserved.
                         </p>
-
+                        <div className="flex items-center space-x-6">
+                            <Link href="/privacy-policy" className="text-gray-400 hover:text-orange-400 text-sm transition-colors">
+                                Privacy Policy
+                            </Link>
+                            <Link href="/terms-of-service" className="text-gray-400 hover:text-orange-400 text-sm transition-colors">
+                                Terms of Service
+                            </Link>
+                            <Link href="/cookie-notice" className="text-gray-400 hover:text-orange-400 text-sm transition-colors">
+                                Cookie Notice
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>

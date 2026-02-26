@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/app/utils/supabaseClient';
@@ -26,12 +26,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { BookmarkButton } from '@/components/shared/BookmarkButton';
 import { CourseReviews } from '@/components/courses/CourseReviews';
+import { CourseDetailSkeleton } from '@/components/ui/Skeleton';
 
 export default function CourseDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { user } = useUser();
-    const supabase = createClient();
+    // Stable client — never re-created on re-render
+    const supabase = useMemo(() => createClient(), []);
 
     const courseId = params.id as string;
 
@@ -44,46 +46,44 @@ export default function CourseDetailPage() {
         queryFn: async () => {
             if (!user || !courseId) return null;
 
-            // 1. Fetch course details
-            const { data: course, error: courseError } = await supabase
-                .from('courses')
-                .select(`
-                  *,
-                  module_categories(name, color)
-                `)
-                .eq('id', courseId)
-                .single();
+            // Run course details, enrollment, and modules in parallel
+            const [courseResult, enrollmentResult, modulesResult] = await Promise.all([
+                supabase
+                    .from('courses')
+                    .select('*, module_categories(name, color)')
+                    .eq('id', courseId)
+                    .single(),
+                supabase
+                    .from('course_enrollments')
+                    .select('*')
+                    .eq('course_id', courseId)
+                    .eq('user_id', user.id)
+                    .maybeSingle(),
+                supabase
+                    .from('course_modules')
+                    .select(`
+                        order_index,
+                        is_required,
+                        learning_modules(
+                            id,
+                            title,
+                            description,
+                            estimated_duration_minutes
+                        )
+                    `)
+                    .eq('course_id', courseId)
+                    .order('order_index'),
+            ]);
 
-            if (courseError) throw courseError;
+            if (courseResult.error) throw courseResult.error;
+            if (modulesResult.error) throw modulesResult.error;
 
-            // 2. Fetch enrollment status
-            const { data: enrollment } = await supabase
-                .from('course_enrollments')
-                .select('*')
-                .eq('course_id', courseId)
-                .eq('user_id', user.id)
-                .maybeSingle();
+            const course = courseResult.data;
+            const enrollment = enrollmentResult.data;
+            const modulesData = modulesResult.data || [];
 
-            // 3. Fetch course modules
-            const { data: modulesData, error: modulesError } = await supabase
-                .from('course_modules')
-                .select(`
-                  order_index,
-                  is_required,
-                  learning_modules(
-                    id,
-                    title,
-                    description,
-                    estimated_duration_minutes
-                  )
-                `)
-                .eq('course_id', courseId)
-                .order('order_index');
-
-            if (modulesError) throw modulesError;
-
-            // 4. Fetch user progress
-            const moduleIds = (modulesData || []).map((m: any) => m.learning_modules.id);
+            // Fetch user progress for all modules (needs module IDs from above)
+            const moduleIds = modulesData.map((m: any) => m.learning_modules.id);
             let progressMap = new Map();
 
             if (moduleIds.length > 0) {
@@ -99,7 +99,7 @@ export default function CourseDetailPage() {
             }
 
             // Combine modules with progress
-            const modulesWithProgress = (modulesData || []).map((m: any) => ({
+            const modulesWithProgress = modulesData.map((m: any) => ({
                 ...m,
                 learning_modules: {
                     ...m.learning_modules,
@@ -109,25 +109,27 @@ export default function CourseDetailPage() {
                 }
             }));
 
-            // 5. Fetch course room ID
-            const roomId = await getCourseChatRoom(supabase, courseId);
-
-            return {
-                course,
-                enrollment,
-                modules: modulesWithProgress,
-                courseRoomId: roomId
-            };
+            return { course, enrollment, modules: modulesWithProgress };
         },
         enabled: !!user && !!courseId,
         staleTime: 1000 * 60 * 5, // 5 minutes
     });
 
+    // Chat room query is low-priority — fetched separately so it never blocks course content
+    const { data: courseRoomId } = useQuery({
+        queryKey: ['course-chat-room', courseId],
+        queryFn: async () => {
+            return await getCourseChatRoom(supabase, courseId);
+        },
+        enabled: !!user && !!courseId,
+        staleTime: 1000 * 60 * 10, // 10 minutes — room ID rarely changes
+    });
+
     const course = courseData?.course;
     const modules = courseData?.modules || [];
     const enrollment = courseData?.enrollment;
-    const courseRoomId = courseData?.courseRoomId;
     const queryClient = useQueryClient();
+
 
     const handleEnroll = async () => {
         if (!user || !course) return;
@@ -209,9 +211,7 @@ export default function CourseDetailPage() {
     if (loading) {
         return (
             <ProtectedRoute allowedRoles={['user', 'instructor', 'admin']}>
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                </div>
+                <CourseDetailSkeleton />
             </ProtectedRoute>
         );
     }

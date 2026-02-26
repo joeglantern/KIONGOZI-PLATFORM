@@ -38,9 +38,9 @@ export function AccessibilityMenu() {
         <div className="relative" ref={menuRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`p-2 rounded-xl transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest border ${isOpen
-                        ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                className={`p-2 rounded-xl transition-all flex items-center gap-2 text-xs font-medium border ${isOpen
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                     }`}
                 title="Accessibility Settings"
             >
@@ -62,8 +62,8 @@ export function AccessibilityMenu() {
                             <button
                                 onClick={() => setContrast(contrast === 'high' ? 'standard' : 'high')}
                                 className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${contrast === 'high'
-                                        ? 'bg-orange-50 text-orange-600 border border-orange-100'
-                                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
+                                    ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
                                     }`}
                             >
                                 <div className="flex items-center gap-2">
@@ -88,8 +88,8 @@ export function AccessibilityMenu() {
                                         key={scale.value}
                                         onClick={() => setFontScale(scale.value)}
                                         className={`py-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-1 ${fontScale === scale.value
-                                                ? 'bg-gray-900 text-white border-gray-900 shadow-lg'
-                                                : 'bg-gray-50 text-gray-500 border-transparent hover:border-gray-200'
+                                            ? 'bg-gray-900 text-white border-gray-900 shadow-lg'
+                                            : 'bg-gray-50 text-gray-500 border-transparent hover:border-gray-200'
                                             }`}
                                     >
                                         <span className="text-[10px] font-black uppercase tracking-tighter">{scale.label}</span>

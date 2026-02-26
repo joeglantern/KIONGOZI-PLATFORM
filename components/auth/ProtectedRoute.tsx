@@ -17,31 +17,31 @@ export function ProtectedRoute({
     redirectTo = '/login'
 }: ProtectedRouteProps) {
     const router = useRouter();
+    // `loading` is only true during the very first session check.
+    // Once `user` is set, we render immediately — profile can load in background.
     const { user, profile, loading } = useUser();
 
     useEffect(() => {
-        if (!loading) {
-            // Not authenticated
-            if (!user) {
-                router.push(redirectTo);
-                return;
-            }
+        // If auth finished and there's no user, redirect to login
+        if (!loading && !user) {
+            router.push(redirectTo);
+        }
+    }, [loading, user, router, redirectTo]);
 
-            // Authenticated but role not allowed
-            if (profile && !allowedRoles.includes(profile.role)) {
-                // Redirect based on their actual role
-                if (profile.role === 'admin') {
-                    router.push('/admin/dashboard');
-                } else if (profile.role === 'instructor') {
-                    router.push('/instructor/dashboard');
-                } else {
-                    router.push('/dashboard');
-                }
+    // Role-based redirect: runs as soon as profile resolves (secondary, non-blocking)
+    useEffect(() => {
+        if (!loading && user && profile && !allowedRoles.includes(profile.role)) {
+            if (profile.role === 'admin') {
+                router.push('/admin/dashboard');
+            } else if (profile.role === 'instructor') {
+                router.push('/instructor/dashboard');
+            } else {
+                router.push('/dashboard');
             }
         }
-    }, [user, profile, loading, router, allowedRoles, redirectTo]);
+    }, [loading, user, profile, allowedRoles, router]);
 
-    // Show loading state
+    // Only block on the initial session check (very fast — reads from cookie)
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -53,16 +53,16 @@ export function ProtectedRoute({
         );
     }
 
-    // Not authenticated
+    // Not authenticated — return null while redirect fires
     if (!user) {
         return null;
     }
 
-    // Authenticated but wrong role
+    // Wrong role — return null while redirect fires
     if (profile && !allowedRoles.includes(profile.role)) {
         return null;
     }
 
-    // Authenticated and correct role
+    // ✅ Session confirmed — render immediately, don't wait for profile
     return <>{children}</>;
 }

@@ -36,7 +36,8 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient();
+  // Stable client reference — never re-created on re-render
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);

@@ -50,7 +50,7 @@ export default function TermsOfServicePage() {
                         <p>IN NO EVENT WILL WE OR OUR DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE TO YOU OR ANY THIRD PARTY FOR ANY DIRECT, INDIRECT, CONSEQUENTIAL, EXEMPLARY, INCIDENTAL, SPECIAL, OR PUNITIVE DAMAGES, INCLUDING LOST PROFIT, LOST REVENUE, LOSS OF DATA, OR OTHER DAMAGES ARISING FROM YOUR USE OF THE SITE, EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.</p>
 
                         <h2 className="text-2xl mt-10 mb-4 text-gray-900 dark:text-white">10. Contact Us</h2>
-                        <p>In order to resolve a complaint regarding the Site or to receive further information regarding use of the Site, please contact us via our official support channels.</p>
+                        <p>In order to resolve a complaint regarding the Site or to receive further information regarding use of the Site, please contact us at <a href="mailto:user.support@kiongozi.org" className="text-orange-600 hover:text-orange-700 underline font-semibold">user.support@kiongozi.org</a>.</p>
                     </div>
                 </div>
             </main>

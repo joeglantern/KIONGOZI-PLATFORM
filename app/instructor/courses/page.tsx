@@ -15,9 +15,9 @@ import {
     Users,
     Clock,
     Star,
-    Loader2,
     Edit3
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface CourseData {
     id: string;
@@ -134,8 +134,22 @@ export default function InstructorCoursesPage() {
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center py-20">
-                        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                    <div className="grid gap-4">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 md:p-6 flex flex-col md:flex-row gap-6">
+                                <Skeleton className="w-full md:w-48 h-32 rounded-xl flex-shrink-0" />
+                                <div className="flex-1 space-y-3">
+                                    <Skeleton className="h-4 w-20 rounded-full" />
+                                    <Skeleton className="h-6 w-3/4" />
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-4 w-2/3" />
+                                    <div className="flex gap-6">
+                                        <Skeleton className="h-4 w-24" />
+                                        <Skeleton className="h-4 w-20" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : courses.length === 0 ? (
                     <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800">

@@ -8,7 +8,6 @@ import {
     Bookmark,
     BookOpen,
     MessageSquare,
-    Loader2,
     Search,
     Trash2,
     ExternalLink,
@@ -19,6 +18,7 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BookmarksSkeleton } from '@/components/ui/Skeleton';
 
 interface SavedItem {
     id: string;
@@ -135,9 +135,7 @@ export default function BookmarksPage() {
 
                     {/* Grid */}
                     {loading ? (
-                        <div className="py-20 flex items-center justify-center">
-                            <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
-                        </div>
+                        <BookmarksSkeleton />
                     ) : filteredBookmarks.length === 0 ? (
                         <div className="bg-white rounded-[3rem] p-20 text-center border-2 border-dashed border-gray-100">
                             <div className="w-24 h-24 bg-orange-50 rounded-[2rem] flex items-center justify-center text-orange-200 mx-auto mb-6">

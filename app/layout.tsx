@@ -1,7 +1,16 @@
 import './globals.css';
+import { Roboto } from 'next/font/google';
+
+const roboto = Roboto({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-roboto',
+});
 import type { Metadata } from 'next';
 import { UserProvider } from './contexts/UserContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { CookieConsentProvider } from './contexts/CookieConsentContext';
 import { QueryProvider } from './providers/QueryProvider';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -9,6 +18,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { OfflineDetector } from '@/components/ui/OfflineDetector';
 import { ConditionalMain } from '@/components/layout/ConditionalMain';
 import { Toaster } from '@/components/ui/toaster';
+import { CookieConsentLoader } from '@/components/layout/CookieConsentLoader';
 
 export const metadata: Metadata = {
   title: 'The Kiongozi Platform | Empowering Civic Action & Climate Advocacy',
@@ -45,21 +55,24 @@ export default function RootLayout({
         <meta name="theme-color" content="#ea580c" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="antialiased font-sans">
+      <body className={`${roboto.variable} antialiased font-sans`}>
         <QueryProvider>
           <UserProvider>
             <ThemeProvider>
-              <OfflineDetector />
-              <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
-                <Navbar />
-                <ConditionalMain>
-                  <ErrorBoundary>
-                    {children}
-                  </ErrorBoundary>
-                </ConditionalMain>
-                <Footer />
-                <Toaster />
-              </div>
+              <CookieConsentProvider>
+                <OfflineDetector />
+                <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
+                  <Navbar />
+                  <ConditionalMain>
+                    <ErrorBoundary>
+                      {children}
+                    </ErrorBoundary>
+                  </ConditionalMain>
+                  <Footer />
+                  <Toaster />
+                </div>
+                <CookieConsentLoader />
+              </CookieConsentProvider>
             </ThemeProvider>
           </UserProvider>
         </QueryProvider>

@@ -63,7 +63,7 @@ export default function PrivacyPolicyPage() {
                         <p>Most web browsers and some mobile operating systems and mobile applications include a Do-Not-Track ("DNT") feature or setting you can activate to signal your privacy preference not to have data about your online browsing activities monitored and collected. At this stage no uniform technology standard for recognizing and implementing DNT signals has been finalized.</p>
 
                         <h2 className="text-2xl mt-10 mb-4 text-gray-900 dark:text-white">10. Contact Us</h2>
-                        <p>If you have questions or comments about this notice, you may email us at our designated support email address.</p>
+                        <p>If you have questions or comments about this notice, you may email us at <a href="mailto:user.support@kiongozi.org" className="text-orange-600 hover:text-orange-700 underline font-semibold">user.support@kiongozi.org</a>.</p>
                     </div>
                 </div>
             </main>

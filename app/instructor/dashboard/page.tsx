@@ -13,10 +13,10 @@ import {
     MessageSquare,
     TrendingUp,
     Star,
-    Loader2,
     Eye,
     ArrowRight,
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface CourseData {
     id: string;
@@ -136,9 +136,36 @@ export default function InstructorDashboardPage() {
                 </div>
 
                 {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                    </div>
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                            {[...Array(4)].map((_, i) => (
+                                <div key={i} className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4">
+                                    <Skeleton className="h-14 w-14 rounded-2xl flex-shrink-0" />
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-8 w-16" />
+                                        <Skeleton className="h-3 w-24" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                            <div className="p-6 border-b border-gray-100 dark:border-gray-800">
+                                <Skeleton className="h-6 w-40" />
+                            </div>
+                            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                                {[...Array(4)].map((_, i) => (
+                                    <div key={i} className="p-5 flex items-center gap-5">
+                                        <Skeleton className="h-12 w-12 rounded-2xl flex-shrink-0" />
+                                        <div className="flex-1 space-y-2">
+                                            <Skeleton className="h-4 w-48" />
+                                            <Skeleton className="h-3 w-32" />
+                                        </div>
+                                        <Skeleton className="h-4 w-16 hidden sm:block" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
                 ) : (
                     <>
                         {/* Stats Grid */}

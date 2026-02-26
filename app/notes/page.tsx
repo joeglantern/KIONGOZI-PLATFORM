@@ -7,7 +7,6 @@ import { useUser } from '@/app/contexts/UserContext';
 import {
     StickyNote,
     BookOpen,
-    Loader2,
     Search,
     ExternalLink,
     Filter,
@@ -19,8 +18,8 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
+import { NotesSkeleton } from '@/components/ui/Skeleton';
 
 interface NoteEntry {
     id: string;
@@ -166,9 +165,7 @@ export default function NotesPage() {
 
                         {/* Notes List */}
                         {loading ? (
-                            <div className="py-20 flex items-center justify-center">
-                                <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
-                            </div>
+                            <NotesSkeleton />
                         ) : groupedNotes.length === 0 ? (
                             <div className="bg-white rounded-[3rem] p-20 text-center border shadow-sm border-gray-100">
                                 <div className="w-20 h-20 bg-orange-50 rounded-3xl flex items-center justify-center text-orange-300 mx-auto mb-6">
