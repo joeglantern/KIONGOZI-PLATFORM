@@ -23,19 +23,13 @@
         "NSSpeechRecognitionUsageDescription": "This app needs access to speech recognition to convert your voice to text.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true,
-          "NSExceptionDomains": {
-            "156.67.25.84": {
-              "NSExceptionAllowsInsecureHTTPLoads": true,
-              "NSIncludesSubdomains": true
-            }
-          }
+          "NSAllowsArbitraryLoads": true
         }
       }
     },
     "android": {
       "package": "com.kiongozi.mobile",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
