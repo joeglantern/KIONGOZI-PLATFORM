@@ -435,11 +435,7 @@ class ApiClient {
   }) {
     const queryString = new URLSearchParams(params as any).toString();
     const endpoint = `/api/v1/content/courses${queryString ? `?${queryString}` : ''}`;
-    console.log('🔍 getCourses URL:', `${this.baseURL}${endpoint}`);
-    console.log('🔍 getCourses params:', JSON.stringify(params));
-    const result = await this.request(endpoint, { method: 'GET' });
-    console.log('🔍 getCourses result:', JSON.stringify(result).substring(0, 200));
-    return result;
+    return this.request(endpoint, { method: 'GET' });
   }
 
   // Get a specific course by ID

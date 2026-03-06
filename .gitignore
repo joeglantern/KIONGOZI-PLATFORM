@@ -42,6 +42,9 @@ yarn-error.log*
 lms-reference/
 api-server/KIONGOZI-API.env
 
+# Backend presentation
+kiongozi-backend-presentation/
+
 # Documentation and guides (auto-generated)
 *.md
 !README.md
