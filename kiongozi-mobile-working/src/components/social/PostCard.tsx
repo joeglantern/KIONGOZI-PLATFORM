@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
@@ -52,6 +52,15 @@ export function PostCard({
       await apiClient.repostPost(post.id);
     } catch {}
   }, [post.id]);
+
+  const handleShare = useCallback(async () => {
+    try {
+      await Share.share({
+        message: `${post.profiles?.full_name ?? ''}: ${post.content}`,
+        url: `https://kiongozi.app/posts/${post.id}`,
+      });
+    } catch {}
+  }, [post.id, post.content, post.profiles?.full_name]);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.95} style={styles.container}>
@@ -130,7 +139,7 @@ export function PostCard({
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.action}>
+          <TouchableOpacity style={styles.action} onPress={handleShare}>
             <Ionicons name="share-outline" size={18} color="#718096" />
           </TouchableOpacity>
         </View>

@@ -10,6 +10,7 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
+import { supabase } from '../../utils/supabaseClient';
 
 interface CreatePostScreenProps {
   onClose: () => void;
@@ -27,8 +28,14 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const canPost = content.trim().length > 0 && content.length <= 280 && !posting;
 
   const pickMedia = async (type: 'image' | 'video') => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow access to your photo library in Settings.');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: type === 'image' ? ImagePicker.MediaType.image : ImagePicker.MediaType.video,
+      mediaTypes: type === 'image' ? 'images' : 'videos',
       quality: 0.9,
       allowsMultipleSelection: true,
       selectionLimit: 4,
@@ -47,29 +54,44 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     setMedia(prev => prev.filter((_, i) => i !== index));
   };
 
-  const uploadMedia = async (): Promise<Array<{ url: string; storage_path: string; media_type: string }>> => {
-    const uploaded = [];
+  const uploadMedia = async (): Promise<{ uploaded: Array<{ url: string; storage_path: string; media_type: string }>; lastError?: string }> => {
+    const uploaded: Array<{ url: string; storage_path: string; media_type: string }> = [];
+    let lastError: string | undefined;
+    setUploading(true);
+
     for (const m of media) {
       try {
-        setUploading(true);
-        const formData = new FormData();
-        formData.append('file', {
-          uri: m.uri,
-          type: m.type === 'image' ? 'image/jpeg' : 'video/mp4',
-          name: `upload.${m.type === 'image' ? 'jpg' : 'mp4'}`
-        } as any);
+        const uriParts = m.uri.split('.');
+        const ext = uriParts[uriParts.length - 1]?.toLowerCase() || (m.type === 'image' ? 'jpg' : 'mp4');
+        const mimeType = m.type === 'image'
+          ? (ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg')
+          : (ext === 'mov' ? 'video/quicktime' : 'video/mp4');
 
-        const endpoint = m.type === 'image' ? '/api/v1/upload/image' : '/api/v1/upload/video';
-        const res = await apiClient.uploadFile(endpoint, formData);
-        if (res.success && res.data) {
-          uploaded.push({ ...res.data, media_type: m.type });
-        }
-      } catch (e) {
-        console.error('Upload failed:', e);
+        const storagePath = `posts/${user!.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+        // Read file from device and upload directly to Supabase Storage
+        const fileResponse = await fetch(m.uri);
+        const blob = await fileResponse.blob();
+
+        const { error } = await supabase.storage
+          .from('social-media')
+          .upload(storagePath, blob, { contentType: mimeType, upsert: false });
+
+        if (error) throw new Error(error.message);
+
+        const { data: urlData } = supabase.storage
+          .from('social-media')
+          .getPublicUrl(storagePath);
+
+        uploaded.push({ url: urlData.publicUrl, storage_path: storagePath, media_type: m.type });
+      } catch (e: any) {
+        lastError = e?.message || 'Upload error';
+        console.error('Upload error:', e);
       }
     }
+
     setUploading(false);
-    return uploaded;
+    return { uploaded, lastError };
   };
 
   const handlePost = async () => {
@@ -79,7 +101,18 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     try {
       let uploadedMedia: any[] = [];
       if (media.length > 0) {
-        uploadedMedia = await uploadMedia();
+        const { uploaded, lastError } = await uploadMedia();
+        // If ALL uploads failed, block posting and show the actual error
+        if (uploaded.length === 0) {
+          Alert.alert('Upload failed', lastError || 'Could not upload media. Please try again.');
+          setPosting(false);
+          return;
+        }
+        // If some (not all) failed, warn but continue with what succeeded
+        if (uploaded.length < media.length) {
+          Alert.alert('Upload warning', `${media.length - uploaded.length} file(s) failed to upload and will be skipped.`);
+        }
+        uploadedMedia = uploaded;
       }
 
       const res = await apiClient.createPost(content.trim(), uploadedMedia, parentPostId);

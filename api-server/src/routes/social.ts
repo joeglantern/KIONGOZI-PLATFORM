@@ -97,7 +97,8 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
       return;
     }
 
-    // Save media attachments if provided
+    // Save media attachments if provided, and include them in the response
+    let postMedia: any[] = [];
     if (media && Array.isArray(media) && media.length > 0) {
       const mediaRows = media.map((m: any, idx: number) => ({
         post_id: post.id,
@@ -110,8 +111,14 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
         thumbnail_url: m.thumbnail_url,
         order_index: idx
       }));
-      await supabaseServiceClient.from('post_media').insert(mediaRows);
+      const { data: insertedMedia } = await supabaseServiceClient
+        .from('post_media')
+        .insert(mediaRows)
+        .select();
+      postMedia = insertedMedia || [];
     }
+
+    const completePost = { ...post, post_media: postMedia };
 
     // Process mentions + hashtags (non-blocking)
     setImmediate(async () => {
@@ -126,10 +133,10 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
     // Emit to followers via Socket.IO
     const io = (req as any).io;
     if (io) {
-      io.emit('feed:post_new', { post });
+      io.emit('feed:post_new', { post: completePost });
     }
 
-    res.status(201).json({ success: true, data: post });
+    res.status(201).json({ success: true, data: completePost });
   } catch (err) {
     console.error('Create post error:', err);
     res.status(500).json({ success: false, error: 'Failed to create post' });

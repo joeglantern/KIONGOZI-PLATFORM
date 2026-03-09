@@ -64,7 +64,7 @@ export default function ProfileTabScreen() {
           <MenuItem
             icon="bookmark-outline"
             label="Bookmarks"
-            onPress={() => {}}
+            onPress={() => Alert.alert('Coming Soon', 'Bookmarks are coming in the next update.')}
           />
           <MenuItem
             icon="log-out-outline"

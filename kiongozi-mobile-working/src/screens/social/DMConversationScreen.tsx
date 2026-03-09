@@ -9,6 +9,7 @@ import { DMBubble } from '../../components/social/DMBubble';
 import { useDMStore } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
+import { supabase } from '../../utils/supabaseClient';
 
 export default function DMConversationScreen() {
   const navigation = useNavigation<any>();
@@ -28,6 +29,34 @@ export default function DMConversationScreen() {
     markRead(conversationId);
     apiClient.markDMRead(conversationId);
   }, [conversationId]);
+
+  // Realtime: append incoming messages from the other participant
+  useEffect(() => {
+    if (!conversationId || !user?.id) return;
+
+    const channel = supabase
+      .channel(`dm-conv-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'dm_messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          if (payload.new && payload.new.sender_id !== user.id) {
+            appendMessage(conversationId, payload.new as any);
+            apiClient.markDMRead(conversationId);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, user?.id]);
 
   const handleSend = useCallback(async () => {
     if (!text.trim() || sending) return;

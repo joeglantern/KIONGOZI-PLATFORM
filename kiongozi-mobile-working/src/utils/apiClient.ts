@@ -638,19 +638,33 @@ class ApiClient {
   // MEDIA UPLOAD METHODS
   // ================================
 
-  /** Upload a file (image or video) using FormData */
-  async uploadFile(endpoint: string, formData: FormData) {
+  /** Upload a file (image or video) using XMLHttpRequest — required for React Native multipart/form-data */
+  async uploadFile(endpoint: string, formData: FormData): Promise<{ success: boolean; data?: any; error?: string }> {
     const url = `${this.baseURL}${endpoint}`;
     const token = await this.getAuthToken();
-    const headers: HeadersInit = { 'User-Agent': 'Kiongozi-Mobile/1.0' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    try {
-      const response = await fetch(url, { method: 'POST', headers, body: formData });
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('User-Agent', 'Kiongozi-Mobile/1.0');
+      // Do NOT set Content-Type — XHR sets it automatically with the correct multipart boundary
+
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch {
+          resolve({ success: false, error: `Server error (${xhr.status})` });
+        }
+      };
+
+      xhr.onerror = () => resolve({ success: false, error: 'Network error — could not reach server' });
+      xhr.ontimeout = () => resolve({ success: false, error: 'Upload timed out' });
+      xhr.timeout = 60000; // 60 s
+
+      xhr.send(formData);
+    });
   }
 
   // ================================
@@ -687,6 +701,38 @@ class ApiClient {
   /** Mark DM conversation as read */
   async markDMRead(conversationId: string) {
     return this.request(`/api/v1/dm/conversations/${conversationId}/read`, { method: 'PUT' });
+  }
+
+  // ================================
+  // NOTIFICATIONS METHODS
+  // ================================
+
+  async getNotifications(params?: { limit?: number; offset?: number; unread_only?: boolean }) {
+    const filtered = params
+      ? Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]))
+      : {};
+    const qs = new URLSearchParams(filtered).toString();
+    return this.request(`/api/v1/notifications${qs ? `?${qs}` : ''}`, { method: 'GET' });
+  }
+
+  async markNotificationRead(notificationId: string) {
+    return this.request(`/api/v1/notifications/${notificationId}/read`, { method: 'PUT' });
+  }
+
+  async markAllNotificationsRead() {
+    return this.request('/api/v1/notifications/read-all', { method: 'PUT' });
+  }
+
+  // ================================
+  // FOLLOWERS / FOLLOWING
+  // ================================
+
+  async getFollowers(userId: string) {
+    return this.request(`/api/v1/social/followers/${userId}`, { method: 'GET' });
+  }
+
+  async getFollowing(userId: string) {
+    return this.request(`/api/v1/social/following/${userId}`, { method: 'GET' });
   }
 }
 

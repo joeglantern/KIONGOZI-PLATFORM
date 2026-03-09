@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotificationStore, SocialNotification } from '../../stores/notificationStore';
+import { useAuthStore } from '../../stores/authStore';
 import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../../utils/supabaseClient';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -21,18 +23,53 @@ const ICON_MAP: Record<string, { name: keyof typeof Ionicons.glyphMap; color: st
   mention: { name: 'at', color: '#805ad5' },
   follow: { name: 'person-add', color: '#d69e2e' },
   dm: { name: 'mail', color: '#3182ce' },
+  info: { name: 'information-circle', color: '#3182ce' },
+  warning: { name: 'warning', color: '#d69e2e' },
+  error: { name: 'close-circle', color: '#e53e3e' },
 };
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
-  const { notifications, unreadCount, markAllRead, markRead } = useNotificationStore();
+  const { user } = useAuthStore();
+  const { notifications, unreadCount, isLoading, fetchNotifications, markAllRead, markRead, addNotification } =
+    useNotificationStore();
 
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // Supabase Realtime: listen for new notifications for this user
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.new) addNotification(payload.new);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  // Mark all read when leaving the screen
   useEffect(() => {
     return () => { markAllRead(); };
   }, []);
 
   const renderNotification = ({ item }: { item: SocialNotification }) => {
-    const icon = ICON_MAP[item.type] || { name: 'notifications' as any, color: '#718096' };
+    const icon = ICON_MAP[item.type] ?? { name: 'notifications' as any, color: '#718096' };
     return (
       <TouchableOpacity
         style={[styles.item, !item.read && styles.unread]}
@@ -65,17 +102,21 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      <FlatList
-        data={notifications}
-        keyExtractor={item => item.id}
-        renderItem={renderNotification}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="notifications-outline" size={48} color="#e2e8f0" />
-            <Text style={styles.emptyText}>No notifications yet</Text>
-          </View>
-        }
-      />
+      {isLoading && notifications.length === 0 ? (
+        <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={item => item.id}
+          renderItem={renderNotification}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="notifications-outline" size={48} color="#e2e8f0" />
+              <Text style={styles.emptyText}>No notifications yet</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }

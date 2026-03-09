@@ -114,7 +114,11 @@ export default function ExploreScreen() {
               <View style={styles.trendingSection}>
                 <Text style={styles.sectionTitle}>Trending in Kenya</Text>
                 {trending.hashtags.map((h: any) => (
-                  <TouchableOpacity key={h.id} style={styles.hashtagRow}>
+                  <TouchableOpacity
+                    key={h.id}
+                    style={styles.hashtagRow}
+                    onPress={() => handleSearch(`#${h.tag}`)}
+                  >
                     <Text style={styles.hashtagText}>#{h.tag}</Text>
                     <Text style={styles.hashtagCount}>{h.use_count} posts</Text>
                   </TouchableOpacity>
