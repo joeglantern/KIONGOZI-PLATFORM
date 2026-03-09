@@ -21,7 +21,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const { user } = useAuthStore();
   const { prependPost } = useSocialStore();
   const [content, setContent] = useState('');
-  const [media, setMedia] = useState<Array<{ uri: string; type: 'image' | 'video'; url?: string; storage_path?: string }>>([]);
+  const [media, setMedia] = useState<Array<{ uri: string; type: 'image' | 'video'; width?: number; height?: number }>>([]);
   const [posting, setPosting] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -44,7 +44,9 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     if (!result.canceled) {
       const newMedia = result.assets.map(a => ({
         uri: a.uri,
-        type: type as 'image' | 'video'
+        type: type as 'image' | 'video',
+        width: a.width,
+        height: a.height,
       }));
       setMedia(prev => [...prev, ...newMedia].slice(0, 4));
     }
@@ -89,7 +91,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
           .from('social-media')
           .getPublicUrl(storagePath);
 
-        uploaded.push({ url: urlData.publicUrl, storage_path: storagePath, media_type: m.type });
+        uploaded.push({ url: urlData.publicUrl, storage_path: storagePath, media_type: m.type, width: m.width, height: m.height });
       } catch (e: any) {
         lastError = e?.message || 'Upload error';
         console.error('Upload error:', e);

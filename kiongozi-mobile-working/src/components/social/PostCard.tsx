@@ -17,13 +17,14 @@ interface PostCardProps {
   onHashtagPress?: (tag: string) => void;
 }
 
-function PostVideo({ url, style }: { url: string; style: any }) {
+function PostVideo({ url, width, height }: { url: string; width?: number; height?: number }) {
   const [open, setOpen] = useState(false);
+  const isPortrait = height && width && height > width;
 
-  const player = useVideoPlayer(url, p => {
-    p.muted = false;
-    p.pause();
-  });
+  // Compute display height: portrait capped at 400, landscape fixed 220
+  const displayHeight = isPortrait ? 360 : 220;
+
+  const player = useVideoPlayer(url, p => { p.pause(); });
 
   const handleOpen = useCallback(() => {
     player.currentTime = 0;
@@ -38,15 +39,15 @@ function PostVideo({ url, style }: { url: string; style: any }) {
 
   return (
     <>
-      {/* Dark thumbnail with play icon */}
-      <TouchableOpacity onPress={handleOpen} activeOpacity={0.85}>
-        <View style={[style, styles.videoThumb]}>
-          <Ionicons name="play-circle" size={52} color="rgba(255,255,255,0.92)" />
-          <Text style={styles.videoLabel}>Tap to play</Text>
-        </View>
+      <TouchableOpacity
+        onPress={handleOpen}
+        activeOpacity={0.85}
+        style={[styles.videoThumb, { height: displayHeight }]}
+      >
+        <Ionicons name="play-circle" size={56} color="rgba(255,255,255,0.92)" />
+        <Text style={styles.videoLabel}>Tap to play</Text>
       </TouchableOpacity>
 
-      {/* Fullscreen player */}
       <Modal visible={open} animationType="fade" onRequestClose={handleClose} statusBarTranslucent>
         <SafeAreaView style={styles.fullscreen}>
           <VideoView
@@ -153,7 +154,7 @@ export function PostCard({
                 post.post_media!.length === 1 ? styles.singleImage : styles.gridImage
               ];
               return media.media_type === 'video' ? (
-                <PostVideo key={media.id} url={media.url} style={mediaStyle} />
+                <PostVideo key={media.id} url={media.url} width={media.width} height={media.height} />
               ) : (
                 <Image key={media.id} source={{ uri: media.url }} style={mediaStyle} resizeMode="cover" />
               );
@@ -275,10 +276,13 @@ const styles = StyleSheet.create({
     color: '#e53e3e',
   },
   videoThumb: {
+    width: '100%',
     backgroundColor: '#0d1117',
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    marginBottom: 10,
   },
   videoLabel: {
     color: 'rgba(255,255,255,0.7)',
