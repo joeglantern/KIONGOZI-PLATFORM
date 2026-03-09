@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
 import { HashtagHighlight } from './HashtagHighlight';
@@ -14,6 +15,13 @@ interface PostCardProps {
   onReplyPress?: () => void;
   onMentionPress?: (username: string) => void;
   onHashtagPress?: (tag: string) => void;
+}
+
+function PostVideo({ url, style }: { url: string; style: any }) {
+  const player = useVideoPlayer(url, p => { p.pause(); });
+  return (
+    <VideoView player={player} style={style} contentFit="cover" nativeControls allowsFullscreen />
+  );
 }
 
 function timeAgo(dateStr: string): string {
@@ -98,19 +106,17 @@ export function PostCard({
         {/* Media */}
         {post.post_media && post.post_media.length > 0 && (
           <View style={styles.mediaContainer}>
-            {post.post_media.slice(0, 4).map((media) => (
-              media.media_type === 'image' && (
-                <Image
-                  key={media.id}
-                  source={{ uri: media.url }}
-                  style={[
-                    styles.mediaImage,
-                    post.post_media!.length === 1 ? styles.singleImage : styles.gridImage
-                  ]}
-                  resizeMode="cover"
-                />
-              )
-            ))}
+            {post.post_media.slice(0, 4).map((media) => {
+              const mediaStyle = [
+                styles.mediaImage,
+                post.post_media!.length === 1 ? styles.singleImage : styles.gridImage
+              ];
+              return media.media_type === 'video' ? (
+                <PostVideo key={media.id} url={media.url} style={mediaStyle} />
+              ) : (
+                <Image key={media.id} source={{ uri: media.url }} style={mediaStyle} resizeMode="cover" />
+              );
+            })}
           </View>
         )}
 

@@ -172,7 +172,14 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
               <View style={styles.mediaGrid}>
                 {media.map((m, i) => (
                   <View key={i} style={styles.mediaItem}>
-                    <Image source={{ uri: m.uri }} style={styles.mediaThumb} resizeMode="cover" />
+                    {m.type === 'video' ? (
+                      <View style={[styles.mediaThumb, styles.videoThumb]}>
+                        <Ionicons name="play-circle" size={36} color="#fff" />
+                        <Text style={styles.videoLabel}>Video</Text>
+                      </View>
+                    ) : (
+                      <Image source={{ uri: m.uri }} style={styles.mediaThumb} resizeMode="cover" />
+                    )}
                     <TouchableOpacity style={styles.removeMedia} onPress={() => removeMedia(i)}>
                       <Ionicons name="close-circle" size={22} color="#fff" />
                     </TouchableOpacity>
@@ -237,6 +244,8 @@ const styles = StyleSheet.create({
   mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   mediaItem: { position: 'relative' },
   mediaThumb: { width: 100, height: 100, borderRadius: 8 },
+  videoThumb: { backgroundColor: '#1a202c', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  videoLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
   removeMedia: { position: 'absolute', top: -6, right: -6 },
   uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   uploadingText: { color: '#718096', fontSize: 13 },
