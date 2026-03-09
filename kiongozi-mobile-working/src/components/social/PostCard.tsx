@@ -19,30 +19,53 @@ interface PostCardProps {
 
 function PostVideo({ url, style }: { url: string; style: any }) {
   const [open, setOpen] = useState(false);
-  const player = useVideoPlayer(url, p => { p.pause(); });
+
+  // Muted, looping preview shown inline in the feed
+  const previewPlayer = useVideoPlayer(url, p => {
+    p.muted = true;
+    p.loop = true;
+    p.play();
+  });
+
+  // Unmuted player for fullscreen
+  const fullPlayer = useVideoPlayer(url, p => {
+    p.muted = false;
+    p.pause();
+  });
 
   const handleOpen = useCallback(() => {
-    player.play();
+    fullPlayer.currentTime = 0;
+    fullPlayer.play();
     setOpen(true);
-  }, [player]);
+  }, [fullPlayer]);
 
   const handleClose = useCallback(() => {
-    player.pause();
+    fullPlayer.pause();
     setOpen(false);
-  }, [player]);
+  }, [fullPlayer]);
 
   return (
     <>
-      {/* Thumbnail with play icon shown in feed */}
-      <TouchableOpacity onPress={handleOpen} style={[style, styles.videoThumb]} activeOpacity={0.85}>
-        <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
+      {/* Inline muted preview */}
+      <TouchableOpacity onPress={handleOpen} activeOpacity={0.9}>
+        <View style={style}>
+          <VideoView
+            player={previewPlayer}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            nativeControls={false}
+          />
+          <View style={styles.videoPlayOverlay}>
+            <Ionicons name="play-circle" size={44} color="rgba(255,255,255,0.9)" />
+          </View>
+        </View>
       </TouchableOpacity>
 
-      {/* Fullscreen player */}
+      {/* Fullscreen player with sound */}
       <Modal visible={open} animationType="fade" onRequestClose={handleClose} statusBarTranslucent>
         <SafeAreaView style={styles.fullscreen}>
           <VideoView
-            player={player}
+            player={fullPlayer}
             style={StyleSheet.absoluteFill}
             contentFit="contain"
             nativeControls
@@ -267,7 +290,10 @@ const styles = StyleSheet.create({
     color: '#e53e3e',
   },
   videoThumb: {
-    backgroundColor: '#0d1117',
+    backgroundColor: '#000',
+  },
+  videoPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
