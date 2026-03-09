@@ -1,4 +1,8 @@
 import { registerRootComponent } from 'expo';
+import { enableScreens } from 'react-native-screens';
+
+// Must be called before any navigation code (required for New Architecture / Fabric)
+enableScreens(true);
 
 import App from './App';
 

@@ -523,6 +523,168 @@ class ApiClient {
   async getCourseModules(courseId: string) {
     return this.request(`/api/v1/content/courses/${courseId}/modules`, { method: 'GET' });
   }
+
+  // ================================
+  // SOCIAL PLATFORM METHODS
+  // ================================
+
+  /** Get personal feed (paginated, cursor-based) */
+  async getFeed(cursor?: string) {
+    const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return this.request(`/api/v1/social/feed${params}`, { method: 'GET' });
+  }
+
+  /** Get explore/public feed */
+  async getExploreFeed(cursor?: string) {
+    const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return this.request(`/api/v1/social/explore${params}`, { method: 'GET' });
+  }
+
+  /** Get a single post by ID */
+  async getPost(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}`, { method: 'GET' });
+  }
+
+  /** Create a new post */
+  async createPost(content: string, media?: any[], parentPostId?: string) {
+    return this.request('/api/v1/social/posts', {
+      method: 'POST',
+      body: JSON.stringify({ content, media, parent_post_id: parentPostId })
+    });
+  }
+
+  /** Delete a post */
+  async deletePost(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}`, { method: 'DELETE' });
+  }
+
+  /** Like or unlike a post (toggle) */
+  async likePost(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}/like`, { method: 'POST' });
+  }
+
+  /** Repost a post */
+  async repostPost(postId: string, content?: string) {
+    return this.request(`/api/v1/social/posts/${postId}/repost`, {
+      method: 'POST',
+      body: JSON.stringify({ content })
+    });
+  }
+
+  /** Reply to a post */
+  async replyToPost(postId: string, content: string, media?: any[]) {
+    return this.request(`/api/v1/social/posts/${postId}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ content, media })
+    });
+  }
+
+  /** Get replies for a post */
+  async getPostReplies(postId: string, cursor?: string) {
+    const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return this.request(`/api/v1/social/posts/${postId}/replies${params}`, { method: 'GET' });
+  }
+
+  /** Follow a user */
+  async followUser(userId: string) {
+    return this.request(`/api/v1/social/follow/${userId}`, { method: 'POST' });
+  }
+
+  /** Unfollow a user */
+  async unfollowUser(userId: string) {
+    return this.request(`/api/v1/social/follow/${userId}`, { method: 'DELETE' });
+  }
+
+  /** Get a public profile by username */
+  async getPublicProfile(username: string) {
+    return this.request(`/api/v1/social/users/${username}`, { method: 'GET' });
+  }
+
+  /** Get a user's posts by username */
+  async getUserPosts(username: string, cursor?: string) {
+    const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return this.request(`/api/v1/social/users/${username}/posts${params}`, { method: 'GET' });
+  }
+
+  /** Update own profile (multipart/form-data for avatar upload) */
+  async updateProfile(formData: FormData) {
+    const url = `${this.baseURL}/api/v1/social/profile`;
+    const token = await this.getAuthToken();
+    const headers: HeadersInit = { 'User-Agent': 'Kiongozi-Mobile/1.0' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    try {
+      const response = await fetch(url, { method: 'PATCH', headers, body: formData });
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /** Get trending hashtags + posts */
+  async getTrending() {
+    return this.request('/api/v1/social/trending', { method: 'GET' });
+  }
+
+  /** Search posts and users */
+  async searchSocial(query: string) {
+    return this.request(`/api/v1/social/search?q=${encodeURIComponent(query)}`, { method: 'GET' });
+  }
+
+  // ================================
+  // MEDIA UPLOAD METHODS
+  // ================================
+
+  /** Upload a file (image or video) using FormData */
+  async uploadFile(endpoint: string, formData: FormData) {
+    const url = `${this.baseURL}${endpoint}`;
+    const token = await this.getAuthToken();
+    const headers: HeadersInit = { 'User-Agent': 'Kiongozi-Mobile/1.0' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    try {
+      const response = await fetch(url, { method: 'POST', headers, body: formData });
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ================================
+  // DIRECT MESSAGES METHODS
+  // ================================
+
+  /** List DM conversations */
+  async getDMConversations() {
+    return this.request('/api/v1/dm/conversations', { method: 'GET' });
+  }
+
+  /** Start a new DM conversation */
+  async startDMConversation(recipientId: string) {
+    return this.request('/api/v1/dm/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ recipientId })
+    });
+  }
+
+  /** Get messages in a DM conversation */
+  async getDMMessages(conversationId: string, cursor?: string) {
+    const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return this.request(`/api/v1/dm/conversations/${conversationId}${params}`, { method: 'GET' });
+  }
+
+  /** Send a DM message */
+  async sendDM(conversationId: string, content: string, mediaUrl?: string, mediaType?: string) {
+    return this.request(`/api/v1/dm/conversations/${conversationId}`, {
+      method: 'POST',
+      body: JSON.stringify({ content, media_url: mediaUrl, media_type: mediaType })
+    });
+  }
+
+  /** Mark DM conversation as read */
+  async markDMRead(conversationId: string) {
+    return this.request(`/api/v1/dm/conversations/${conversationId}/read`, { method: 'PUT' });
+  }
 }
 
 // Create singleton instance

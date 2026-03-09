@@ -97,6 +97,9 @@ class SocketService {
       userSockets.push(socket.id);
       this.connectedUsers.set(socket.userId, userSockets);
 
+      // Join personal feed room
+      socket.join(`feed:${socket.userId}`);
+
       // Send connection confirmation
       socket.emit('connected', {
         message: 'Successfully connected to real-time updates',
@@ -119,6 +122,20 @@ class SocketService {
             .eq('user_id', socket.userId);
         } catch (error) {
           console.error('Failed to acknowledge notification:', error);
+        }
+      });
+
+      // Join a DM conversation room
+      socket.on('join_dm', (data: { conversationId: string }) => {
+        if (data?.conversationId) {
+          socket.join(`dm:${data.conversationId}`);
+        }
+      });
+
+      // Leave a DM conversation room
+      socket.on('leave_dm', (data: { conversationId: string }) => {
+        if (data?.conversationId) {
+          socket.leave(`dm:${data.conversationId}`);
         }
       });
 
@@ -183,6 +200,49 @@ class SocketService {
 
   public broadcastSystemUpdate(update: any) {
     this.io.emit('system_update', update);
+  }
+
+  // ── Social platform events ─────────────────────────────────────────────────
+
+  /** Broadcast a new post to a user's feed room */
+  public emitFeedPost(userId: string, post: any) {
+    this.io.to(`feed:${userId}`).emit('feed:post_new', { post });
+  }
+
+  /** Notify a user their post was liked */
+  public emitPostLiked(userId: string, postId: string, likedBy: string) {
+    this.io.to(`user:${userId}`).emit('post:liked', { postId, likedBy });
+  }
+
+  /** Notify a user their post received a comment */
+  public emitPostCommented(userId: string, postId: string, replyId: string, replyBy: string) {
+    this.io.to(`user:${userId}`).emit('post:commented', { postId, replyId, replyBy });
+  }
+
+  /** Notify a user their post was reposted */
+  public emitPostReposted(userId: string, postId: string, repostedBy: string) {
+    this.io.to(`user:${userId}`).emit('post:reposted', { postId, repostedBy });
+  }
+
+  /** Notify a user they were @mentioned */
+  public emitMentionNew(userId: string, postId: string, mentionedBy: string) {
+    this.io.to(`user:${userId}`).emit('mention:new', { postId, mentionedBy });
+  }
+
+  /** Notify a user someone followed them */
+  public emitFollowNew(userId: string, followedBy: string) {
+    this.io.to(`user:${userId}`).emit('follow:new', { followedBy });
+  }
+
+  /** Deliver a new DM message to a conversation room and the recipient's user room */
+  public emitDmMessage(conversationId: string, recipientId: string, message: any) {
+    this.io.to(`dm:${conversationId}`).emit('dm:message_new', { conversationId, message });
+    this.io.to(`user:${recipientId}`).emit('dm:message_new', { conversationId, message });
+  }
+
+  /** Broadcast DM read receipt to a conversation room */
+  public emitDmRead(conversationId: string, readBy: string) {
+    this.io.to(`dm:${conversationId}`).emit('dm:read', { conversationId, readBy });
   }
 
   public getConnectedUsersCount(): number {

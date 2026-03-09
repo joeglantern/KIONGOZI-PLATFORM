@@ -21,6 +21,11 @@ import websocketRoutes from './routes/websocket';
 import userRoutes from './routes/user';
 import contentRoutes from './routes/content';
 import progressRoutes from './routes/progress';
+import socialRoutes from './routes/social';
+import followsRoutes from './routes/follows';
+import profilesSocialRoutes from './routes/profiles-social';
+import dmRoutes from './routes/dm';
+import uploadRoutes from './routes/upload';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -97,6 +102,22 @@ app.use('/api/v1/admin/security', adminSecurityRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/websocket', websocketRoutes);
+
+// Social platform routes
+app.use('/api/v1/social', apiRateLimit.middleware(), socialRoutes);
+app.use('/api/v1/social', apiRateLimit.middleware(), followsRoutes);
+app.use('/api/v1/social', apiRateLimit.middleware(), profilesSocialRoutes);
+app.use('/api/v1/dm', apiRateLimit.middleware(), dmRoutes);
+
+// Upload routes (stricter rate limit: 10 req/min)
+const uploadRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Upload rate limit exceeded. Try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/v1/upload', uploadRateLimit, uploadRoutes);
 
 // General API routes
 app.use('/api/v1', apiRateLimit.middleware());

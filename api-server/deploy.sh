@@ -1,124 +1,121 @@
 #!/bin/bash
 
-# Kiongozi API Server Deployment Script
-# Run this on your Contabo VPS
+# Kiongozi API Server — Docker Deployment Script
+# Deploys to Contabo VPS using Docker Compose (replaces PM2)
 
 set -e
 
-echo "=========================================="
-echo "  Kiongozi API Server Deployment"
-echo "=========================================="
-
-# Colors for output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Configuration
-APP_NAME="kiongozi-api"
-APP_DIR="/var/www/kiongozi-api"
+log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+
 REPO_URL="https://github.com/joeglantern/KIONGOZI-PLATFORM.git"
-NODE_VERSION="22"
+DEPLOY_DIR="$HOME/kiongozi-api"
+API_DIR="$DEPLOY_DIR/api-server"
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}Please run as root (use sudo)${NC}"
-    exit 1
+echo ""
+log_info "========================================="
+log_info "  Kiongozi API Server — Docker Deploy"
+log_info "========================================="
+echo ""
+
+# ── Step 1: System prereqs ───────────────────────────────────────────────────
+log_info "Step 1: Checking prerequisites..."
+if ! command -v docker &>/dev/null; then
+    log_info "Installing Docker..."
+    curl -fsSL https://get.docker.com | sh
 fi
-
-echo -e "${YELLOW}Step 1: Updating system packages...${NC}"
-apt update && apt upgrade -y
-
-echo -e "${YELLOW}Step 2: Installing dependencies...${NC}"
-apt install -y curl git nginx certbot python3-certbot-nginx
-
-echo -e "${YELLOW}Step 3: Installing Node.js ${NODE_VERSION}...${NC}"
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
-    apt install -y nodejs
+if ! command -v git &>/dev/null; then
+    apt-get install -y git
 fi
-echo "Node.js version: $(node -v)"
-echo "npm version: $(npm -v)"
+log_success "Prerequisites OK"
 
-echo -e "${YELLOW}Step 4: Installing PM2...${NC}"
-npm install -g pm2
-
-echo -e "${YELLOW}Step 5: Creating app directory...${NC}"
-mkdir -p $APP_DIR
-cd $APP_DIR
-
-echo -e "${YELLOW}Step 6: Cloning/updating repository...${NC}"
-if [ -d ".git" ]; then
+# ── Step 2: Clone or update repo ─────────────────────────────────────────────
+log_info "Step 2: Getting latest code..."
+if [ -d "$DEPLOY_DIR" ]; then
+    cd "$DEPLOY_DIR"
     git pull origin main
+    log_success "Code updated"
 else
-    git clone $REPO_URL .
+    cd "$HOME"
+    git clone "$REPO_URL" kiongozi-api
+    log_success "Code cloned"
 fi
 
-echo -e "${YELLOW}Step 7: Installing API server dependencies...${NC}"
-cd api-server
-npm install --legacy-peer-deps
+cd "$API_DIR"
+log_info "Working in: $(pwd)"
 
-echo -e "${YELLOW}Step 8: Building TypeScript...${NC}"
-npm run build
-
-echo -e "${YELLOW}Step 9: Setting up environment variables...${NC}"
+# ── Step 3: Verify .env exists ───────────────────────────────────────────────
+log_info "Step 3: Checking environment file..."
 if [ ! -f ".env" ]; then
-    echo -e "${RED}No .env file found!${NC}"
-    echo "Creating template .env file..."
-    cat > .env << 'EOF'
-# Server Configuration
-PORT=3002
+    log_warning ".env not found — creating template"
+    cat > .env << 'ENVEOF'
+# Server
+PORT=3001
 NODE_ENV=production
 
-# Supabase Configuration
-SUPABASE_URL=your_supabase_url_here
-SUPABASE_ANON_KEY=your_supabase_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+# Supabase
+SUPABASE_URL=https://jdncfyagppohtksogzkx.supabase.co
+SUPABASE_ANON_KEY=FILL_IN
+SUPABASE_SERVICE_ROLE_KEY=FILL_IN
 
-# OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key_here
+# OpenAI
+OPENAI_API_KEY=FILL_IN
 
-# JWT Secret (generate a random string)
-JWT_SECRET=your_jwt_secret_here
+# Bot (@kiongozi)
+BOT_USER_ID=00000000-0000-0000-0000-000000000001
 
-# Allowed Origins (your frontend URLs)
-ALLOWED_ORIGINS=https://kiongozi.vercel.app,https://your-domain.com
+# JWT
+JWT_SECRET=FILL_IN_STRONG_SECRET
 
-# Rate Limiting (optional)
+# CORS — add your app domain
+ALLOWED_ORIGINS=https://app.kiongozi.co.ke,http://localhost:3000
+
+# Rate Limiting
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=200
+ENVEOF
 
-# Security (optional)
-ENABLE_IP_BLOCKING=true
-ENABLE_USER_AGENT_BLOCKING=true
-ENABLE_CONTENT_FILTERING=true
-EOF
-    echo -e "${RED}Please edit .env file with your actual values!${NC}"
-    echo "Run: nano $APP_DIR/api-server/.env"
+    log_error "Please fill in the .env file and re-run deploy.sh"
+    echo "  nano $API_DIR/.env"
     exit 1
-else
-    echo -e "${GREEN}.env file exists${NC}"
 fi
+log_success "Environment file found"
 
-echo -e "${YELLOW}Step 10: Starting/Restarting PM2...${NC}"
-pm2 delete $APP_NAME 2>/dev/null || true
-pm2 start dist/index.js --name $APP_NAME
-pm2 save
-pm2 startup
+# ── Step 4: Docker Compose deploy ────────────────────────────────────────────
+log_info "Step 4: Building and starting Docker containers..."
 
-echo -e "${GREEN}=========================================="
-echo "  Deployment Complete!"
-echo "==========================================${NC}"
+docker compose pull --ignore-pull-failures 2>/dev/null || true
+docker compose up -d --build
+
+log_success "Containers started"
+
+# ── Step 5: Verify ───────────────────────────────────────────────────────────
+log_info "Step 5: Verifying deployment..."
+sleep 8
+docker compose ps
+
 echo ""
-echo "API server running on port 3002"
+log_info "========================================="
+log_success "Deployment Complete!"
+log_info "========================================="
 echo ""
-echo "Next steps:"
-echo "1. Configure nginx (run: sudo nano /etc/nginx/sites-available/kiongozi-api)"
-echo "2. Get SSL certificate (run: sudo certbot --nginx -d your-api-domain.com)"
-echo "3. Update your frontend to use the new API URL"
+echo "🌐 Endpoints:"
+echo "   Health:    https://api.yourdomain.com/api/v1/health"
+echo "   Social:    https://api.yourdomain.com/api/v1/social"
+echo "   DMs:       https://api.yourdomain.com/api/v1/dm"
 echo ""
-echo "Useful commands:"
-echo "  pm2 logs $APP_NAME      - View logs"
-echo "  pm2 restart $APP_NAME   - Restart server"
-echo "  pm2 status              - Check status"
+echo "📊 Useful commands:"
+echo "   Logs:      docker compose logs -f api"
+echo "   Restart:   docker compose restart api"
+echo "   Stop:      docker compose down"
+echo "   Status:    docker compose ps"
+echo ""
