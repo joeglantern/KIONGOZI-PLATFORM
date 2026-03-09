@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Share } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Modal, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Post } from '../../stores/socialStore';
@@ -18,9 +18,42 @@ interface PostCardProps {
 }
 
 function PostVideo({ url, style }: { url: string; style: any }) {
+  const [open, setOpen] = useState(false);
   const player = useVideoPlayer(url, p => { p.pause(); });
+
+  const handleOpen = useCallback(() => {
+    player.play();
+    setOpen(true);
+  }, [player]);
+
+  const handleClose = useCallback(() => {
+    player.pause();
+    setOpen(false);
+  }, [player]);
+
   return (
-    <VideoView player={player} style={style} contentFit="cover" nativeControls allowsFullscreen />
+    <>
+      {/* Thumbnail with play icon shown in feed */}
+      <TouchableOpacity onPress={handleOpen} style={[style, styles.videoThumb]} activeOpacity={0.85}>
+        <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
+      </TouchableOpacity>
+
+      {/* Fullscreen player */}
+      <Modal visible={open} animationType="fade" onRequestClose={handleClose} statusBarTranslucent>
+        <SafeAreaView style={styles.fullscreen}>
+          <VideoView
+            player={player}
+            style={StyleSheet.absoluteFill}
+            contentFit="contain"
+            nativeControls
+            allowsFullscreen
+          />
+          <TouchableOpacity style={styles.closeVideo} onPress={handleClose}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+        </SafeAreaView>
+      </Modal>
+    </>
   );
 }
 
@@ -232,5 +265,22 @@ const styles = StyleSheet.create({
   },
   likedCount: {
     color: '#e53e3e',
-  }
+  },
+  videoThumb: {
+    backgroundColor: '#0d1117',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullscreen: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  closeVideo: {
+    position: 'absolute',
+    top: 52,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 6,
+  },
 });
