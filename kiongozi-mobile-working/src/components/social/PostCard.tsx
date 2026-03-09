@@ -20,52 +20,37 @@ interface PostCardProps {
 function PostVideo({ url, style }: { url: string; style: any }) {
   const [open, setOpen] = useState(false);
 
-  // Muted, looping preview shown inline in the feed
-  const previewPlayer = useVideoPlayer(url, p => {
-    p.muted = true;
-    p.loop = true;
-    p.play();
-  });
-
-  // Unmuted player for fullscreen
-  const fullPlayer = useVideoPlayer(url, p => {
+  const player = useVideoPlayer(url, p => {
     p.muted = false;
     p.pause();
   });
 
   const handleOpen = useCallback(() => {
-    fullPlayer.currentTime = 0;
-    fullPlayer.play();
+    player.currentTime = 0;
+    player.play();
     setOpen(true);
-  }, [fullPlayer]);
+  }, [player]);
 
   const handleClose = useCallback(() => {
-    fullPlayer.pause();
+    player.pause();
     setOpen(false);
-  }, [fullPlayer]);
+  }, [player]);
 
   return (
     <>
-      {/* Inline muted preview */}
-      <TouchableOpacity onPress={handleOpen} activeOpacity={0.9}>
-        <View style={style}>
-          <VideoView
-            player={previewPlayer}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            nativeControls={false}
-          />
-          <View style={styles.videoPlayOverlay}>
-            <Ionicons name="play-circle" size={44} color="rgba(255,255,255,0.9)" />
-          </View>
+      {/* Dark thumbnail with play icon */}
+      <TouchableOpacity onPress={handleOpen} activeOpacity={0.85}>
+        <View style={[style, styles.videoThumb]}>
+          <Ionicons name="play-circle" size={52} color="rgba(255,255,255,0.92)" />
+          <Text style={styles.videoLabel}>Tap to play</Text>
         </View>
       </TouchableOpacity>
 
-      {/* Fullscreen player with sound */}
+      {/* Fullscreen player */}
       <Modal visible={open} animationType="fade" onRequestClose={handleClose} statusBarTranslucent>
         <SafeAreaView style={styles.fullscreen}>
           <VideoView
-            player={fullPlayer}
+            player={player}
             style={StyleSheet.absoluteFill}
             contentFit="contain"
             nativeControls
@@ -290,12 +275,15 @@ const styles = StyleSheet.create({
     color: '#e53e3e',
   },
   videoThumb: {
-    backgroundColor: '#000',
-  },
-  videoPlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0d1117',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+  },
+  videoLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '500',
   },
   fullscreen: {
     flex: 1,
