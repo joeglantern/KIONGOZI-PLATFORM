@@ -9,6 +9,7 @@ router.get('/conversations', authenticateToken, async (req: Request, res: Respon
   try {
     const userId = req.user!.id;
 
+    // Step 1: Get user's conversation IDs + conversation metadata
     const { data, error } = await supabaseServiceClient
       .from('dm_participants')
       .select(`
@@ -18,52 +19,61 @@ router.get('/conversations', authenticateToken, async (req: Request, res: Respon
           id,
           last_message_at,
           updated_at
-        ),
-        dm_participants!conversation_id (
-          user_id,
-          profiles:user_id (id, full_name, username, avatar_url, is_verified, is_bot)
         )
       `)
-      .eq('user_id', userId)
-      .order('dm_conversations(last_message_at)', { ascending: false });
+      .eq('user_id', userId);
 
     if (error) {
+      console.error('DM conversations query error:', error);
       res.status(500).json({ success: false, error: 'Failed to fetch conversations' });
       return;
     }
 
-    // Get last message and unread count for each conversation
+    // Step 2: Enrich each conversation with participants, last message, unread count
     const enriched = await Promise.all(
       (data || []).map(async (row: any) => {
-        const { data: lastMsg } = await supabaseServiceClient
-          .from('dm_messages')
-          .select('id, content, sender_id, created_at, media_type')
-          .eq('conversation_id', row.conversation_id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+        const convId = row.conversation_id;
 
-        const { count: unreadCount } = await supabaseServiceClient
-          .from('dm_messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('conversation_id', row.conversation_id)
-          .eq('is_read', false)
-          .neq('sender_id', userId);
+        const [participantsRes, lastMsgRes, unreadRes] = await Promise.all([
+          supabaseServiceClient
+            .from('dm_participants')
+            .select('user_id, profiles:user_id (id, full_name, username, avatar_url, is_verified, is_bot)')
+            .eq('conversation_id', convId)
+            .neq('user_id', userId),
+          supabaseServiceClient
+            .from('dm_messages')
+            .select('id, content, sender_id, created_at, media_type')
+            .eq('conversation_id', convId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabaseServiceClient
+            .from('dm_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', convId)
+            .eq('is_read', false)
+            .neq('sender_id', userId),
+        ]);
 
-        const participants = (row.dm_participants || [])
-          .filter((p: any) => p.user_id !== userId)
-          .map((p: any) => p.profiles);
+        const participants = (participantsRes.data || []).map((p: any) => p.profiles);
 
         return {
-          id: row.conversation_id,
+          id: convId,
           last_message_at: row.dm_conversations?.last_message_at,
           last_read_at: row.last_read_at,
-          last_message: lastMsg,
-          unread_count: unreadCount || 0,
+          last_message: lastMsgRes.data,
+          unread_count: unreadRes.count || 0,
           participants
         };
       })
     );
+
+    // Sort by last_message_at descending
+    enriched.sort((a, b) => {
+      const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      return bTime - aTime;
+    });
 
     res.json({ success: true, data: enriched });
   } catch (err) {

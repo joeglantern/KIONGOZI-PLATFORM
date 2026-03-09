@@ -47,6 +47,12 @@ export function PostCard({
     }
   }, [post.id, toggleLike]);
 
+  const handleRepost = useCallback(async () => {
+    try {
+      await apiClient.repostPost(post.id);
+    } catch {}
+  }, [post.id]);
+
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.95} style={styles.container}>
       {/* Avatar */}
@@ -106,7 +112,7 @@ export function PostCard({
             {post.comment_count > 0 && <Text style={styles.actionCount}>{post.comment_count}</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.action}>
+          <TouchableOpacity style={styles.action} onPress={handleRepost}>
             <Ionicons name="repeat-outline" size={18} color="#718096" />
             {post.repost_count > 0 && <Text style={styles.actionCount}>{post.repost_count}</Text>}
           </TouchableOpacity>

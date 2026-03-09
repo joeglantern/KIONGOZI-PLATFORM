@@ -28,6 +28,7 @@ function FeedStackNavigator() {
       <FeedStack.Screen name="FeedMain" component={FeedScreen} />
       <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
       <FeedStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <FeedStack.Screen name="EditProfile" component={EditProfileScreen} />
     </FeedStack.Navigator>
   );
 }
@@ -39,6 +40,7 @@ function ExploreStackNavigator() {
       <ExploreStack.Screen name="ExploreMain" component={ExploreScreen} />
       <ExploreStack.Screen name="PostDetail" component={PostDetailScreen} />
       <ExploreStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <ExploreStack.Screen name="EditProfile" component={EditProfileScreen} />
     </ExploreStack.Navigator>
   );
 }

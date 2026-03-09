@@ -45,32 +45,36 @@ export interface LearningStats {
 
 class ApiClient {
   private baseURL: string;
+  // In-memory fallback for tokens exceeding SecureStore's 2KB limit
+  private tokenMemCache: string | null = null;
 
   constructor(baseURL: string = API_BASE_URL) {
     this.baseURL = baseURL;
   }
 
   /**
-   * Get authentication token from secure storage
+   * Get authentication token (SecureStore with in-memory fallback)
    */
   private async getAuthToken(): Promise<string | null> {
+    if (this.tokenMemCache) return this.tokenMemCache;
     try {
       const token = await SecureStore.getItemAsync('supabase_token');
+      if (token) this.tokenMemCache = token;
       return token;
-    } catch (error) {
-      console.warn('Failed to get auth token:', error);
+    } catch {
       return null;
     }
   }
 
   /**
-   * Save authentication token to secure storage
+   * Save authentication token (SecureStore with in-memory fallback for large tokens)
    */
   async saveAuthToken(token: string): Promise<void> {
+    this.tokenMemCache = token;
     try {
       await SecureStore.setItemAsync('supabase_token', token);
-    } catch (error) {
-      console.warn('Failed to save auth token:', error);
+    } catch {
+      // SecureStore 2KB limit exceeded — token cached in memory for this session
     }
   }
 
@@ -78,11 +82,10 @@ class ApiClient {
    * Remove authentication token from secure storage
    */
   async removeAuthToken(): Promise<void> {
+    this.tokenMemCache = null;
     try {
       await SecureStore.deleteItemAsync('supabase_token');
-    } catch (error) {
-      console.warn('Failed to remove auth token:', error);
-    }
+    } catch {}
   }
 
   /**
