@@ -98,7 +98,7 @@ router.patch(
     try {
       const userId = req.user!.id;
       const { bio, username, full_name } = req.body;
-      const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+      const files = req.files as Record<string, { buffer: Buffer; mimetype: string; originalname: string; size: number }[]> | undefined;
 
       const updates: Record<string, any> = {};
       if (bio !== undefined) updates.bio = bio;
