@@ -69,13 +69,19 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 
         const storagePath = `posts/${user!.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
-        // Read file from device and upload directly to Supabase Storage
-        const fileResponse = await fetch(m.uri);
-        const blob = await fileResponse.blob();
+        // Read file as ArrayBuffer using XHR (works with file:// URIs in React Native)
+        const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', m.uri);
+          xhr.responseType = 'arraybuffer';
+          xhr.onload = () => resolve(xhr.response);
+          xhr.onerror = () => reject(new Error('Failed to read file from device'));
+          xhr.send();
+        });
 
         const { error } = await supabase.storage
           .from('social-media')
-          .upload(storagePath, blob, { contentType: mimeType, upsert: false });
+          .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: false });
 
         if (error) throw new Error(error.message);
 
