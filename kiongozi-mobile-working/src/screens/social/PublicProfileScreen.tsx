@@ -22,6 +22,7 @@ export default function PublicProfileScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
 
   useEffect(() => {
@@ -30,14 +31,21 @@ export default function PublicProfileScreen() {
 
   const loadProfile = async () => {
     setLoading(true);
+    setNotFound(false);
     try {
       const [prof, postsRes] = await Promise.all([
         fetchProfile(username),
         apiClient.getUserPosts(username)
       ]);
-      setProfile(prof);
-      if (postsRes.success) setPosts(postsRes.data || []);
-    } catch {}
+      if (!prof) {
+        setNotFound(true);
+      } else {
+        setProfile(prof);
+        if (postsRes.success) setPosts(postsRes.data || []);
+      }
+    } catch {
+      setNotFound(true);
+    }
     setLoading(false);
   };
 
@@ -115,6 +123,27 @@ export default function PublicProfileScreen() {
 
   if (loading) {
     return <View style={styles.loading}><ActivityIndicator color="#1a365d" /></View>;
+  }
+
+  if (notFound) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+          </TouchableOpacity>
+          <Text style={styles.headerName}>Profile</Text>
+        </View>
+        <View style={styles.notFound}>
+          <Ionicons name="person-outline" size={56} color="#e2e8f0" />
+          <Text style={styles.notFoundTitle}>User not found</Text>
+          <Text style={styles.notFoundSub}>@{username} doesn't exist or may have been removed.</Text>
+          <TouchableOpacity style={styles.goBackBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.goBackText}>Go back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   const isOwnProfile = user?.id === profile?.id;
@@ -279,4 +308,15 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
   postsHeader: { fontSize: 16, fontWeight: '700', color: '#1a202c', paddingHorizontal: 16, paddingBottom: 8 },
   noPosts: { padding: 24, textAlign: 'center', color: '#a0aec0' },
+  notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
+  notFoundTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c' },
+  notFoundSub: { fontSize: 15, color: '#718096', textAlign: 'center' },
+  goBackBtn: {
+    marginTop: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 10,
+    backgroundColor: '#1a365d',
+    borderRadius: 20,
+  },
+  goBackText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

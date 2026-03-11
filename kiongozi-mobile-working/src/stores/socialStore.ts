@@ -83,6 +83,7 @@ interface SocialState {
   toggleLike: (postId: string) => void;
   toggleRepostCount: (postId: string, delta: 1 | -1) => void;
   deletePost: (postId: string) => void;
+  updatePost: (postId: string, updates: Partial<Post>) => void;
   reset: () => void;
 }
 
@@ -294,6 +295,17 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       explorePosts: state.explorePosts.filter(p => p.id !== postId),
       forYouPosts: state.forYouPosts.filter(p => p.id !== postId),
       bookmarkPosts: state.bookmarkPosts.filter(p => p.id !== postId),
+    }));
+  },
+
+  updatePost: (postId: string, updates: Partial<Post>) => {
+    const apply = (posts: Post[]) =>
+      posts.map(p => p.id === postId ? { ...p, ...updates } : p);
+    set(state => ({
+      feedPosts: apply(state.feedPosts),
+      explorePosts: apply(state.explorePosts),
+      forYouPosts: apply(state.forYouPosts),
+      bookmarkPosts: apply(state.bookmarkPosts),
     }));
   },
 

@@ -19,6 +19,7 @@ export default function ExploreScreen() {
   const [query, setQuery] = useState(initialQuery || '');
   const [searchResults, setSearchResults] = useState<{ posts: any[]; users: any[] } | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [trending, setTrending] = useState<{ hashtags: any[]; posts: any[] } | null>(null);
 
   useEffect(() => {
@@ -44,14 +45,22 @@ export default function ExploreScreen() {
     setQuery(text);
     if (!text.trim()) {
       setSearchResults(null);
+      setSearchError(null);
       return;
     }
     setSearchLoading(true);
+    setSearchError(null);
     try {
       const searchText = text.startsWith('#') ? text.slice(1) : text;
       const res = await apiClient.searchSocial(searchText.trim());
-      if (res.success) setSearchResults(res.data);
-    } catch {}
+      if (res.success) {
+        setSearchResults(res.data);
+      } else {
+        setSearchError('Search failed. Please try again.');
+      }
+    } catch {
+      setSearchError('Network error — check your connection.');
+    }
     setSearchLoading(false);
   }, []);
 
@@ -82,6 +91,14 @@ export default function ExploreScreen() {
 
       {searchLoading ? (
         <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+      ) : isSearching && searchError ? (
+        <View style={styles.errorState}>
+          <Ionicons name="alert-circle-outline" size={44} color="#e2e8f0" />
+          <Text style={styles.errorText}>{searchError}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => handleSearch(query)}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : isSearching && searchResults ? (
         <FlatList
           data={[
@@ -206,4 +223,8 @@ const styles = StyleSheet.create({
   userName: { fontWeight: '700', fontSize: 15, color: '#1a202c' },
   userHandle: { color: '#718096', fontSize: 14 },
   userBio: { color: '#4a5568', fontSize: 13, marginTop: 2 },
+  errorState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  errorText: { fontSize: 15, color: '#718096', textAlign: 'center' },
+  retryBtn: { paddingHorizontal: 28, paddingVertical: 10, backgroundColor: '#1a365d', borderRadius: 20 },
+  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

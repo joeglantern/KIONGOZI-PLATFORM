@@ -22,6 +22,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const { user } = useAuthStore();
   const { prependPost } = useSocialStore();
   const [content, setContent] = useState('');
+  const [visibility, setVisibility] = useState<'public' | 'followers'>('public');
   const [media, setMedia] = useState<Array<{ uri: string; type: 'image' | 'video'; width?: number; height?: number; thumbnailUri?: string }>>([]);
   const [posting, setPosting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -128,7 +129,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         uploadedMedia = uploaded;
       }
 
-      const res = await apiClient.createPost(content.trim(), uploadedMedia, parentPostId);
+      const res = await apiClient.createPost(content.trim(), uploadedMedia, parentPostId, visibility);
       if (res.success && res.data) {
         if (!parentPostId) {
           prependPost(res.data);
@@ -213,6 +214,20 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         <TouchableOpacity onPress={() => pickMedia('video')} style={styles.toolbarBtn}>
           <Ionicons name="videocam-outline" size={24} color="#1a365d" />
         </TouchableOpacity>
+
+        {/* Visibility toggle */}
+        <TouchableOpacity
+          style={styles.visPill}
+          onPress={() => setVisibility(v => v === 'public' ? 'followers' : 'public')}
+        >
+          <Ionicons
+            name={visibility === 'public' ? 'globe-outline' : 'people-outline'}
+            size={14}
+            color="#1a365d"
+          />
+          <Text style={styles.visText}>{visibility === 'public' ? 'Everyone' : 'Followers'}</Text>
+        </TouchableOpacity>
+
         <View style={styles.flex} />
         <Text style={[styles.charCount, content.length > 260 && styles.charCountWarn]}>
           {280 - content.length}
@@ -265,6 +280,12 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   toolbarBtn: { padding: 8 },
+  visPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
+    borderWidth: 1, borderColor: '#1a365d', marginLeft: 4,
+  },
+  visText: { fontSize: 12, color: '#1a365d', fontWeight: '600' },
   flex: { flex: 1 },
   charCount: { fontSize: 14, color: '#a0aec0', marginRight: 4 },
   charCountWarn: { color: '#e53e3e' },

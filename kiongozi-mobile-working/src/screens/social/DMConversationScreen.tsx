@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Animated,
+  View, Text, StyleSheet, FlatList, TextInput, Image,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { DMBubble } from '../../components/social/DMBubble';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useDMStore, DMMessage } from '../../stores/dmStore';
@@ -80,19 +81,37 @@ export default function DMConversationScreen() {
   const { messages, fetchMessages, appendMessage, replaceMessage, removeMessage, markRead } = useDMStore();
 
   const [text, setText] = useState('');
+  const [mediaUri, setMediaUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const sendScale = useRef(new Animated.Value(0)).current;
 
-  // Animate send button in/out as text appears
-  const hasText = text.trim().length > 0;
+  // Animate send button in/out when there's text or a media attachment
+  const hasContent = text.trim().length > 0 || mediaUri !== null;
   React.useEffect(() => {
     Animated.spring(sendScale, {
-      toValue: hasText ? 1 : 0,
+      toValue: hasContent ? 1 : 0,
       useNativeDriver: true,
       damping: 14,
       stiffness: 180,
     }).start();
-  }, [hasText]);
+  }, [hasContent]);
+
+  const handlePickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow access to your photo library in Settings.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images' as any,
+      quality: 0.85,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setMediaUri(result.assets[0].uri);
+    }
+  }, []);
 
   const conversationMessages = messages[conversationId] || [];
 
@@ -127,16 +146,20 @@ export default function DMConversationScreen() {
   }, [conversationId, user?.id]);
 
   const handleSend = useCallback(async () => {
-    if (!text.trim()) return;
+    if (!text.trim() && !mediaUri) return;
     const content = text.trim();
+    const attachedUri = mediaUri;
     setText('');
+    setMediaUri(null);
 
     const tempId = `temp_${Date.now()}`;
     appendMessage(conversationId, {
       id: tempId,
       conversation_id: conversationId,
       sender_id: user!.id,
-      content,
+      content: content || undefined,
+      media_url: attachedUri || undefined,
+      media_type: attachedUri ? 'image' : undefined,
       is_read: false,
       created_at: new Date().toISOString(),
       _pending: true,
@@ -144,18 +167,44 @@ export default function DMConversationScreen() {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
 
     try {
-      const res = await apiClient.sendDM(conversationId, content);
+      let uploadedUrl: string | undefined;
+      if (attachedUri) {
+        setUploading(true);
+        const ext = attachedUri.split('.').pop()?.toLowerCase() || 'jpg';
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        const storagePath = `dms/${user!.id}/${Date.now()}.${ext}`;
+        const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', attachedUri);
+          xhr.responseType = 'arraybuffer';
+          xhr.onload = () => resolve(xhr.response);
+          xhr.onerror = () => reject(new Error('Failed to read file'));
+          xhr.send();
+        });
+        const { error: uploadError } = await supabase.storage
+          .from('social-media')
+          .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: false });
+        setUploading(false);
+        if (uploadError) throw new Error(uploadError.message);
+        const { data: urlData } = supabase.storage.from('social-media').getPublicUrl(storagePath);
+        uploadedUrl = urlData.publicUrl;
+      }
+
+      const res = await apiClient.sendDM(conversationId, content, uploadedUrl, uploadedUrl ? 'image' : undefined);
       if (res.success && res.data) {
         replaceMessage(conversationId, tempId, res.data);
       } else {
         removeMessage(conversationId, tempId);
         setText(content);
+        if (attachedUri) setMediaUri(attachedUri);
       }
     } catch {
+      setUploading(false);
       removeMessage(conversationId, tempId);
       setText(content);
+      if (attachedUri) setMediaUri(attachedUri);
     }
-  }, [text, conversationId, user, appendMessage, replaceMessage, removeMessage]);
+  }, [text, mediaUri, conversationId, user, appendMessage, replaceMessage, removeMessage]);
 
   const renderItem = useCallback(({ item }: { item: ListItem }) => {
     if (item.type === 'date') {
@@ -228,28 +277,48 @@ export default function DMConversationScreen() {
 
         {/* Input */}
         <View style={styles.inputBar}>
-          <View style={styles.inputWrap}>
-            <TextInput
-              style={styles.input}
-              value={text}
-              onChangeText={setText}
-              placeholder="Message..."
-              placeholderTextColor="#b0bec5"
-              multiline
-              maxLength={1000}
-            />
-          </View>
+          {/* Image attachment preview */}
+          {mediaUri && (
+            <View style={styles.mediaPreviewWrap}>
+              <Image source={{ uri: mediaUri }} style={styles.mediaPreview} />
+              <TouchableOpacity style={styles.mediaRemove} onPress={() => setMediaUri(null)}>
+                <Ionicons name="close-circle" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          )}
 
-          <Animated.View style={{ transform: [{ scale: sendScale }], opacity: sendScale }}>
+          <View style={styles.inputRow}>
             <TouchableOpacity
-              onPress={handleSend}
-              disabled={!text.trim()}
-              style={styles.sendBtn}
-              activeOpacity={0.8}
+              style={styles.attachBtn}
+              onPress={handlePickImage}
+              disabled={uploading}
             >
-              <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 2 }} />
+              <Ionicons name="image-outline" size={22} color={uploading ? '#a0aec0' : '#1a365d'} />
             </TouchableOpacity>
-          </Animated.View>
+
+            <View style={styles.inputWrap}>
+              <TextInput
+                style={styles.input}
+                value={text}
+                onChangeText={setText}
+                placeholder="Message..."
+                placeholderTextColor="#b0bec5"
+                multiline
+                maxLength={1000}
+              />
+            </View>
+
+            <Animated.View style={{ transform: [{ scale: sendScale }], opacity: sendScale }}>
+              <TouchableOpacity
+                onPress={handleSend}
+                disabled={!hasContent || uploading}
+                style={styles.sendBtn}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 2 }} />
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -298,20 +367,44 @@ const styles = StyleSheet.create({
   emptyText: { color: '#a0aec0', fontSize: 15 },
 
   inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
     backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#e8edf3',
-    gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 6,
+  },
+  mediaPreviewWrap: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    marginLeft: 36,
+  },
+  mediaPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+  },
+  mediaRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  attachBtn: {
+    width: 36,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   inputWrap: {
     flex: 1,

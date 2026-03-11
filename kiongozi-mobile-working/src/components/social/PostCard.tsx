@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Modal, SafeAreaView, Alert } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Modal, SafeAreaView, Alert, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -18,6 +18,7 @@ interface PostCardProps {
   onHashtagPress?: (tag: string) => void;
   currentUserId?: string;
   onDeletePress?: () => void;
+  onEditPress?: (postId: string, content: string, visibility: 'public' | 'followers') => void;
 }
 
 function PostVideo({ url, width, height }: { url: string; width?: number; height?: number }) {
@@ -100,8 +101,10 @@ export function PostCard({
   onHashtagPress,
   currentUserId,
   onDeletePress,
+  onEditPress,
 }: PostCardProps) {
   const { toggleLike, toggleBookmark, toggleRepostCount, seedInteraction, postInteractions } = useSocialStore();
+  const repostScale = useRef(new Animated.Value(1)).current;
 
   // Register this post in the global interaction map on first render
   useEffect(() => {
@@ -123,6 +126,12 @@ export function PostCard({
   }, [post.id, toggleLike]);
 
   const handleRepost = useCallback(async () => {
+    // Spring pop: scale up then settle
+    Animated.sequence([
+      Animated.spring(repostScale, { toValue: 1.5, useNativeDriver: true, damping: 6, stiffness: 300 }),
+      Animated.spring(repostScale, { toValue: 1,   useNativeDriver: true, damping: 10, stiffness: 200 }),
+    ]).start();
+
     toggleRepostCount(post.id, 1); // optimistic
     try {
       const res = await apiClient.repostPost(post.id);
@@ -135,7 +144,7 @@ export function PostCard({
     } catch {
       toggleRepostCount(post.id, -1);
     }
-  }, [post.id, toggleRepostCount]);
+  }, [post.id, toggleRepostCount, repostScale]);
 
   const handleShare = useCallback(async () => {
     try {
@@ -150,20 +159,31 @@ export function PostCard({
     await toggleBookmark(post.id);
   }, [post.id, toggleBookmark]);
 
-  const handleDelete = useCallback(() => {
+  const handleOptions = useCallback(() => {
     Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post?',
+      'Post Options',
+      undefined,
       [
-        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: onDeletePress,
+          text: 'Edit Post',
+          onPress: () => onEditPress?.(post.id, post.content, post.visibility ?? 'public'),
         },
+        {
+          text: 'Delete Post',
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            'Delete Post',
+            'Are you sure you want to delete this post?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: onDeletePress },
+            ]
+          ),
+        },
+        { text: 'Cancel', style: 'cancel' },
       ]
     );
-  }, [onDeletePress]);
+  }, [post.id, post.content, post.visibility, onEditPress, onDeletePress]);
 
   const isOwnPost = currentUserId && currentUserId === post.user_id;
 
@@ -225,7 +245,9 @@ export function PostCard({
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.action} onPress={handleRepost}>
-            <Ionicons name="repeat-outline" size={18} color="#718096" />
+            <Animated.View style={{ transform: [{ scale: repostScale }] }}>
+              <Ionicons name="repeat-outline" size={18} color="#718096" />
+            </Animated.View>
             {post.repost_count > 0 && <Text style={styles.actionCount}>{post.repost_count}</Text>}
           </TouchableOpacity>
 
@@ -254,9 +276,9 @@ export function PostCard({
             <Ionicons name="share-outline" size={18} color="#718096" />
           </TouchableOpacity>
 
-          {isOwnPost && onDeletePress && (
-            <TouchableOpacity style={styles.action} onPress={handleDelete}>
-              <Ionicons name="trash-outline" size={18} color="#e53e3e" />
+          {isOwnPost && (onDeletePress || onEditPress) && (
+            <TouchableOpacity style={styles.action} onPress={handleOptions}>
+              <Ionicons name="ellipsis-horizontal" size={18} color="#718096" />
             </TouchableOpacity>
           )}
         </View>

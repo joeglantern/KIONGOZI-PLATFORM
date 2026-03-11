@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  ScrollView, Image, Alert, ActivityIndicator
+  ScrollView, Image, Alert, ActivityIndicator, Platform,
 } from 'react-native';
+import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,15 +21,36 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'reserved'>('idle');
+  const usernameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const originalUsername = useRef<string>('');
 
   // Pre-populate from currentUserProfile when available
   useEffect(() => {
     if (currentUserProfile) {
       setFullName(currentUserProfile.full_name || '');
       setUsername(currentUserProfile.username || '');
+      originalUsername.current = currentUserProfile.username || '';
       setBio(currentUserProfile.bio || '');
     }
   }, [currentUserProfile]);
+
+  // Debounced username availability check (skip if unchanged)
+  useEffect(() => {
+    if (usernameTimer.current) clearTimeout(usernameTimer.current);
+    const cleaned = username.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (!cleaned || cleaned === originalUsername.current) { setUsernameStatus('idle'); return; }
+    if (cleaned.length < 3) { setUsernameStatus('idle'); return; }
+
+    setUsernameStatus('checking');
+    usernameTimer.current = setTimeout(async () => {
+      try {
+        const res = await apiClient.checkUsername(cleaned);
+        setUsernameStatus(res.reason === 'Reserved' ? 'reserved' : res.available ? 'available' : 'taken');
+      } catch { setUsernameStatus('idle'); }
+    }, 500);
+    return () => { if (usernameTimer.current) clearTimeout(usernameTimer.current); };
+  }, [username]);
 
   const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -43,6 +65,14 @@ export default function EditProfileScreen() {
   };
 
   const handleSave = async () => {
+    if (usernameStatus === 'taken' || usernameStatus === 'reserved') {
+      Alert.alert('Username unavailable', usernameStatus === 'reserved' ? 'That username is reserved.' : 'That username is already taken.');
+      return;
+    }
+    if (usernameStatus === 'checking') {
+      Alert.alert('Please wait', 'Still checking username availability.');
+      return;
+    }
     setSaving(true);
     try {
       const formData = new FormData();
@@ -122,14 +152,30 @@ export default function EditProfileScreen() {
 
         <View style={styles.field}>
           <Text style={styles.label}>Username</Text>
-          <TextInput
-            style={styles.input}
-            value={username}
-            onChangeText={setUsername}
-            placeholder="@username"
-            autoCapitalize="none"
-            placeholderTextColor="#a0aec0"
-          />
+          <View style={styles.usernameRow}>
+            <TextInput
+              style={[
+                styles.input, { flex: 1 },
+                usernameStatus === 'taken' || usernameStatus === 'reserved' ? styles.inputError : undefined,
+                usernameStatus === 'available' ? styles.inputSuccess : undefined,
+              ]}
+              value={username}
+              onChangeText={text => setUsername(text.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+              placeholder="@username"
+              autoCapitalize="none"
+              placeholderTextColor="#a0aec0"
+            />
+            <View style={styles.usernameIcon}>
+              {usernameStatus === 'checking' && <ActivityIndicator size="small" color="#a0aec0" />}
+              {usernameStatus === 'available' && <Icon name="checkmark-circle" size={20} color="#22c55e" />}
+              {(usernameStatus === 'taken' || usernameStatus === 'reserved') && <Icon name="close-circle" size={20} color="#ef4444" />}
+            </View>
+          </View>
+          {(usernameStatus === 'taken' || usernameStatus === 'reserved') && (
+            <Text style={styles.fieldError}>
+              {usernameStatus === 'reserved' ? 'That username is reserved' : 'Username already taken'}
+            </Text>
+          )}
         </View>
 
         <View style={styles.field}>
@@ -191,6 +237,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8,
     padding: 12, fontSize: 15, color: '#1a202c',
   },
+  inputError: { borderColor: '#ef4444' },
+  inputSuccess: { borderColor: '#22c55e' },
   bioInput: { height: 80, textAlignVertical: 'top' },
   charCount: { textAlign: 'right', color: '#a0aec0', fontSize: 12, marginTop: 4 },
+  usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  usernameIcon: { width: 24, alignItems: 'center' },
+  fieldError: { fontSize: 12, color: '#ef4444', marginTop: 4 },
 });

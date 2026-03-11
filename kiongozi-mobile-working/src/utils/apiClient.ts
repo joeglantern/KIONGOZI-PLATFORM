@@ -549,10 +549,18 @@ class ApiClient {
   }
 
   /** Create a new post */
-  async createPost(content: string, media?: any[], parentPostId?: string) {
+  async createPost(content: string, media?: any[], parentPostId?: string, visibility: 'public' | 'followers' = 'public') {
     return this.request('/api/v1/social/posts', {
       method: 'POST',
-      body: JSON.stringify({ content, media, parent_post_id: parentPostId })
+      body: JSON.stringify({ content, media, parent_post_id: parentPostId, visibility })
+    });
+  }
+
+  /** Edit a post (content and/or visibility) */
+  async editPost(postId: string, content: string, visibility?: 'public' | 'followers') {
+    return this.request(`/api/v1/social/posts/${postId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ content, visibility })
     });
   }
 

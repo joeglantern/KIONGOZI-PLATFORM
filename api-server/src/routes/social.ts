@@ -145,6 +145,45 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
   }
 });
 
+// PATCH /api/v1/social/posts/:id — Edit post (content + visibility)
+router.patch('/posts/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+    const { content, visibility } = req.body;
+
+    if (!content?.trim()) {
+      res.status(400).json({ success: false, error: 'Content is required' });
+      return;
+    }
+
+    const updates: Record<string, any> = {
+      content: content.trim(),
+      updated_at: new Date().toISOString(),
+    };
+    if (visibility === 'public' || visibility === 'followers') {
+      updates.visibility = visibility;
+    }
+
+    const { data, error } = await supabaseServiceClient
+      .from('posts')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select('id, content, visibility, updated_at')
+      .single();
+
+    if (error || !data) {
+      res.status(404).json({ success: false, error: 'Post not found or not authorized' });
+      return;
+    }
+
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to update post' });
+  }
+});
+
 // DELETE /api/v1/social/posts/:id
 router.delete('/posts/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {

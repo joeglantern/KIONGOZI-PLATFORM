@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, RefreshControl, ActivityIndicator,
   TouchableOpacity, Animated, ScrollView, Dimensions
@@ -12,12 +12,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
+import { EditPostModal } from '../../components/social/EditPostModal';
 
 export default function FeedScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const scrollX = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
+  const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
 
   const {
     feedPosts, feedLoading, feedRefreshing, feedCursor,
@@ -78,6 +80,10 @@ export default function FeedScreen() {
     apiClient.deletePost(postId).then(() => deletePost(postId)).catch(() => {});
   }, [deletePost]);
 
+  const handleEditPress = useCallback((postId: string, content: string, visibility: 'public' | 'followers') => {
+    setEditTarget({ id: postId, content, visibility });
+  }, []);
+
   const renderPost = useCallback(({ item }: { item: Post }) => (
     <PostCard
       post={item}
@@ -88,6 +94,7 @@ export default function FeedScreen() {
       onHashtagPress={handleHashtagPress}
       currentUserId={user?.id}
       onDeletePress={() => handleDeletePost(item.id)}
+      onEditPress={handleEditPress}
     />
   ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost]);
 
@@ -198,6 +205,15 @@ export default function FeedScreen() {
           />
         </View>
       </ScrollView>
+      {editTarget && (
+        <EditPostModal
+          visible
+          postId={editTarget.id}
+          initialContent={editTarget.content}
+          initialVisibility={editTarget.visibility}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
     </View>
   );
 }
