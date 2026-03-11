@@ -42,6 +42,12 @@ export interface Post {
   isBookmarked?: boolean;
 }
 
+// Global per-post interaction state — source of truth for likes across all screens
+export interface PostInteraction {
+  isLiked: boolean;
+  like_count: number;
+}
+
 interface SocialState {
   feedPosts: Post[];
   explorePosts: Post[];
@@ -63,6 +69,9 @@ interface SocialState {
   bookmarkCursor: string | null;
   bookmarkLoading: boolean;
 
+  // Global like state — keyed by post id, used by every PostCard
+  postInteractions: Record<string, PostInteraction>;
+
   // Actions
   fetchFeed: (refresh?: boolean) => Promise<void>;
   fetchExploreFeed: (refresh?: boolean) => Promise<void>;
@@ -70,6 +79,7 @@ interface SocialState {
   toggleBookmark: (postId: string) => Promise<void>;
   fetchBookmarks: (refresh?: boolean) => Promise<void>;
   prependPost: (post: Post) => void;
+  seedInteraction: (postId: string, isLiked: boolean, like_count: number) => void;
   toggleLike: (postId: string) => void;
   toggleRepostCount: (postId: string, delta: 1 | -1) => void;
   deletePost: (postId: string) => void;
@@ -94,6 +104,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   bookmarkPosts: [],
   bookmarkCursor: null,
   bookmarkLoading: false,
+
+  postInteractions: {},
 
   fetchFeed: async (refresh = false) => {
     const state = get();
@@ -219,18 +231,49 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     set(state => ({ feedPosts: [post, ...state.feedPosts] }));
   },
 
+  // Seed the interaction map for a post — only writes if not already tracked
+  // so a user's in-flight toggle is never overwritten by a stale prop
+  seedInteraction: (postId: string, isLiked: boolean, like_count: number) => {
+    set(state => {
+      if (postId in state.postInteractions) return state;
+      return {
+        postInteractions: {
+          ...state.postInteractions,
+          [postId]: { isLiked, like_count },
+        },
+      };
+    });
+  },
+
   toggleLike: (postId: string) => {
-    const toggle = (posts: Post[]) =>
-      posts.map(p =>
-        p.id === postId
-          ? { ...p, isLiked: !p.isLiked, like_count: p.isLiked ? p.like_count - 1 : p.like_count + 1 }
-          : p
-      );
-    set(state => ({
-      feedPosts: toggle(state.feedPosts),
-      explorePosts: toggle(state.explorePosts),
-      forYouPosts: toggle(state.forYouPosts),
-    }));
+    set(state => {
+      const current = state.postInteractions[postId];
+      // If not seeded yet, skip — PostCard will seed on mount
+      if (!current) return state;
+
+      const newIsLiked = !current.isLiked;
+      const newCount = newIsLiked
+        ? current.like_count + 1
+        : Math.max(0, current.like_count - 1);
+
+      const applyToggle = (posts: Post[]) =>
+        posts.map(p =>
+          p.id === postId
+            ? { ...p, isLiked: newIsLiked, like_count: newCount }
+            : p
+        );
+
+      return {
+        postInteractions: {
+          ...state.postInteractions,
+          [postId]: { isLiked: newIsLiked, like_count: newCount },
+        },
+        feedPosts: applyToggle(state.feedPosts),
+        explorePosts: applyToggle(state.explorePosts),
+        forYouPosts: applyToggle(state.forYouPosts),
+        bookmarkPosts: applyToggle(state.bookmarkPosts),
+      };
+    });
   },
 
   toggleRepostCount: (postId: string, delta: 1 | -1) => {
@@ -270,5 +313,6 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     bookmarkPosts: [],
     bookmarkCursor: null,
     bookmarkLoading: false,
+    postInteractions: {},
   })
 }));

@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Modal, SafeAreaView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -101,14 +101,24 @@ export function PostCard({
   currentUserId,
   onDeletePress,
 }: PostCardProps) {
-  const { toggleLike, toggleBookmark, toggleRepostCount } = useSocialStore();
+  const { toggleLike, toggleBookmark, toggleRepostCount, seedInteraction, postInteractions } = useSocialStore();
+
+  // Register this post in the global interaction map on first render
+  useEffect(() => {
+    seedInteraction(post.id, post.isLiked ?? false, post.like_count);
+  }, [post.id]);
+
+  // Always read from global map — reflects toggles from any screen
+  const interaction = postInteractions[post.id];
+  const isLiked = interaction?.isLiked ?? post.isLiked ?? false;
+  const likeCount = interaction?.like_count ?? post.like_count;
 
   const handleLike = useCallback(async () => {
-    toggleLike(post.id); // Optimistic update
+    toggleLike(post.id); // optimistic via global map
     try {
       await apiClient.likePost(post.id);
     } catch {
-      toggleLike(post.id); // Revert on error
+      toggleLike(post.id); // revert
     }
   }, [post.id, toggleLike]);
 
@@ -221,13 +231,13 @@ export function PostCard({
 
           <TouchableOpacity style={styles.action} onPress={handleLike}>
             <Ionicons
-              name={post.isLiked ? 'heart' : 'heart-outline'}
+              name={isLiked ? 'heart' : 'heart-outline'}
               size={18}
-              color={post.isLiked ? '#e53e3e' : '#718096'}
+              color={isLiked ? '#e53e3e' : '#718096'}
             />
-            {post.like_count > 0 && (
-              <Text style={[styles.actionCount, post.isLiked && styles.likedCount]}>
-                {post.like_count}
+            {likeCount > 0 && (
+              <Text style={[styles.actionCount, isLiked && styles.likedCount]}>
+                {likeCount}
               </Text>
             )}
           </TouchableOpacity>
