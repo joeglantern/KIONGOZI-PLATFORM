@@ -11,13 +11,9 @@ export default function ProfileTabScreen() {
   const { user, signOut } = useAuthStore();
   const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
 
-  const username = user?.user_metadata?.username || user?.email?.split('@')[0] || '';
-
   useEffect(() => {
-    if (username) {
-      fetchCurrentUserProfile(username);
-    }
-  }, [username]);
+    fetchCurrentUserProfile();
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [

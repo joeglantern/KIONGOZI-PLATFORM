@@ -598,6 +598,11 @@ class ApiClient {
     return this.request(`/api/v1/social/follow/${userId}`, { method: 'DELETE' });
   }
 
+  /** Get own profile (by auth token — no username needed) */
+  async getMyProfile() {
+    return this.request('/api/v1/social/profile/me', { method: 'GET' });
+  }
+
   /** Get a public profile by username */
   async getPublicProfile(username: string) {
     return this.request(`/api/v1/social/users/${username}`, { method: 'GET' });

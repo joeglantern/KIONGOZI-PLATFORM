@@ -7,6 +7,26 @@ import multer from 'multer';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+// GET /api/v1/social/profile/me — Own profile (by auth token, no username needed)
+router.get('/profile/me', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { data: profile, error } = await supabaseServiceClient
+      .from('profiles')
+      .select('id, full_name, username, bio, avatar_url, banner_url, is_bot, is_verified, follower_count, following_count, post_count, created_at')
+      .eq('id', req.user!.id)
+      .single();
+
+    if (error || !profile) {
+      res.status(404).json({ success: false, error: 'Profile not found' });
+      return;
+    }
+
+    res.json({ success: true, data: profile });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch profile' });
+  }
+});
+
 // GET /api/v1/social/users/:username — Public profile
 router.get('/users/:username', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {

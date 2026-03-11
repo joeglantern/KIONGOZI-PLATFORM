@@ -57,15 +57,16 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     }
   },
 
-  fetchCurrentUserProfile: async (username: string) => {
-    if (!username) return;
+  fetchCurrentUserProfile: async (_username?: string) => {
     set({ currentUserLoading: true });
     try {
-      const res = await apiClient.getPublicProfile(username);
+      const res = await apiClient.getMyProfile();
       if (res.success && res.data) {
         set({ currentUserProfile: res.data });
-        // Also cache in profiles map
-        set(s => ({ profiles: { ...s.profiles, [username]: res.data } }));
+        // Also cache in profiles map by username for PublicProfileScreen lookups
+        if (res.data.username) {
+          set(s => ({ profiles: { ...s.profiles, [res.data.username]: res.data } }));
+        }
       }
     } catch {}
     set({ currentUserLoading: false });
