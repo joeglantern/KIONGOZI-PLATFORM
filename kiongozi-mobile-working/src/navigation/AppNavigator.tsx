@@ -16,6 +16,7 @@ import EditProfileScreen from '../screens/social/EditProfileScreen';
 import BookmarksScreen from '../screens/social/BookmarksScreen';
 import DMListScreen from '../screens/social/DMListScreen';
 import DMConversationScreen from '../screens/social/DMConversationScreen';
+import FollowListScreen from '../screens/social/FollowListScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileTabScreen from '../screens/social/ProfileTabScreen';
 import { KiongoziChatFAB } from '../components/social/KiongoziChatFAB';
@@ -33,6 +34,7 @@ function FeedStackNavigator() {
       <FeedStack.Screen name="EditProfile" component={EditProfileScreen} />
       <FeedStack.Screen name="Bookmarks" component={BookmarksScreen} />
       <FeedStack.Screen name="DMConversation" component={DMConversationScreen} />
+      <FeedStack.Screen name="FollowList" component={FollowListScreen} />
     </FeedStack.Navigator>
   );
 }
@@ -47,6 +49,7 @@ function ExploreStackNavigator() {
       <ExploreStack.Screen name="EditProfile" component={EditProfileScreen} />
       <ExploreStack.Screen name="Bookmarks" component={BookmarksScreen} />
       <ExploreStack.Screen name="DMConversation" component={DMConversationScreen} />
+      <ExploreStack.Screen name="FollowList" component={FollowListScreen} />
     </ExploreStack.Navigator>
   );
 }
@@ -61,6 +64,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="DMConversation" component={DMConversationScreen} />
       <ProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <ProfileStack.Screen name="Bookmarks" component={BookmarksScreen} />
+      <ProfileStack.Screen name="FollowList" component={FollowListScreen} />
     </ProfileStack.Navigator>
   );
 }

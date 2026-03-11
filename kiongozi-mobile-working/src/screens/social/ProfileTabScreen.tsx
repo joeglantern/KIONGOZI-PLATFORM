@@ -65,15 +65,29 @@ export default function ProfileTabScreen() {
                 <Text style={styles.statLabel}>Posts</Text>
               </View>
               <View style={styles.statDivider} />
-              <View style={styles.statItem}>
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={() => navigation.navigate('FollowList', {
+                  userId: currentUserProfile.id,
+                  username: currentUserProfile.username,
+                  initialTab: 'followers',
+                })}
+              >
                 <Text style={styles.statNum}>{currentUserProfile.follower_count ?? 0}</Text>
                 <Text style={styles.statLabel}>Followers</Text>
-              </View>
+              </TouchableOpacity>
               <View style={styles.statDivider} />
-              <View style={styles.statItem}>
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={() => navigation.navigate('FollowList', {
+                  userId: currentUserProfile.id,
+                  username: currentUserProfile.username,
+                  initialTab: 'following',
+                })}
+              >
                 <Text style={styles.statNum}>{currentUserProfile.following_count ?? 0}</Text>
                 <Text style={styles.statLabel}>Following</Text>
-              </View>
+              </TouchableOpacity>
             </View>
           )}
         </View>

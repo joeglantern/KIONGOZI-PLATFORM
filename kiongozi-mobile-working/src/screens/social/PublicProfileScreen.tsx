@@ -195,12 +195,20 @@ export default function PublicProfileScreen() {
               {profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
               <View style={styles.statsRow}>
-                <Text style={styles.stat}>
-                  <Text style={styles.statNum}>{profile?.following_count}</Text> Following
-                </Text>
-                <Text style={styles.stat}>
-                  <Text style={styles.statNum}>{profile?.follower_count}</Text> Followers
-                </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'following' })}
+                >
+                  <Text style={styles.stat}>
+                    <Text style={styles.statNum}>{profile?.following_count}</Text> Following
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'followers' })}
+                >
+                  <Text style={styles.stat}>
+                    <Text style={styles.statNum}>{profile?.follower_count}</Text> Followers
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
