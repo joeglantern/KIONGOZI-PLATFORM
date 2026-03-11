@@ -37,7 +37,7 @@ import { apiRateLimit, chatRateLimit, authRateLimit } from './middleware/rateLim
 import SocketService from './services/socketService';
 
 const app = express();
-app.set('trust proxy', true);
+app.set('trust proxy', 1); // 1 = trust first proxy (nginx)
 const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 
