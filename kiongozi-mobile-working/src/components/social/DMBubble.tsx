@@ -1,15 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
 
 interface DMBubbleProps {
   message: DMMessage;
   isOwn: boolean;
-  // grouping
-  isFirst: boolean; // top of a same-sender run
-  isLast: boolean;  // bottom of a same-sender run (where the tail lives)
-  // avatar shown only on isLast for incoming messages
+  isFirst: boolean;
+  isLast: boolean;
   avatarUrl?: string;
 }
 
@@ -17,54 +16,60 @@ function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl }: DMBubbleProps) {
-  const bubbleStyle = [
-    styles.bubble,
-    isOwn ? styles.ownBubble : styles.otherBubble,
-    // Tail corner only on isLast; flatten the tail side on non-last messages
-    isOwn
-      ? isLast ? styles.ownTail : styles.ownGrouped
-      : isLast ? styles.otherTail : styles.otherGrouped,
-    !isFirst && styles.grouped, // tighter top margin within a run
-    message._pending && styles.pending,
-  ];
+function ReadReceipt({ pending, read }: { pending?: boolean; read: boolean }) {
+  if (pending) {
+    return <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.5)" style={styles.receiptIcon} />;
+  }
+  if (read) {
+    return <Ionicons name="checkmark-done" size={13} color="#7dd3fc" style={styles.receiptIcon} />;
+  }
+  return <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.55)" style={styles.receiptIcon} />;
+}
 
+export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl }: DMBubbleProps) {
   return (
     <View style={[styles.row, isOwn ? styles.rowOwn : styles.rowOther]}>
-      {/* Avatar spacer/avatar for incoming messages */}
       {!isOwn && (
         <View style={styles.avatarSlot}>
-          {isLast ? (
-            <UserAvatar avatarUrl={avatarUrl} size={28} />
-          ) : null}
+          {isLast ? <UserAvatar avatarUrl={avatarUrl} size={28} /> : null}
         </View>
       )}
 
-      <View style={bubbleStyle}>
+      <View style={[
+        styles.bubble,
+        isOwn ? styles.ownBubble : styles.otherBubble,
+        isOwn
+          ? (isLast ? styles.ownTail : styles.ownGrouped)
+          : (isLast ? styles.otherTail : styles.otherGrouped),
+        !isFirst && styles.grouped,
+        message._pending && styles.pending,
+      ]}>
         {message.media_url && message.media_type === 'image' && (
           <Image source={{ uri: message.media_url }} style={styles.image} resizeMode="cover" />
         )}
+
         {message.content ? (
           <Text style={[styles.text, isOwn ? styles.ownText : styles.otherText]}>
             {message.content}
           </Text>
         ) : null}
-        <Text style={[styles.time, isOwn ? styles.ownTime : styles.otherTime]}>
-          {formatTime(message.created_at)}
+
+        <View style={[styles.meta, isOwn ? styles.metaOwn : styles.metaOther]}>
+          <Text style={[styles.time, isOwn ? styles.ownTime : styles.otherTime]}>
+            {formatTime(message.created_at)}
+          </Text>
           {isOwn && (
-            <Text style={styles.readStatus}>
-              {message._pending ? '  …' : message.is_read ? '  ✓✓' : '  ✓'}
-            </Text>
+            <ReadReceipt pending={message._pending} read={message.is_read} />
           )}
-        </Text>
+        </View>
       </View>
     </View>
   );
 }
 
-const RADIUS = 18;
-const TAIL = 4;
-const GROUPED_CORNER = 6;
+const RADIUS = 20;
+const TAIL   = 4;
+const SOFT   = 8;
 
 const styles = StyleSheet.create({
   row: {
@@ -73,72 +78,47 @@ const styles = StyleSheet.create({
     marginVertical: 2,
     paddingHorizontal: 12,
   },
-  rowOwn: { justifyContent: 'flex-end' },
+  rowOwn:   { justifyContent: 'flex-end' },
   rowOther: { justifyContent: 'flex-start' },
 
-  avatarSlot: {
-    width: 32,
-    marginRight: 6,
-    alignItems: 'flex-end',
-  },
+  avatarSlot: { width: 34, marginRight: 6, alignItems: 'flex-end' },
 
   bubble: {
-    maxWidth: '72%',
-    padding: 10,
+    maxWidth: '74%',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: RADIUS,
   },
-  ownBubble: {
-    backgroundColor: '#1a365d',
-  },
-  otherBubble: {
-    backgroundColor: '#edf2f7',
-  },
+  ownBubble:   { backgroundColor: '#1a365d' },
+  otherBubble: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
 
-  // Tail variants — only on isLast
-  ownTail: {
-    borderBottomRightRadius: TAIL,
-  },
-  otherTail: {
-    borderBottomLeftRadius: TAIL,
-  },
+  ownTail:    { borderBottomRightRadius: TAIL },
+  otherTail:  { borderBottomLeftRadius: TAIL },
+  ownGrouped: { borderBottomRightRadius: SOFT },
+  otherGrouped: { borderBottomLeftRadius: SOFT },
 
-  // Non-last in a group — flatten the tail side slightly
-  ownGrouped: {
-    borderBottomRightRadius: GROUPED_CORNER,
-  },
-  otherGrouped: {
-    borderBottomLeftRadius: GROUPED_CORNER,
-  },
+  grouped: { marginTop: 1 },
 
-  // Tighter top margin for consecutive messages in a run
-  grouped: {
-    marginTop: 0,
-  },
+  text: { fontSize: 15, lineHeight: 22 },
+  ownText:   { color: '#fff' },
+  otherText: { color: '#1a202c' },
 
-  text: {
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  ownText: { color: '#fff' },
-  otherText: { color: '#2d3748' },
+  image: { width: 200, height: 150, borderRadius: 12, marginBottom: 4 },
 
-  image: {
-    width: 200,
-    height: 150,
-    borderRadius: 12,
-    marginBottom: 4,
-  },
-
-  time: {
-    fontSize: 11,
+  meta: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 4,
+    gap: 3,
   },
-  ownTime: {
-    color: 'rgba(255,255,255,0.65)',
-    textAlign: 'right',
-  },
-  otherTime: { color: '#a0aec0' },
-  readStatus: { color: 'rgba(255,255,255,0.65)' },
+  metaOwn:   { justifyContent: 'flex-end' },
+  metaOther: { justifyContent: 'flex-start' },
 
-  pending: { opacity: 0.55 },
+  time: { fontSize: 11 },
+  ownTime:   { color: 'rgba(255,255,255,0.55)' },
+  otherTime: { color: '#a0aec0' },
+
+  receiptIcon: { marginLeft: 1 },
+
+  pending: { opacity: 0.6 },
 });

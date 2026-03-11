@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, KeyboardAvoidingView, Platform,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -81,6 +81,18 @@ export default function DMConversationScreen() {
 
   const [text, setText] = useState('');
   const flatListRef = useRef<FlatList>(null);
+  const sendScale = useRef(new Animated.Value(0)).current;
+
+  // Animate send button in/out as text appears
+  const hasText = text.trim().length > 0;
+  React.useEffect(() => {
+    Animated.spring(sendScale, {
+      toValue: hasText ? 1 : 0,
+      useNativeDriver: true,
+      damping: 14,
+      stiffness: 180,
+    }).start();
+  }, [hasText]);
 
   const conversationMessages = messages[conversationId] || [];
 
@@ -215,25 +227,29 @@ export default function DMConversationScreen() {
         />
 
         {/* Input */}
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="Message..."
-            placeholderTextColor="#a0aec0"
-            multiline
-            maxLength={1000}
-            onSubmitEditing={Platform.OS === 'ios' ? undefined : handleSend}
-          />
-          <TouchableOpacity
-            onPress={handleSend}
-            disabled={!text.trim()}
-            style={[styles.sendBtn, !text.trim() && styles.sendBtnDisabled]}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="send" size={17} color="#fff" />
-          </TouchableOpacity>
+        <View style={styles.inputBar}>
+          <View style={styles.inputWrap}>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              placeholder="Message..."
+              placeholderTextColor="#b0bec5"
+              multiline
+              maxLength={1000}
+            />
+          </View>
+
+          <Animated.View style={{ transform: [{ scale: sendScale }], opacity: sendScale }}>
+            <TouchableOpacity
+              onPress={handleSend}
+              disabled={!text.trim()}
+              style={styles.sendBtn}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -242,7 +258,7 @@ export default function DMConversationScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  container: { flex: 1, backgroundColor: '#f4f6f9' },
 
   header: {
     flexDirection: 'row',
@@ -281,35 +297,48 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', marginTop: 80, gap: 12 },
   emptyText: { color: '#a0aec0', fontSize: 15 },
 
-  inputRow: {
+  inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
     backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: '#e8edf3',
     gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  inputWrap: {
+    flex: 1,
+    backgroundColor: '#f4f6f9',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
     fontSize: 15,
     color: '#1a202c',
     maxHeight: 110,
-    backgroundColor: '#f7fafc',
+    padding: 0,
   },
   sendBtn: {
     backgroundColor: '#1a365d',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#1a365d',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 5,
   },
-  sendBtnDisabled: { backgroundColor: '#cbd5e0' },
 });
