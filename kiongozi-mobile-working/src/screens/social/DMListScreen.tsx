@@ -117,6 +117,7 @@ export default function DMListScreen() {
           conversationId: convRes.data.id,
           participantName: person.full_name,
           participantUsername: person.username,
+          participantAvatar: person.avatar_url,
         });
       }
     } catch {}
@@ -155,7 +156,8 @@ export default function DMListScreen() {
                 onPress={() => navigation.navigate('DMConversation', {
                   conversationId: item.id,
                   participantName: other?.full_name,
-                  participantUsername: other?.username
+                  participantUsername: other?.username,
+                  participantAvatar: other?.avatar_url,
                 })}
               >
                 <UserAvatar avatarUrl={other?.avatar_url} size={50} isBot={other?.is_bot} isVerified={other?.is_verified} />

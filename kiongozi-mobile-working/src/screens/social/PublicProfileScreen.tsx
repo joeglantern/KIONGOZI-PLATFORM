@@ -105,6 +105,7 @@ export default function PublicProfileScreen() {
         navigation.navigate('DMConversation', {
           conversationId: res.data.id,
           participantName: profile.full_name,
+          participantUsername: profile.username,
           participantAvatar: profile.avatar_url,
         });
       }
