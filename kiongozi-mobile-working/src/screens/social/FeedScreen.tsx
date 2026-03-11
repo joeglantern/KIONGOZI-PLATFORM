@@ -1,9 +1,11 @@
-import React, { useEffect, useCallback, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, RefreshControl, ActivityIndicator,
-  TouchableOpacity, Animated
+  TouchableOpacity, Animated, ScrollView, Dimensions
 } from 'react-native';
 import { FlatList } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 import { useSocialStore, Post } from '../../stores/socialStore';
 import { PostCard } from '../../components/social/PostCard';
 import { useNavigation } from '@react-navigation/native';
@@ -11,13 +13,11 @@ import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 
-type FeedTab = 'for-you' | 'following';
-
 export default function FeedScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<FeedTab>('for-you');
-  const underlineAnim = useRef(new Animated.Value(0)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<ScrollView>(null);
 
   const {
     feedPosts, feedLoading, feedRefreshing, feedCursor,
@@ -55,13 +55,8 @@ export default function FeedScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  const switchTab = (tab: FeedTab) => {
-    setActiveTab(tab);
-    Animated.timing(underlineAnim, {
-      toValue: tab === 'for-you' ? 0 : 1,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
+  const switchTab = (index: number) => {
+    scrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
   };
 
   const handlePostPress = useCallback((post: Post) => {
@@ -96,11 +91,23 @@ export default function FeedScreen() {
     />
   ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost]);
 
-  // Sliding underline position
-  const tabWidth = 50; // percent
-  const underlineLeft = underlineAnim.interpolate({
-    inputRange: [0, 1],
+  // Underline tracks scroll position in real time
+  const underlineLeft = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH],
     outputRange: ['0%', '50%'],
+    extrapolate: 'clamp',
+  });
+
+  // Active tab label colour tracks scroll
+  const forYouColor = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: ['#1a202c', '#a0aec0'],
+    extrapolate: 'clamp',
+  });
+  const followingColor = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: ['#a0aec0', '#1a202c'],
+    extrapolate: 'clamp',
   });
 
   return (
@@ -110,85 +117,87 @@ export default function FeedScreen() {
         <Text style={styles.headerTitle}>Home</Text>
         {/* Tab switcher */}
         <View style={styles.tabs}>
-          <TouchableOpacity style={styles.tab} onPress={() => switchTab('for-you')}>
-            <Text style={[styles.tabLabel, activeTab === 'for-you' && styles.tabLabelActive]}>
-              For You
-            </Text>
+          <TouchableOpacity style={styles.tab} onPress={() => switchTab(0)}>
+            <Animated.Text style={[styles.tabLabel, { color: forYouColor }]}>For You</Animated.Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tab} onPress={() => switchTab('following')}>
-            <Text style={[styles.tabLabel, activeTab === 'following' && styles.tabLabelActive]}>
-              Following
-            </Text>
+          <TouchableOpacity style={styles.tab} onPress={() => switchTab(1)}>
+            <Animated.Text style={[styles.tabLabel, { color: followingColor }]}>Following</Animated.Text>
           </TouchableOpacity>
-          <Animated.View style={[styles.tabUnderline, { left: underlineLeft, width: `${tabWidth}%` }]} />
+          <Animated.View style={[styles.tabUnderline, { left: underlineLeft, width: '50%' }]} />
         </View>
       </View>
 
-      {/* For You FlatList */}
-      <View style={{ flex: 1, display: activeTab === 'for-you' ? 'flex' : 'none' }}>
-        <FlatList
-          data={forYouPosts}
-          renderItem={renderPost}
-          keyExtractor={(item) => `fy_${item.id}`}
-          onEndReached={() => { if (hasMoreForYou) fetchForYouFeed(false); }}
-          onEndReachedThreshold={0.5}
-          refreshControl={
-            <RefreshControl
-              refreshing={forYouRefreshing}
-              onRefresh={() => fetchForYouFeed(true)}
-              tintColor="#1a365d"
-            />
-          }
-          ListEmptyComponent={
-            forYouLoading ? (
-              <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
-            ) : (
-              <View style={styles.empty}>
-                <Text style={styles.emptyText}>No posts yet.</Text>
-                <Text style={styles.emptySubtext}>Check back soon for personalized content.</Text>
-              </View>
-            )
-          }
-          ListFooterComponent={
-            forYouLoading && forYouPosts.length > 0 ? (
-              <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" />
-            ) : null
-          }
-        />
-      </View>
+      {/* Paged content */}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false }
+        )}
+        style={{ flex: 1 }}
+      >
+        {/* For You */}
+        <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
+          <FlatList
+            data={forYouPosts}
+            renderItem={renderPost}
+            keyExtractor={(item) => `fy_${item.id}`}
+            onEndReached={() => { if (hasMoreForYou) fetchForYouFeed(false); }}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              <RefreshControl refreshing={forYouRefreshing} onRefresh={() => fetchForYouFeed(true)} tintColor="#1a365d" />
+            }
+            ListEmptyComponent={
+              forYouLoading ? (
+                <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+              ) : (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyText}>No posts yet.</Text>
+                  <Text style={styles.emptySubtext}>Check back soon for personalized content.</Text>
+                </View>
+              )
+            }
+            ListFooterComponent={
+              forYouLoading && forYouPosts.length > 0
+                ? <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" />
+                : null
+            }
+          />
+        </View>
 
-      {/* Following FlatList */}
-      <View style={{ flex: 1, display: activeTab === 'following' ? 'flex' : 'none' }}>
-        <FlatList
-          data={feedPosts}
-          renderItem={renderPost}
-          keyExtractor={(item) => `fw_${item.id}`}
-          onEndReached={() => { if (feedCursor) fetchFeed(false); }}
-          onEndReachedThreshold={0.5}
-          refreshControl={
-            <RefreshControl
-              refreshing={feedRefreshing}
-              onRefresh={() => fetchFeed(true)}
-              tintColor="#1a365d"
-            />
-          }
-          ListEmptyComponent={
-            feedLoading ? (
-              <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
-            ) : (
-              <View style={styles.empty}>
-                <Text style={styles.emptyText}>Your feed is empty.</Text>
-                <Text style={styles.emptySubtext}>Follow people to see their posts here.</Text>
-              </View>
-            )
-          }
-          ListFooterComponent={
-            feedLoading && feedPosts.length > 0 ? (
-              <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" />
-            ) : null
-          }
-        />
-      </View>
+        {/* Following */}
+        <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
+          <FlatList
+            data={feedPosts}
+            renderItem={renderPost}
+            keyExtractor={(item) => `fw_${item.id}`}
+            onEndReached={() => { if (feedCursor) fetchFeed(false); }}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              <RefreshControl refreshing={feedRefreshing} onRefresh={() => fetchFeed(true)} tintColor="#1a365d" />
+            }
+            ListEmptyComponent={
+              feedLoading ? (
+                <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+              ) : (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyText}>Your feed is empty.</Text>
+                  <Text style={styles.emptySubtext}>Follow people to see their posts here.</Text>
+                </View>
+              )
+            }
+            ListFooterComponent={
+              feedLoading && feedPosts.length > 0
+                ? <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" />
+                : null
+            }
+          />
+        </View>
+      </ScrollView>
     </View>
   );
 }

@@ -1,12 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator
+  View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator,
+  ScrollView, Animated, Dimensions
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
 type Tab = 'followers' | 'following';
 
 interface FollowUser {
@@ -23,11 +25,12 @@ export default function FollowListScreen() {
   const route = useRoute<any>();
   const { userId, username, initialTab = 'followers' } = route.params || {};
 
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [followers, setFollowers] = useState<FollowUser[]>([]);
   const [following, setFollowing] = useState<FollowUser[]>([]);
   const [loadingFollowers, setLoadingFollowers] = useState(false);
   const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const scrollX = useRef(new Animated.Value(initialTab === 'followers' ? 0 : SCREEN_WIDTH)).current;
+  const scrollRef = useRef<ScrollView>(null);
 
   const fetchFollowers = useCallback(async () => {
     if (loadingFollowers) return;
@@ -52,10 +55,31 @@ export default function FollowListScreen() {
   useEffect(() => {
     fetchFollowers();
     fetchFollowing();
+    // Scroll to initialTab without animation on mount
+    if (initialTab === 'following') {
+      setTimeout(() => scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false }), 0);
+    }
   }, [userId]);
 
-  const data = activeTab === 'followers' ? followers : following;
-  const isLoading = activeTab === 'followers' ? loadingFollowers : loadingFollowing;
+  const switchTab = (tab: Tab) => {
+    scrollRef.current?.scrollTo({ x: tab === 'followers' ? 0 : SCREEN_WIDTH, animated: true });
+  };
+
+  const underlineLeft = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: ['0%', '50%'],
+    extrapolate: 'clamp',
+  });
+  const followersColor = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: ['#1a365d', '#a0aec0'],
+    extrapolate: 'clamp',
+  });
+  const followingColor = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: ['#a0aec0', '#1a365d'],
+    extrapolate: 'clamp',
+  });
 
   const renderUser = ({ item }: { item: FollowUser }) => (
     <TouchableOpacity
@@ -85,43 +109,60 @@ export default function FollowListScreen() {
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'followers' && styles.activeTab]}
-          onPress={() => setActiveTab('followers')}
-        >
-          <Text style={[styles.tabText, activeTab === 'followers' && styles.activeTabText]}>
-            Followers
-          </Text>
-          {activeTab === 'followers' && <View style={styles.tabIndicator} />}
+        <TouchableOpacity style={styles.tab} onPress={() => switchTab('followers')}>
+          <Animated.Text style={[styles.tabText, { color: followersColor }]}>Followers</Animated.Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'following' && styles.activeTab]}
-          onPress={() => setActiveTab('following')}
-        >
-          <Text style={[styles.tabText, activeTab === 'following' && styles.activeTabText]}>
-            Following
-          </Text>
-          {activeTab === 'following' && <View style={styles.tabIndicator} />}
+        <TouchableOpacity style={styles.tab} onPress={() => switchTab('following')}>
+          <Animated.Text style={[styles.tabText, { color: followingColor }]}>Following</Animated.Text>
         </TouchableOpacity>
+        <Animated.View style={[styles.tabIndicator, { left: underlineLeft }]} />
       </View>
 
-      {/* List */}
-      {isLoading && data.length === 0 ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
-      ) : (
-        <FlatList
-          data={data}
-          keyExtractor={item => item.id}
-          renderItem={renderUser}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>
-                {activeTab === 'followers' ? 'No followers yet' : 'Not following anyone yet'}
-              </Text>
-            </View>
-          }
-        />
-      )}
+      {/* Paged lists */}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false }
+        )}
+        style={{ flex: 1 }}
+      >
+        {/* Followers page */}
+        <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
+          {loadingFollowers && followers.length === 0 ? (
+            <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+          ) : (
+            <FlatList
+              data={followers}
+              keyExtractor={item => `f_${item.id}`}
+              renderItem={renderUser}
+              ListEmptyComponent={
+                <View style={styles.empty}><Text style={styles.emptyText}>No followers yet</Text></View>
+              }
+            />
+          )}
+        </View>
+
+        {/* Following page */}
+        <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
+          {loadingFollowing && following.length === 0 ? (
+            <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+          ) : (
+            <FlatList
+              data={following}
+              keyExtractor={item => `g_${item.id}`}
+              renderItem={renderUser}
+              ListEmptyComponent={
+                <View style={styles.empty}><Text style={styles.emptyText}>Not following anyone yet</Text></View>
+              }
+            />
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -145,21 +186,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e2e8f0',
+    position: 'relative',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 14,
-    position: 'relative',
   },
-  activeTab: {},
-  tabText: { fontSize: 15, fontWeight: '600', color: '#a0aec0' },
-  activeTabText: { color: '#1a365d' },
+  tabText: { fontSize: 15, fontWeight: '600' },
   tabIndicator: {
     position: 'absolute',
     bottom: 0,
-    left: '20%',
-    right: '20%',
+    width: '50%',
     height: 2,
     backgroundColor: '#1a365d',
     borderRadius: 2,
