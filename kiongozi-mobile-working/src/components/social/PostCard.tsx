@@ -101,7 +101,7 @@ export function PostCard({
   currentUserId,
   onDeletePress,
 }: PostCardProps) {
-  const { toggleLike, toggleBookmark } = useSocialStore();
+  const { toggleLike, toggleBookmark, toggleRepostCount } = useSocialStore();
 
   const handleLike = useCallback(async () => {
     toggleLike(post.id); // Optimistic update
@@ -113,10 +113,19 @@ export function PostCard({
   }, [post.id, toggleLike]);
 
   const handleRepost = useCallback(async () => {
+    toggleRepostCount(post.id, 1); // optimistic
     try {
-      await apiClient.repostPost(post.id);
-    } catch {}
-  }, [post.id]);
+      const res = await apiClient.repostPost(post.id);
+      if (!res.success) {
+        toggleRepostCount(post.id, -1); // revert
+        if (res.error === 'Already reposted') {
+          Alert.alert('Already reposted', 'You have already reposted this post.');
+        }
+      }
+    } catch {
+      toggleRepostCount(post.id, -1);
+    }
+  }, [post.id, toggleRepostCount]);
 
   const handleShare = useCallback(async () => {
     try {

@@ -1,5 +1,6 @@
 import { supabaseServiceClient } from '../config/supabase';
 import BotService from './BotService';
+import NotificationService from './NotificationService';
 
 const MENTION_REGEX = /@(\w+)/g;
 const HASHTAG_REGEX = /#(\w+)/g;
@@ -65,6 +66,31 @@ class MentionService {
           await BotService.handleMention(postId);
         } catch (e) {
           console.error('BotService.handleMention error:', e);
+        }
+      });
+    }
+
+    // Notify each mentioned user (excluding bot and self)
+    const nonBotUsers = users.filter(u => u.username !== 'kiongozi' && u.id !== mentionerId);
+    if (nonBotUsers.length > 0) {
+      setImmediate(async () => {
+        try {
+          const { data: mentioner } = await supabaseServiceClient
+            .from('profiles')
+            .select('full_name, username, avatar_url')
+            .eq('id', mentionerId)
+            .single();
+          for (const user of nonBotUsers) {
+            await NotificationService.notify({
+              userId: user.id,
+              type: 'mention',
+              title: 'You were mentioned',
+              message: `${mentioner?.full_name || 'Someone'} mentioned you in a post`,
+              data: { post_id: postId, from_user_id: mentionerId, from_username: mentioner?.username, from_avatar_url: mentioner?.avatar_url },
+            });
+          }
+        } catch (e) {
+          console.error('Mention notification error:', e);
         }
       });
     }

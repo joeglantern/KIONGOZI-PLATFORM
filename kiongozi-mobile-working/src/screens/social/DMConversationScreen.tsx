@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator
+  TouchableOpacity, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,10 +16,9 @@ export default function DMConversationScreen() {
   const route = useRoute<any>();
   const { conversationId, participantName } = route.params || {};
   const { user } = useAuthStore();
-  const { messages, fetchMessages, appendMessage, markRead } = useDMStore();
+  const { messages, fetchMessages, appendMessage, replaceMessage, removeMessage, markRead } = useDMStore();
 
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const conversationMessages = messages[conversationId] || [];
@@ -59,25 +58,37 @@ export default function DMConversationScreen() {
   }, [conversationId, user?.id]);
 
   const handleSend = useCallback(async () => {
-    if (!text.trim() || sending) return;
+    if (!text.trim()) return;
     const content = text.trim();
     setText('');
-    setSending(true);
+
+    // Optimistic: show message immediately with pending state
+    const tempId = `temp_${Date.now()}`;
+    const tempMsg = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: user!.id,
+      content,
+      is_read: false,
+      created_at: new Date().toISOString(),
+      _pending: true,
+    };
+    appendMessage(conversationId, tempMsg as any);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
       const res = await apiClient.sendDM(conversationId, content);
       if (res.success && res.data) {
-        appendMessage(conversationId, res.data);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        replaceMessage(conversationId, tempId, res.data);
       } else {
-        setText(content); // Restore text on error
+        removeMessage(conversationId, tempId);
+        setText(content); // restore
       }
     } catch {
+      removeMessage(conversationId, tempId);
       setText(content);
-    } finally {
-      setSending(false);
     }
-  }, [text, conversationId, sending, appendMessage]);
+  }, [text, conversationId, user, appendMessage, replaceMessage, removeMessage]);
 
   return (
     <KeyboardAvoidingView
@@ -126,13 +137,10 @@ export default function DMConversationScreen() {
         />
         <TouchableOpacity
           onPress={handleSend}
-          disabled={!text.trim() || sending}
-          style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
+          disabled={!text.trim()}
+          style={[styles.sendBtn, !text.trim() && styles.sendBtnDisabled]}
         >
-          {sending
-            ? <ActivityIndicator size="small" color="#fff" />
-            : <Ionicons name="send" size={18} color="#fff" />
-          }
+          <Ionicons name="send" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

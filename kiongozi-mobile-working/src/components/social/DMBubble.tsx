@@ -13,7 +13,7 @@ function formatTime(dateStr: string): string {
 
 export function DMBubble({ message, isOwn }: DMBubbleProps) {
   return (
-    <View style={[styles.container, isOwn ? styles.ownContainer : styles.otherContainer]}>
+    <View style={[styles.container, isOwn ? styles.ownContainer : styles.otherContainer, message._pending && styles.pending]}>
       {message.media_url && message.media_type === 'image' && (
         <Image source={{ uri: message.media_url }} style={styles.image} resizeMode="cover" />
       )}
@@ -80,5 +80,8 @@ const styles = StyleSheet.create({
   },
   readStatus: {
     color: 'rgba(255,255,255,0.7)',
-  }
+  },
+  pending: {
+    opacity: 0.6,
+  },
 });

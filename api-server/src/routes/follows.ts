@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
+import NotificationService from '../services/NotificationService';
 
 const router = Router();
 
@@ -33,6 +34,26 @@ router.post('/follow/:userId', authenticateToken, async (req: Request, res: Resp
     if (io) {
       io.to(`user:${followingId}`).emit('follow:new', { followedBy: followerId });
     }
+
+    setImmediate(async () => {
+      try {
+        const { data: follower } = await supabaseServiceClient
+          .from('profiles')
+          .select('full_name, username, avatar_url')
+          .eq('id', followerId)
+          .single();
+        await NotificationService.notify({
+          userId: followingId,
+          type: 'follow',
+          title: 'New follower',
+          message: `${follower?.full_name || 'Someone'} started following you`,
+          data: { from_user_id: followerId, from_username: follower?.username, from_avatar_url: follower?.avatar_url },
+          io,
+        });
+      } catch (e) {
+        console.error('Follow notification error:', e);
+      }
+    });
 
     res.status(201).json({ success: true });
   } catch (err) {

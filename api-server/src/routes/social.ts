@@ -3,6 +3,7 @@ import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import MentionService from '../services/MentionService';
 import FeedService, { enrichWithUserState } from '../services/FeedService';
+import NotificationService from '../services/NotificationService';
 
 const router = Router();
 
@@ -191,15 +192,34 @@ router.post('/posts/:id/like', authenticateToken, async (req: Request, res: Resp
 
       // Notify post owner
       const io = (req as any).io;
-      if (io) {
-        const { data: post } = await supabaseServiceClient
-          .from('posts')
-          .select('user_id')
-          .eq('id', postId)
-          .single();
-        if (post?.user_id && post.user_id !== userId) {
+      const { data: post } = await supabaseServiceClient
+        .from('posts')
+        .select('user_id')
+        .eq('id', postId)
+        .single();
+      if (post?.user_id && post.user_id !== userId) {
+        if (io) {
           io.to(`user:${post.user_id}`).emit('post:liked', { postId, likedBy: userId });
         }
+        setImmediate(async () => {
+          try {
+            const { data: liker } = await supabaseServiceClient
+              .from('profiles')
+              .select('full_name, username, avatar_url')
+              .eq('id', userId)
+              .single();
+            await NotificationService.notify({
+              userId: post.user_id,
+              type: 'like',
+              title: 'New like',
+              message: `${liker?.full_name || 'Someone'} liked your post`,
+              data: { post_id: postId, from_user_id: userId, from_username: liker?.username, from_avatar_url: liker?.avatar_url },
+              io,
+            });
+          } catch (e) {
+            console.error('Like notification error:', e);
+          }
+        });
       }
     }
 
@@ -224,6 +244,18 @@ router.post('/posts/:id/repost', authenticateToken, async (req: Request, res: Re
     const userId = req.user!.id;
     const { content = '' } = req.body;
 
+    // Duplicate guard
+    const { data: existing } = await supabaseServiceClient
+      .from('posts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('repost_of_id', repostOfId)
+      .maybeSingle();
+    if (existing) {
+      res.status(409).json({ success: false, error: 'Already reposted' });
+      return;
+    }
+
     const { data: post, error } = await supabaseServiceClient
       .from('posts')
       .insert({
@@ -232,7 +264,11 @@ router.post('/posts/:id/repost', authenticateToken, async (req: Request, res: Re
         repost_of_id: repostOfId,
         visibility: 'public'
       })
-      .select()
+      .select(`
+        *,
+        profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
+        post_media (*)
+      `)
       .single();
 
     if (error) {
@@ -240,17 +276,44 @@ router.post('/posts/:id/repost', authenticateToken, async (req: Request, res: Re
       return;
     }
 
-    // Notify original post owner
+    // Fetch original post owner
+    const { data: original } = await supabaseServiceClient
+      .from('posts')
+      .select('user_id')
+      .eq('id', repostOfId)
+      .single();
+
     const io = (req as any).io;
+
+    // Broadcast to feed
     if (io) {
-      const { data: original } = await supabaseServiceClient
-        .from('posts')
-        .select('user_id')
-        .eq('id', repostOfId)
-        .single();
-      if (original?.user_id && original.user_id !== userId) {
+      io.emit('feed:post_new', { post });
+    }
+
+    // Notify original post owner
+    if (original?.user_id && original.user_id !== userId) {
+      if (io) {
         io.to(`user:${original.user_id}`).emit('post:reposted', { postId: repostOfId, repostedBy: userId });
       }
+      setImmediate(async () => {
+        try {
+          const { data: reposter } = await supabaseServiceClient
+            .from('profiles')
+            .select('full_name, username, avatar_url')
+            .eq('id', userId)
+            .single();
+          await NotificationService.notify({
+            userId: original.user_id,
+            type: 'repost',
+            title: 'New repost',
+            message: `${reposter?.full_name || 'Someone'} reposted your post`,
+            data: { post_id: repostOfId, from_user_id: userId, from_username: reposter?.username, from_avatar_url: reposter?.avatar_url },
+            io,
+          });
+        } catch (e) {
+          console.error('Repost notification error:', e);
+        }
+      });
     }
 
     res.status(201).json({ success: true, data: post });
@@ -317,15 +380,34 @@ router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Res
 
     // Notify parent post owner
     const io = (req as any).io;
-    if (io) {
-      const { data: parent } = await supabaseServiceClient
-        .from('posts')
-        .select('user_id')
-        .eq('id', parentPostId)
-        .single();
-      if (parent?.user_id && parent.user_id !== userId) {
+    const { data: parent } = await supabaseServiceClient
+      .from('posts')
+      .select('user_id')
+      .eq('id', parentPostId)
+      .single();
+    if (parent?.user_id && parent.user_id !== userId) {
+      if (io) {
         io.to(`user:${parent.user_id}`).emit('post:commented', { postId: parentPostId, replyId: post.id, replyBy: userId });
       }
+      setImmediate(async () => {
+        try {
+          const { data: replier } = await supabaseServiceClient
+            .from('profiles')
+            .select('full_name, username, avatar_url')
+            .eq('id', userId)
+            .single();
+          await NotificationService.notify({
+            userId: parent.user_id,
+            type: 'comment',
+            title: 'New reply',
+            message: `${replier?.full_name || 'Someone'} replied to your post`,
+            data: { post_id: parentPostId, from_user_id: userId, from_username: replier?.username, from_avatar_url: replier?.avatar_url },
+            io,
+          });
+        } catch (e) {
+          console.error('Reply notification error:', e);
+        }
+      });
     }
 
     res.status(201).json({ success: true, data: post });
@@ -376,7 +458,7 @@ router.get('/posts/:id/replies', optionalAuth, async (req: Request, res: Respons
 });
 
 // GET /api/v1/social/trending
-router.get('/trending', async (_req: Request, res: Response): Promise<void> => {
+router.get('/trending', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { data: hashtags, error: hErr } = await supabaseServiceClient
       .from('hashtags')
@@ -400,7 +482,8 @@ router.get('/trending', async (_req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    res.json({ success: true, data: { hashtags, posts } });
+    const enrichedPosts = await enrichWithUserState(posts || [], req.user?.id);
+    res.json({ success: true, data: { hashtags, posts: enrichedPosts } });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch trending' });
   }
@@ -430,7 +513,8 @@ router.get('/search', optionalAuth, async (req: Request, res: Response): Promise
         .limit(10)
     ]);
 
-    res.json({ success: true, data: { posts: posts || [], users: users || [] } });
+    const enrichedPosts = await enrichWithUserState(posts || [], req.user?.id);
+    res.json({ success: true, data: { posts: enrichedPosts, users: users || [] } });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Search failed' });
   }

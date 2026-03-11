@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { PostInput } from '../../components/social/PostInput';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useAuthStore } from '../../stores/authStore';
@@ -21,7 +22,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const { user } = useAuthStore();
   const { prependPost } = useSocialStore();
   const [content, setContent] = useState('');
-  const [media, setMedia] = useState<Array<{ uri: string; type: 'image' | 'video'; width?: number; height?: number }>>([]);
+  const [media, setMedia] = useState<Array<{ uri: string; type: 'image' | 'video'; width?: number; height?: number; thumbnailUri?: string }>>([]);
   const [posting, setPosting] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -42,11 +43,15 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     });
 
     if (!result.canceled) {
-      const newMedia = result.assets.map(a => ({
-        uri: a.uri,
-        type: type as 'image' | 'video',
-        width: a.width,
-        height: a.height,
+      const newMedia = await Promise.all(result.assets.map(async a => {
+        let thumbnailUri: string | undefined;
+        if (type === 'video') {
+          try {
+            const thumb = await VideoThumbnails.getThumbnailAsync(a.uri, { time: 0 });
+            thumbnailUri = thumb.uri;
+          } catch {}
+        }
+        return { uri: a.uri, type: type as 'image' | 'video', width: a.width, height: a.height, thumbnailUri };
       }));
       setMedia(prev => [...prev, ...newMedia].slice(0, 4));
     }

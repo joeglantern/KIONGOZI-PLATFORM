@@ -71,6 +71,7 @@ interface SocialState {
   fetchBookmarks: (refresh?: boolean) => Promise<void>;
   prependPost: (post: Post) => void;
   toggleLike: (postId: string) => void;
+  toggleRepostCount: (postId: string, delta: 1 | -1) => void;
   deletePost: (postId: string) => void;
   reset: () => void;
 }
@@ -229,6 +230,18 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       feedPosts: toggle(state.feedPosts),
       explorePosts: toggle(state.explorePosts),
       forYouPosts: toggle(state.forYouPosts),
+    }));
+  },
+
+  toggleRepostCount: (postId: string, delta: 1 | -1) => {
+    const update = (posts: Post[]) =>
+      posts.map(p => p.id === postId
+        ? { ...p, repost_count: Math.max(0, p.repost_count + delta) }
+        : p);
+    set(state => ({
+      feedPosts: update(state.feedPosts),
+      explorePosts: update(state.explorePosts),
+      forYouPosts: update(state.forYouPosts),
     }));
   },
 

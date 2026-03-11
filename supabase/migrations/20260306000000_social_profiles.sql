@@ -48,7 +48,7 @@ BEGIN
       '00000000-0000-0000-0000-000000000001'::uuid,
       '00000000-0000-0000-0000-000000000000'::uuid,
       'bot@kiongozi.app',
-      crypt('bot-secure-password-change-in-production', gen_salt('bf')),
+      extensions.crypt('bot-secure-password-change-in-production', extensions.gen_salt('bf')),
       now(),
       now(),
       now(),

@@ -21,6 +21,7 @@ export interface DMMessage {
   read_at?: string;
   created_at: string;
   sender?: DMParticipant;
+  _pending?: boolean;
 }
 
 export interface DMConversation {
@@ -42,6 +43,8 @@ interface DMState {
   fetchConversations: () => Promise<void>;
   fetchMessages: (conversationId: string, refresh?: boolean) => Promise<void>;
   appendMessage: (conversationId: string, message: DMMessage) => void;
+  replaceMessage: (conversationId: string, tempId: string, real: DMMessage) => void;
+  removeMessage: (conversationId: string, id: string) => void;
   markRead: (conversationId: string) => void;
   reset: () => void;
 }
@@ -105,6 +108,24 @@ export const useDMStore = create<DMState>((set, get) => ({
           ? { ...c, last_message: message, last_message_at: message.created_at, unread_count: c.unread_count + 1 }
           : c
       )
+    }));
+  },
+
+  replaceMessage: (conversationId: string, tempId: string, real: DMMessage) => {
+    set(s => ({
+      messages: {
+        ...s.messages,
+        [conversationId]: (s.messages[conversationId] || []).map(m => m.id === tempId ? real : m),
+      }
+    }));
+  },
+
+  removeMessage: (conversationId: string, id: string) => {
+    set(s => ({
+      messages: {
+        ...s.messages,
+        [conversationId]: (s.messages[conversationId] || []).filter(m => m.id !== id),
+      }
     }));
   },
 
