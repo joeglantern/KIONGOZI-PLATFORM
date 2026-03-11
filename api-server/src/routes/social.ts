@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import MentionService from '../services/MentionService';
-import FeedService from '../services/FeedService';
+import FeedService, { enrichWithUserState } from '../services/FeedService';
 
 const router = Router();
 
@@ -27,7 +27,7 @@ router.get('/explore', optionalAuth, async (req: Request, res: Response): Promis
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
     const cursor = req.query.cursor as string | undefined;
 
-    const result = await FeedService.getExploreFeed(limit, cursor);
+    const result = await FeedService.getExploreFeed(limit, cursor, req.user?.id);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('Explore error:', err);
@@ -55,7 +55,8 @@ router.get('/posts/:id', optionalAuth, async (req: Request, res: Response): Prom
       return;
     }
 
-    res.json({ success: true, data: post });
+    const [enriched] = await enrichWithUserState([post], req.user?.id);
+    res.json({ success: true, data: enriched });
   } catch (err) {
     console.error('Get post error:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch post' });
@@ -367,7 +368,8 @@ router.get('/posts/:id/replies', optionalAuth, async (req: Request, res: Respons
       ? replies[replies.length - 1].created_at
       : null;
 
-    res.json({ success: true, data: replies, nextCursor });
+    const enriched = await enrichWithUserState(replies || [], req.user?.id);
+    res.json({ success: true, data: enriched, nextCursor });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch replies' });
   }
@@ -502,7 +504,9 @@ router.get('/bookmarks', authenticateToken, async (req: Request, res: Response):
     const { data, error } = await query;
     if (error) throw error;
 
-    const posts = (data || []).map((b: any) => b.post).filter(Boolean);
+    const rawPosts = (data || []).map((b: any) => b.post).filter(Boolean);
+    // All are bookmarked; still enrich for isLiked + confirm isBookmarked=true
+    const posts = await enrichWithUserState(rawPosts, req.user!.id);
     const nextCursor = data && data.length === limit ? data[data.length - 1].created_at : null;
 
     res.json({ success: true, data: posts, nextCursor });
