@@ -192,8 +192,8 @@ export function PostCard({
   const isOwnPost = currentUserId && currentUserId === activePost.user_id;
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.95} style={styles.container}>
-      {/* Avatar */}
+    <View style={styles.container}>
+      {/* Avatar — taps open profile */}
       <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
         <UserAvatar
           avatarUrl={activePost.profiles?.avatar_url}
@@ -215,44 +215,47 @@ export function PostCard({
           </TouchableOpacity>
         )}
 
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
-            <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
-          </TouchableOpacity>
-          {activePost.profiles?.username && (
-            <Text style={styles.username}>@{activePost.profiles.username}</Text>
-          )}
-          <Text style={styles.dot}>·</Text>
-          <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
-        </View>
-
-        {/* Content */}
-        <HashtagHighlight
-          content={activePost.content}
-          style={styles.content}
-          onMentionPress={onMentionPress}
-          onHashtagPress={onHashtagPress}
-        />
-
-        {/* Media */}
-        {activePost.post_media && activePost.post_media.length > 0 && (
-          <View style={styles.mediaContainer}>
-            {activePost.post_media.slice(0, 4).map((media) => {
-              const mediaStyle = [
-                styles.mediaImage,
-                activePost.post_media!.length === 1 ? styles.singleImage : styles.gridImage
-              ];
-              return media.media_type === 'video' ? (
-                <PostVideo key={media.id} url={media.url} width={media.width} height={media.height} />
-              ) : (
-                <Image key={media.id} source={{ uri: media.url }} style={mediaStyle} resizeMode="cover" />
-              );
-            })}
+        {/* Tappable content area — opens post detail */}
+        <TouchableOpacity onPress={onPress} activeOpacity={0.95}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
+              <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
+            </TouchableOpacity>
+            {activePost.profiles?.username && (
+              <Text style={styles.username}>@{activePost.profiles.username}</Text>
+            )}
+            <Text style={styles.dot}>·</Text>
+            <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
           </View>
-        )}
 
-        {/* Actions: Reply | Repost | Like | Bookmark | Share | [Options if own] */}
+          {/* Content */}
+          <HashtagHighlight
+            content={activePost.content}
+            style={styles.content}
+            onMentionPress={onMentionPress}
+            onHashtagPress={onHashtagPress}
+          />
+
+          {/* Media */}
+          {activePost.post_media && activePost.post_media.length > 0 && (
+            <View style={styles.mediaContainer}>
+              {activePost.post_media.slice(0, 4).map((media) => {
+                const mediaStyle = [
+                  styles.mediaImage,
+                  activePost.post_media!.length === 1 ? styles.singleImage : styles.gridImage
+                ];
+                return media.media_type === 'video' ? (
+                  <PostVideo key={media.id} url={media.url} width={media.width} height={media.height} />
+                ) : (
+                  <Image key={media.id} source={{ uri: media.url }} style={mediaStyle} resizeMode="cover" />
+                );
+              })}
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Actions — outside the content touchable so they never trigger navigation */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.action} onPress={onReplyPress}>
             <Ionicons name="chatbubble-outline" size={18} color="#718096" />
@@ -298,7 +301,7 @@ export function PostCard({
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
