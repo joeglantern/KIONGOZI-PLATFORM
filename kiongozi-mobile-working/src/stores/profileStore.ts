@@ -29,6 +29,7 @@ interface ProfileState {
   fetchCurrentUserProfile: (username?: string) => Promise<void>;
   updateCurrentUserProfile: (updates: Partial<PublicProfile>) => void;
   updateFollowState: (username: string, isFollowing: boolean) => void;
+  setFollowerCount: (username: string, count: number) => void;
   reset: () => void;
 }
 
@@ -82,15 +83,37 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   updateFollowState: (username: string, isFollowing: boolean) => {
     set(s => {
       const profile = s.profiles[username];
+      const updatedProfiles = profile ? {
+        ...s.profiles,
+        [username]: {
+          ...profile,
+          isFollowing,
+          follower_count: isFollowing
+            ? profile.follower_count + 1
+            : Math.max(0, profile.follower_count - 1)
+        }
+      } : s.profiles;
+
+      // Also update the current user's following_count
+      const updatedCurrentUser = s.currentUserProfile ? {
+        ...s.currentUserProfile,
+        following_count: isFollowing
+          ? s.currentUserProfile.following_count + 1
+          : Math.max(0, s.currentUserProfile.following_count - 1)
+      } : s.currentUserProfile;
+
+      return { profiles: updatedProfiles, currentUserProfile: updatedCurrentUser };
+    });
+  },
+
+  setFollowerCount: (username: string, count: number) => {
+    set(s => {
+      const profile = s.profiles[username];
       if (!profile) return s;
       return {
         profiles: {
           ...s.profiles,
-          [username]: {
-            ...profile,
-            isFollowing,
-            follower_count: isFollowing ? profile.follower_count + 1 : Math.max(0, profile.follower_count - 1)
-          }
+          [username]: { ...profile, follower_count: count }
         }
       };
     });

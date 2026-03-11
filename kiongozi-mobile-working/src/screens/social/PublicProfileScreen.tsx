@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Image, ActivityIndicator, FlatList
@@ -9,6 +9,7 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { PostCard } from '../../components/social/PostCard';
 import { useProfileStore } from '../../stores/profileStore';
 import { useAuthStore } from '../../stores/authStore';
+import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 
 export default function PublicProfileScreen() {
@@ -21,7 +22,6 @@ export default function PublicProfileScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [followLoading, setFollowLoading] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
 
   useEffect(() => {
@@ -41,20 +41,60 @@ export default function PublicProfileScreen() {
     setLoading(false);
   };
 
-  const handleFollowToggle = async () => {
-    if (!profile || followLoading) return;
-    setFollowLoading(true);
+  // Realtime: live-update follower count when anyone follows/unfollows this profile
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const channel = supabase
+      .channel(`follows-${profile.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'follows', filter: `following_id=eq.${profile.id}` },
+        () => {
+          setProfile((p: any) => p ? { ...p, follower_count: p.follower_count + 1 } : p);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'follows', filter: `following_id=eq.${profile.id}` },
+        () => {
+          setProfile((p: any) => p ? { ...p, follower_count: Math.max(0, p.follower_count - 1) } : p);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.id]);
+
+  const handleFollowToggle = useCallback(async () => {
+    if (!profile) return;
+    const wasFollowing = profile.isFollowing;
+    const newFollowing = !wasFollowing;
+
+    // Optimistic update
+    setProfile((p: any) => p ? {
+      ...p,
+      isFollowing: newFollowing,
+      follower_count: newFollowing ? p.follower_count + 1 : Math.max(0, p.follower_count - 1)
+    } : p);
+    updateFollowState(username, newFollowing);
+
     try {
-      if (profile.isFollowing) {
+      if (wasFollowing) {
         await apiClient.unfollowUser(profile.id);
       } else {
         await apiClient.followUser(profile.id);
       }
-      updateFollowState(username, !profile.isFollowing);
-      setProfile((p: any) => p ? { ...p, isFollowing: !p.isFollowing } : p);
-    } catch {}
-    setFollowLoading(false);
-  };
+    } catch {
+      // Revert on error
+      setProfile((p: any) => p ? {
+        ...p,
+        isFollowing: wasFollowing,
+        follower_count: wasFollowing ? p.follower_count + 1 : Math.max(0, p.follower_count - 1)
+      } : p);
+      updateFollowState(username, wasFollowing);
+    }
+  }, [profile, username, updateFollowState]);
 
   const handleMessage = async () => {
     if (!profile || messageLoading) return;
@@ -131,11 +171,10 @@ export default function PublicProfileScreen() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={handleFollowToggle}
-                        disabled={followLoading}
                         style={[styles.followBtn, profile?.isFollowing && styles.followingBtn]}
                       >
                         <Text style={[styles.followText, profile?.isFollowing && styles.followingText]}>
-                          {followLoading ? '...' : profile?.isFollowing ? 'Following' : 'Follow'}
+                          {profile?.isFollowing ? 'Following' : 'Follow'}
                         </Text>
                       </TouchableOpacity>
                     </>
