@@ -1,18 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 
-/**
- * Profile tab screen for the bottom navigator.
- * The original ProfileScreen requires modal-style props (visible, onClose, etc.)
- * that don't fit the navigation model. This is a clean tab-compatible replacement.
- */
 export default function ProfileTabScreen() {
   const navigation = useNavigation<any>();
   const { user, signOut } = useAuthStore();
+  const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
+
+  const username = user?.user_metadata?.username || user?.email?.split('@')[0] || '';
+
+  useEffect(() => {
+    if (username) {
+      fetchCurrentUserProfile(username);
+    }
+  }, [username]);
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -44,9 +49,37 @@ export default function ProfileTabScreen() {
       <ScrollView style={styles.body}>
         {/* Avatar + name */}
         <View style={styles.profileSection}>
-          <UserAvatar avatarUrl={undefined} size={72} />
-          <Text style={styles.displayName}>{user?.user_metadata?.full_name || 'Your Profile'}</Text>
+          <UserAvatar
+            avatarUrl={currentUserProfile?.avatar_url}
+            size={72}
+          />
+          <Text style={styles.displayName}>
+            {currentUserProfile?.full_name || user?.user_metadata?.full_name || 'Your Profile'}
+          </Text>
+          {currentUserProfile?.username && (
+            <Text style={styles.handle}>@{currentUserProfile.username}</Text>
+          )}
           <Text style={styles.email}>{user?.email}</Text>
+
+          {/* Stats row */}
+          {currentUserProfile && (
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNum}>{currentUserProfile.post_count ?? 0}</Text>
+                <Text style={styles.statLabel}>Posts</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNum}>{currentUserProfile.follower_count ?? 0}</Text>
+                <Text style={styles.statLabel}>Followers</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNum}>{currentUserProfile.following_count ?? 0}</Text>
+                <Text style={styles.statLabel}>Following</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Menu items */}
@@ -64,7 +97,7 @@ export default function ProfileTabScreen() {
           <MenuItem
             icon="bookmark-outline"
             label="Bookmarks"
-            onPress={() => Alert.alert('Coming Soon', 'Bookmarks are coming in the next update.')}
+            onPress={() => navigation.navigate('Bookmarks')}
           />
           <MenuItem
             icon="log-out-outline"
@@ -120,7 +153,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   displayName: { fontSize: 20, fontWeight: '700', color: '#1a202c', marginTop: 12 },
+  handle: { fontSize: 14, color: '#718096', marginTop: 2 },
   email: { fontSize: 14, color: '#718096', marginTop: 4 },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e2e8f0',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  statItem: { alignItems: 'center', paddingHorizontal: 20 },
+  statNum: { fontSize: 18, fontWeight: '800', color: '#1a202c' },
+  statLabel: { fontSize: 12, color: '#718096', marginTop: 2 },
+  statDivider: { width: 1, height: 28, backgroundColor: '#e2e8f0' },
   menu: {
     backgroundColor: '#fff',
     borderRadius: 12,

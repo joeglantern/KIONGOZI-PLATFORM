@@ -13,11 +13,13 @@ import NotificationsScreen from '../screens/social/NotificationsScreen';
 import PostDetailScreen from '../screens/social/PostDetailScreen';
 import PublicProfileScreen from '../screens/social/PublicProfileScreen';
 import EditProfileScreen from '../screens/social/EditProfileScreen';
+import BookmarksScreen from '../screens/social/BookmarksScreen';
 import DMListScreen from '../screens/social/DMListScreen';
 import DMConversationScreen from '../screens/social/DMConversationScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileTabScreen from '../screens/social/ProfileTabScreen';
 import { KiongoziChatFAB } from '../components/social/KiongoziChatFAB';
+import { useNotificationStore } from '../stores/notificationStore';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
@@ -29,6 +31,8 @@ function FeedStackNavigator() {
       <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
       <FeedStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <FeedStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <FeedStack.Screen name="Bookmarks" component={BookmarksScreen} />
+      <FeedStack.Screen name="DMConversation" component={DMConversationScreen} />
     </FeedStack.Navigator>
   );
 }
@@ -41,6 +45,8 @@ function ExploreStackNavigator() {
       <ExploreStack.Screen name="PostDetail" component={PostDetailScreen} />
       <ExploreStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <ExploreStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <ExploreStack.Screen name="Bookmarks" component={BookmarksScreen} />
+      <ExploreStack.Screen name="DMConversation" component={DMConversationScreen} />
     </ExploreStack.Navigator>
   );
 }
@@ -54,6 +60,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="DMList" component={DMListScreen} />
       <ProfileStack.Screen name="DMConversation" component={DMConversationScreen} />
       <ProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <ProfileStack.Screen name="Bookmarks" component={BookmarksScreen} />
     </ProfileStack.Navigator>
   );
 }
@@ -73,6 +80,7 @@ function EmptyScreen() {
 export default function AppNavigator() {
   const [chatVisible, setChatVisible] = useState(false);
   const [createPostVisible, setCreatePostVisible] = useState(false);
+  const { unreadCount } = useNotificationStore();
 
   return (
     // Outer View so FAB and Modals can sit ABOVE the NavigationContainer
@@ -119,7 +127,13 @@ export default function AppNavigator() {
               ),
             }}
           />
-          <Tab.Screen name="Notifications" component={NotificationsScreen} />
+          <Tab.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{
+              tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+            }}
+          />
           <Tab.Screen name="Profile" component={ProfileStackNavigator} />
         </Tab.Navigator>
       </NavigationContainer>

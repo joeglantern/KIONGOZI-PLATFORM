@@ -7,13 +7,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../../components/social/PostCard';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useSocialStore } from '../../stores/socialStore';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import apiClient from '../../utils/apiClient';
 
 export default function ExploreScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { initialQuery } = (route.params || {}) as any;
+
   const { explorePosts, exploreLoading, exploreCursor, fetchExploreFeed } = useSocialStore();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery || '');
   const [searchResults, setSearchResults] = useState<{ posts: any[]; users: any[] } | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [trending, setTrending] = useState<{ hashtags: any[]; posts: any[] } | null>(null);
@@ -22,6 +25,13 @@ export default function ExploreScreen() {
     fetchExploreFeed(true);
     loadTrending();
   }, []);
+
+  // Auto-search if initialQuery is provided
+  useEffect(() => {
+    if (initialQuery) {
+      handleSearch(initialQuery);
+    }
+  }, [initialQuery]);
 
   const loadTrending = async () => {
     try {
@@ -38,7 +48,8 @@ export default function ExploreScreen() {
     }
     setSearchLoading(true);
     try {
-      const res = await apiClient.searchSocial(text.trim());
+      const searchText = text.startsWith('#') ? text.slice(1) : text;
+      const res = await apiClient.searchSocial(searchText.trim());
       if (res.success) setSearchResults(res.data);
     } catch {}
     setSearchLoading(false);
@@ -99,6 +110,7 @@ export default function ExploreScreen() {
                 post={item}
                 onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
                 onProfilePress={(username) => navigation.navigate('PublicProfile', { username })}
+                onHashtagPress={(tag) => handleSearch(`#${tag}`)}
               />
             );
           }}
@@ -131,6 +143,7 @@ export default function ExploreScreen() {
               post={item}
               onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
               onProfilePress={(username) => navigation.navigate('PublicProfile', { username })}
+              onHashtagPress={(tag) => handleSearch(`#${tag}`)}
             />
           )}
           ListFooterComponent={

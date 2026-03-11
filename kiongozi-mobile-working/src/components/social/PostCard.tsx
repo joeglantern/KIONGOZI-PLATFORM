@@ -1,7 +1,8 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Modal, SafeAreaView } from 'react-native';
+import React, { useCallback, useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Modal, SafeAreaView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
 import { HashtagHighlight } from './HashtagHighlight';
@@ -15,16 +16,23 @@ interface PostCardProps {
   onReplyPress?: () => void;
   onMentionPress?: (username: string) => void;
   onHashtagPress?: (tag: string) => void;
+  currentUserId?: string;
+  onDeletePress?: () => void;
 }
 
 function PostVideo({ url, width, height }: { url: string; width?: number; height?: number }) {
   const [open, setOpen] = useState(false);
+  const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
   const isPortrait = height && width && height > width;
-
-  // Compute display height: portrait capped at 400, landscape fixed 220
   const displayHeight = isPortrait ? 360 : 220;
 
   const player = useVideoPlayer(url, p => { p.pause(); });
+
+  useEffect(() => {
+    VideoThumbnails.getThumbnailAsync(url, { time: 0 })
+      .then(t => setThumbnailUri(t.uri))
+      .catch(() => {});
+  }, [url]);
 
   const handleOpen = useCallback(() => {
     player.currentTime = 0;
@@ -44,8 +52,13 @@ function PostVideo({ url, width, height }: { url: string; width?: number; height
         activeOpacity={0.85}
         style={[styles.videoThumb, { height: displayHeight }]}
       >
-        <Ionicons name="play-circle" size={56} color="rgba(255,255,255,0.92)" />
-        <Text style={styles.videoLabel}>Tap to play</Text>
+        {thumbnailUri && (
+          <Image source={{ uri: thumbnailUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        )}
+        <View style={styles.videoPlayOverlay}>
+          <Ionicons name="play-circle" size={56} color="rgba(255,255,255,0.92)" />
+          <Text style={styles.videoLabel}>Tap to play</Text>
+        </View>
       </TouchableOpacity>
 
       <Modal visible={open} animationType="fade" onRequestClose={handleClose} statusBarTranslucent>
@@ -84,9 +97,11 @@ export function PostCard({
   onProfilePress,
   onReplyPress,
   onMentionPress,
-  onHashtagPress
+  onHashtagPress,
+  currentUserId,
+  onDeletePress,
 }: PostCardProps) {
-  const { toggleLike } = useSocialStore();
+  const { toggleLike, toggleBookmark } = useSocialStore();
 
   const handleLike = useCallback(async () => {
     toggleLike(post.id); // Optimistic update
@@ -111,6 +126,27 @@ export function PostCard({
       });
     } catch {}
   }, [post.id, post.content, post.profiles?.full_name]);
+
+  const handleBookmark = useCallback(async () => {
+    await toggleBookmark(post.id);
+  }, [post.id, toggleBookmark]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: onDeletePress,
+        },
+      ]
+    );
+  }, [onDeletePress]);
+
+  const isOwnPost = currentUserId && currentUserId === post.user_id;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.95} style={styles.container}>
@@ -162,7 +198,7 @@ export function PostCard({
           </View>
         )}
 
-        {/* Actions */}
+        {/* Actions: Reply | Repost | Like | Bookmark | Share | [Delete if own] */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.action} onPress={onReplyPress}>
             <Ionicons name="chatbubble-outline" size={18} color="#718096" />
@@ -187,9 +223,23 @@ export function PostCard({
             )}
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.action} onPress={handleBookmark}>
+            <Ionicons
+              name={post.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+              size={18}
+              color={post.isBookmarked ? '#1a365d' : '#718096'}
+            />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.action} onPress={handleShare}>
             <Ionicons name="share-outline" size={18} color="#718096" />
           </TouchableOpacity>
+
+          {isOwnPost && onDeletePress && (
+            <TouchableOpacity style={styles.action} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={18} color="#e53e3e" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -260,7 +310,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 24,
+    gap: 20,
     marginTop: 4,
   },
   action: {
@@ -279,10 +329,14 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#0d1117',
     borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  videoPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginBottom: 10,
   },
   videoLabel: {
     color: 'rgba(255,255,255,0.7)',

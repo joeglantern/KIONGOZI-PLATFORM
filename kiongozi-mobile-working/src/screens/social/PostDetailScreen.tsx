@@ -3,23 +3,34 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../../components/social/PostCard';
+import { useSocialStore } from '../../stores/socialStore';
+import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
 
 export default function PostDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { postId, focusReply } = route.params || {};
+  const { user } = useAuthStore();
+  const { deletePost } = useSocialStore();
 
   const [post, setPost] = useState<any>(null);
   const [replies, setReplies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
-  const inputRef = useRef<TextInput>(null);
+  const replyInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     loadPost();
   }, [postId]);
+
+  // Auto-focus reply input when focusReply=true
+  useEffect(() => {
+    if (focusReply) {
+      setTimeout(() => replyInputRef.current?.focus(), 300);
+    }
+  }, []);
 
   const loadPost = async () => {
     setLoading(true);
@@ -46,6 +57,14 @@ export default function PostDetailScreen() {
     } catch {}
     setSending(false);
   }, [replyText, sending, postId]);
+
+  const handleDeletePost = useCallback((pid: string) => {
+    apiClient.deletePost(pid).then(() => {
+      deletePost(pid);
+      if (pid === postId) navigation.goBack();
+      else loadPost();
+    }).catch(() => {});
+  }, [deletePost, postId, navigation]);
 
   if (loading) {
     return (
@@ -78,6 +97,12 @@ export default function PostDetailScreen() {
               post={post}
               onProfilePress={(username) => navigation.navigate('PublicProfile', { username })}
               onMentionPress={(username) => navigation.navigate('PublicProfile', { username })}
+              onHashtagPress={(tag) => navigation.navigate('Explore', {
+                screen: 'ExploreMain',
+                params: { initialQuery: `#${tag}` },
+              })}
+              currentUserId={user?.id}
+              onDeletePress={() => handleDeletePost(post.id)}
             />
           ) : null
         }
@@ -86,6 +111,8 @@ export default function PostDetailScreen() {
             post={item}
             onPress={() => navigation.push('PostDetail', { postId: item.id })}
             onProfilePress={(username) => navigation.navigate('PublicProfile', { username })}
+            currentUserId={user?.id}
+            onDeletePress={() => handleDeletePost(item.id)}
           />
         )}
         ListEmptyComponent={
@@ -96,7 +123,7 @@ export default function PostDetailScreen() {
       {/* Reply compose bar */}
       <View style={styles.replyBar}>
         <TextInput
-          ref={inputRef}
+          ref={replyInputRef}
           style={styles.replyInput}
           placeholder="Write a reply..."
           placeholderTextColor="#a0aec0"

@@ -734,6 +734,22 @@ class ApiClient {
   async getFollowing(userId: string) {
     return this.request(`/api/v1/social/following/${userId}`, { method: 'GET' });
   }
+
+  /** Get "For You" scored feed (offset-based pagination) */
+  async getForYouFeed(offset = 0) {
+    return this.request(`/api/v1/social/for-you?offset=${offset}`, { method: 'GET' });
+  }
+
+  /** Toggle bookmark on a post */
+  async bookmarkPost(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}/bookmark`, { method: 'POST' });
+  }
+
+  /** Get bookmarked posts (cursor-based) */
+  async getBookmarks(cursor?: string) {
+    const p = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return this.request(`/api/v1/social/bookmarks${p}`, { method: 'GET' });
+  }
 }
 
 // Create singleton instance

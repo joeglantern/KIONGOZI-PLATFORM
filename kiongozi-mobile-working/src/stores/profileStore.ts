@@ -21,7 +21,13 @@ interface ProfileState {
   profiles: Record<string, PublicProfile>; // username -> profile
   loading: Record<string, boolean>;
 
+  // Current user's own profile (for ProfileTabScreen + EditProfileScreen)
+  currentUserProfile: PublicProfile | null;
+  currentUserLoading: boolean;
+
   fetchProfile: (username: string) => Promise<PublicProfile | null>;
+  fetchCurrentUserProfile: (username: string) => Promise<void>;
+  updateCurrentUserProfile: (updates: Partial<PublicProfile>) => void;
   updateFollowState: (username: string, isFollowing: boolean) => void;
   reset: () => void;
 }
@@ -29,6 +35,8 @@ interface ProfileState {
 export const useProfileStore = create<ProfileState>((set, get) => ({
   profiles: {},
   loading: {},
+  currentUserProfile: null,
+  currentUserLoading: false,
 
   fetchProfile: async (username: string) => {
     const cached = get().profiles[username];
@@ -49,6 +57,27 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     }
   },
 
+  fetchCurrentUserProfile: async (username: string) => {
+    if (!username) return;
+    set({ currentUserLoading: true });
+    try {
+      const res = await apiClient.getPublicProfile(username);
+      if (res.success && res.data) {
+        set({ currentUserProfile: res.data });
+        // Also cache in profiles map
+        set(s => ({ profiles: { ...s.profiles, [username]: res.data } }));
+      }
+    } catch {}
+    set({ currentUserLoading: false });
+  },
+
+  updateCurrentUserProfile: (updates: Partial<PublicProfile>) => {
+    set(s => {
+      if (!s.currentUserProfile) return s;
+      return { currentUserProfile: { ...s.currentUserProfile, ...updates } };
+    });
+  },
+
   updateFollowState: (username: string, isFollowing: boolean) => {
     set(s => {
       const profile = s.profiles[username];
@@ -66,5 +95,5 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     });
   },
 
-  reset: () => set({ profiles: {}, loading: {} })
+  reset: () => set({ profiles: {}, loading: {}, currentUserProfile: null, currentUserLoading: false })
 }));

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   ScrollView, Image, Alert, ActivityIndicator
@@ -7,17 +7,28 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 import apiClient from '../../utils/apiClient';
 
 export default function EditProfileScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
+  const { currentUserProfile, updateCurrentUserProfile } = useProfileStore();
 
   const [bio, setBio] = useState('');
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Pre-populate from currentUserProfile when available
+  useEffect(() => {
+    if (currentUserProfile) {
+      setFullName(currentUserProfile.full_name || '');
+      setUsername(currentUserProfile.username || '');
+      setBio(currentUserProfile.bio || '');
+    }
+  }, [currentUserProfile]);
 
   const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -48,6 +59,13 @@ export default function EditProfileScreen() {
 
       const res = await apiClient.updateProfile(formData);
       if (res.success) {
+        // Keep profile store in sync
+        updateCurrentUserProfile({
+          full_name: fullName,
+          username,
+          bio,
+          ...(res.data?.avatar_url ? { avatar_url: res.data.avatar_url } : {}),
+        });
         Alert.alert('Success', 'Profile updated!');
         navigation.goBack();
       } else {
@@ -77,12 +95,17 @@ export default function EditProfileScreen() {
         <TouchableOpacity style={styles.avatarPicker} onPress={pickAvatar}>
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
+          ) : currentUserProfile?.avatar_url ? (
+            <Image source={{ uri: currentUserProfile.avatar_url }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Ionicons name="camera" size={28} color="#718096" />
               <Text style={styles.avatarHint}>Tap to change</Text>
             </View>
           )}
+          <View style={styles.avatarEditBadge}>
+            <Ionicons name="camera" size={14} color="#fff" />
+          </View>
         </TouchableOpacity>
 
         {/* Fields */}
@@ -142,13 +165,26 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '700' },
   saveText: { color: '#1a365d', fontWeight: '700', fontSize: 16 },
   body: { flex: 1, padding: 16 },
-  avatarPicker: { alignSelf: 'center', marginVertical: 16 },
+  avatarPicker: { alignSelf: 'center', marginVertical: 16, position: 'relative' },
   avatar: { width: 80, height: 80, borderRadius: 40 },
   avatarPlaceholder: {
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center'
   },
   avatarHint: { fontSize: 11, color: '#718096', marginTop: 2 },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#1a365d',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   field: { marginBottom: 20 },
   label: { fontSize: 14, fontWeight: '600', color: '#4a5568', marginBottom: 6 },
   input: {

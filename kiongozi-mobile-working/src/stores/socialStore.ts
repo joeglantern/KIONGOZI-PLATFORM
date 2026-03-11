@@ -39,6 +39,7 @@ export interface Post {
   post_media?: PostMedia[];
   // client-side only
   isLiked?: boolean;
+  isBookmarked?: boolean;
 }
 
 interface SocialState {
@@ -50,9 +51,24 @@ interface SocialState {
   exploreLoading: boolean;
   feedRefreshing: boolean;
 
+  // For You feed (offset-based)
+  forYouPosts: Post[];
+  forYouOffset: number;
+  forYouLoading: boolean;
+  forYouRefreshing: boolean;
+  hasMoreForYou: boolean;
+
+  // Bookmarks
+  bookmarkPosts: Post[];
+  bookmarkCursor: string | null;
+  bookmarkLoading: boolean;
+
   // Actions
   fetchFeed: (refresh?: boolean) => Promise<void>;
   fetchExploreFeed: (refresh?: boolean) => Promise<void>;
+  fetchForYouFeed: (refresh?: boolean) => Promise<void>;
+  toggleBookmark: (postId: string) => Promise<void>;
+  fetchBookmarks: (refresh?: boolean) => Promise<void>;
   prependPost: (post: Post) => void;
   toggleLike: (postId: string) => void;
   deletePost: (postId: string) => void;
@@ -67,6 +83,16 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   feedLoading: false,
   exploreLoading: false,
   feedRefreshing: false,
+
+  forYouPosts: [],
+  forYouOffset: 0,
+  forYouLoading: false,
+  forYouRefreshing: false,
+  hasMoreForYou: true,
+
+  bookmarkPosts: [],
+  bookmarkCursor: null,
+  bookmarkLoading: false,
 
   fetchFeed: async (refresh = false) => {
     const state = get();
@@ -112,22 +138,97 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }
   },
 
+  fetchForYouFeed: async (refresh = false) => {
+    const state = get();
+    if (state.forYouLoading) return;
+
+    const offset = refresh ? 0 : state.forYouOffset;
+    set(refresh ? { forYouRefreshing: true, forYouLoading: true } : { forYouLoading: true });
+
+    try {
+      const res = await apiClient.getForYouFeed(offset);
+      if (res.success && res.data) {
+        set(prev => ({
+          forYouPosts: refresh ? res.data : [...prev.forYouPosts, ...res.data],
+          forYouOffset: offset + (res.data?.length || 0),
+          hasMoreForYou: res.nextCursor != null,
+        }));
+      }
+    } catch (e) {
+      console.error('fetchForYouFeed error:', e);
+    } finally {
+      set({ forYouLoading: false, forYouRefreshing: false });
+    }
+  },
+
+  toggleBookmark: async (postId: string) => {
+    // Optimistic update across all feeds
+    const toggleInList = (posts: Post[]) =>
+      posts.map(p => p.id === postId ? { ...p, isBookmarked: !p.isBookmarked } : p);
+
+    set(state => ({
+      feedPosts: toggleInList(state.feedPosts),
+      forYouPosts: toggleInList(state.forYouPosts),
+      explorePosts: toggleInList(state.explorePosts),
+    }));
+
+    try {
+      const res = await apiClient.bookmarkPost(postId);
+      if (!res.success) {
+        // Revert on error
+        set(state => ({
+          feedPosts: toggleInList(state.feedPosts),
+          forYouPosts: toggleInList(state.forYouPosts),
+          explorePosts: toggleInList(state.explorePosts),
+        }));
+      }
+    } catch {
+      // Revert on error
+      set(state => ({
+        feedPosts: toggleInList(state.feedPosts),
+        forYouPosts: toggleInList(state.forYouPosts),
+        explorePosts: toggleInList(state.explorePosts),
+      }));
+    }
+  },
+
+  fetchBookmarks: async (refresh = false) => {
+    const state = get();
+    if (state.bookmarkLoading) return;
+
+    set({ bookmarkLoading: true });
+
+    try {
+      const cursor = refresh ? undefined : state.bookmarkCursor ?? undefined;
+      const res = await apiClient.getBookmarks(cursor);
+      if (res.success && res.data) {
+        set(prev => ({
+          bookmarkPosts: refresh ? res.data : [...prev.bookmarkPosts, ...res.data],
+          bookmarkCursor: res.nextCursor || null,
+        }));
+      }
+    } catch (e) {
+      console.error('fetchBookmarks error:', e);
+    } finally {
+      set({ bookmarkLoading: false });
+    }
+  },
+
   prependPost: (post: Post) => {
     set(state => ({ feedPosts: [post, ...state.feedPosts] }));
   },
 
   toggleLike: (postId: string) => {
+    const toggle = (posts: Post[]) =>
+      posts.map(p =>
+        p.id === postId
+          ? { ...p, isLiked: !p.isLiked, like_count: p.isLiked ? p.like_count - 1 : p.like_count + 1 }
+          : p
+      );
     set(state => ({
-      feedPosts: state.feedPosts.map(p =>
-        p.id === postId
-          ? { ...p, isLiked: !p.isLiked, like_count: p.isLiked ? p.like_count - 1 : p.like_count + 1 }
-          : p
-      ),
-      explorePosts: state.explorePosts.map(p =>
-        p.id === postId
-          ? { ...p, isLiked: !p.isLiked, like_count: p.isLiked ? p.like_count - 1 : p.like_count + 1 }
-          : p
-      )
+      feedPosts: toggle(state.feedPosts),
+      explorePosts: toggle(state.explorePosts),
+      forYouPosts: toggle(state.forYouPosts),
     }));
   },
 
@@ -135,6 +236,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     set(state => ({
       feedPosts: state.feedPosts.filter(p => p.id !== postId),
       explorePosts: state.explorePosts.filter(p => p.id !== postId),
+      forYouPosts: state.forYouPosts.filter(p => p.id !== postId),
+      bookmarkPosts: state.bookmarkPosts.filter(p => p.id !== postId),
     }));
   },
 
@@ -146,5 +249,13 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     feedLoading: false,
     exploreLoading: false,
     feedRefreshing: false,
+    forYouPosts: [],
+    forYouOffset: 0,
+    forYouLoading: false,
+    forYouRefreshing: false,
+    hasMoreForYou: true,
+    bookmarkPosts: [],
+    bookmarkCursor: null,
+    bookmarkLoading: false,
   })
 }));

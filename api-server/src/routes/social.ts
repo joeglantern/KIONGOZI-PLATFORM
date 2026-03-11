@@ -434,4 +434,82 @@ router.get('/search', optionalAuth, async (req: Request, res: Response): Promise
   }
 });
 
+// GET /api/v1/social/for-you — Score-based "For You" feed
+router.get('/for-you', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const result = await FeedService.getForYouFeed(req.user!.id, limit, offset);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('For You feed error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch For You feed' });
+  }
+});
+
+// POST /api/v1/social/posts/:id/bookmark — Toggle bookmark
+router.post('/posts/:id/bookmark', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: postId } = req.params;
+    const userId = req.user!.id;
+
+    const { data: existing } = await supabaseServiceClient
+      .from('bookmarks')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .single();
+
+    if (existing) {
+      await supabaseServiceClient.from('bookmarks').delete().eq('id', existing.id);
+      res.json({ success: true, bookmarked: false });
+    } else {
+      await supabaseServiceClient.from('bookmarks').insert({ post_id: postId, user_id: userId });
+      res.json({ success: true, bookmarked: true });
+    }
+  } catch (err) {
+    console.error('Bookmark error:', err);
+    res.status(500).json({ success: false, error: 'Failed to toggle bookmark' });
+  }
+});
+
+// GET /api/v1/social/bookmarks — Get bookmarked posts
+router.get('/bookmarks', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+    const cursor = req.query.cursor as string | undefined;
+
+    let query = supabaseServiceClient
+      .from('bookmarks')
+      .select(`
+        id, created_at,
+        post:post_id (
+          id, content, visibility, like_count, comment_count, repost_count,
+          view_count, is_bot_reply, created_at, updated_at,
+          user_id, parent_post_id, repost_of_id,
+          profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
+          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index)
+        )
+      `)
+      .eq('user_id', req.user!.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (cursor) {
+      query = query.lt('created_at', cursor);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const posts = (data || []).map((b: any) => b.post).filter(Boolean);
+    const nextCursor = data && data.length === limit ? data[data.length - 1].created_at : null;
+
+    res.json({ success: true, data: posts, nextCursor });
+  } catch (err) {
+    console.error('Bookmarks error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch bookmarks' });
+  }
+});
+
 export default router;

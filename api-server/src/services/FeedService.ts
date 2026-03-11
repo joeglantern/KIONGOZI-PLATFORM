@@ -87,6 +87,56 @@ class FeedService {
     const nextCursor = posts && posts.length === limit ? posts[posts.length - 1].created_at : null;
     return { data: scored, nextCursor };
   }
+  /**
+   * Score-based "For You" feed.
+   * Pool: 200 recent public non-reply posts from last 7 days, excluding own.
+   * Score = (likes + comments×2 + reposts×3) × recency_multiplier × follow_boost
+   * Pagination: offset-based.
+   */
+  async getForYouFeed(
+    userId: string,
+    limit: number,
+    offset = 0
+  ): Promise<{ data: any[]; nextCursor: string | null }> {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [{ data: pool, error }, { data: following }] = await Promise.all([
+      supabaseServiceClient
+        .from('posts')
+        .select(POST_SELECT)
+        .eq('visibility', 'public')
+        .is('parent_post_id', null)
+        .neq('user_id', userId)
+        .gte('created_at', sevenDaysAgo)
+        .order('created_at', { ascending: false })
+        .limit(200),
+      supabaseServiceClient
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId),
+    ]);
+
+    if (error) throw error;
+
+    const followingSet = new Set((following || []).map((f: any) => f.following_id));
+    const now = Date.now();
+
+    const scored = (pool || [])
+      .map((p: any) => {
+        const ageH = (now - new Date(p.created_at).getTime()) / 3600000;
+        const recency = ageH < 6 ? 1.0 : ageH < 24 ? 0.8 : ageH < 72 ? 0.5 : 0.2;
+        const boost = followingSet.has(p.user_id) ? 1.5 : 1.0;
+        const eng = (p.like_count || 0) + (p.comment_count || 0) * 2 + (p.repost_count || 0) * 3;
+        return { ...p, _score: eng * recency * boost };
+      })
+      .sort((a: any, b: any) => b._score - a._score);
+
+    const page = scored.slice(offset, offset + limit);
+    return {
+      data: page,
+      nextCursor: offset + limit < scored.length ? String(offset + limit) : null,
+    };
+  }
 }
 
 export default new FeedService();

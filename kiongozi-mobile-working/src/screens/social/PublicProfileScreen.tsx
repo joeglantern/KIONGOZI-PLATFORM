@@ -22,6 +22,7 @@ export default function PublicProfileScreen() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
+  const [messageLoading, setMessageLoading] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -53,6 +54,22 @@ export default function PublicProfileScreen() {
       setProfile((p: any) => p ? { ...p, isFollowing: !p.isFollowing } : p);
     } catch {}
     setFollowLoading(false);
+  };
+
+  const handleMessage = async () => {
+    if (!profile || messageLoading) return;
+    setMessageLoading(true);
+    try {
+      const res = await apiClient.startDMConversation(profile.id);
+      if (res.success && res.data) {
+        navigation.navigate('DMConversation', {
+          conversationId: res.data.id,
+          participantName: profile.full_name,
+          participantAvatar: profile.avatar_url,
+        });
+      }
+    } catch {}
+    setMessageLoading(false);
   };
 
   if (loading) {
@@ -99,25 +116,39 @@ export default function PublicProfileScreen() {
                   isBot={profile?.is_bot}
                   isVerified={profile?.is_verified}
                 />
-                {!isOwnProfile && (
-                  <TouchableOpacity
-                    onPress={handleFollowToggle}
-                    disabled={followLoading}
-                    style={[styles.followBtn, profile?.isFollowing && styles.followingBtn]}
-                  >
-                    <Text style={[styles.followText, profile?.isFollowing && styles.followingText]}>
-                      {followLoading ? '...' : profile?.isFollowing ? 'Following' : 'Follow'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {isOwnProfile && (
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('EditProfile')}
-                    style={styles.editBtn}
-                  >
-                    <Text style={styles.editText}>Edit profile</Text>
-                  </TouchableOpacity>
-                )}
+                <View style={styles.actionButtons}>
+                  {!isOwnProfile && (
+                    <>
+                      <TouchableOpacity
+                        onPress={handleMessage}
+                        disabled={messageLoading}
+                        style={styles.messageBtn}
+                      >
+                        <Ionicons name="mail-outline" size={18} color="#1a365d" />
+                        <Text style={styles.messageBtnText}>
+                          {messageLoading ? '...' : 'Message'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleFollowToggle}
+                        disabled={followLoading}
+                        style={[styles.followBtn, profile?.isFollowing && styles.followingBtn]}
+                      >
+                        <Text style={[styles.followText, profile?.isFollowing && styles.followingText]}>
+                          {followLoading ? '...' : profile?.isFollowing ? 'Following' : 'Follow'}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {isOwnProfile && (
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('EditProfile')}
+                      style={styles.editBtn}
+                    >
+                      <Text style={styles.editText}>Edit profile</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
               <Text style={styles.fullName}>{profile?.full_name}</Text>
@@ -161,7 +192,25 @@ const styles = StyleSheet.create({
   headerName: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
   banner: { width: '100%', height: 120 },
   profileSection: { padding: 16 },
-  avatarRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12, marginTop: -36 },
+  avatarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 12,
+    marginTop: -36,
+  },
+  actionButtons: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  messageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1a365d',
+  },
+  messageBtnText: { color: '#1a365d', fontWeight: '600', fontSize: 14 },
   fullName: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
   username: { color: '#718096', fontSize: 15, marginBottom: 6 },
   bio: { color: '#2d3748', fontSize: 15, lineHeight: 22, marginBottom: 12 },
