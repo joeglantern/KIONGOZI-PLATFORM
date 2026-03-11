@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../stores/authStore';
+import apiClient from '../utils/apiClient';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +31,8 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
   const [usernameTouched, setUsernameTouched] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'reserved' | 'short'>('idle');
+  const usernameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -45,13 +48,38 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   const handleBlur = React.useCallback(() => setFocusedField(null), []);
 
   // Auto-suggest username from first+last name (only when user hasn't manually edited it)
-  React.useEffect(() => {
+  useEffect(() => {
     if (usernameTouched) return;
     const suggested = (firstName + lastName)
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, '');
     setUsername(suggested || '');
   }, [firstName, lastName, usernameTouched]);
+
+  // Debounced availability check whenever username changes (sign-up only)
+  useEffect(() => {
+    if (!isSignUp) return;
+    if (usernameCheckTimer.current) clearTimeout(usernameCheckTimer.current);
+
+    if (username.length === 0) { setUsernameStatus('idle'); return; }
+    if (username.length < 3)   { setUsernameStatus('short'); return; }
+
+    setUsernameStatus('checking');
+    usernameCheckTimer.current = setTimeout(async () => {
+      try {
+        const res = await apiClient.checkUsername(username);
+        if (res.reason === 'Reserved') {
+          setUsernameStatus('reserved');
+        } else {
+          setUsernameStatus(res.available ? 'available' : 'taken');
+        }
+      } catch {
+        setUsernameStatus('idle');
+      }
+    }, 500);
+
+    return () => { if (usernameCheckTimer.current) clearTimeout(usernameCheckTimer.current); };
+  }, [username, isSignUp]);
 
   const togglePasswordVisibility = React.useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -91,6 +119,16 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
 
     if (isSignUp && username.length > 0 && username.length < 3) {
       Alert.alert('Error', 'Username must be at least 3 characters');
+      return;
+    }
+
+    if (isSignUp && (usernameStatus === 'taken' || usernameStatus === 'reserved')) {
+      Alert.alert('Error', usernameStatus === 'reserved' ? 'That username is reserved' : 'That username is already taken');
+      return;
+    }
+
+    if (isSignUp && username.length > 0 && usernameStatus === 'checking') {
+      Alert.alert('Please wait', 'Still checking username availability');
       return;
     }
 
@@ -206,7 +244,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       style={[
                         styles.input,
                         styles.inputWithAt,
-                        focusedField === 'username' && styles.inputFocused
+                        styles.inputWithStatusIcon,
+                        focusedField === 'username' && styles.inputFocused,
+                        usernameStatus === 'taken' && styles.inputError,
+                        usernameStatus === 'reserved' && styles.inputError,
+                        usernameStatus === 'available' && styles.inputSuccess,
                       ]}
                       placeholder="username"
                       placeholderTextColor="#9ca3af"
@@ -220,6 +262,22 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       autoCapitalize="none"
                       autoCorrect={false}
                     />
+                    {usernameStatus === 'checking' && (
+                      <ActivityIndicator size="small" color="#9ca3af" style={styles.statusIcon} />
+                    )}
+                    {usernameStatus === 'available' && (
+                      <Ionicons name="checkmark-circle" size={20} color="#22c55e" style={styles.statusIcon} />
+                    )}
+                    {(usernameStatus === 'taken' || usernameStatus === 'reserved') && (
+                      <Ionicons name="close-circle" size={20} color="#ef4444" style={styles.statusIcon} />
+                    )}
+                    {(usernameStatus === 'taken' || usernameStatus === 'reserved' || usernameStatus === 'short') && (
+                      <Text style={styles.usernameHint}>
+                        {usernameStatus === 'taken' && 'Username already taken'}
+                        {usernameStatus === 'reserved' && 'That username is reserved'}
+                        {usernameStatus === 'short' && 'At least 3 characters required'}
+                      </Text>
+                    )}
                   </View>
                 </>
               )}
@@ -406,6 +464,28 @@ const styles = StyleSheet.create({
   },
   inputWithAt: {
     paddingLeft: 32,
+  },
+  inputWithStatusIcon: {
+    paddingRight: 40,
+  },
+  inputError: {
+    borderColor: '#ef4444',
+    borderWidth: 2,
+  },
+  inputSuccess: {
+    borderColor: '#22c55e',
+    borderWidth: 2,
+  },
+  statusIcon: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+  },
+  usernameHint: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginTop: 4,
+    marginLeft: 4,
   },
   inputFocused: {
     borderColor: '#3b82f6',

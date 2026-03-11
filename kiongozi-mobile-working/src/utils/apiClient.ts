@@ -732,6 +732,11 @@ class ApiClient {
   // FOLLOWERS / FOLLOWING
   // ================================
 
+  async checkUsername(username: string): Promise<{ available: boolean; reason?: string }> {
+    const res = await this.request(`/api/v1/social/username/check/${encodeURIComponent(username)}`, { method: 'GET' });
+    return res as { available: boolean; reason?: string };
+  }
+
   async getFollowers(userId: string) {
     return this.request(`/api/v1/social/followers/${userId}`, { method: 'GET' });
   }

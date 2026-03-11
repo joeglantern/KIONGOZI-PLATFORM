@@ -27,6 +27,36 @@ router.get('/profile/me', authenticateToken, async (req: Request, res: Response)
   }
 });
 
+const RESERVED_USERNAMES = ['kiongozi', 'admin', 'support', 'help', 'bot', 'system', 'official'];
+
+// GET /api/v1/social/username/check/:username — Check availability (no auth)
+router.get('/username/check/:username', async (req: Request, res: Response): Promise<void> => {
+  const { username } = req.params;
+  const cleaned = username.toLowerCase().trim();
+
+  if (cleaned.length < 3) {
+    res.json({ available: false, reason: 'Too short' });
+    return;
+  }
+
+  if (RESERVED_USERNAMES.includes(cleaned)) {
+    res.json({ available: false, reason: 'Reserved' });
+    return;
+  }
+
+  try {
+    const { data } = await supabaseServiceClient
+      .from('profiles')
+      .select('id')
+      .eq('username', cleaned)
+      .maybeSingle();
+
+    res.json({ available: !data });
+  } catch {
+    res.status(500).json({ available: false, reason: 'Error' });
+  }
+});
+
 // GET /api/v1/social/users/:username — Public profile
 router.get('/users/:username', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {
