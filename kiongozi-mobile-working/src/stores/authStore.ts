@@ -8,7 +8,7 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean; email?: string }>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, username?: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean; email?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -88,7 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email: string, password: string, firstName: string, lastName: string) => {
+  signUp: async (email: string, password: string, firstName: string, lastName: string, username?: string) => {
     set({ loading: true });
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -98,6 +98,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           data: {
             first_name: firstName,
             last_name: lastName,
+            ...(username ? { username } : {}),
           },
           emailRedirectTo: 'kiongozi://auth/callback',
         },

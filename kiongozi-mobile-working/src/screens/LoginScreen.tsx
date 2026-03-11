@@ -28,6 +28,8 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameTouched, setUsernameTouched] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -39,7 +41,17 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   const handleFocusPassword = React.useCallback(() => setFocusedField('password'), []);
   const handleFocusFirstName = React.useCallback(() => setFocusedField('firstName'), []);
   const handleFocusLastName = React.useCallback(() => setFocusedField('lastName'), []);
+  const handleFocusUsername = React.useCallback(() => setFocusedField('username'), []);
   const handleBlur = React.useCallback(() => setFocusedField(null), []);
+
+  // Auto-suggest username from first+last name (only when user hasn't manually edited it)
+  React.useEffect(() => {
+    if (usernameTouched) return;
+    const suggested = (firstName + lastName)
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '');
+    setUsername(suggested || '');
+  }, [firstName, lastName, usernameTouched]);
 
   const togglePasswordVisibility = React.useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -77,9 +89,14 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
       return;
     }
 
+    if (isSignUp && username.length > 0 && username.length < 3) {
+      Alert.alert('Error', 'Username must be at least 3 characters');
+      return;
+    }
+
     try {
       const result = isSignUp
-        ? await signUp(email, password, firstName, lastName)
+        ? await signUp(email, password, firstName, lastName, username || undefined)
         : await signIn(email, password);
 
       if (result.success) {
@@ -179,6 +196,28 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       onFocus={handleFocusLastName}
                       onBlur={handleBlur}
                       autoCapitalize="words"
+                      autoCorrect={false}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.usernameAt}>@</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.inputWithAt,
+                        focusedField === 'username' && styles.inputFocused
+                      ]}
+                      placeholder="username"
+                      placeholderTextColor="#9ca3af"
+                      value={username}
+                      onChangeText={(text) => {
+                        setUsernameTouched(true);
+                        setUsername(text.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+                      }}
+                      onFocus={handleFocusUsername}
+                      onBlur={handleBlur}
+                      autoCapitalize="none"
                       autoCorrect={false}
                     />
                   </View>
@@ -355,6 +394,18 @@ const styles = StyleSheet.create({
   },
   inputWithIcon: {
     paddingLeft: 48,
+  },
+  usernameAt: {
+    position: 'absolute',
+    left: 16,
+    top: 14,
+    zIndex: 1,
+    fontSize: 15,
+    color: '#9ca3af',
+    fontWeight: '600',
+  },
+  inputWithAt: {
+    paddingLeft: 32,
   },
   inputFocused: {
     borderColor: '#3b82f6',

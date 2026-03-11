@@ -1,0 +1,71 @@
+-- Fix handle_new_user trigger:
+--  1. Correctly builds full_name from first_name + last_name metadata
+--  2. Auto-generates a unique username (prefers explicit username from metadata)
+--  3. Handles concat(NULL, NULL) edge case via NULLIF(TRIM(...))
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_first_name       text;
+  v_last_name        text;
+  v_full_name        text;
+  v_desired_username text;
+  v_final_username   text;
+  v_suffix           int := 0;
+BEGIN
+  -- Pull name parts, treat blank strings as NULL
+  v_first_name := NULLIF(TRIM(COALESCE(new.raw_user_meta_data->>'first_name', '')), '');
+  v_last_name  := NULLIF(TRIM(COALESCE(new.raw_user_meta_data->>'last_name',  '')), '');
+
+  -- Build full_name safely (avoid the concat(NULL,NULL)=' ' trap)
+  v_full_name := NULLIF(TRIM(CONCAT(COALESCE(v_first_name,''), ' ', COALESCE(v_last_name,''))), '');
+  IF v_full_name IS NULL THEN
+    v_full_name := COALESCE(
+      NULLIF(TRIM(COALESCE(new.raw_user_meta_data->>'full_name', '')), ''),
+      SPLIT_PART(new.email, '@', 1)
+    );
+  END IF;
+
+  -- Derive desired username: explicit → name concat → email prefix
+  v_desired_username := COALESCE(
+    NULLIF(TRIM(LOWER(COALESCE(new.raw_user_meta_data->>'username', ''))), ''),
+    NULLIF(LOWER(REGEXP_REPLACE(
+      CONCAT(COALESCE(v_first_name,''), COALESCE(v_last_name,'')),
+      '[^a-zA-Z0-9_]', '', 'g'
+    )), ''),
+    LOWER(REGEXP_REPLACE(SPLIT_PART(new.email, '@', 1), '[^a-zA-Z0-9_]', '', 'g'))
+  );
+
+  -- Enforce minimum length (pad with random digits if too short)
+  IF LENGTH(COALESCE(v_desired_username, '')) < 3 THEN
+    v_desired_username := COALESCE(v_desired_username, 'user') || FLOOR(RANDOM() * 9000 + 1000)::text;
+  END IF;
+
+  -- Ensure uniqueness by appending an incrementing suffix
+  v_final_username := v_desired_username;
+  WHILE EXISTS (SELECT 1 FROM public.profiles WHERE username = v_final_username) LOOP
+    v_suffix := v_suffix + 1;
+    v_final_username := v_desired_username || v_suffix::text;
+  END LOOP;
+
+  INSERT INTO public.profiles (id, email, first_name, last_name, full_name, username, role)
+  VALUES (
+    new.id,
+    new.email,
+    v_first_name,
+    v_last_name,
+    v_full_name,
+    v_final_username,
+    'user'
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email      = EXCLUDED.email,
+    first_name = COALESCE(profiles.first_name, EXCLUDED.first_name),
+    last_name  = COALESCE(profiles.last_name,  EXCLUDED.last_name),
+    full_name  = COALESCE(NULLIF(TRIM(profiles.full_name), ''), EXCLUDED.full_name),
+    username   = COALESCE(profiles.username, EXCLUDED.username),
+    updated_at = NOW();
+
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
