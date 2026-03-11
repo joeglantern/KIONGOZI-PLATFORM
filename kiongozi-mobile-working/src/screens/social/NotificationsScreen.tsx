@@ -75,8 +75,13 @@ export default function NotificationsScreen() {
         style={[styles.item, !item.read && styles.unread]}
         onPress={() => {
           markRead(item.id);
-          if (item.postId) navigation.navigate('PostDetail', { postId: item.postId });
-          else if (item.fromUsername) navigation.navigate('PublicProfile', { username: item.fromUsername });
+          if (item.type === 'dm' && item.conversationId) {
+            navigation.navigate('DMConversation', { conversationId: item.conversationId, participantName: item.fromUsername || 'Message' });
+          } else if (item.postId) {
+            navigation.navigate('PostDetail', { postId: item.postId });
+          } else if (item.fromUsername) {
+            navigation.navigate('PublicProfile', { username: item.fromUsername });
+          }
         }}
       >
         <View style={[styles.iconBadge, { backgroundColor: icon.color + '20' }]}>

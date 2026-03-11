@@ -5,6 +5,7 @@ export interface SocialNotification {
   id: string;
   type: 'like' | 'comment' | 'repost' | 'mention' | 'follow' | 'dm' | 'info' | 'warning' | 'error';
   postId?: string;
+  conversationId?: string;
   fromUserId?: string;
   fromUsername?: string;
   fromAvatar?: string;
@@ -19,6 +20,7 @@ function mapNotification(raw: any): SocialNotification {
     id: raw.id,
     type: raw.type ?? 'info',
     postId: raw.data?.post_id ?? undefined,
+    conversationId: raw.data?.conversation_id ?? undefined,
     fromUserId: raw.data?.from_user_id ?? undefined,
     fromUsername: raw.data?.from_username ?? undefined,
     fromAvatar: raw.data?.from_avatar_url ?? undefined,
