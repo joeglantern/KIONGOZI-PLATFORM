@@ -106,24 +106,28 @@ export function PostCard({
   const { toggleLike, toggleBookmark, toggleRepostCount, seedInteraction, postInteractions } = useSocialStore();
   const repostScale = useRef(new Animated.Value(1)).current;
 
-  // Register this post in the global interaction map on first render
+  // When this is a repost, all interactions target the ORIGINAL post
+  const isRepost = !!(post.repost_of_id && post.repost_of);
+  const activePost = isRepost ? post.repost_of! : post;
+
+  // Register the active (possibly original) post in the global interaction map
   useEffect(() => {
-    seedInteraction(post.id, post.isLiked ?? false, post.like_count);
-  }, [post.id]);
+    seedInteraction(activePost.id, activePost.isLiked ?? false, activePost.like_count);
+  }, [activePost.id]);
 
   // Always read from global map — reflects toggles from any screen
-  const interaction = postInteractions[post.id];
-  const isLiked = interaction?.isLiked ?? post.isLiked ?? false;
-  const likeCount = interaction?.like_count ?? post.like_count;
+  const interaction = postInteractions[activePost.id];
+  const isLiked = interaction?.isLiked ?? activePost.isLiked ?? false;
+  const likeCount = interaction?.like_count ?? activePost.like_count;
 
   const handleLike = useCallback(async () => {
-    toggleLike(post.id); // optimistic via global map
+    toggleLike(activePost.id);
     try {
-      await apiClient.likePost(post.id);
+      await apiClient.likePost(activePost.id);
     } catch {
-      toggleLike(post.id); // revert
+      toggleLike(activePost.id); // revert
     }
-  }, [post.id, toggleLike]);
+  }, [activePost.id, toggleLike]);
 
   const handleRepost = useCallback(async () => {
     // Spring pop: scale up then settle
@@ -132,32 +136,32 @@ export function PostCard({
       Animated.spring(repostScale, { toValue: 1,   useNativeDriver: true, damping: 10, stiffness: 200 }),
     ]).start();
 
-    toggleRepostCount(post.id, 1); // optimistic
+    toggleRepostCount(activePost.id, 1); // optimistic
     try {
-      const res = await apiClient.repostPost(post.id);
+      const res = await apiClient.repostPost(activePost.id);
       if (!res.success) {
-        toggleRepostCount(post.id, -1); // revert
+        toggleRepostCount(activePost.id, -1); // revert
         if (res.error === 'Already reposted') {
           Alert.alert('Already reposted', 'You have already reposted this post.');
         }
       }
     } catch {
-      toggleRepostCount(post.id, -1);
+      toggleRepostCount(activePost.id, -1);
     }
-  }, [post.id, toggleRepostCount, repostScale]);
+  }, [activePost.id, toggleRepostCount, repostScale]);
 
   const handleShare = useCallback(async () => {
     try {
       await Share.share({
-        message: `${post.profiles?.full_name ?? ''}: ${post.content}`,
-        url: `https://kiongozi.app/posts/${post.id}`,
+        message: `${activePost.profiles?.full_name ?? ''}: ${activePost.content}`,
+        url: `https://kiongozi.app/posts/${activePost.id}`,
       });
     } catch {}
-  }, [post.id, post.content, post.profiles?.full_name]);
+  }, [activePost.id, activePost.content, activePost.profiles?.full_name]);
 
   const handleBookmark = useCallback(async () => {
-    await toggleBookmark(post.id);
-  }, [post.id, toggleBookmark]);
+    await toggleBookmark(activePost.id);
+  }, [activePost.id, toggleBookmark]);
 
   const handleOptions = useCallback(() => {
     Alert.alert(
@@ -166,7 +170,7 @@ export function PostCard({
       [
         {
           text: 'Edit Post',
-          onPress: () => onEditPress?.(post.id, post.content, post.visibility ?? 'public'),
+          onPress: () => onEditPress?.(activePost.id, activePost.content, activePost.visibility ?? 'public'),
         },
         {
           text: 'Delete Post',
@@ -183,50 +187,61 @@ export function PostCard({
         { text: 'Cancel', style: 'cancel' },
       ]
     );
-  }, [post.id, post.content, post.visibility, onEditPress, onDeletePress]);
+  }, [activePost.id, activePost.content, activePost.visibility, onEditPress, onDeletePress]);
 
-  const isOwnPost = currentUserId && currentUserId === post.user_id;
+  const isOwnPost = currentUserId && currentUserId === activePost.user_id;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.95} style={styles.container}>
       {/* Avatar */}
-      <TouchableOpacity onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}>
+      <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
         <UserAvatar
-          avatarUrl={post.profiles?.avatar_url}
+          avatarUrl={activePost.profiles?.avatar_url}
           size={44}
-          isBot={post.profiles?.is_bot}
-          isVerified={post.profiles?.is_verified}
+          isBot={activePost.profiles?.is_bot}
+          isVerified={activePost.profiles?.is_verified}
         />
       </TouchableOpacity>
 
       <View style={styles.right}>
+        {/* "X reposted" banner */}
+        {isRepost && (
+          <TouchableOpacity
+            style={styles.repostBanner}
+            onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}
+          >
+            <Ionicons name="repeat-outline" size={13} color="#718096" />
+            <Text style={styles.repostBannerText}>{post.profiles?.full_name} reposted</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}>
-            <Text style={styles.name}>{post.profiles?.full_name}</Text>
+          <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
+            <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
           </TouchableOpacity>
-          {post.profiles?.username && (
-            <Text style={styles.username}>@{post.profiles.username}</Text>
+          {activePost.profiles?.username && (
+            <Text style={styles.username}>@{activePost.profiles.username}</Text>
           )}
           <Text style={styles.dot}>·</Text>
-          <Text style={styles.time}>{timeAgo(post.created_at)}</Text>
+          <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
         </View>
 
         {/* Content */}
         <HashtagHighlight
-          content={post.content}
+          content={activePost.content}
           style={styles.content}
           onMentionPress={onMentionPress}
           onHashtagPress={onHashtagPress}
         />
 
         {/* Media */}
-        {post.post_media && post.post_media.length > 0 && (
+        {activePost.post_media && activePost.post_media.length > 0 && (
           <View style={styles.mediaContainer}>
-            {post.post_media.slice(0, 4).map((media) => {
+            {activePost.post_media.slice(0, 4).map((media) => {
               const mediaStyle = [
                 styles.mediaImage,
-                post.post_media!.length === 1 ? styles.singleImage : styles.gridImage
+                activePost.post_media!.length === 1 ? styles.singleImage : styles.gridImage
               ];
               return media.media_type === 'video' ? (
                 <PostVideo key={media.id} url={media.url} width={media.width} height={media.height} />
@@ -237,18 +252,18 @@ export function PostCard({
           </View>
         )}
 
-        {/* Actions: Reply | Repost | Like | Bookmark | Share | [Delete if own] */}
+        {/* Actions: Reply | Repost | Like | Bookmark | Share | [Options if own] */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.action} onPress={onReplyPress}>
             <Ionicons name="chatbubble-outline" size={18} color="#718096" />
-            {post.comment_count > 0 && <Text style={styles.actionCount}>{post.comment_count}</Text>}
+            {activePost.comment_count > 0 && <Text style={styles.actionCount}>{activePost.comment_count}</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.action} onPress={handleRepost}>
             <Animated.View style={{ transform: [{ scale: repostScale }] }}>
               <Ionicons name="repeat-outline" size={18} color="#718096" />
             </Animated.View>
-            {post.repost_count > 0 && <Text style={styles.actionCount}>{post.repost_count}</Text>}
+            {activePost.repost_count > 0 && <Text style={styles.actionCount}>{activePost.repost_count}</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.action} onPress={handleLike}>
@@ -266,9 +281,9 @@ export function PostCard({
 
           <TouchableOpacity style={styles.action} onPress={handleBookmark}>
             <Ionicons
-              name={post.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+              name={activePost.isBookmarked ? 'bookmark' : 'bookmark-outline'}
               size={18}
-              color={post.isBookmarked ? '#1a365d' : '#718096'}
+              color={activePost.isBookmarked ? '#1a365d' : '#718096'}
             />
           </TouchableOpacity>
 
@@ -298,6 +313,17 @@ const styles = StyleSheet.create({
   },
   right: {
     flex: 1,
+  },
+  repostBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  repostBannerText: {
+    fontSize: 12,
+    color: '#718096',
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',

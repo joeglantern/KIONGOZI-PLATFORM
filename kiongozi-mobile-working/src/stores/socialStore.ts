@@ -35,6 +35,7 @@ export interface Post {
   updated_at: string;
   parent_post_id?: string;
   repost_of_id?: string;
+  repost_of?: Post;
   profiles: Profile;
   post_media?: PostMedia[];
   // client-side only

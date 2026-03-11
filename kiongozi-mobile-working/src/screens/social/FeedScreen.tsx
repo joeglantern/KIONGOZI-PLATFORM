@@ -62,7 +62,8 @@ export default function FeedScreen() {
   };
 
   const handlePostPress = useCallback((post: Post) => {
-    navigation.navigate('PostDetail', { postId: post.id });
+    const targetId = (post.repost_of_id && post.repost_of?.id) ? post.repost_of.id : post.id;
+    navigation.navigate('PostDetail', { postId: targetId });
   }, [navigation]);
 
   const handleProfilePress = useCallback((username: string) => {
