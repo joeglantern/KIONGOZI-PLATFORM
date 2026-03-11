@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
+import NotificationService from '../services/NotificationService';
 
 const router = Router();
 
@@ -244,24 +245,43 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
       .update({ last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', conversationId);
 
-    // Notify other participants via Socket.IO
+    // Notify other participants via Socket.IO + notification row
     const io = (req as any).io;
+    const { data: participants } = await supabaseServiceClient
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', conversationId)
+      .neq('user_id', userId);
+
     if (io) {
-      const { data: participants } = await supabaseServiceClient
-        .from('dm_participants')
-        .select('user_id')
-        .eq('conversation_id', conversationId)
-        .neq('user_id', userId);
-
       participants?.forEach((p: any) => {
-        io.to(`user:${p.user_id}`).emit('dm:message_new', {
-          conversationId,
-          message
-        });
+        io.to(`user:${p.user_id}`).emit('dm:message_new', { conversationId, message });
       });
-
-      // Also emit to the DM room
       io.to(`dm:${conversationId}`).emit('dm:message_new', { conversationId, message });
+    }
+
+    if (participants && participants.length > 0) {
+      setImmediate(async () => {
+        try {
+          const { data: sender } = await supabaseServiceClient
+            .from('profiles')
+            .select('full_name, username, avatar_url')
+            .eq('id', userId)
+            .single();
+          for (const p of participants) {
+            await NotificationService.notify({
+              userId: p.user_id,
+              type: 'dm',
+              title: 'New message',
+              message: `${sender?.full_name || 'Someone'} sent you a message`,
+              data: { conversation_id: conversationId, from_user_id: userId, from_username: sender?.username, from_avatar_url: sender?.avatar_url },
+              io,
+            });
+          }
+        } catch (e) {
+          console.error('DM notification error:', e);
+        }
+      });
     }
 
     res.status(201).json({ success: true, data: message });
