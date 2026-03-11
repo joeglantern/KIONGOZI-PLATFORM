@@ -1,10 +1,11 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../../components/social/PostCard';
+import { EditPostModal } from '../../components/social/EditPostModal';
 import { useSocialStore, Post } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
@@ -16,6 +17,7 @@ export default function BookmarksScreen() {
     bookmarkPosts, bookmarkCursor, bookmarkLoading,
     fetchBookmarks, deletePost,
   } = useSocialStore();
+  const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
 
   useEffect(() => {
     fetchBookmarks(true);
@@ -40,6 +42,10 @@ export default function BookmarksScreen() {
     apiClient.deletePost(postId).then(() => deletePost(postId)).catch(() => {});
   }, [deletePost]);
 
+  const handleEditPress = useCallback((postId: string, content: string, visibility: 'public' | 'followers') => {
+    setEditTarget({ id: postId, content, visibility });
+  }, []);
+
   const renderPost = useCallback(({ item }: { item: Post }) => (
     <PostCard
       post={item}
@@ -50,8 +56,9 @@ export default function BookmarksScreen() {
       onHashtagPress={handleHashtagPress}
       currentUserId={user?.id}
       onDeletePress={() => handleDeletePost(item.id)}
+      onEditPress={handleEditPress}
     />
-  ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost]);
+  ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost, handleEditPress]);
 
   return (
     <View style={styles.container}>
@@ -85,6 +92,15 @@ export default function BookmarksScreen() {
           ) : null
         }
       />
+      {editTarget && (
+        <EditPostModal
+          visible
+          postId={editTarget.id}
+          initialContent={editTarget.content}
+          initialVisibility={editTarget.visibility}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
     </View>
   );
 }

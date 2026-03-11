@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Image, ActivityIndicator, FlatList
+  ScrollView, Image, ActivityIndicator, FlatList, Alert
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,8 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
+import { EditPostModal } from '../../components/social/EditPostModal';
+import { useSocialStore } from '../../stores/socialStore';
 
 export default function PublicProfileScreen() {
   const navigation = useNavigation<any>();
@@ -21,9 +23,13 @@ export default function PublicProfileScreen() {
 
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [postsCursor, setPostsCursor] = useState<string | null>(null);
+  const [postsLoadingMore, setPostsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
+  const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
+  const { deletePost: deleteFromStore } = useSocialStore();
 
   useEffect(() => {
     loadProfile();
@@ -41,13 +47,40 @@ export default function PublicProfileScreen() {
         setNotFound(true);
       } else {
         setProfile(prof);
-        if (postsRes.success) setPosts(postsRes.data || []);
+        if (postsRes.success) {
+          setPosts((postsRes as any).data || []);
+          setPostsCursor((postsRes as any).nextCursor || null);
+        }
       }
     } catch {
       setNotFound(true);
     }
     setLoading(false);
   };
+
+  const loadMorePosts = useCallback(async () => {
+    if (!postsCursor || postsLoadingMore) return;
+    setPostsLoadingMore(true);
+    try {
+      const res = await apiClient.getUserPosts(username, postsCursor) as any;
+      if (res.success && res.data) {
+        setPosts(prev => [...prev, ...(res.data as any[])]);
+        setPostsCursor(res.nextCursor || null);
+      }
+    } catch {}
+    setPostsLoadingMore(false);
+  }, [username, postsCursor, postsLoadingMore]);
+
+  const handleDeletePost = useCallback((postId: string) => {
+    apiClient.deletePost(postId).then(() => {
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      deleteFromStore(postId);
+    }).catch(() => {});
+  }, [deleteFromStore]);
+
+  const handleEditPress = useCallback((postId: string, content: string, visibility: 'public' | 'followers') => {
+    setEditTarget({ id: postId, content, visibility });
+  }, []);
 
   // Realtime: live-update follower count when anyone follows/unfollows this profile
   useEffect(() => {
@@ -161,13 +194,21 @@ export default function PublicProfileScreen() {
       <FlatList
         data={posts}
         keyExtractor={item => item.id}
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.5}
         renderItem={({ item }) => (
           <PostCard
             post={item}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
             onProfilePress={(u) => navigation.navigate('PublicProfile', { username: u })}
+            currentUserId={user?.id}
+            onDeletePress={isOwnProfile ? () => handleDeletePost(item.id) : undefined}
+            onEditPress={isOwnProfile ? handleEditPress : undefined}
           />
         )}
+        ListFooterComponent={
+          postsLoadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" /> : null
+        }
         ListHeaderComponent={
           <View>
             {/* Banner */}
@@ -250,6 +291,15 @@ export default function PublicProfileScreen() {
           <Text style={styles.noPosts}>No posts yet</Text>
         }
       />
+      {editTarget && (
+        <EditPostModal
+          visible
+          postId={editTarget.id}
+          initialContent={editTarget.content}
+          initialVisibility={editTarget.visibility}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
     </View>
   );
 }

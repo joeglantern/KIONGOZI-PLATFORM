@@ -34,8 +34,10 @@ interface NotificationState {
   notifications: SocialNotification[];
   unreadCount: number;
   isLoading: boolean;
+  nextCursor: string | null;
+  hasMore: boolean;
 
-  fetchNotifications: () => Promise<void>;
+  fetchNotifications: (refresh?: boolean) => Promise<void>;
   addNotification: (rawOrNotification: any) => void;
   markAllRead: () => void;
   markRead: (id: string) => void;
@@ -46,16 +48,25 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
   isLoading: false,
+  nextCursor: null,
+  hasMore: true,
 
-  fetchNotifications: async () => {
+  fetchNotifications: async (refresh = false) => {
+    const state = get();
+    if (state.isLoading) return;
+    if (!refresh && !state.hasMore) return;
     set({ isLoading: true });
     try {
-      const res = await apiClient.getNotifications({ limit: 50 });
+      const offset = refresh ? 0 : state.notifications.length;
+      const res = await apiClient.getNotifications({ limit: 30, offset }) as any;
       if (res.success && Array.isArray(res.data)) {
-        const notifications = (res.data as any[]).map(mapNotification);
+        const fetched = (res.data as any[]).map(mapNotification);
+        const notifications = refresh ? fetched : [...state.notifications, ...fetched];
         set({
           notifications,
-          unreadCount: notifications.filter(n => !n.read).length,
+          unreadCount: notifications.filter((n: any) => !n.read).length,
+          nextCursor: res.nextCursor || null,
+          hasMore: fetched.length === 30,
         });
       }
     } catch {}
@@ -91,5 +102,5 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
   },
 
-  reset: () => set({ notifications: [], unreadCount: 0, isLoading: false }),
+  reset: () => set({ notifications: [], unreadCount: 0, isLoading: false, nextCursor: null, hasMore: true }),
 }));

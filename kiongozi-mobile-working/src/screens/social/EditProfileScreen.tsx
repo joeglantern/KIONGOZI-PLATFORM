@@ -21,6 +21,7 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'reserved'>('idle');
   const usernameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const originalUsername = useRef<string>('');
@@ -74,6 +75,7 @@ export default function EditProfileScreen() {
       return;
     }
     setSaving(true);
+    if (avatarUri) setUploadingAvatar(true);
     try {
       const formData = new FormData();
       if (bio) formData.append('bio', bio);
@@ -88,6 +90,7 @@ export default function EditProfileScreen() {
       }
 
       const res = await apiClient.updateProfile(formData);
+      setUploadingAvatar(false);
       if (res.success) {
         // Keep profile store in sync
         updateCurrentUserProfile({
@@ -99,10 +102,11 @@ export default function EditProfileScreen() {
         Alert.alert('Success', 'Profile updated!');
         navigation.goBack();
       } else {
-        Alert.alert('Error', res.error || 'Failed to update profile');
+        Alert.alert('Error', res.error || 'Failed to update profile. Please try again.');
       }
     } catch {
-      Alert.alert('Error', 'Something went wrong');
+      setUploadingAvatar(false);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -137,6 +141,9 @@ export default function EditProfileScreen() {
             <Ionicons name="camera" size={14} color="#fff" />
           </View>
         </TouchableOpacity>
+        {uploadingAvatar && (
+          <Text style={styles.uploadingText}>Uploading photo…</Text>
+        )}
 
         {/* Fields */}
         <View style={styles.field}>
@@ -244,4 +251,5 @@ const styles = StyleSheet.create({
   usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   usernameIcon: { width: 24, alignItems: 'center' },
   fieldError: { fontSize: 12, color: '#ef4444', marginTop: 4 },
+  uploadingText: { fontSize: 13, color: '#718096', marginTop: 6 },
 });

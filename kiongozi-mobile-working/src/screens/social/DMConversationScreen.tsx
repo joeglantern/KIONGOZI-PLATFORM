@@ -78,11 +78,12 @@ export default function DMConversationScreen() {
   const route = useRoute<any>();
   const { conversationId, participantName, participantUsername, participantAvatar } = route.params || {};
   const { user } = useAuthStore();
-  const { messages, fetchMessages, appendMessage, replaceMessage, removeMessage, markRead } = useDMStore();
+  const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, markRead } = useDMStore();
 
   const [text, setText] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
   const sendScale = useRef(new Animated.Value(0)).current;
 
@@ -136,7 +137,8 @@ export default function DMConversationScreen() {
         { event: 'INSERT', schema: 'public', table: 'dm_messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           if (payload.new && payload.new.sender_id !== user.id) {
-            appendMessage(conversationId, payload.new as any);
+            // User is actively viewing — skip unread increment, mark read immediately
+            appendMessage(conversationId, payload.new as any, true);
             apiClient.markDMRead(conversationId);
           }
         }
@@ -147,6 +149,8 @@ export default function DMConversationScreen() {
 
   const handleSend = useCallback(async () => {
     if (!text.trim() && !mediaUri) return;
+    if (isSending.current) return; // prevent double-send
+    isSending.current = true;
     const content = text.trim();
     const attachedUri = mediaUri;
     setText('');
@@ -163,7 +167,7 @@ export default function DMConversationScreen() {
       is_read: false,
       created_at: new Date().toISOString(),
       _pending: true,
-    } as DMMessage);
+    } as DMMessage, true); // own message — skip unread increment
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
 
     try {
@@ -203,6 +207,8 @@ export default function DMConversationScreen() {
       removeMessage(conversationId, tempId);
       setText(content);
       if (attachedUri) setMediaUri(attachedUri);
+    } finally {
+      isSending.current = false;
     }
   }, [text, mediaUri, conversationId, user, appendMessage, replaceMessage, removeMessage]);
 
@@ -267,6 +273,16 @@ export default function DMConversationScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListHeaderComponent={
+            messageCursors[conversationId] ? (
+              <TouchableOpacity
+                style={styles.loadOlderBtn}
+                onPress={() => fetchMessages(conversationId, false)}
+              >
+                <Text style={styles.loadOlderText}>Load older messages</Text>
+              </TouchableOpacity>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="chatbubble-outline" size={40} color="#e2e8f0" />
@@ -365,6 +381,8 @@ const styles = StyleSheet.create({
 
   empty: { alignItems: 'center', marginTop: 80, gap: 12 },
   emptyText: { color: '#a0aec0', fontSize: 15 },
+  loadOlderBtn: { alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 8, marginTop: 8, marginBottom: 4 },
+  loadOlderText: { color: '#3182ce', fontSize: 14, fontWeight: '600' },
 
   inputBar: {
     paddingHorizontal: 12,

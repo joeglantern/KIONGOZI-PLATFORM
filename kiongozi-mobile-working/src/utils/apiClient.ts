@@ -135,6 +135,13 @@ class ApiClient {
         };
       }
 
+      if (response.status === 429) {
+        return {
+          success: false,
+          error: 'Too many requests. Please wait a moment and try again.',
+        };
+      }
+
       if (!response.ok) {
         return {
           success: false,

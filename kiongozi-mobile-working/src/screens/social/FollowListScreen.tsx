@@ -23,12 +23,14 @@ interface FollowUser {
 export default function FollowListScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { userId, username, initialTab = 'followers' } = route.params || {};
+  const { userId, username, initialTab = 'followers', isOwnProfile = false } = route.params || {};
 
   const [followers, setFollowers] = useState<FollowUser[]>([]);
   const [following, setFollowing] = useState<FollowUser[]>([]);
   const [loadingFollowers, setLoadingFollowers] = useState(false);
   const [loadingFollowing, setLoadingFollowing] = useState(false);
+  // Track optimistic follow state for the following list (only used when isOwnProfile)
+  const [followingState, setFollowingState] = useState<Map<string, boolean>>(new Map());
   const scrollX = useRef(new Animated.Value(initialTab === 'followers' ? 0 : SCREEN_WIDTH)).current;
   const scrollRef = useRef<ScrollView>(null);
 
@@ -47,10 +49,32 @@ export default function FollowListScreen() {
     setLoadingFollowing(true);
     try {
       const res = await apiClient.getFollowing(userId);
-      if (res.success && res.data) setFollowing(res.data);
+      if (res.success && res.data) {
+        setFollowing(res.data);
+        // Seed all as followed (they're in the following list)
+        const map = new Map<string, boolean>();
+        (res.data as FollowUser[]).forEach(u => map.set(u.id, true));
+        setFollowingState(map);
+      }
     } catch {}
     setLoadingFollowing(false);
   }, [userId]);
+
+  const handleToggleFollow = useCallback(async (targetUserId: string) => {
+    const currentlyFollowing = followingState.get(targetUserId) ?? true;
+    // Optimistic toggle
+    setFollowingState(prev => new Map(prev).set(targetUserId, !currentlyFollowing));
+    try {
+      if (currentlyFollowing) {
+        await apiClient.unfollowUser(targetUserId);
+      } else {
+        await apiClient.followUser(targetUserId);
+      }
+    } catch {
+      // Revert on error
+      setFollowingState(prev => new Map(prev).set(targetUserId, currentlyFollowing));
+    }
+  }, [followingState]);
 
   useEffect(() => {
     fetchFollowers();
@@ -81,7 +105,7 @@ export default function FollowListScreen() {
     extrapolate: 'clamp',
   });
 
-  const renderUser = ({ item }: { item: FollowUser }) => (
+  const renderFollower = ({ item }: { item: FollowUser }) => (
     <TouchableOpacity
       style={styles.userRow}
       onPress={() => navigation.navigate('PublicProfile', { username: item.username })}
@@ -96,6 +120,36 @@ export default function FollowListScreen() {
       <Ionicons name="chevron-forward" size={18} color="#cbd5e0" />
     </TouchableOpacity>
   );
+
+  const renderFollowing = ({ item }: { item: FollowUser }) => {
+    const isFollowed = followingState.get(item.id) ?? true;
+    return (
+      <TouchableOpacity
+        style={styles.userRow}
+        onPress={() => navigation.navigate('PublicProfile', { username: item.username })}
+        activeOpacity={0.7}
+      >
+        <UserAvatar avatarUrl={item.avatar_url} size={46} isVerified={item.is_verified} />
+        <View style={styles.userInfo}>
+          <Text style={styles.fullName} numberOfLines={1}>{item.full_name}</Text>
+          <Text style={styles.handle}>@{item.username}</Text>
+          {item.bio ? <Text style={styles.bio} numberOfLines={1}>{item.bio}</Text> : null}
+        </View>
+        {isOwnProfile ? (
+          <TouchableOpacity
+            style={[styles.followPill, !isFollowed && styles.followPillOutline]}
+            onPress={() => handleToggleFollow(item.id)}
+          >
+            <Text style={[styles.followPillText, !isFollowed && styles.followPillTextOutline]}>
+              {isFollowed ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Ionicons name="chevron-forward" size={18} color="#cbd5e0" />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -139,7 +193,7 @@ export default function FollowListScreen() {
             <FlatList
               data={followers}
               keyExtractor={item => `f_${item.id}`}
-              renderItem={renderUser}
+              renderItem={renderFollower}
               ListEmptyComponent={
                 <View style={styles.empty}><Text style={styles.emptyText}>No followers yet</Text></View>
               }
@@ -155,7 +209,7 @@ export default function FollowListScreen() {
             <FlatList
               data={following}
               keyExtractor={item => `g_${item.id}`}
-              renderItem={renderUser}
+              renderItem={renderFollowing}
               ListEmptyComponent={
                 <View style={styles.empty}><Text style={styles.emptyText}>Not following anyone yet</Text></View>
               }
@@ -217,4 +271,17 @@ const styles = StyleSheet.create({
   bio: { fontSize: 13, color: '#4a5568', marginTop: 2 },
   empty: { alignItems: 'center', padding: 48 },
   emptyText: { color: '#a0aec0', fontSize: 15 },
+  followPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#1a365d',
+  },
+  followPillOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#1a365d',
+  },
+  followPillText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  followPillTextOutline: { color: '#1a365d' },
 });

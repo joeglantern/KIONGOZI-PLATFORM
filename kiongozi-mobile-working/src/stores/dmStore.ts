@@ -42,7 +42,7 @@ interface DMState {
 
   fetchConversations: () => Promise<void>;
   fetchMessages: (conversationId: string, refresh?: boolean) => Promise<void>;
-  appendMessage: (conversationId: string, message: DMMessage) => void;
+  appendMessage: (conversationId: string, message: DMMessage, skipUnreadIncrement?: boolean) => void;
   replaceMessage: (conversationId: string, tempId: string, real: DMMessage) => void;
   removeMessage: (conversationId: string, id: string) => void;
   markRead: (conversationId: string) => void;
@@ -97,7 +97,7 @@ export const useDMStore = create<DMState>((set, get) => ({
     }
   },
 
-  appendMessage: (conversationId: string, message: DMMessage) => {
+  appendMessage: (conversationId: string, message: DMMessage, skipUnreadIncrement = false) => {
     set(s => ({
       messages: {
         ...s.messages,
@@ -105,7 +105,12 @@ export const useDMStore = create<DMState>((set, get) => ({
       },
       conversations: s.conversations.map(c =>
         c.id === conversationId
-          ? { ...c, last_message: message, last_message_at: message.created_at, unread_count: c.unread_count + 1 }
+          ? {
+              ...c,
+              last_message: message,
+              last_message_at: message.created_at,
+              unread_count: skipUnreadIncrement ? c.unread_count : c.unread_count + 1,
+            }
           : c
       )
     }));

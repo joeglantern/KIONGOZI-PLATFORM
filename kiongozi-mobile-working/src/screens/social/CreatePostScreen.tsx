@@ -44,7 +44,15 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     });
 
     if (!result.canceled) {
-      const newMedia = await Promise.all(result.assets.map(async a => {
+      const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+      const oversized = result.assets.filter(a => a.fileSize && a.fileSize > MAX_BYTES);
+      if (oversized.length > 0) {
+        Alert.alert('File too large', `${oversized.length} file(s) exceed 8 MB and cannot be uploaded.`);
+      }
+      const validAssets = result.assets.filter(a => !a.fileSize || a.fileSize <= MAX_BYTES);
+      if (validAssets.length === 0) return;
+
+      const newMedia = await Promise.all(validAssets.map(async a => {
         let thumbnailUri: string | undefined;
         if (type === 'video') {
           try {
@@ -116,15 +124,11 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
       let uploadedMedia: any[] = [];
       if (media.length > 0) {
         const { uploaded, lastError } = await uploadMedia();
-        // If ALL uploads failed, block posting and show the actual error
-        if (uploaded.length === 0) {
-          Alert.alert('Upload failed', lastError || 'Could not upload media. Please try again.');
+        // Block posting if any uploads failed
+        if (uploaded.length < media.length) {
+          Alert.alert('Upload failed', lastError || `${media.length - uploaded.length} file(s) could not be uploaded. Please try again.`);
           setPosting(false);
           return;
-        }
-        // If some (not all) failed, warn but continue with what succeeded
-        if (uploaded.length < media.length) {
-          Alert.alert('Upload warning', `${media.length - uploaded.length} file(s) failed to upload and will be skipped.`);
         }
         uploadedMedia = uploaded;
       }
@@ -149,7 +153,19 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            if (content.trim().length > 0 || media.length > 0) {
+              Alert.alert('Discard draft?', 'Your post will not be saved.', [
+                { text: 'Keep editing', style: 'cancel' },
+                { text: 'Discard', style: 'destructive', onPress: onClose },
+              ]);
+            } else {
+              onClose();
+            }
+          }}
+          style={styles.cancelBtn}
+        >
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity

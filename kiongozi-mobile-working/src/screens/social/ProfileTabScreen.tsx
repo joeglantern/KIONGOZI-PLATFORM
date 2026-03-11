@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
@@ -31,6 +31,14 @@ export default function ProfileTabScreen() {
       },
     ]);
   };
+
+  if (!currentUserProfile) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color="#1a365d" size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -71,6 +79,7 @@ export default function ProfileTabScreen() {
                   userId: currentUserProfile.id,
                   username: currentUserProfile.username,
                   initialTab: 'followers',
+                  isOwnProfile: true,
                 })}
               >
                 <Text style={styles.statNum}>{currentUserProfile.follower_count ?? 0}</Text>
@@ -83,6 +92,7 @@ export default function ProfileTabScreen() {
                   userId: currentUserProfile.id,
                   username: currentUserProfile.username,
                   initialTab: 'following',
+                  isOwnProfile: true,
                 })}
               >
                 <Text style={styles.statNum}>{currentUserProfile.following_count ?? 0}</Text>

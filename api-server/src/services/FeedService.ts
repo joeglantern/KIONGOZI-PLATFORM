@@ -173,6 +173,10 @@ class FeedService {
       .sort((a: any, b: any) => b._score - a._score);
 
     const page = scored.slice(offset, offset + limit);
+    // Guard: empty page always means end of feed
+    if (page.length === 0) {
+      return { data: [], nextCursor: null };
+    }
     return {
       data: await enrichWithUserState(page, userId),
       nextCursor: offset + limit < scored.length ? String(offset + limit) : null,

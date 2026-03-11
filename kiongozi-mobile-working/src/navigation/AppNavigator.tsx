@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
@@ -21,6 +21,7 @@ import ChatScreen from '../screens/ChatScreen';
 import ProfileTabScreen from '../screens/social/ProfileTabScreen';
 import { KiongoziChatFAB } from '../components/social/KiongoziChatFAB';
 import { useNotificationStore } from '../stores/notificationStore';
+import { useAuthStore } from '../stores/authStore';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
@@ -85,6 +86,13 @@ export default function AppNavigator() {
   const [chatVisible, setChatVisible] = useState(false);
   const [createPostVisible, setCreatePostVisible] = useState(false);
   const { unreadCount } = useNotificationStore();
+  const { sessionExpired } = useAuthStore();
+
+  useEffect(() => {
+    if (sessionExpired) {
+      Alert.alert('Session expired', 'Your session has expired. Please sign in again.');
+    }
+  }, [sessionExpired]);
 
   return (
     // Outer View so FAB and Modals can sit ABOVE the NavigationContainer

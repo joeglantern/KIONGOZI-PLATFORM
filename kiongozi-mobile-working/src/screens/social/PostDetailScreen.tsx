@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Animated,
+  TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Animated, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -62,7 +62,7 @@ export default function PostDetailScreen() {
   // Realtime: append new replies as they arrive
   useEffect(() => {
     if (!postId) return;
-    const channel = supabase
+    const repliesChannel = supabase
       .channel(`replies-${postId}`)
       .on(
         'postgres_changes',
@@ -78,8 +78,31 @@ export default function PostDetailScreen() {
         }
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(repliesChannel); };
   }, [postId, user?.id]);
+
+  // Realtime: update like count when others like/unlike this post
+  useEffect(() => {
+    if (!postId) return;
+    const likesChannel = supabase
+      .channel(`likes-${postId}`)
+      .on(
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'post_likes', filter: `post_id=eq.${postId}` },
+        () => {
+          setPost(p => p ? { ...p, like_count: p.like_count + 1 } : p);
+        }
+      )
+      .on(
+        'postgres_changes' as any,
+        { event: 'DELETE', schema: 'public', table: 'post_likes', filter: `post_id=eq.${postId}` },
+        () => {
+          setPost(p => p ? { ...p, like_count: Math.max(0, p.like_count - 1) } : p);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(likesChannel); };
+  }, [postId]);
 
   const handleSendReply = useCallback(async () => {
     if (!replyText.trim() || sending) return;
@@ -112,6 +135,7 @@ export default function PostDetailScreen() {
     } catch {
       setReplies(prev => prev.filter(r => r.id !== tempReply.id));
       setReplyText(content);
+      Alert.alert('Failed to send', 'Your reply could not be sent. Please try again.');
     }
     setSending(false);
   }, [replyText, sending, postId, user, post]);

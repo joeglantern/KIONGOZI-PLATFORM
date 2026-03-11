@@ -20,6 +20,8 @@ export default function FeedScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [forYouError, setForYouError] = useState<string | null>(null);
 
   const {
     feedPosts, feedLoading, feedRefreshing, feedCursor,
@@ -28,8 +30,8 @@ export default function FeedScreen() {
   } = useSocialStore();
 
   useEffect(() => {
-    fetchForYouFeed(true);
-    fetchFeed(true);
+    fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.'));
+    fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.'));
   }, []);
 
   // Supabase Realtime subscription — fetch full post on INSERT to get profiles/media
@@ -157,11 +159,18 @@ export default function FeedScreen() {
             onEndReached={() => { if (hasMoreForYou) fetchForYouFeed(false); }}
             onEndReachedThreshold={0.5}
             refreshControl={
-              <RefreshControl refreshing={forYouRefreshing} onRefresh={() => fetchForYouFeed(true)} tintColor="#1a365d" />
+              <RefreshControl refreshing={forYouRefreshing} onRefresh={() => { setForYouError(null); fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.')); }} tintColor="#1a365d" />
             }
             ListEmptyComponent={
               forYouLoading ? (
                 <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+              ) : forYouError ? (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyText}>{forYouError}</Text>
+                  <TouchableOpacity style={styles.retryBtn} onPress={() => { setForYouError(null); fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.')); }}>
+                    <Text style={styles.retryText}>Try again</Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <View style={styles.empty}>
                   <Text style={styles.emptyText}>No posts yet.</Text>
@@ -186,11 +195,18 @@ export default function FeedScreen() {
             onEndReached={() => { if (feedCursor) fetchFeed(false); }}
             onEndReachedThreshold={0.5}
             refreshControl={
-              <RefreshControl refreshing={feedRefreshing} onRefresh={() => fetchFeed(true)} tintColor="#1a365d" />
+              <RefreshControl refreshing={feedRefreshing} onRefresh={() => { setFeedError(null); fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.')); }} tintColor="#1a365d" />
             }
             ListEmptyComponent={
               feedLoading ? (
                 <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+              ) : feedError ? (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyText}>{feedError}</Text>
+                  <TouchableOpacity style={styles.retryBtn} onPress={() => { setFeedError(null); fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.')); }}>
+                    <Text style={styles.retryText}>Try again</Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <View style={styles.empty}>
                   <Text style={styles.emptyText}>Your feed is empty.</Text>
@@ -255,6 +271,8 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   empty: { padding: 32, alignItems: 'center' },
-  emptyText: { fontSize: 17, fontWeight: '600', color: '#4a5568', marginBottom: 8 },
+  emptyText: { fontSize: 17, fontWeight: '600', color: '#4a5568', marginBottom: 8, textAlign: 'center' },
   emptySubtext: { fontSize: 14, color: '#a0aec0', textAlign: 'center' },
+  retryBtn: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#1a365d', borderRadius: 20 },
+  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

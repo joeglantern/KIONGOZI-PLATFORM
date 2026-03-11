@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotificationStore, SocialNotification } from '../../stores/notificationStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -31,11 +31,11 @@ const ICON_MAP: Record<string, { name: keyof typeof Ionicons.glyphMap; color: st
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  const { notifications, unreadCount, isLoading, fetchNotifications, markAllRead, markRead, addNotification } =
+  const { notifications, unreadCount, isLoading, hasMore, fetchNotifications, markAllRead, markRead, addNotification } =
     useNotificationStore();
 
   useEffect(() => {
-    fetchNotifications();
+    fetchNotifications(true);
   }, []);
 
   // Supabase Realtime: listen for new notifications for this user
@@ -114,11 +114,25 @@ export default function NotificationsScreen() {
           data={notifications}
           keyExtractor={item => item.id}
           renderItem={renderNotification}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading && notifications.length > 0}
+              onRefresh={() => fetchNotifications(true)}
+              tintColor="#1a365d"
+            />
+          }
+          onEndReached={() => { if (hasMore) fetchNotifications(false); }}
+          onEndReachedThreshold={0.4}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="notifications-outline" size={48} color="#e2e8f0" />
               <Text style={styles.emptyText}>No notifications yet</Text>
             </View>
+          }
+          ListFooterComponent={
+            isLoading && notifications.length > 0
+              ? <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" />
+              : null
           }
         />
       )}

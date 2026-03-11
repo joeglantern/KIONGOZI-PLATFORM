@@ -126,6 +126,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       }
     } catch (e) {
       console.error('fetchFeed error:', e);
+      throw e;
     } finally {
       set({ feedLoading: false, feedRefreshing: false });
     }
@@ -165,12 +166,13 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       if (res.success && res.data) {
         set(prev => ({
           forYouPosts: refresh ? res.data : [...prev.forYouPosts, ...res.data],
-          forYouOffset: offset + (res.data?.length || 0),
-          hasMoreForYou: res.nextCursor != null,
+          forYouOffset: res.nextCursor != null ? Number(res.nextCursor) : offset + (res.data?.length || 0),
+          hasMoreForYou: res.nextCursor !== null,
         }));
       }
     } catch (e) {
       console.error('fetchForYouFeed error:', e);
+      throw e;
     } finally {
       set({ forYouLoading: false, forYouRefreshing: false });
     }

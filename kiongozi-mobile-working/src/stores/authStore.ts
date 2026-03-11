@@ -7,6 +7,7 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   initialized: boolean;
+  sessionExpired: boolean; // true when session expired externally (not user-initiated sign-out)
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, firstName: string, lastName: string, username?: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean; email?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
@@ -20,6 +21,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   loading: false,
   initialized: false,
+  sessionExpired: false,
 
   initialize: async () => {
     try {
@@ -51,8 +53,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ user: session.user });
           }
         } else if (event === 'SIGNED_OUT') {
+          const wasLoggedIn = !!get().user;
           await apiClient.removeAuthToken();
-          set({ user: null });
+          set({ user: null, sessionExpired: wasLoggedIn });
+          const { useSocialStore } = require('./socialStore');
+          const { useDMStore } = require('./dmStore');
+          const { useProfileStore } = require('./profileStore');
+          const { useNotificationStore } = require('./notificationStore');
+          useSocialStore.getState().reset();
+          useDMStore.getState().reset();
+          useProfileStore.getState().reset();
+          useNotificationStore.getState().reset();
         }
       });
     } catch (error) {
@@ -80,7 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await apiClient.saveAuthToken(data.session.access_token);
       }
 
-      set({ user: data.user, loading: false });
+      set({ user: data.user, loading: false, sessionExpired: false });
       return { success: true };
     } catch (error: any) {
       set({ loading: false });
@@ -170,7 +181,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await supabase.auth.signOut();
       await apiClient.removeAuthToken();
-      set({ user: null });
+      set({ user: null, sessionExpired: false });
+      // Reset all stores to prevent data leakage between sessions
+      const { useSocialStore } = require('./socialStore');
+      const { useDMStore } = require('./dmStore');
+      const { useProfileStore } = require('./profileStore');
+      const { useNotificationStore } = require('./notificationStore');
+      useSocialStore.getState().reset();
+      useDMStore.getState().reset();
+      useProfileStore.getState().reset();
+      useNotificationStore.getState().reset();
     } catch (error) {
       console.error('Sign out error:', error);
     }

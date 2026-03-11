@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Modal, SafeArea
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import * as Haptics from 'expo-haptics';
 import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
 import { HashtagHighlight } from './HashtagHighlight';
@@ -121,6 +122,7 @@ export function PostCard({
   const likeCount = interaction?.like_count ?? activePost.like_count;
 
   const handleLike = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleLike(activePost.id);
     try {
       await apiClient.likePost(activePost.id);
@@ -160,6 +162,7 @@ export function PostCard({
   }, [activePost.id, activePost.content, activePost.profiles?.full_name]);
 
   const handleBookmark = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await toggleBookmark(activePost.id);
   }, [activePost.id, toggleBookmark]);
 

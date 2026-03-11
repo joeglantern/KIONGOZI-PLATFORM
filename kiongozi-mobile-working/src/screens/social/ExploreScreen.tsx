@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, StyleSheet, FlatList,
-  TouchableOpacity, ActivityIndicator
+  TouchableOpacity, ActivityIndicator, RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../../components/social/PostCard';
@@ -21,6 +21,7 @@ export default function ExploreScreen() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [trending, setTrending] = useState<{ hashtags: any[]; posts: any[] } | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchExploreFeed(true);
@@ -30,7 +31,7 @@ export default function ExploreScreen() {
   // Auto-search if initialQuery is provided
   useEffect(() => {
     if (initialQuery) {
-      handleSearch(initialQuery);
+      doSearch(initialQuery);
     }
   }, [initialQuery]);
 
@@ -41,8 +42,7 @@ export default function ExploreScreen() {
     } catch {}
   };
 
-  const handleSearch = useCallback(async (text: string) => {
-    setQuery(text);
+  const doSearch = useCallback(async (text: string) => {
     if (!text.trim()) {
       setSearchResults(null);
       setSearchError(null);
@@ -63,6 +63,17 @@ export default function ExploreScreen() {
     }
     setSearchLoading(false);
   }, []);
+
+  const handleSearch = useCallback((text: string) => {
+    setQuery(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!text.trim()) {
+      setSearchResults(null);
+      setSearchError(null);
+      return;
+    }
+    searchTimer.current = setTimeout(() => doSearch(text), 400);
+  }, [doSearch]);
 
   const isSearching = query.length > 0;
 
@@ -95,7 +106,7 @@ export default function ExploreScreen() {
         <View style={styles.errorState}>
           <Ionicons name="alert-circle-outline" size={44} color="#e2e8f0" />
           <Text style={styles.errorText}>{searchError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => handleSearch(query)}>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => doSearch(query)}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -138,6 +149,13 @@ export default function ExploreScreen() {
           keyExtractor={(item) => item.id}
           onEndReached={() => { if (exploreCursor) fetchExploreFeed(); }}
           onEndReachedThreshold={0.5}
+          refreshControl={
+            <RefreshControl
+              refreshing={exploreLoading && explorePosts.length === 0}
+              onRefresh={() => { fetchExploreFeed(true); loadTrending(); }}
+              tintColor="#1a365d"
+            />
+          }
           ListHeaderComponent={
             trending?.hashtags?.length ? (
               <View style={styles.trendingSection}>
