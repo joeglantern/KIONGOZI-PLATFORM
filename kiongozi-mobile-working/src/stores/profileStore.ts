@@ -26,7 +26,7 @@ interface ProfileState {
   currentUserLoading: boolean;
 
   fetchProfile: (username: string) => Promise<PublicProfile | null>;
-  fetchCurrentUserProfile: (username: string) => Promise<void>;
+  fetchCurrentUserProfile: (username?: string) => Promise<void>;
   updateCurrentUserProfile: (updates: Partial<PublicProfile>) => void;
   updateFollowState: (username: string, isFollowing: boolean) => void;
   reset: () => void;
