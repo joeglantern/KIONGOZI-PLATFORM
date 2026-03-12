@@ -91,8 +91,16 @@ router.delete('/:storagePath(*)', authenticateToken, async (req: Request, res: R
     const { storagePath } = req.params;
     const userId = req.user!.id;
 
-    // Only allow deleting own files (path must start with posts/{userId}/ or avatars/{userId}_)
-    if (!storagePath.includes(userId)) {
+    // Authoritative ownership check: the second path segment must exactly equal the userId.
+    // Expected patterns: posts/{userId}/filename  or  posts/videos/{userId}/filename
+    // or avatars/{userId}_filename
+    const segments = storagePath.split('/');
+    const ownsFile =
+      segments[1] === userId ||        // posts/{userId}/...
+      segments[2] === userId ||        // posts/videos/{userId}/...
+      segments[0] === 'avatars' && segments[1]?.startsWith(userId + '_'); // avatars/{userId}_...
+
+    if (!ownsFile) {
       res.status(403).json({ success: false, error: 'Unauthorized to delete this file' });
       return;
     }

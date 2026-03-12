@@ -35,6 +35,7 @@ import { apiRateLimit, chatRateLimit, authRateLimit } from './middleware/rateLim
 
 // Import services
 import SocketService from './services/socketService';
+import NotificationService from './services/NotificationService';
 
 const app = express();
 app.set('trust proxy', 1); // 1 = trust first proxy (nginx)
@@ -43,6 +44,10 @@ const PORT = process.env.PORT || 3001;
 
 // Initialize Socket.IO service
 const socketService = new SocketService(server);
+
+// Give NotificationService a reference to io so it can emit real-time events
+// without needing io threaded through every call site
+NotificationService.setIo(socketService.getSocketServer());
 
 // Make socket service available to routes
 app.use((req: any, res, next) => {
@@ -70,7 +75,8 @@ const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '200'),
   message: {
-    error: 'Too many requests from this IP, please try again later.'
+    success: false,
+    error: 'Too many requests from this IP, please try again later.',
   },
   standardHeaders: true,
   legacyHeaders: false,

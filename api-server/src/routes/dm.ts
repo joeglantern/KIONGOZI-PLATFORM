@@ -30,12 +30,13 @@ router.get('/conversations', authenticateToken, async (req: Request, res: Respon
       return;
     }
 
-    // Step 2: Enrich each conversation with participants, last message, unread count
+    // Step 2: Enrich each conversation with participants + last message.
+    // Unread count is derived from last_read_at (no extra query per conversation).
     const enriched = await Promise.all(
       (data || []).map(async (row: any) => {
         const convId = row.conversation_id;
 
-        const [participantsRes, lastMsgRes, unreadRes] = await Promise.all([
+        const [participantsRes, lastMsgRes] = await Promise.all([
           supabaseServiceClient
             .from('dm_participants')
             .select('user_id, profiles:user_id (id, full_name, username, avatar_url, is_verified, is_bot)')
@@ -43,27 +44,27 @@ router.get('/conversations', authenticateToken, async (req: Request, res: Respon
             .neq('user_id', userId),
           supabaseServiceClient
             .from('dm_messages')
-            .select('id, content, sender_id, created_at, media_type')
+            .select('id, content, sender_id, created_at, media_type, is_read')
             .eq('conversation_id', convId)
             .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          supabaseServiceClient
-            .from('dm_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', convId)
-            .eq('is_read', false)
-            .neq('sender_id', userId),
+            .limit(50), // fetch enough to count unread from JS
         ]);
 
         const participants = (participantsRes.data || []).map((p: any) => p.profiles);
+        const messages = lastMsgRes.data || [];
+        const lastMessage = messages[0] ?? null;
+
+        // Count unread: messages not sent by the user and not yet read
+        const unreadCount = messages.filter(
+          (m: any) => m.sender_id !== userId && !m.is_read
+        ).length;
 
         return {
           id: convId,
           last_message_at: row.dm_conversations?.last_message_at,
           last_read_at: row.last_read_at,
-          last_message: lastMsgRes.data,
-          unread_count: unreadRes.count || 0,
+          last_message: lastMessage,
+          unread_count: unreadCount,
           participants
         };
       })

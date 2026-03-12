@@ -108,13 +108,6 @@ export const requireRole = (allowedRoles: string[]) => {
       return;
     }
 
-    // TEMPORARY FIX: Allow this specific admin user ID to bypass role check
-    if (req.user.id === '7f732087-672f-49f0-ac48-2214cd8b890b') {
-      req.user.role = 'admin';
-      next();
-      return;
-    }
-
     // Get user's role from database since JWT might not have latest role
     if (supabaseServiceClient) {
       try {

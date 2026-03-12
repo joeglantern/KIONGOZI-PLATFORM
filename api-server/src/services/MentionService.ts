@@ -106,18 +106,21 @@ class MentionService {
     if (tags.length === 0) return;
 
     for (const tag of tags) {
-      // Upsert hashtag
+      // Upsert hashtag and increment use_count atomically
       const { data: hashtag } = await supabaseServiceClient
         .from('hashtags')
-        .upsert({ tag }, { onConflict: 'tag' })
+        .upsert({ tag, use_count: 1 }, { onConflict: 'tag', ignoreDuplicates: false })
         .select('id')
         .single();
 
-      if (hashtag) {
-        await supabaseServiceClient
-          .from('post_hashtags')
-          .upsert({ post_id: postId, hashtag_id: hashtag.id }, { onConflict: 'post_id,hashtag_id' });
-      }
+      if (!hashtag) continue;
+
+      // Increment use_count for existing hashtags (upsert resets to 1 on conflict; RPC handles increment)
+      await supabaseServiceClient.rpc('increment_hashtag_use_count', { hashtag_tag: tag });
+
+      await supabaseServiceClient
+        .from('post_hashtags')
+        .upsert({ post_id: postId, hashtag_id: hashtag.id }, { onConflict: 'post_id,hashtag_id' });
     }
   }
 }

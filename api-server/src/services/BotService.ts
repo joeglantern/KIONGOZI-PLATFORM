@@ -5,10 +5,9 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const BOT_USER_ID = process.env.BOT_USER_ID || '00000000-0000-0000-0000-000000000001';
 const BOT_MAX_REPLY_CHARS = 280;
+const BOT_COOLDOWN_MS = 5000;
 
-// Rate limiting: track last reply timestamps per post
-const repliedPosts = new Set<string>();
-const botCooldownMs = 5000; // 5 seconds between replies
+// In-memory cooldown only — duplicate detection is DB-backed
 let lastReplyTime = 0;
 
 const SYSTEM_PROMPT = `You are @kiongozi, Kenya's civic AI assistant embedded in a social platform.
@@ -26,22 +25,36 @@ Respond in the same language used in the post (Swahili or English).`;
 
 class BotService {
   /**
+   * Check DB whether bot has already replied to this post.
+   * Survives server restarts.
+   */
+  private async hasReplied(postId: string): Promise<boolean> {
+    const { data } = await supabaseServiceClient
+      .from('posts')
+      .select('id')
+      .eq('parent_post_id', postId)
+      .eq('user_id', BOT_USER_ID)
+      .eq('is_bot_reply', true)
+      .limit(1)
+      .maybeSingle();
+    return !!data;
+  }
+
+  /**
    * Handle a new @kiongozi mention in a post.
-   * Fetches the post + thread context, generates a reply, posts it.
    */
   async handleMention(postId: string): Promise<void> {
-    // Prevent duplicate replies to same post
-    if (repliedPosts.has(postId)) return;
-
     // Enforce cooldown
     const now = Date.now();
-    if (now - lastReplyTime < botCooldownMs) {
-      // Schedule retry after cooldown
-      const delay = botCooldownMs - (now - lastReplyTime);
+    if (now - lastReplyTime < BOT_COOLDOWN_MS) {
+      const delay = BOT_COOLDOWN_MS - (now - lastReplyTime);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
-    repliedPosts.add(postId);
+    // DB-backed duplicate check — safe across restarts
+    if (await this.hasReplied(postId)) {
+      return;
+    }
 
     try {
       // Fetch the post
@@ -87,22 +100,17 @@ class BotService {
         content: `@${authorUsername}: ${post.content}`
       });
 
-      // Generate reply
       const replyContent = await this.generateBotReply(threadMessages);
       if (!replyContent) return;
 
-      // Post as bot
       await this.postBotReply(postId, replyContent);
       lastReplyTime = Date.now();
     } catch (err) {
       console.error('BotService.handleMention error:', err);
-      repliedPosts.delete(postId); // Allow retry on error
+      // No cleanup needed — DB check prevents duplicates on retry
     }
   }
 
-  /**
-   * Generate a reply using OpenAI
-   */
   async generateBotReply(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<string | null> {
@@ -114,13 +122,13 @@ class BotService {
           ...messages
         ],
         max_tokens: 100,
-        temperature: 0.7
-      });
+        temperature: 0.7,
+        timeout: 15000,
+      } as any);
 
       const text = completion.choices[0]?.message?.content?.trim();
       if (!text) return null;
 
-      // Truncate to 280 chars
       return text.length > BOT_MAX_REPLY_CHARS
         ? text.slice(0, BOT_MAX_REPLY_CHARS - 1) + '…'
         : text;
@@ -130,9 +138,6 @@ class BotService {
     }
   }
 
-  /**
-   * Insert a bot reply post into the posts table
-   */
   async postBotReply(parentPostId: string, content: string): Promise<void> {
     const { error } = await supabaseServiceClient
       .from('posts')

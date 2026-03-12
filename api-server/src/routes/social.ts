@@ -651,4 +651,39 @@ router.get('/bookmarks', authenticateToken, async (req: Request, res: Response):
   }
 });
 
+// POST /api/v1/social/posts/:id/view — Record post view / interaction for For You feed scoring
+router.post('/posts/:id/view', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: postId } = req.params;
+    const userId = req.user!.id;
+    const { interaction_type = 'view', dwell_ms } = req.body;
+
+    const allowed = ['view', 'like', 'repost', 'reply', 'profile_click', 'share'];
+    if (!allowed.includes(interaction_type)) {
+      res.status(400).json({ success: false, error: 'Invalid interaction_type' });
+      return;
+    }
+
+    // Upsert so rapid duplicate views don't bloat the table
+    await supabaseServiceClient
+      .from('post_interactions')
+      .upsert(
+        {
+          post_id: postId,
+          user_id: userId,
+          interaction_type,
+          dwell_ms: dwell_ms ?? null,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'post_id,user_id,interaction_type' }
+      );
+
+    res.json({ success: true });
+  } catch (err) {
+    // Non-critical — don't let tracking failures affect the client
+    console.error('Post view tracking error:', err);
+    res.json({ success: true });
+  }
+});
+
 export default router;

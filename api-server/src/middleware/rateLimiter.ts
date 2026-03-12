@@ -119,6 +119,7 @@ class AdvancedRateLimiter {
       if (record.blocked) {
         await this.logSuspiciousActivity(req, 'Request from blocked client');
         return res.status(429).json({
+          success: false,
           error: 'Access temporarily blocked due to suspicious activity',
           retryAfter: Math.ceil((record.resetTime - now) / 1000)
         });
@@ -134,6 +135,7 @@ class AdvancedRateLimiter {
         await this.logSuspiciousActivity(req, `Rate limit exceeded: ${record.count} requests in window`);
         
         return res.status(429).json({
+          success: false,
           error: this.config.message,
           retryAfter: Math.ceil((record.resetTime - now) / 1000),
           limit: this.config.maxRequests,
