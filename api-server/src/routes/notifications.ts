@@ -20,7 +20,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const { limit = 50, offset = 0, unread_only = false } = req.query;
 
     let query = supabase
-      .from('notifications')
+      .from('social_notifications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -59,7 +59,7 @@ router.put('/:id/read', authenticateToken, async (req, res) => {
     const userId = (req as any).user.id;
 
     const { error } = await supabase
-      .from('notifications')
+      .from('social_notifications')
       .update({ 
         read: true, 
         read_at: new Date().toISOString() 
@@ -88,7 +88,7 @@ router.put('/read-all', authenticateToken, async (req, res) => {
     const userId = (req as any).user.id;
 
     const { error } = await supabase
-      .from('notifications')
+      .from('social_notifications')
       .update({ 
         read: true, 
         read_at: new Date().toISOString() 
@@ -134,7 +134,7 @@ router.post('/', authenticateToken, async (req, res) => {
     };
 
     const { data: created, error } = await supabase
-      .from('notifications')
+      .from('social_notifications')
       .insert(notification)
       .select()
       .single();
@@ -180,13 +180,13 @@ router.get('/counts', authenticateToken, async (req, res) => {
     const userId = (req as any).user.id;
 
     const { data: unreadCount } = await supabase
-      .from('notifications')
+      .from('social_notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('read', false);
 
     const { data: totalCount } = await supabase
-      .from('notifications')
+      .from('social_notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
 

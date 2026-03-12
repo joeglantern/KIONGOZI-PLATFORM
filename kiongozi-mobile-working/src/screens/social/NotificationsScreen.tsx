@@ -49,7 +49,7 @@ export default function NotificationsScreen() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'notifications',
+          table: 'social_notifications',
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {

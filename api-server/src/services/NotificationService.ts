@@ -28,7 +28,7 @@ class NotificationService {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         const { data: notification, error } = await supabaseServiceClient
-          .from('notifications')
+          .from('social_notifications')
           .insert({ user_id: userId, type, title, message, data, read: false })
           .select()
           .single();
