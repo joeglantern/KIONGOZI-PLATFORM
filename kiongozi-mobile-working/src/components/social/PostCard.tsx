@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Alert, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Alert, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
@@ -7,6 +7,7 @@ import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
 import { HashtagHighlight } from './HashtagHighlight';
 import { MediaViewerModal, MediaItem, PostContext } from './MediaViewerModal';
+import QuotePostModal from './QuotePostModal';
 import apiClient from '../../utils/apiClient';
 import { useSocialStore } from '../../stores/socialStore';
 
@@ -72,6 +73,21 @@ export function PostCard({
   const repostScale = useRef(new Animated.Value(1)).current;
   const [repostTip, setRepostTip] = useState(false);
 
+  // Double-tap to like
+  const lastTapRef = useRef(0);
+  const tapPosRef = useRef({ x: 0, y: 0 });
+  const heartScale = useRef(new Animated.Value(0)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+  const [heartVisible, setHeartVisible] = useState(false);
+
+  // Quote post modal
+  const [quoteVisible, setQuoteVisible] = useState(false);
+
+  // Translation
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translating, setTranslating] = useState(false);
+
   // Media viewer state
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -106,24 +122,58 @@ export function PostCard({
     }
   }, [activePost.id, toggleLike]);
 
+  const showHeartBurst = useCallback((x: number, y: number) => {
+    tapPosRef.current = { x, y };
+    setHeartVisible(true);
+    heartScale.setValue(0);
+    heartOpacity.setValue(1);
+    Animated.parallel([
+      Animated.spring(heartScale, { toValue: 1.4, useNativeDriver: true, damping: 6, stiffness: 200 }),
+      Animated.sequence([
+        Animated.delay(350),
+        Animated.timing(heartOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]),
+    ]).start(() => setHeartVisible(false));
+  }, [heartScale, heartOpacity]);
+
+  const handleTranslate = useCallback(async () => {
+    if (showTranslation) { setShowTranslation(false); return; }
+    if (translatedText) { setShowTranslation(true); return; }
+    setTranslating(true);
+    try {
+      const res = await apiClient.translateText(activePost.content);
+      if (res.success && res.data?.translated) {
+        setTranslatedText(res.data.translated);
+        setShowTranslation(true);
+      }
+    } finally { setTranslating(false); }
+  }, [activePost.content, showTranslation, translatedText]);
+
   const handleRepost = useCallback(async () => {
     if (isReposted) {
       setRepostTip(true);
       setTimeout(() => setRepostTip(false), 2000);
       return;
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Animated.sequence([
-      Animated.spring(repostScale, { toValue: 1.5, useNativeDriver: true, damping: 6, stiffness: 300 }),
-      Animated.spring(repostScale, { toValue: 1,   useNativeDriver: true, damping: 10, stiffness: 200 }),
-    ]).start();
-    toggleRepost(activePost.id, 1);
-    try {
-      const res = await apiClient.repostPost(activePost.id);
-      if (!res.success) toggleRepost(activePost.id, -1);
-    } catch {
-      toggleRepost(activePost.id, -1);
-    }
+    Alert.alert('Repost', undefined, [
+      {
+        text: 'Repost',
+        onPress: async () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          Animated.sequence([
+            Animated.spring(repostScale, { toValue: 1.5, useNativeDriver: true, damping: 6, stiffness: 300 }),
+            Animated.spring(repostScale, { toValue: 1,   useNativeDriver: true, damping: 10, stiffness: 200 }),
+          ]).start();
+          toggleRepost(activePost.id, 1);
+          try {
+            const res = await apiClient.repostPost(activePost.id);
+            if (!res.success) toggleRepost(activePost.id, -1);
+          } catch { toggleRepost(activePost.id, -1); }
+        },
+      },
+      { text: 'Quote Post', onPress: () => setQuoteVisible(true) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   }, [activePost.id, isReposted, toggleRepost, repostScale]);
 
   const handleShare = useCallback(async () => {
@@ -225,7 +275,20 @@ export function PostCard({
         )}
 
         {/* Tappable content area */}
-        <TouchableOpacity onPress={onPress} activeOpacity={0.95}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPress={(e) => {
+            const now = Date.now();
+            if (now - lastTapRef.current < 280) {
+              showHeartBurst(e.nativeEvent.locationX, e.nativeEvent.locationY);
+              if (!isLiked) handleLike();
+              lastTapRef.current = 0;
+            } else {
+              lastTapRef.current = now;
+              onPress?.();
+            }
+          }}
+        >
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
@@ -257,6 +320,19 @@ export function PostCard({
               <Text style={styles.readMore}>Show less</Text>
             </TouchableOpacity>
           )}
+
+          {/* Translation */}
+          {showTranslation && translatedText && (
+            <Text style={styles.translatedText}>{translatedText}</Text>
+          )}
+          {translating
+            ? <ActivityIndicator size="small" color="#3182ce" style={styles.translateSpinner} />
+            : <TouchableOpacity onPress={handleTranslate} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <Text style={styles.translateLink}>
+                  {showTranslation ? '· Show original' : '· Translate'}
+                </Text>
+              </TouchableOpacity>
+          }
 
           {/* Media grid */}
           {activePost.post_media && activePost.post_media.length > 0 && (
@@ -349,6 +425,36 @@ export function PostCard({
         caption={activePost.content}
         postContext={viewerPostContext}
       />
+
+      {/* Quote post modal */}
+      <QuotePostModal
+        visible={quoteVisible}
+        post={activePost}
+        onClose={() => setQuoteVisible(false)}
+        onPosted={() => { setQuoteVisible(false); toggleRepost(activePost.id, 1); }}
+      />
+
+      {/* Double-tap heart burst */}
+      {heartVisible && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              left: tapPosRef.current.x - 40,
+              top: tapPosRef.current.y - 40,
+              width: 80,
+              height: 80,
+              transform: [{ scale: heartScale }],
+              opacity: heartOpacity,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+          ]}
+        >
+          <Ionicons name="heart" size={80} color="#e53e3e" />
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -465,6 +571,9 @@ const styles = StyleSheet.create({
   repostAvatarWrap: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: '#fff', overflow: 'hidden' },
   repostAvatarImg: { width: 16, height: 16 },
   repostTip: { fontSize: 11, color: '#10b981', marginLeft: 48, marginTop: -6, marginBottom: 2 },
+  translateLink: { fontSize: 12, color: '#3182ce', marginTop: 2, marginBottom: 4 },
+  translatedText: { fontSize: 15, color: '#4a5568', lineHeight: 22, marginTop: 4, marginBottom: 2, fontStyle: 'italic' },
+  translateSpinner: { alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
 });
 
 function RepostStack({ reposters, count }: { reposters: any[]; count: number }) {

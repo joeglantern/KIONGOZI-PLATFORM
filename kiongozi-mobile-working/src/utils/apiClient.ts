@@ -802,6 +802,14 @@ class ApiClient {
     if (cursor) params.set('cursor', cursor);
     return this.request(`/api/v1/social/users/${username}/posts?${params.toString()}`, { method: 'GET' });
   }
+
+  /** Translate text via OpenAI (Swahili ↔ English) */
+  async translateText(text: string, targetLang: 'en' | 'sw' = 'en') {
+    return this.request('/api/v1/social/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, targetLang }),
+    });
+  }
 }
 
 // Create singleton instance

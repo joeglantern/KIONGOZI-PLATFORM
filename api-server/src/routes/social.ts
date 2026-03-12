@@ -4,6 +4,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth';
 import MentionService from '../services/MentionService';
 import FeedService, { enrichWithUserState } from '../services/FeedService';
 import NotificationService from '../services/NotificationService';
+import OpenAI from 'openai';
 
 const router = Router();
 
@@ -706,6 +707,33 @@ router.post('/posts/:id/view', authenticateToken, async (req: Request, res: Resp
     // Non-critical — don't let tracking failures affect the client
     console.error('Post view tracking error:', err);
     res.json({ success: true });
+  }
+});
+
+// POST /api/v1/social/translate
+router.post('/translate', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { text, targetLang = 'en' } = req.body;
+    if (!text?.trim()) {
+      res.status(400).json({ success: false, error: 'text required' });
+      return;
+    }
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const lang = targetLang === 'sw' ? 'Swahili' : 'English';
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `Translate the following text to ${lang}. Return only the translation, nothing else. If it is already in ${lang}, return it unchanged.` },
+        { role: 'user', content: text.trim() },
+      ],
+      max_tokens: 300,
+      temperature: 0.3,
+    });
+    const translated = completion.choices[0]?.message?.content?.trim() ?? text;
+    res.json({ success: true, data: { translated } });
+  } catch (err) {
+    console.error('Translate error:', err);
+    res.status(500).json({ success: false, error: 'Translation failed' });
   }
 });
 
