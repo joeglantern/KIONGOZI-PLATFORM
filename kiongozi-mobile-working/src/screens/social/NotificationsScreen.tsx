@@ -22,62 +22,87 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-const TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }> = {
-  like:    { icon: 'heart',               color: '#e53e3e', label: 'liked'     },
-  comment: { icon: 'chatbubble',          color: '#3182ce', label: 'commented' },
-  repost:  { icon: 'repeat',              color: '#38a169', label: 'reposted'  },
-  mention: { icon: 'at',                  color: '#805ad5', label: 'mentioned' },
-  follow:  { icon: 'person-add',          color: '#d69e2e', label: 'followed'  },
-  dm:      { icon: 'paper-plane',         color: '#3182ce', label: 'messaged'  },
-  info:    { icon: 'information-circle',  color: '#3182ce', label: ''          },
-  warning: { icon: 'warning',             color: '#d69e2e', label: ''          },
-  error:   { icon: 'close-circle',        color: '#e53e3e', label: ''          },
+const TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  like:    { icon: 'heart',               color: '#f43f5e' },
+  comment: { icon: 'chatbubble-ellipses', color: '#3b82f6' },
+  repost:  { icon: 'repeat',              color: '#10b981' },
+  mention: { icon: 'at-circle',           color: '#8b5cf6' },
+  follow:  { icon: 'person-add',          color: '#f59e0b' },
+  dm:      { icon: 'paper-plane',         color: '#3b82f6' },
+  info:    { icon: 'information-circle',  color: '#3b82f6' },
+  warning: { icon: 'warning',             color: '#f59e0b' },
+  error:   { icon: 'close-circle',        color: '#f43f5e' },
 };
 
+// Extract sender name from message for bold display
+// Message format: "John Doe liked your post" → name="John Doe", rest="liked your post"
+function splitMessage(message: string): { name: string; rest: string } | null {
+  const actions = [
+    'liked your post', 'replied to your post', 'replied in your thread',
+    'reposted your post', 'followed you', 'sent you a message',
+    'mentioned you in a post', 'replied to your post', '@kiongozi replied to your post',
+  ];
+  for (const action of actions) {
+    const idx = message.indexOf(action);
+    if (idx > 0) {
+      return { name: message.slice(0, idx).trim(), rest: action };
+    }
+  }
+  return null;
+}
+
 function NotificationItem({ item, onPress }: { item: SocialNotification; onPress: () => void }) {
-  const meta = TYPE_META[item.type] ?? { icon: 'notifications' as any, color: '#718096', label: '' };
+  const meta = TYPE_META[item.type] ?? { icon: 'notifications' as any, color: '#94a3b8' };
   const isSocial = !!item.fromUsername;
   const isBot = item.fromUsername === 'kiongozi';
+  const split = splitMessage(item.message);
 
   return (
     <TouchableOpacity
       style={[styles.item, !item.read && styles.itemUnread]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.6}
     >
-      {/* Left accent bar for unread */}
-      {!item.read && <View style={styles.unreadBar} />}
-
-      {/* Avatar column */}
+      {/* Avatar with type badge */}
       <View style={styles.avatarWrap}>
         {isSocial ? (
           <>
-            <UserAvatar
-              avatarUrl={item.fromAvatar}
-              size={46}
-              isBot={isBot}
-            />
-            {/* Type icon badge overlapping avatar */}
-            <View style={[styles.typeBadge, { backgroundColor: meta.color }]}>
-              <Ionicons name={meta.icon} size={10} color="#fff" />
+            <UserAvatar avatarUrl={item.fromAvatar} size={52} isBot={isBot} />
+            <View style={[styles.badge, { backgroundColor: meta.color }]}>
+              <Ionicons name={meta.icon} size={11} color="#fff" />
             </View>
           </>
         ) : (
-          /* System notification — plain icon circle */
-          <View style={[styles.systemIcon, { backgroundColor: meta.color + '18' }]}>
-            <Ionicons name={meta.icon} size={22} color={meta.color} />
+          <View style={[styles.systemBubble, { backgroundColor: meta.color + '18' }]}>
+            <Ionicons name={meta.icon} size={26} color={meta.color} />
           </View>
         )}
       </View>
 
-      {/* Text column */}
-      <View style={styles.textCol}>
-        <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
-        <Text style={styles.time}>{timeAgo(item.created_at)}</Text>
+      {/* Text */}
+      <View style={styles.textWrap}>
+        <View style={styles.nameRow}>
+          <Text style={styles.nameTime} numberOfLines={1}>
+            {split ? (
+              <>
+                <Text style={styles.name}>{split.name}</Text>
+                <Text style={styles.dot}> · </Text>
+                <Text style={styles.timeInline}>{timeAgo(item.created_at)}</Text>
+              </>
+            ) : (
+              <Text style={styles.timeInline}>{timeAgo(item.created_at)}</Text>
+            )}
+          </Text>
+        </View>
+        <Text style={styles.messageText} numberOfLines={3}>
+          {split ? split.rest : item.message}
+        </Text>
       </View>
 
       {/* Unread dot */}
-      {!item.read && <View style={styles.unreadDot} />}
+      {!item.read && (
+        <View style={[styles.unreadDot, { backgroundColor: meta.color }]} />
+      )}
     </TouchableOpacity>
   );
 }
@@ -128,18 +153,19 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notifications</Text>
         {unreadCount > 0 && (
-          <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
+          <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn} activeOpacity={0.7}>
+            <Ionicons name="checkmark-done" size={14} color="#3b82f6" />
             <Text style={styles.markAllText}>Mark all read</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {isLoading && notifications.length === 0 ? (
-        <ActivityIndicator style={{ marginTop: 48 }} color="#1a365d" />
+        <ActivityIndicator style={{ marginTop: 60 }} color="#1a365d" />
       ) : (
         <FlatList
           data={notifications}
@@ -158,17 +184,19 @@ export default function NotificationsScreen() {
           onEndReachedThreshold={0.4}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="notifications-outline" size={56} color="#e2e8f0" />
-              <Text style={styles.emptyTitle}>No notifications yet</Text>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="notifications-outline" size={36} color="#94a3b8" />
+              </View>
+              <Text style={styles.emptyTitle}>All caught up</Text>
               <Text style={styles.emptySubtext}>
-                Likes, follows, and mentions will show up here.
+                Likes, follows, replies and mentions will appear here.
               </Text>
             </View>
           }
           ListFooterComponent={
             isLoading && notifications.length > 0
-              ? <ActivityIndicator style={{ marginVertical: 20 }} color="#1a365d" />
-              : null
+              ? <ActivityIndicator style={{ marginVertical: 24 }} color="#1a365d" />
+              : <View style={{ height: 32 }} />
           }
         />
       )}
@@ -176,72 +204,70 @@ export default function NotificationsScreen() {
   );
 }
 
-const AVATAR_SIZE = 46;
+const AVATAR_SIZE = 52;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  screen: { flex: 1, backgroundColor: '#fff' },
 
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 52,
+    paddingTop: 56,
     paddingHorizontal: 18,
     paddingBottom: 14,
     backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e2e8f0',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#1a202c', letterSpacing: -0.3 },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.4,
+  },
   markAllBtn: {
-    backgroundColor: '#ebf8ff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#eff6ff',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 20,
   },
-  markAllText: { color: '#3182ce', fontSize: 13, fontWeight: '600' },
+  markAllText: { color: '#3b82f6', fontSize: 13, fontWeight: '600' },
 
   item: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingRight: 16,
-    paddingLeft: 20,
+    alignItems: 'flex-start',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
     backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0f4f8',
-    gap: 12,
+    borderBottomColor: '#f1f5f9',
+    gap: 13,
   },
-  itemUnread: { backgroundColor: '#f0f7ff' },
-
-  unreadBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    backgroundColor: '#3182ce',
-    borderRadius: 2,
-  },
+  itemUnread: { backgroundColor: '#fafbff' },
 
   avatarWrap: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     position: 'relative',
+    flexShrink: 0,
   },
-  typeBadge: {
+  badge: {
     position: 'absolute',
-    bottom: -2,
-    right: -4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    bottom: -3,
+    right: -5,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#fff',
   },
-  systemIcon: {
+  systemBubble: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
@@ -249,19 +275,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  textCol: { flex: 1 },
-  message: { fontSize: 14, color: '#2d3748', lineHeight: 20 },
-  time: { color: '#a0aec0', fontSize: 12, marginTop: 3 },
+  textWrap: { flex: 1, paddingTop: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+  nameTime: { fontSize: 14, flexShrink: 1 },
+  name: { fontWeight: '700', color: '#0f172a', fontSize: 14 },
+  dot: { color: '#94a3b8', fontSize: 14 },
+  timeInline: { color: '#94a3b8', fontSize: 13 },
+  messageText: { fontSize: 14, color: '#475569', lineHeight: 20 },
 
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3182ce',
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    marginTop: 6,
     flexShrink: 0,
   },
 
-  empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 10 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#4a5568', marginTop: 8 },
-  emptySubtext: { fontSize: 14, color: '#a0aec0', textAlign: 'center', lineHeight: 20 },
+  empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 12 },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  emptySubtext: { fontSize: 14, color: '#94a3b8', textAlign: 'center', lineHeight: 21 },
 });
