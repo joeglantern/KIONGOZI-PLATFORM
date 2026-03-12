@@ -429,24 +429,28 @@ router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Res
       }
     });
 
-    // Notify parent post owner
+    // Notify parent post owner (and root post owner if this is a nested reply)
     const io = (req as any).io;
     const { data: parent } = await supabaseServiceClient
       .from('posts')
-      .select('user_id')
+      .select('user_id, parent_post_id')
       .eq('id', parentPostId)
       .single();
-    if (parent?.user_id && parent.user_id !== userId) {
-      if (io) {
-        io.to(`user:${parent.user_id}`).emit('post:commented', { postId: parentPostId, replyId: post.id, replyBy: userId });
-      }
-      setImmediate(async () => {
-        try {
-          const { data: replier } = await supabaseServiceClient
-            .from('profiles')
-            .select('full_name, username, avatar_url')
-            .eq('id', userId)
-            .single();
+
+    setImmediate(async () => {
+      try {
+        const { data: replier } = await supabaseServiceClient
+          .from('profiles')
+          .select('full_name, username, avatar_url')
+          .eq('id', userId)
+          .single();
+
+        const notifiedUsers = new Set<string>();
+
+        // Always notify the direct parent's author
+        if (parent?.user_id && parent.user_id !== userId) {
+          notifiedUsers.add(parent.user_id);
+          if (io) io.to(`user:${parent.user_id}`).emit('post:commented', { postId: parentPostId, replyId: post.id, replyBy: userId });
           await NotificationService.notify({
             userId: parent.user_id,
             type: 'comment',
@@ -455,11 +459,30 @@ router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Res
             data: { post_id: parentPostId, from_user_id: userId, from_username: replier?.username, from_avatar_url: replier?.avatar_url },
             io,
           });
-        } catch (e) {
-          console.error('Reply notification error:', e);
         }
-      });
-    }
+
+        // If this is a nested reply, also notify the root post author (if different)
+        if (parent?.parent_post_id) {
+          const { data: root } = await supabaseServiceClient
+            .from('posts')
+            .select('user_id')
+            .eq('id', parent.parent_post_id)
+            .single();
+          if (root?.user_id && root.user_id !== userId && !notifiedUsers.has(root.user_id)) {
+            await NotificationService.notify({
+              userId: root.user_id,
+              type: 'comment',
+              title: 'New reply',
+              message: `${replier?.full_name || 'Someone'} replied in your thread`,
+              data: { post_id: parent.parent_post_id, from_user_id: userId, from_username: replier?.username, from_avatar_url: replier?.avatar_url },
+              io,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Reply notification error:', e);
+      }
+    });
 
     res.status(201).json({ success: true, data: post });
   } catch (err) {

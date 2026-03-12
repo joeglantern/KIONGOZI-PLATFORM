@@ -72,16 +72,7 @@ function NotificationItem({ item, onPress }: { item: SocialNotification; onPress
 
       {/* Text column */}
       <View style={styles.textCol}>
-        <Text style={styles.message} numberOfLines={2}>
-          {isSocial && item.fromUsername ? (
-            <>
-              <Text style={styles.boldName}>{item.fromUsername} </Text>
-              <Text>{item.message.replace(item.fromUsername, '').replace(/^[\s,]+/, '')}</Text>
-            </>
-          ) : (
-            item.message
-          )}
-        </Text>
+        <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
         <Text style={styles.time}>{timeAgo(item.created_at)}</Text>
       </View>
 
@@ -260,7 +251,6 @@ const styles = StyleSheet.create({
 
   textCol: { flex: 1 },
   message: { fontSize: 14, color: '#2d3748', lineHeight: 20 },
-  boldName: { fontWeight: '700', color: '#1a202c' },
   time: { color: '#a0aec0', fontSize: 12, marginTop: 3 },
 
   unreadDot: {

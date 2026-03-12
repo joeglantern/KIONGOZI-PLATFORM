@@ -270,6 +270,15 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
             .eq('id', userId)
             .single();
           for (const p of participants) {
+            // Remove stale unread DM notification for this conversation before inserting fresh
+            await supabaseServiceClient
+              .from('social_notifications')
+              .delete()
+              .eq('user_id', p.user_id)
+              .eq('type', 'dm')
+              .eq('read', false)
+              .eq('data->>conversation_id', conversationId);
+
             await NotificationService.notify({
               userId: p.user_id,
               type: 'dm',
