@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef, NavigationState } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Screens
@@ -82,9 +82,22 @@ function EmptyScreen() {
   return <View />;
 }
 
+// Recursively find the deepest active route name in the nav state
+function getActiveRouteName(state: NavigationState | undefined): string {
+  if (!state) return '';
+  const route = state.routes[state.index];
+  if (route.state) return getActiveRouteName(route.state as NavigationState);
+  return route.name;
+}
+
+// Screens where the FAB should be hidden
+const FAB_HIDDEN_SCREENS = new Set(['DMConversation', 'DMList']);
+
 export default function AppNavigator() {
   const [chatVisible, setChatVisible] = useState(false);
   const [createPostVisible, setCreatePostVisible] = useState(false);
+  const [activeRoute, setActiveRoute] = useState('');
+  const navRef = useRef<NavigationContainerRef<any>>(null);
   const { unreadCount } = useNotificationStore();
   const { sessionExpired } = useAuthStore();
 
@@ -94,10 +107,19 @@ export default function AppNavigator() {
     }
   }, [sessionExpired]);
 
+  const handleStateChange = useCallback((state: NavigationState | undefined) => {
+    setActiveRoute(getActiveRouteName(state));
+  }, []);
+
+  const showFAB = !FAB_HIDDEN_SCREENS.has(activeRoute);
+
   return (
     // Outer View so FAB and Modals can sit ABOVE the NavigationContainer
     <View style={styles.root}>
-      <NavigationContainer>
+      <NavigationContainer
+        ref={navRef}
+        onStateChange={handleStateChange}
+      >
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
@@ -150,8 +172,8 @@ export default function AppNavigator() {
         </Tab.Navigator>
       </NavigationContainer>
 
-      {/* These sit ABOVE the navigator so they overlay correctly */}
-      <KiongoziChatFAB onPress={() => setChatVisible(true)} />
+      {/* FAB hidden on DM screens so it doesn't cover the send button */}
+      {showFAB && <KiongoziChatFAB onPress={() => setChatVisible(true)} />}
 
       {/* Create Post Modal */}
       <Modal
