@@ -15,8 +15,8 @@ const POST_SELECT = `
 `;
 
 /**
- * Batch-enrich posts with isLiked + isBookmarked for the given user.
- * Makes two parallel queries — one to post_likes, one to bookmarks.
+ * Batch-enrich posts with isLiked + isBookmarked + isReposted + recentReposters for the given user.
+ * Makes three parallel queries — post_likes, bookmarks, and reposts.
  * Safe to call with userId=undefined (returns posts unchanged).
  */
 async function enrichWithUserState(posts: any[], userId?: string): Promise<any[]> {
@@ -24,7 +24,7 @@ async function enrichWithUserState(posts: any[], userId?: string): Promise<any[]
 
   const postIds = posts.map((p: any) => p.id);
 
-  const [{ data: likes }, { data: bookmarks }] = await Promise.all([
+  const [{ data: likes }, { data: bookmarks }, { data: reposts }] = await Promise.all([
     supabaseServiceClient
       .from('post_likes')
       .select('post_id')
@@ -35,15 +35,35 @@ async function enrichWithUserState(posts: any[], userId?: string): Promise<any[]
       .select('post_id')
       .eq('user_id', userId)
       .in('post_id', postIds),
+    supabaseServiceClient
+      .from('posts')
+      .select('repost_of_id, user_id, profiles:user_id(id, username, avatar_url)')
+      .in('repost_of_id', postIds)
+      .not('repost_of_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(postIds.length * 3),
   ]);
 
   const likedSet = new Set((likes || []).map((l: any) => l.post_id));
   const bookmarkedSet = new Set((bookmarks || []).map((b: any) => b.post_id));
 
+  // Build repostedSet (posts the current user has reposted) and repostersMap (up to 3 reposters per post)
+  const repostedSet = new Set<string>();
+  const repostersMap: Record<string, any[]> = {};
+  for (const r of (reposts || []) as any[]) {
+    if (r.user_id === userId) repostedSet.add(r.repost_of_id);
+    if (!repostersMap[r.repost_of_id]) repostersMap[r.repost_of_id] = [];
+    if (repostersMap[r.repost_of_id].length < 3) {
+      repostersMap[r.repost_of_id].push(r.profiles);
+    }
+  }
+
   return posts.map((p: any) => ({
     ...p,
     isLiked: likedSet.has(p.id),
     isBookmarked: bookmarkedSet.has(p.id),
+    isReposted: repostedSet.has(p.id),
+    recentReposters: repostersMap[p.id] || [],
   }));
 }
 

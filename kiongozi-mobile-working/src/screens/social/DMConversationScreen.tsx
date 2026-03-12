@@ -8,6 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { DMBubble } from '../../components/social/DMBubble';
+import { MediaViewerModal } from '../../components/social/MediaViewerModal';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useDMStore, DMMessage } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -83,6 +84,7 @@ export default function DMConversationScreen() {
   const [text, setText] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [viewerMessage, setViewerMessage] = useState<DMMessage | null>(null);
   const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
   const sendScale = useRef(new Animated.Value(0)).current;
@@ -231,6 +233,7 @@ export default function DMConversationScreen() {
         isFirst={item.isFirst}
         isLast={item.isLast}
         avatarUrl={participantAvatar}
+        onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
       />
     );
   }, [user?.id, participantAvatar]);
@@ -337,6 +340,17 @@ export default function DMConversationScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <MediaViewerModal
+        visible={!!viewerMessage}
+        onClose={() => setViewerMessage(null)}
+        media={
+          viewerMessage?.media_url
+            ? [{ url: viewerMessage.media_url, media_type: (viewerMessage.media_type as 'image' | 'video') || 'image' }]
+            : []
+        }
+        caption={viewerMessage?.content}
+      />
     </SafeAreaView>
   );
 }

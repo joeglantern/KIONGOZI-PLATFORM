@@ -6,14 +6,16 @@ interface HashtagHighlightProps {
   style?: any;
   onMentionPress?: (username: string) => void;
   onHashtagPress?: (tag: string) => void;
+  numberOfLines?: number;
+  onTextLayout?: (event: any) => void;
 }
 
-export function HashtagHighlight({ content, style, onMentionPress, onHashtagPress }: HashtagHighlightProps) {
+export function HashtagHighlight({ content, style, onMentionPress, onHashtagPress, numberOfLines, onTextLayout }: HashtagHighlightProps) {
   // Split content by @mentions and #hashtags
   const parts = content.split(/([@#]\w+)/g);
 
   return (
-    <Text style={style}>
+    <Text style={style} numberOfLines={numberOfLines} onTextLayout={onTextLayout}>
       {parts.map((part, i) => {
         if (part.startsWith('@')) {
           const username = part.slice(1);

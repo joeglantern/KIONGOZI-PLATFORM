@@ -41,6 +41,8 @@ export interface Post {
   // client-side only
   isLiked?: boolean;
   isBookmarked?: boolean;
+  isReposted?: boolean;
+  recentReposters?: { id: string; username: string; avatar_url?: string }[];
 }
 
 // Global per-post interaction state — source of truth for likes across all screens
@@ -82,7 +84,7 @@ interface SocialState {
   prependPost: (post: Post) => void;
   seedInteraction: (postId: string, isLiked: boolean, like_count: number) => void;
   toggleLike: (postId: string) => void;
-  toggleRepostCount: (postId: string, delta: 1 | -1) => void;
+  toggleRepost: (postId: string, delta: 1 | -1) => void;
   deletePost: (postId: string) => void;
   updatePost: (postId: string, updates: Partial<Post>) => void;
   reset: () => void;
@@ -280,10 +282,10 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     });
   },
 
-  toggleRepostCount: (postId: string, delta: 1 | -1) => {
+  toggleRepost: (postId: string, delta: 1 | -1) => {
     const update = (posts: Post[]) =>
       posts.map(p => p.id === postId
-        ? { ...p, repost_count: Math.max(0, p.repost_count + delta) }
+        ? { ...p, repost_count: Math.max(0, p.repost_count + delta), isReposted: delta === 1 }
         : p);
     set(state => ({
       feedPosts: update(state.feedPosts),

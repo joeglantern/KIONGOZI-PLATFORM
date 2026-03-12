@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
@@ -10,6 +10,7 @@ interface DMBubbleProps {
   isFirst: boolean;
   isLast: boolean;
   avatarUrl?: string;
+  onMediaPress?: () => void;
 }
 
 function formatTime(dateStr: string): string {
@@ -26,7 +27,7 @@ function ReadReceipt({ pending, read }: { pending?: boolean; read: boolean }) {
   return <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.55)" style={styles.receiptIcon} />;
 }
 
-export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl }: DMBubbleProps) {
+export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPress }: DMBubbleProps) {
   return (
     <View style={[styles.row, isOwn ? styles.rowOwn : styles.rowOther]}>
       {!isOwn && (
@@ -45,7 +46,16 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl }: DMBubbl
         message._pending && styles.pending,
       ]}>
         {message.media_url && message.media_type === 'image' && (
-          <Image source={{ uri: message.media_url }} style={styles.image} resizeMode="cover" />
+          <TouchableOpacity onPress={onMediaPress} activeOpacity={0.9}>
+            <Image source={{ uri: message.media_url }} style={styles.image} resizeMode="cover" />
+          </TouchableOpacity>
+        )}
+
+        {message.media_url && message.media_type === 'video' && (
+          <TouchableOpacity onPress={onMediaPress} style={styles.videoThumb} activeOpacity={0.9}>
+            <Ionicons name="play-circle" size={40} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.videoLabel}>Video</Text>
+          </TouchableOpacity>
         )}
 
         {message.content ? (
@@ -104,6 +114,21 @@ const styles = StyleSheet.create({
   otherText: { color: '#1a202c' },
 
   image: { width: 200, height: 150, borderRadius: 12, marginBottom: 4 },
+  videoThumb: {
+    width: 200,
+    height: 130,
+    borderRadius: 12,
+    backgroundColor: '#1a202c',
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  videoLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
 
   meta: {
     flexDirection: 'row',

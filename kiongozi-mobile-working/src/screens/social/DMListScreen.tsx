@@ -167,9 +167,23 @@ export default function DMListScreen() {
                     <Text style={styles.convTime}>{timeAgo(item.last_message_at)}</Text>
                   </View>
                   <View style={styles.convPreview}>
-                    <Text style={[styles.convLastMsg, item.unread_count > 0 && styles.unreadMsg]} numberOfLines={1}>
-                      {item.last_message?.content || 'Media message'}
-                    </Text>
+                    <View style={styles.previewRow}>
+                      {item.last_message?.media_type === 'image' && (
+                        <Ionicons name="camera-outline" size={14} color={item.unread_count > 0 ? '#1a202c' : '#718096'} style={{ marginRight: 3 }} />
+                      )}
+                      {item.last_message?.media_type === 'video' && (
+                        <Ionicons name="videocam-outline" size={14} color={item.unread_count > 0 ? '#1a202c' : '#718096'} style={{ marginRight: 3 }} />
+                      )}
+                      <Text style={[styles.convLastMsg, item.unread_count > 0 && styles.unreadMsg]} numberOfLines={1}>
+                        {item.last_message?.content
+                          ? item.last_message.content
+                          : item.last_message?.media_type === 'video'
+                            ? 'Video'
+                            : item.last_message?.media_type === 'image'
+                              ? 'Photo'
+                              : 'Media message'}
+                      </Text>
+                    </View>
                     {item.unread_count > 0 && (
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>{item.unread_count}</Text>
@@ -303,6 +317,7 @@ const styles = StyleSheet.create({
   convName: { fontWeight: '700', fontSize: 15, color: '#1a202c' },
   convTime: { color: '#a0aec0', fontSize: 13 },
   convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  previewRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   convLastMsg: { flex: 1, color: '#718096', fontSize: 14 },
   unreadMsg: { fontWeight: '600', color: '#1a202c' },
   badge: {

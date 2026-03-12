@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Modal, SafeAreaView, Alert, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Alert, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
 import { HashtagHighlight } from './HashtagHighlight';
+import { MediaViewerModal, MediaItem, PostContext } from './MediaViewerModal';
 import apiClient from '../../utils/apiClient';
 import { useSocialStore } from '../../stores/socialStore';
 
@@ -22,13 +22,8 @@ interface PostCardProps {
   onEditPress?: (postId: string, content: string, visibility: 'public' | 'followers') => void;
 }
 
-function PostVideo({ url, width, height }: { url: string; width?: number; height?: number }) {
-  const [open, setOpen] = useState(false);
+function VideoThumbnail({ url, style, onPress }: { url: string; style?: any; onPress: () => void }) {
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
-  const isPortrait = height && width && height > width;
-  const displayHeight = isPortrait ? 360 : 220;
-
-  const player = useVideoPlayer(url, p => { p.pause(); });
 
   useEffect(() => {
     VideoThumbnails.getThumbnailAsync(url, { time: 0 })
@@ -36,48 +31,17 @@ function PostVideo({ url, width, height }: { url: string; width?: number; height
       .catch(() => {});
   }, [url]);
 
-  const handleOpen = useCallback(() => {
-    player.currentTime = 0;
-    player.play();
-    setOpen(true);
-  }, [player]);
-
-  const handleClose = useCallback(() => {
-    player.pause();
-    setOpen(false);
-  }, [player]);
-
   return (
-    <>
-      <TouchableOpacity
-        onPress={handleOpen}
-        activeOpacity={0.85}
-        style={[styles.videoThumb, { height: displayHeight }]}
-      >
-        {thumbnailUri && (
-          <Image source={{ uri: thumbnailUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        )}
-        <View style={styles.videoPlayOverlay}>
-          <Ionicons name="play-circle" size={56} color="rgba(255,255,255,0.92)" />
-          <Text style={styles.videoLabel}>Tap to play</Text>
-        </View>
-      </TouchableOpacity>
-
-      <Modal visible={open} animationType="fade" onRequestClose={handleClose} statusBarTranslucent>
-        <SafeAreaView style={styles.fullscreen}>
-          <VideoView
-            player={player}
-            style={StyleSheet.absoluteFill}
-            contentFit="contain"
-            nativeControls
-            allowsFullscreen
-          />
-          <TouchableOpacity style={styles.closeVideo} onPress={handleClose}>
-            <Ionicons name="close" size={28} color="#fff" />
-          </TouchableOpacity>
-        </SafeAreaView>
-      </Modal>
-    </>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[styles.videoThumb, style]}>
+      {thumbnailUri ? (
+        <Image source={{ uri: thumbnailUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0d1117' }]} />
+      )}
+      <View style={styles.videoPlayOverlay}>
+        <Ionicons name="play-circle" size={36} color="rgba(255,255,255,0.92)" />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -104,12 +68,23 @@ export function PostCard({
   onDeletePress,
   onEditPress,
 }: PostCardProps) {
-  const { toggleLike, toggleBookmark, toggleRepostCount, seedInteraction, postInteractions } = useSocialStore();
+  const { toggleLike, toggleBookmark, toggleRepost, seedInteraction, postInteractions } = useSocialStore();
   const repostScale = useRef(new Animated.Value(1)).current;
+  const [repostTip, setRepostTip] = useState(false);
+
+  // Media viewer state
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+
+  // Read more state
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [measured, setMeasured] = useState(false);
 
   // When this is a repost, all interactions target the ORIGINAL post
   const isRepost = !!(post.repost_of_id && post.repost_of);
   const activePost = isRepost ? post.repost_of! : post;
+  const isReposted = activePost.isReposted ?? false;
 
   // Register the active (possibly original) post in the global interaction map
   useEffect(() => {
@@ -132,25 +107,24 @@ export function PostCard({
   }, [activePost.id, toggleLike]);
 
   const handleRepost = useCallback(async () => {
-    // Spring pop: scale up then settle
+    if (isReposted) {
+      setRepostTip(true);
+      setTimeout(() => setRepostTip(false), 2000);
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.sequence([
       Animated.spring(repostScale, { toValue: 1.5, useNativeDriver: true, damping: 6, stiffness: 300 }),
       Animated.spring(repostScale, { toValue: 1,   useNativeDriver: true, damping: 10, stiffness: 200 }),
     ]).start();
-
-    toggleRepostCount(activePost.id, 1); // optimistic
+    toggleRepost(activePost.id, 1);
     try {
       const res = await apiClient.repostPost(activePost.id);
-      if (!res.success) {
-        toggleRepostCount(activePost.id, -1); // revert
-        if (res.error === 'Already reposted') {
-          Alert.alert('Already reposted', 'You have already reposted this post.');
-        }
-      }
+      if (!res.success) toggleRepost(activePost.id, -1);
     } catch {
-      toggleRepostCount(activePost.id, -1);
+      toggleRepost(activePost.id, -1);
     }
-  }, [activePost.id, toggleRepostCount, repostScale]);
+  }, [activePost.id, isReposted, toggleRepost, repostScale]);
 
   const handleShare = useCallback(async () => {
     try {
@@ -194,9 +168,41 @@ export function PostCard({
 
   const isOwnPost = currentUserId && currentUserId === activePost.user_id;
 
+  // Build media items array for the viewer
+  const mediaItems: MediaItem[] = (activePost.post_media ?? []).slice(0, 4).map(m => ({
+    url: m.url,
+    media_type: m.media_type,
+  }));
+
+  const openViewer = useCallback((index: number) => {
+    setViewerIndex(index);
+    setViewerVisible(true);
+  }, []);
+
+  const handleTextLayout = useCallback((e: any) => {
+    if (!measured) {
+      setMeasured(true);
+      setIsTruncated(e.nativeEvent.lines.length > 4);
+    }
+  }, [measured]);
+
+  const viewerPostContext: PostContext = {
+    post: activePost,
+    isLiked,
+    likeCount,
+    isBookmarked: activePost.isBookmarked ?? false,
+    repostCount: activePost.repost_count,
+    commentCount: activePost.comment_count,
+    onLike: handleLike,
+    onRepost: handleRepost,
+    onBookmark: handleBookmark,
+    onReply: onReplyPress ?? (() => {}),
+    onShare: handleShare,
+  };
+
   return (
     <View style={styles.container}>
-      {/* Avatar — taps open profile */}
+      {/* Avatar */}
       <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
         <UserAvatar
           avatarUrl={activePost.profiles?.avatar_url}
@@ -218,7 +224,7 @@ export function PostCard({
           </TouchableOpacity>
         )}
 
-        {/* Tappable content area — opens post detail */}
+        {/* Tappable content area */}
         <TouchableOpacity onPress={onPress} activeOpacity={0.95}>
           {/* Header */}
           <View style={styles.header}>
@@ -232,33 +238,57 @@ export function PostCard({
             <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
           </View>
 
-          {/* Content */}
+          {/* Content with Read more */}
           <HashtagHighlight
             content={activePost.content}
             style={styles.content}
+            numberOfLines={measured && isTruncated && !expanded ? 4 : undefined}
+            onTextLayout={!measured ? handleTextLayout : undefined}
             onMentionPress={onMentionPress}
             onHashtagPress={onHashtagPress}
           />
+          {isTruncated && !expanded && (
+            <TouchableOpacity onPress={() => setExpanded(true)}>
+              <Text style={styles.readMore}>Read more</Text>
+            </TouchableOpacity>
+          )}
+          {isTruncated && expanded && (
+            <TouchableOpacity onPress={() => setExpanded(false)}>
+              <Text style={styles.readMore}>Show less</Text>
+            </TouchableOpacity>
+          )}
 
-          {/* Media */}
+          {/* Media grid */}
           {activePost.post_media && activePost.post_media.length > 0 && (
             <View style={styles.mediaContainer}>
-              {activePost.post_media.slice(0, 4).map((media) => {
+              {activePost.post_media.slice(0, 4).map((media, index) => {
                 const mediaStyle = [
                   styles.mediaImage,
-                  activePost.post_media!.length === 1 ? styles.singleImage : styles.gridImage
+                  activePost.post_media!.length === 1 ? styles.singleImage : styles.gridImage,
                 ];
                 return media.media_type === 'video' ? (
-                  <PostVideo key={media.id} url={media.url} width={media.width} height={media.height} />
+                  <VideoThumbnail
+                    key={media.id}
+                    url={media.url}
+                    style={mediaStyle}
+                    onPress={() => openViewer(index)}
+                  />
                 ) : (
-                  <Image key={media.id} source={{ uri: media.url }} style={mediaStyle} resizeMode="cover" />
+                  <TouchableOpacity
+                    key={media.id}
+                    onPress={() => openViewer(index)}
+                    activeOpacity={0.9}
+                    style={mediaStyle}
+                  >
+                    <Image source={{ uri: media.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  </TouchableOpacity>
                 );
               })}
             </View>
           )}
         </TouchableOpacity>
 
-        {/* Actions — outside the content touchable so they never trigger navigation */}
+        {/* Actions */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.action} onPress={onReplyPress}>
             <Ionicons name="chatbubble-outline" size={18} color="#718096" />
@@ -267,9 +297,13 @@ export function PostCard({
 
           <TouchableOpacity style={styles.action} onPress={handleRepost}>
             <Animated.View style={{ transform: [{ scale: repostScale }] }}>
-              <Ionicons name="repeat-outline" size={18} color="#718096" />
+              <Ionicons
+                name={isReposted ? 'repeat' : 'repeat-outline'}
+                size={18}
+                color={isReposted ? '#10b981' : '#718096'}
+              />
             </Animated.View>
-            {activePost.repost_count > 0 && <Text style={styles.actionCount}>{activePost.repost_count}</Text>}
+            <RepostStack reposters={activePost.recentReposters ?? []} count={activePost.repost_count} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.action} onPress={handleLike}>
@@ -303,7 +337,18 @@ export function PostCard({
             </TouchableOpacity>
           )}
         </View>
+        {repostTip && <Text style={styles.repostTip}>Already reposted</Text>}
       </View>
+
+      {/* Full-screen media viewer */}
+      <MediaViewerModal
+        visible={viewerVisible}
+        onClose={() => setViewerVisible(false)}
+        media={mediaItems}
+        initialIndex={viewerIndex}
+        caption={activePost.content}
+        postContext={viewerPostContext}
+      />
     </View>
   );
 }
@@ -359,12 +404,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#2d3748',
     lineHeight: 22,
-    marginBottom: 10,
+    marginBottom: 4,
+  },
+  readMore: {
+    fontSize: 14,
+    color: '#3182ce',
+    fontWeight: '500',
+    marginBottom: 8,
   },
   mediaContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 4,
+    marginTop: 6,
     marginBottom: 10,
     borderRadius: 12,
     overflow: 'hidden',
@@ -372,6 +424,7 @@ const styles = StyleSheet.create({
   mediaImage: {
     borderRadius: 8,
     backgroundColor: '#e2e8f0',
+    overflow: 'hidden',
   },
   singleImage: {
     width: '100%',
@@ -399,33 +452,34 @@ const styles = StyleSheet.create({
     color: '#e53e3e',
   },
   videoThumb: {
-    width: '100%',
-    backgroundColor: '#0d1117',
-    borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 10,
+    backgroundColor: '#0d1117',
+    borderRadius: 8,
   },
   videoPlayOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
   },
-  videoLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  fullscreen: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  closeVideo: {
-    position: 'absolute',
-    top: 52,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 20,
-    padding: 6,
-  },
+  repostStack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  repostAvatarWrap: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: '#fff', overflow: 'hidden' },
+  repostAvatarImg: { width: 16, height: 16 },
+  repostTip: { fontSize: 11, color: '#10b981', marginLeft: 48, marginTop: -6, marginBottom: 2 },
 });
+
+function RepostStack({ reposters, count }: { reposters: any[]; count: number }) {
+  if (count === 0) return null;
+  if (reposters.length === 0) return <Text style={styles.actionCount}>{count}</Text>;
+  return (
+    <View style={styles.repostStack}>
+      {reposters.slice(0, 3).map((r, i) => (
+        <View key={i} style={[styles.repostAvatarWrap, { marginLeft: i === 0 ? 0 : -6, zIndex: 3 - i }]}>
+          {r?.avatar_url
+            ? <Image source={{ uri: r.avatar_url }} style={styles.repostAvatarImg} />
+            : <View style={[styles.repostAvatarImg, { backgroundColor: '#e2e8f0' }]} />}
+        </View>
+      ))}
+      <Text style={styles.actionCount}>{count}</Text>
+    </View>
+  );
+}
