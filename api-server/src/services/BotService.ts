@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { supabaseServiceClient } from '../config/supabase';
+import NotificationService from './NotificationService';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -153,6 +154,28 @@ class BotService {
 
     if (error) {
       console.error('BotService: failed to post reply', error);
+      return;
+    }
+
+    // Notify the post author that @kiongozi replied
+    try {
+      const { data: parent } = await supabaseServiceClient
+        .from('posts')
+        .select('user_id')
+        .eq('id', parentPostId)
+        .single();
+
+      if (parent?.user_id && parent.user_id !== BOT_USER_ID) {
+        await NotificationService.notify({
+          userId: parent.user_id,
+          type: 'mention',
+          title: '@kiongozi replied',
+          message: '@kiongozi replied to your post',
+          data: { post_id: parentPostId, from_user_id: BOT_USER_ID, from_username: 'kiongozi' },
+        });
+      }
+    } catch (e) {
+      console.error('BotService: failed to send reply notification', e);
     }
   }
 }
