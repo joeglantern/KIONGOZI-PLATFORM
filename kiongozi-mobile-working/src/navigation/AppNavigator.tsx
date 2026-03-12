@@ -35,6 +35,7 @@ function FeedStackNavigator() {
       <FeedStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <FeedStack.Screen name="EditProfile" component={EditProfileScreen} />
       <FeedStack.Screen name="Bookmarks" component={BookmarksScreen} />
+      <FeedStack.Screen name="DMList" component={DMListScreen} />
       <FeedStack.Screen name="DMConversation" component={DMConversationScreen} />
       <FeedStack.Screen name="FollowList" component={FollowListScreen} />
     </FeedStack.Navigator>

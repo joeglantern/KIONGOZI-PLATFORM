@@ -7,17 +7,23 @@ import { FlatList } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 import { useSocialStore, Post } from '../../stores/socialStore';
+import { useDMStore } from '../../stores/dmStore';
 import { PostCard } from '../../components/social/PostCard';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function FeedScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
+  const { conversations, fetchConversations } = useDMStore();
   const scrollX = useRef(new Animated.Value(0)).current;
+
+  // Total unread DM count across all conversations
+  const unreadDMs = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
   const scrollRef = useRef<ScrollView>(null);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
   const [feedError, setFeedError] = useState<string | null>(null);
@@ -32,6 +38,7 @@ export default function FeedScreen() {
   useEffect(() => {
     fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.'));
     fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.'));
+    fetchConversations().catch(() => {});
   }, []);
 
   // Supabase Realtime subscription — fetch full post on INSERT to get profiles/media
@@ -124,7 +131,24 @@ export default function FeedScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Home</Text>
+        {/* Title row */}
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Home</Text>
+          <TouchableOpacity
+            style={styles.dmBtn}
+            onPress={() => navigation.navigate('DMList')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={24} color="#1a202c" />
+            {unreadDMs > 0 && (
+              <View style={styles.dmBadge}>
+                <Text style={styles.dmBadgeText}>
+                  {unreadDMs > 99 ? '99+' : String(unreadDMs)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
         {/* Tab switcher */}
         <View style={styles.tabs}>
           <TouchableOpacity style={styles.tab} onPress={() => switchTab(0)}>
@@ -245,7 +269,37 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e2e8f0',
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a202c', marginBottom: 8 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
+  dmBtn: {
+    position: 'relative',
+    padding: 4,
+  },
+  dmBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#e53e3e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  dmBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    lineHeight: 12,
+  },
   tabs: {
     flexDirection: 'row',
     position: 'relative',
