@@ -19,6 +19,7 @@ import DMConversationScreen from '../screens/social/DMConversationScreen';
 import FollowListScreen from '../screens/social/FollowListScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileTabScreen from '../screens/social/ProfileTabScreen';
+import SettingsScreen from '../screens/social/SettingsScreen';
 import { KiongoziChatFAB } from '../components/social/KiongoziChatFAB';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
@@ -60,6 +61,7 @@ function ProfileStackNavigator() {
   return (
     <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
       <ProfileStack.Screen name="ProfileMain" component={ProfileTabScreen} />
+      <ProfileStack.Screen name="Settings" component={SettingsScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
       <ProfileStack.Screen name="DMList" component={DMListScreen} />
       <ProfileStack.Screen name="DMConversation" component={DMConversationScreen} />
@@ -93,11 +95,16 @@ function getActiveRouteName(state: NavigationState | undefined): string {
 // Screens where the FAB should be hidden
 const FAB_HIDDEN_SCREENS = new Set(['DMConversation', 'DMList']);
 
-export default function AppNavigator() {
+interface AppNavigatorProps {
+  navRef?: React.MutableRefObject<any>;
+}
+
+export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorProps = {}) {
   const [chatVisible, setChatVisible] = useState(false);
   const [createPostVisible, setCreatePostVisible] = useState(false);
   const [activeRoute, setActiveRoute] = useState('');
-  const navRef = useRef<NavigationContainerRef<any>>(null);
+  const internalNavRef = useRef<NavigationContainerRef<any>>(null);
+  const navRef = externalNavRef ?? internalNavRef;
   const { unreadCount } = useNotificationStore();
   const { sessionExpired } = useAuthStore();
 

@@ -92,11 +92,13 @@ router.get('/users/:username', optionalAuth, async (req: Request, res: Response)
 });
 
 // GET /api/v1/social/users/:username/posts
+// ?type=posts (default, no replies) | replies (replies only) | media (posts with media)
 router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { username } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
     const cursor = req.query.cursor as string | undefined;
+    const type = (req.query.type as string) || 'posts';
 
     const { data: profile } = await supabaseServiceClient
       .from('profiles')
@@ -117,9 +119,18 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
         post_media (*)
       `)
       .eq('user_id', profile.id)
-      .is('parent_post_id', null)
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    if (type === 'replies') {
+      query = query.not('parent_post_id', 'is', null);
+    } else if (type === 'media') {
+      // Only posts that have at least one media item; still exclude replies
+      query = (query as any).not('post_media', 'is', null).is('parent_post_id', null);
+    } else {
+      // Default: top-level posts only
+      query = query.is('parent_post_id', null);
+    }
 
     if (cursor) {
       query = query.lt('created_at', cursor);
@@ -132,8 +143,14 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
       return;
     }
 
-    const nextCursor = posts && posts.length === limit ? posts[posts.length - 1].created_at : null;
-    res.json({ success: true, data: posts, nextCursor });
+    // For media type, filter client-side to posts that actually have media items
+    const filtered = type === 'media'
+      ? (posts || []).filter((p: any) => p.post_media && p.post_media.length > 0)
+      : posts;
+
+    const list = filtered || [];
+    const nextCursor = list.length === limit ? list[list.length - 1].created_at : null;
+    res.json({ success: true, data: list, nextCursor });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch user posts' });
   }

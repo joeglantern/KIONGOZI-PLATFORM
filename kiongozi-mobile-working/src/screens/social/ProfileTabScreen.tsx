@@ -1,180 +1,351 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+  Animated,
+  ActivityIndicator,
+  RefreshControl,
+  Dimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { PostCard } from '../../components/social/PostCard';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
+import apiClient from '../../utils/apiClient';
+
+type Tab = 'posts' | 'replies' | 'media';
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'posts', label: 'Posts' },
+  { key: 'replies', label: 'Replies' },
+  { key: 'media', label: 'Media' },
+];
+const TAB_COUNT = TABS.length;
+const { width: SCREEN_W } = Dimensions.get('window');
+const TAB_W = SCREEN_W / TAB_COUNT;
+
+const COVER_HEIGHT = 180;
+const AVATAR_SIZE = 84;
+const AVATAR_OVERLAP = AVATAR_SIZE / 2;
 
 export default function ProfileTabScreen() {
   const navigation = useNavigation<any>();
-  const { user, signOut } = useAuthStore();
+  const { user } = useAuthStore();
   const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
 
+  const [activeTab, setActiveTab] = useState<Tab>('posts');
+  const [posts, setPosts] = useState<any[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Gear spin animation
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  // Tab underline position
+  const tabIndicatorX = useRef(new Animated.Value(0)).current;
+
+  // Load profile on mount
   useEffect(() => {
     fetchCurrentUserProfile();
   }, []);
 
-  const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await signOut();
-          } catch (e) {
-            Alert.alert('Error', 'Failed to sign out. Please try again.');
-          }
-        },
-      },
-    ]);
+  // Fetch posts whenever tab or profile changes
+  useEffect(() => {
+    if (currentUserProfile?.username) {
+      fetchPosts(true);
+    }
+  }, [activeTab, currentUserProfile?.username]);
+
+  const fetchPosts = useCallback(
+    async (reset = false) => {
+      if (!currentUserProfile?.username) return;
+      if (reset) {
+        setLoading(true);
+        setCursor(null);
+        setPosts([]);
+        setHasMore(true);
+      }
+
+      try {
+        const res = await apiClient.getUserPostsByType(
+          currentUserProfile.username,
+          activeTab,
+          reset ? undefined : cursor ?? undefined
+        );
+        if (res.success && res.data) {
+          const newPosts = res.data as any[];
+          setPosts(prev => (reset ? newPosts : [...prev, ...newPosts]));
+          const nc = (res as any).nextCursor ?? null;
+          setCursor(nc);
+          setHasMore(!!nc);
+        }
+      } catch (err) {
+        console.error('fetchPosts error', err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
+      }
+    },
+    [activeTab, currentUserProfile?.username, cursor]
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchCurrentUserProfile();
+    fetchPosts(true);
   };
 
-  if (!currentUserProfile) {
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore && !loading) {
+      setLoadingMore(true);
+      fetchPosts(false);
+    }
+  };
+
+  const handleTabPress = (tab: Tab, index: number) => {
+    setActiveTab(tab);
+    Animated.spring(tabIndicatorX, {
+      toValue: index * TAB_W,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 8,
+    }).start();
+  };
+
+  const handleGearPress = () => {
+    Animated.timing(spinAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      spinAnim.setValue(0);
+      navigation.navigate('Settings');
+    });
+  };
+
+  const spinDeg = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '90deg'],
+  });
+
+  const profile = currentUserProfile;
+
+  const formatCount = (n: number) => {
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+    return String(n);
+  };
+
+  const ListHeader = (
+    <View>
+      {/* Cover area */}
+      <View style={styles.cover}>
+        <View style={styles.coverOverlay} />
+        {/* Gear icon top-right */}
+        <TouchableOpacity style={styles.gearBtn} onPress={handleGearPress}>
+          <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
+            <Ionicons name="settings-outline" size={22} color="#fff" />
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Avatar overlapping cover */}
+      <View style={styles.avatarRow}>
+        <View style={styles.avatarWrapper}>
+          <UserAvatar avatarUrl={profile?.avatar_url} size={AVATAR_SIZE} />
+        </View>
+      </View>
+
+      {/* Bio section */}
+      <View style={styles.bioSection}>
+        <Text style={styles.displayName}>
+          {profile?.full_name || user?.user_metadata?.full_name || 'Your Profile'}
+        </Text>
+        <Text style={styles.handle}>
+          @{profile?.username || '—'}
+          {'  ·  '}
+          <Text style={styles.tagline}>#KiongoziCivics</Text>
+        </Text>
+        {!!profile?.bio && (
+          <Text style={styles.bio} numberOfLines={2}>
+            {profile.bio}
+          </Text>
+        )}
+
+        {/* Stats row */}
+        {profile && (
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNum}>{formatCount(profile.post_count ?? 0)}</Text>
+              <Text style={styles.statLabel}>Posts</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() =>
+                navigation.navigate('FollowList', {
+                  userId: profile.id,
+                  username: profile.username,
+                  initialTab: 'followers',
+                  isOwnProfile: true,
+                })
+              }
+            >
+              <Text style={styles.statNum}>{formatCount(profile.follower_count ?? 0)}</Text>
+              <Text style={styles.statLabel}>Followers</Text>
+            </TouchableOpacity>
+            <View style={styles.statDivider} />
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() =>
+                navigation.navigate('FollowList', {
+                  userId: profile.id,
+                  username: profile.username,
+                  initialTab: 'following',
+                  isOwnProfile: true,
+                })
+              }
+            >
+              <Text style={styles.statNum}>{formatCount(profile.following_count ?? 0)}</Text>
+              <Text style={styles.statLabel}>Following</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* Tab bar */}
+      <View style={styles.tabBar}>
+        {TABS.map((t, i) => (
+          <TouchableOpacity
+            key={t.key}
+            style={styles.tabBtn}
+            onPress={() => handleTabPress(t.key, i)}
+          >
+            <Text style={[styles.tabLabel, activeTab === t.key && styles.tabLabelActive]}>
+              {t.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        {/* Animated underline */}
+        <Animated.View
+          style={[styles.tabIndicator, { transform: [{ translateX: tabIndicatorX }] }]}
+        />
+      </View>
+    </View>
+  );
+
+  if (!profile) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator color="#1a365d" size="large" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
-          <Ionicons name="settings-outline" size={24} color="#1a202c" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.body}>
-        {/* Avatar + name */}
-        <View style={styles.profileSection}>
-          <UserAvatar
-            avatarUrl={currentUserProfile?.avatar_url}
-            size={72}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <FlatList
+        data={posts}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <PostCard
+            post={item}
+            currentUserId={user?.id}
+            onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+            onUserPress={() =>
+              navigation.navigate('PublicProfile', { username: item.profiles?.username })
+            }
+            onDeletePress={async () => {
+              await apiClient.deletePost(item.id);
+              setPosts(prev => prev.filter(p => p.id !== item.id));
+            }}
           />
-          <Text style={styles.displayName}>
-            {currentUserProfile?.full_name || user?.user_metadata?.full_name || 'Your Profile'}
-          </Text>
-          {currentUserProfile?.username && (
-            <Text style={styles.handle}>@{currentUserProfile.username}</Text>
-          )}
-          <Text style={styles.email}>{user?.email}</Text>
-
-          {/* Stats row */}
-          {currentUserProfile && (
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNum}>{currentUserProfile.post_count ?? 0}</Text>
-                <Text style={styles.statLabel}>Posts</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <TouchableOpacity
-                style={styles.statItem}
-                onPress={() => navigation.navigate('FollowList', {
-                  userId: currentUserProfile.id,
-                  username: currentUserProfile.username,
-                  initialTab: 'followers',
-                  isOwnProfile: true,
-                })}
-              >
-                <Text style={styles.statNum}>{currentUserProfile.follower_count ?? 0}</Text>
-                <Text style={styles.statLabel}>Followers</Text>
-              </TouchableOpacity>
-              <View style={styles.statDivider} />
-              <TouchableOpacity
-                style={styles.statItem}
-                onPress={() => navigation.navigate('FollowList', {
-                  userId: currentUserProfile.id,
-                  username: currentUserProfile.username,
-                  initialTab: 'following',
-                  isOwnProfile: true,
-                })}
-              >
-                <Text style={styles.statNum}>{currentUserProfile.following_count ?? 0}</Text>
-                <Text style={styles.statLabel}>Following</Text>
-              </TouchableOpacity>
+        )}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={
+          loading ? null : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No {activeTab} yet</Text>
             </View>
-          )}
-        </View>
-
-        {/* Menu items */}
-        <View style={styles.menu}>
-          <MenuItem
-            icon="mail-outline"
-            label="Messages"
-            onPress={() => navigation.navigate('DMList')}
+          )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{ padding: 16 }}>
+              <ActivityIndicator color="#1a365d" />
+            </View>
+          ) : null
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#1a365d"
           />
-          <MenuItem
-            icon="person-outline"
-            label="Edit Profile"
-            onPress={() => navigation.navigate('EditProfile')}
-          />
-          <MenuItem
-            icon="bookmark-outline"
-            label="Bookmarks"
-            onPress={() => navigation.navigate('Bookmarks')}
-          />
-          <MenuItem
-            icon="log-out-outline"
-            label="Sign Out"
-            onPress={handleSignOut}
-            danger
-          />
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
-function MenuItem({
-  icon,
-  label,
-  onPress,
-  danger = false,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-      <Ionicons name={icon} size={22} color={danger ? '#e53e3e' : '#4a5568'} />
-      <Text style={[styles.menuLabel, danger && styles.dangerLabel]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color="#cbd5e0" />
-    </TouchableOpacity>
+        }
+        showsVerticalScrollIndicator={false}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f7fafc' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 52,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  // Cover
+  cover: {
+    height: COVER_HEIGHT,
+    backgroundColor: '#1a365d',
+    position: 'relative',
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
-  body: { flex: 1 },
-  profileSection: {
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
-    marginBottom: 16,
+  coverOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(26,54,93,0.45)',
   },
-  displayName: { fontSize: 20, fontWeight: '700', color: '#1a202c', marginTop: 12 },
-  handle: { fontSize: 14, color: '#718096', marginTop: 2 },
-  email: { fontSize: 14, color: '#718096', marginTop: 4 },
+  gearBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 6,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 20,
+  },
+
+  // Avatar
+  avatarRow: {
+    paddingLeft: 20,
+    marginTop: -AVATAR_OVERLAP,
+    marginBottom: 8,
+  },
+  avatarWrapper: {
+    borderWidth: 3,
+    borderColor: '#f7fafc',
+    borderRadius: (AVATAR_SIZE + 6) / 2,
+    alignSelf: 'flex-start',
+  },
+
+  // Bio
+  bioSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+  },
+  displayName: { fontSize: 20, fontWeight: '800', color: '#1a202c', marginBottom: 4 },
+  handle: { fontSize: 14, color: '#718096' },
+  tagline: { fontSize: 14, color: '#1a365d', fontWeight: '600' },
+  bio: { fontSize: 14, color: '#4a5568', marginTop: 8, lineHeight: 20 },
+
+  // Stats
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -182,27 +353,38 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#e2e8f0',
-    width: '100%',
-    justifyContent: 'center',
   },
-  statItem: { alignItems: 'center', paddingHorizontal: 20 },
+  statItem: { flex: 1, alignItems: 'center' },
   statNum: { fontSize: 18, fontWeight: '800', color: '#1a202c' },
   statLabel: { fontSize: 12, color: '#718096', marginTop: 2 },
   statDivider: { width: 1, height: 28, backgroundColor: '#e2e8f0' },
-  menu: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 16,
-    overflow: 'hidden',
-  },
-  menuItem: {
+
+  // Tab bar
+  tabBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
+    backgroundColor: '#fff',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e2e8f0',
+    position: 'relative',
   },
-  menuLabel: { flex: 1, fontSize: 16, color: '#2d3748' },
-  dangerLabel: { color: '#e53e3e' },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  tabLabel: { fontSize: 14, color: '#718096', fontWeight: '500' },
+  tabLabelActive: { color: '#1a365d', fontWeight: '700' },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: TAB_W,
+    height: 2,
+    backgroundColor: '#1a365d',
+    borderRadius: 1,
+  },
+
+  // Empty
+  emptyState: { paddingVertical: 48, alignItems: 'center' },
+  emptyText: { fontSize: 15, color: '#a0aec0' },
 });

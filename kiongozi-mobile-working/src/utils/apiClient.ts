@@ -775,6 +775,33 @@ class ApiClient {
     const p = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
     return this.request(`/api/v1/social/bookmarks${p}`, { method: 'GET' });
   }
+
+  // ================================
+  // PUSH NOTIFICATIONS
+  // ================================
+
+  /** Register an Expo push token for the current user */
+  async registerPushToken(token: string, platform?: string) {
+    return this.request('/api/v1/notifications/push-token', {
+      method: 'POST',
+      body: JSON.stringify({ token, platform }),
+    });
+  }
+
+  /** Unregister an Expo push token for the current user */
+  async unregisterPushToken(token: string) {
+    return this.request('/api/v1/notifications/push-token', {
+      method: 'DELETE',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  /** Get posts for a user filtered by type: 'posts' | 'replies' | 'media' */
+  async getUserPostsByType(username: string, type: 'posts' | 'replies' | 'media', cursor?: string) {
+    const params = new URLSearchParams({ type });
+    if (cursor) params.set('cursor', cursor);
+    return this.request(`/api/v1/social/users/${username}/posts?${params.toString()}`, { method: 'GET' });
+  }
 }
 
 // Create singleton instance

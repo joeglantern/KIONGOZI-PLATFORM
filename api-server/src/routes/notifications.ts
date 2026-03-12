@@ -3,6 +3,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createClient } from '@supabase/supabase-js';
 import { authenticateToken } from '../middleware/auth';
 import { adminRateLimit } from '../middleware/rateLimiter';
+import { sendExpoPush } from '../services/PushService';
 
 const router = express.Router();
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -146,6 +147,20 @@ router.post('/', authenticateToken, async (req, res) => {
       io.to(`user:${user_id}`).emit('notification', created);
     }
 
+    // Fire push notification to all registered devices for this user
+    try {
+      const { data: tokenRows } = await supabase
+        .from('push_tokens')
+        .select('token')
+        .eq('user_id', user_id);
+      const tokens = (tokenRows || []).map((r: any) => r.token);
+      if (tokens.length > 0) {
+        await sendExpoPush(tokens, title, message, data || undefined);
+      }
+    } catch (pushErr) {
+      console.error('Push send error:', pushErr);
+    }
+
     return res.status(201).json({
       success: true,
       data: created
@@ -188,6 +203,54 @@ router.get('/counts', authenticateToken, async (req, res) => {
       error: 'Failed to get notification counts',
       details: (error as Error).message
     });
+  }
+});
+
+// Register a push token for the authenticated user
+router.post('/push-token', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { token, platform } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: 'token is required' });
+    }
+
+    const { error } = await supabase
+      .from('push_tokens')
+      .upsert({ user_id: userId, token, platform: platform || null }, { onConflict: 'user_id,token' });
+
+    if (error) throw error;
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to register push token:', error);
+    return res.status(500).json({ error: 'Failed to register push token' });
+  }
+});
+
+// Unregister a push token for the authenticated user
+router.delete('/push-token', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: 'token is required' });
+    }
+
+    const { error } = await supabase
+      .from('push_tokens')
+      .delete()
+      .eq('user_id', userId)
+      .eq('token', token);
+
+    if (error) throw error;
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to unregister push token:', error);
+    return res.status(500).json({ error: 'Failed to unregister push token' });
   }
 });
 
