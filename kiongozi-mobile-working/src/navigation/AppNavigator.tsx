@@ -57,6 +57,19 @@ function ExploreStackNavigator() {
   );
 }
 
+const NotificationsStack = createNativeStackNavigator();
+function NotificationsStackNavigator() {
+  return (
+    <NotificationsStack.Navigator screenOptions={{ headerShown: false }}>
+      <NotificationsStack.Screen name="NotificationsMain" component={NotificationsScreen} />
+      <NotificationsStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <NotificationsStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <NotificationsStack.Screen name="DMConversation" component={DMConversationScreen} />
+      <NotificationsStack.Screen name="DMList" component={DMListScreen} />
+    </NotificationsStack.Navigator>
+  );
+}
+
 const ProfileStack = createNativeStackNavigator();
 function ProfileStackNavigator() {
   return (
@@ -171,7 +184,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
           />
           <Tab.Screen
             name="Notifications"
-            component={NotificationsScreen}
+            component={NotificationsStackNavigator}
             options={{
               tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
             }}

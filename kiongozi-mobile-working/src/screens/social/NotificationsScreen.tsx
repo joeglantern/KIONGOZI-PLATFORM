@@ -76,7 +76,12 @@ export default function NotificationsScreen() {
         onPress={() => {
           markRead(item.id);
           if (item.type === 'dm' && item.conversationId) {
-            navigation.navigate('DMConversation', { conversationId: item.conversationId, participantName: item.fromUsername || 'Message' });
+            navigation.navigate('DMConversation', {
+              conversationId: item.conversationId,
+              participantName: item.fromUsername || 'Message',
+              participantUsername: item.fromUsername,
+              participantAvatar: item.fromAvatar,
+            });
           } else if (item.postId) {
             navigation.navigate('PostDetail', { postId: item.postId });
           } else if (item.fromUsername) {

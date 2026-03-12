@@ -24,7 +24,7 @@ function mapNotification(raw: any): SocialNotification {
     fromUserId: raw.data?.from_user_id ?? undefined,
     fromUsername: raw.data?.from_username ?? undefined,
     fromAvatar: raw.data?.from_avatar_url ?? undefined,
-    message: raw.title ? `${raw.title}: ${raw.message}` : (raw.message ?? ''),
+    message: raw.message ?? raw.title ?? '',
     read: raw.read ?? false,
     created_at: raw.created_at,
   };
