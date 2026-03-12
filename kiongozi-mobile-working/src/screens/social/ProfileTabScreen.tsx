@@ -9,10 +9,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { PostCard } from '../../components/social/PostCard';
 import { useAuthStore } from '../../stores/authStore';
@@ -36,7 +39,7 @@ const AVATAR_OVERLAP = AVATAR_SIZE / 2;
 export default function ProfileTabScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
+  const { currentUserProfile, fetchCurrentUserProfile, updateCurrentUserProfile } = useProfileStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('posts');
   const [posts, setPosts] = useState<any[]>([]);
@@ -46,17 +49,22 @@ export default function ProfileTabScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
+  // Upload states
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  // Local preview URIs before server confirms
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+  const [localBannerUri, setLocalBannerUri] = useState<string | null>(null);
+
   // Gear spin animation
   const spinAnim = useRef(new Animated.Value(0)).current;
   // Tab underline position
   const tabIndicatorX = useRef(new Animated.Value(0)).current;
 
-  // Load profile on mount
   useEffect(() => {
     fetchCurrentUserProfile();
   }, []);
 
-  // Fetch posts whenever tab or profile changes
   useEffect(() => {
     if (currentUserProfile?.username) {
       fetchPosts(true);
@@ -72,7 +80,6 @@ export default function ProfileTabScreen() {
         setPosts([]);
         setHasMore(true);
       }
-
       try {
         const res = await apiClient.getUserPostsByType(
           currentUserProfile.username,
@@ -131,6 +138,66 @@ export default function ProfileTabScreen() {
     });
   };
 
+  // ── Photo upload ──────────────────────────────────────────────────────────
+
+  const handlePickPhoto = async (field: 'avatar' | 'banner') => {
+    const isAvatar = field === 'avatar';
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow photo library access in Settings.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: isAvatar ? [1, 1] : [16, 9],
+      quality: 0.85,
+    });
+
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+
+    // Optimistic local preview
+    if (isAvatar) {
+      setLocalAvatarUri(uri);
+      setUploadingAvatar(true);
+    } else {
+      setLocalBannerUri(uri);
+      setUploadingBanner(true);
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append(field, { uri, type: 'image/jpeg', name: `${field}.jpg` } as any);
+      const res = await apiClient.updateProfile(formData);
+
+      if (res.success && res.data) {
+        updateCurrentUserProfile({
+          ...(res.data.avatar_url ? { avatar_url: res.data.avatar_url } : {}),
+          ...(res.data.banner_url ? { banner_url: res.data.banner_url } : {}),
+        });
+        // Clear local preview now that server URL is in store
+        if (isAvatar) setLocalAvatarUri(null);
+        else setLocalBannerUri(null);
+      } else {
+        Alert.alert('Upload failed', res.error || 'Could not update photo.');
+        if (isAvatar) setLocalAvatarUri(null);
+        else setLocalBannerUri(null);
+      }
+    } catch {
+      Alert.alert('Upload failed', 'Network error. Please try again.');
+      if (isAvatar) setLocalAvatarUri(null);
+      else setLocalBannerUri(null);
+    } finally {
+      if (isAvatar) setUploadingAvatar(false);
+      else setUploadingBanner(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   const spinDeg = spinAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '90deg'],
@@ -139,31 +206,71 @@ export default function ProfileTabScreen() {
   const profile = currentUserProfile;
 
   const formatCount = (n: number) => {
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
     if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
     return String(n);
   };
 
+  const bannerSource = localBannerUri
+    ? { uri: localBannerUri }
+    : profile?.banner_url
+    ? { uri: profile.banner_url }
+    : null;
+
+  const avatarUrl = localAvatarUri ?? profile?.avatar_url;
+
   const ListHeader = (
     <View>
-      {/* Cover area */}
-      <View style={styles.cover}>
-        <View style={styles.coverOverlay} />
+      {/* ── Cover area ─────────────────────────────────────────────────── */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => handlePickPhoto('banner')}
+        style={styles.cover}
+      >
+        {bannerSource ? (
+          <Image source={bannerSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+        ) : null}
+
+        {/* Dark tint so gear icon is always readable */}
+        <View style={styles.coverTint} />
+
+        {/* Upload spinner for banner */}
+        {uploadingBanner && (
+          <View style={styles.coverUploadOverlay}>
+            <ActivityIndicator color="#fff" size="large" />
+          </View>
+        )}
+
+        {/* Camera badge bottom-center */}
+        {!uploadingBanner && (
+          <View style={styles.coverCameraHint}>
+            <Ionicons name="camera-outline" size={16} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.coverCameraText}>Change cover</Text>
+          </View>
+        )}
+
         {/* Gear icon top-right */}
         <TouchableOpacity style={styles.gearBtn} onPress={handleGearPress}>
           <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
             <Ionicons name="settings-outline" size={22} color="#fff" />
           </Animated.View>
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
 
-      {/* Avatar overlapping cover */}
+      {/* ── Avatar overlapping cover ───────────────────────────────────── */}
       <View style={styles.avatarRow}>
         <View style={styles.avatarWrapper}>
-          <UserAvatar avatarUrl={profile?.avatar_url} size={AVATAR_SIZE} />
+          <UserAvatar
+            avatarUrl={avatarUrl}
+            size={AVATAR_SIZE}
+            editable
+            uploading={uploadingAvatar}
+            onPress={() => handlePickPhoto('avatar')}
+          />
         </View>
       </View>
 
-      {/* Bio section */}
+      {/* ── Bio section ────────────────────────────────────────────────── */}
       <View style={styles.bioSection}>
         <Text style={styles.displayName}>
           {profile?.full_name || user?.user_metadata?.full_name || 'Your Profile'}
@@ -220,7 +327,7 @@ export default function ProfileTabScreen() {
         )}
       </View>
 
-      {/* Tab bar */}
+      {/* ── Tab bar ────────────────────────────────────────────────────── */}
       <View style={styles.tabBar}>
         {TABS.map((t, i) => (
           <TouchableOpacity
@@ -233,7 +340,6 @@ export default function ProfileTabScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-        {/* Animated underline */}
         <Animated.View
           style={[styles.tabIndicator, { transform: [{ translateX: tabIndicatorX }] }]}
         />
@@ -286,11 +392,7 @@ export default function ProfileTabScreen() {
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#1a365d"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1a365d" />
         }
         showsVerticalScrollIndicator={false}
       />
@@ -306,18 +408,41 @@ const styles = StyleSheet.create({
   cover: {
     height: COVER_HEIGHT,
     backgroundColor: '#1a365d',
-    position: 'relative',
+    overflow: 'hidden',
   },
-  coverOverlay: {
+  coverTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26,54,93,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.18)',
+  },
+  coverUploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coverCameraHint: {
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  coverCameraText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    fontWeight: '500',
   },
   gearBtn: {
     position: 'absolute',
     top: 16,
     right: 16,
     padding: 6,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 20,
   },
 
@@ -367,11 +492,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
     position: 'relative',
   },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
+  tabBtn: { flex: 1, paddingVertical: 14, alignItems: 'center' },
   tabLabel: { fontSize: 14, color: '#718096', fontWeight: '500' },
   tabLabelActive: { color: '#1a365d', fontWeight: '700' },
   tabIndicator: {
