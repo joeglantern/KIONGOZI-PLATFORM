@@ -656,11 +656,11 @@ router.post('/posts/:id/view', authenticateToken, async (req: Request, res: Resp
   try {
     const { id: postId } = req.params;
     const userId = req.user!.id;
-    const { interaction_type = 'view', dwell_ms } = req.body;
+    const { event_type = 'view', duration_ms } = req.body;
 
-    const allowed = ['view', 'like', 'repost', 'reply', 'profile_click', 'share'];
-    if (!allowed.includes(interaction_type)) {
-      res.status(400).json({ success: false, error: 'Invalid interaction_type' });
+    const allowed = ['view', 'like', 'repost', 'reply', 'profile_click', 'share', 'bookmark', 'scroll_past'];
+    if (!allowed.includes(event_type)) {
+      res.status(400).json({ success: false, error: 'Invalid event_type' });
       return;
     }
 
@@ -671,11 +671,11 @@ router.post('/posts/:id/view', authenticateToken, async (req: Request, res: Resp
         {
           post_id: postId,
           user_id: userId,
-          interaction_type,
-          dwell_ms: dwell_ms ?? null,
+          event_type,
+          duration_ms: duration_ms ?? null,
           created_at: new Date().toISOString(),
         },
-        { onConflict: 'post_id,user_id,interaction_type' }
+        { onConflict: 'post_id,user_id,event_type' }
       );
 
     res.json({ success: true });
