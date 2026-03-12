@@ -719,11 +719,10 @@ router.post('/translate', optionalAuth, async (req: Request, res: Response): Pro
       return;
     }
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const lang = targetLang === 'sw' ? 'Swahili' : 'English';
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: `Translate the following text to ${lang}. Return only the translation, nothing else. If it is already in ${lang}, return it unchanged.` },
+        { role: 'system', content: 'Detect the language of the following text. If it is in English, translate it to Swahili. If it is in Swahili, translate it to English. If it is in any other language, translate it to English. Return only the translation, nothing else.' },
         { role: 'user', content: text.trim() },
       ],
       max_tokens: 300,

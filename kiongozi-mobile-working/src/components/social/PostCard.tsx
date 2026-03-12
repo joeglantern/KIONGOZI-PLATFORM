@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Share, Alert, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Alert, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
@@ -275,8 +275,7 @@ export function PostCard({
         )}
 
         {/* Tappable content area */}
-        <TouchableOpacity
-          activeOpacity={0.95}
+        <Pressable
           onPress={(e) => {
             const now = Date.now();
             if (now - lastTapRef.current < 280) {
@@ -362,7 +361,7 @@ export function PostCard({
               })}
             </View>
           )}
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Actions */}
         <View style={styles.actions}>
