@@ -115,16 +115,18 @@ class BotService {
     messages: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<string | null> {
     try {
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          ...messages
-        ],
-        max_tokens: 100,
-        temperature: 0.7,
-        timeout: 15000,
-      } as any);
+      const completion = await openai.chat.completions.create(
+        {
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...messages
+          ],
+          max_tokens: 100,
+          temperature: 0.7,
+        },
+        { timeout: 15000 }
+      );
 
       const text = completion.choices[0]?.message?.content?.trim();
       if (!text) return null;
