@@ -73,11 +73,12 @@ router.get('/users/:username', optionalAuth, async (req: Request, res: Response)
       return;
     }
 
-    // If requester is authenticated, check follow state
+    // If requester is authenticated, check follow state + block state
     let isFollowing = false;
     let followRequestStatus: string | null = null;
+    let isBlockedBy = false;
     if (req.user) {
-      const [{ data: follow }, { data: followReq }] = await Promise.all([
+      const [{ data: follow }, { data: followReq }, { data: blockedByRow }] = await Promise.all([
         supabaseServiceClient
           .from('follows')
           .select('id')
@@ -90,9 +91,30 @@ router.get('/users/:username', optionalAuth, async (req: Request, res: Response)
           .eq('requester_id', req.user.id)
           .eq('target_id', profile.id)
           .maybeSingle(),
+        supabaseServiceClient
+          .from('blocks')
+          .select('id')
+          .eq('blocker_id', profile.id)
+          .eq('blocked_id', req.user.id)
+          .maybeSingle(),
       ]);
       isFollowing = !!follow;
       followRequestStatus = followReq?.status ?? null;
+      isBlockedBy = !!blockedByRow;
+    }
+
+    // If viewer is blocked by this user, return minimal profile only
+    if (isBlockedBy) {
+      res.json({
+        success: true,
+        data: {
+          id: profile.id,
+          full_name: profile.full_name,
+          username: profile.username,
+          isBlockedBy: true,
+        },
+      });
+      return;
     }
 
     res.json({ success: true, data: { ...profile, isFollowing, followRequestStatus } });
@@ -119,6 +141,20 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
     if (!profile) {
       res.status(404).json({ success: false, error: 'User not found' });
       return;
+    }
+
+    // If viewer is blocked by this user, return empty
+    if (req.user) {
+      const { data: blockedByRow } = await supabaseServiceClient
+        .from('blocks')
+        .select('id')
+        .eq('blocker_id', profile.id)
+        .eq('blocked_id', req.user.id)
+        .maybeSingle();
+      if (blockedByRow) {
+        res.json({ success: true, data: [], nextCursor: null });
+        return;
+      }
     }
 
     let query = supabaseServiceClient

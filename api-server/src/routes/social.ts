@@ -573,20 +573,36 @@ router.get('/search', optionalAuth, async (req: Request, res: Response): Promise
       return;
     }
 
-    const [{ data: posts }, { data: users }] = await Promise.all([
-      supabaseServiceClient
-        .from('posts')
-        .select(`*, profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified)`)
-        .eq('visibility', 'public')
-        .ilike('content', `%${q}%`)
-        .order('created_at', { ascending: false })
-        .limit(20),
-      supabaseServiceClient
-        .from('profiles')
-        .select('id, full_name, username, avatar_url, bio, is_verified, is_bot, follower_count')
-        .or(`username.ilike.%${q}%,full_name.ilike.%${q}%`)
-        .limit(10)
-    ]);
+    // Fetch IDs of users who have blocked the current viewer (to exclude from results)
+    let blockedByIds: string[] = [];
+    if (req.user) {
+      const { data: blockedByRows } = await supabaseServiceClient
+        .from('blocks')
+        .select('blocker_id')
+        .eq('blocked_id', req.user.id);
+      blockedByIds = (blockedByRows || []).map((r: any) => r.blocker_id);
+    }
+
+    let postsQuery = supabaseServiceClient
+      .from('posts')
+      .select(`*, profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified)`)
+      .eq('visibility', 'public')
+      .ilike('content', `%${q}%`)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    let usersQuery = supabaseServiceClient
+      .from('profiles')
+      .select('id, full_name, username, avatar_url, bio, is_verified, is_bot, follower_count')
+      .or(`username.ilike.%${q}%,full_name.ilike.%${q}%`)
+      .limit(10);
+
+    if (blockedByIds.length > 0) {
+      postsQuery = postsQuery.not('user_id', 'in', `(${blockedByIds.join(',')})`);
+      usersQuery = usersQuery.not('id', 'in', `(${blockedByIds.join(',')})`);
+    }
+
+    const [{ data: posts }, { data: users }] = await Promise.all([postsQuery, usersQuery]);
 
     const enrichedPosts = await enrichWithUserState(posts || [], req.user?.id);
     res.json({ success: true, data: { posts: enrichedPosts, users: users || [] } });

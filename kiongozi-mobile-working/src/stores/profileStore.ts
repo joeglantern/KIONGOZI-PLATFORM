@@ -17,6 +17,7 @@ export interface PublicProfile {
   created_at: string;
   isFollowing?: boolean;
   followRequestStatus?: string | null;
+  isBlockedBy?: boolean;
 }
 
 interface ProfileState {

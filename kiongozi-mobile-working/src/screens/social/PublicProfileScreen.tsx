@@ -42,18 +42,26 @@ export default function PublicProfileScreen() {
     setLoading(true);
     setNotFound(false);
     try {
-      const [prof, postsRes] = await Promise.all([
-        fetchProfile(username),
-        apiClient.getUserPosts(username)
-      ]);
-      if (!prof) {
+      // Always fetch fresh so isBlockedBy / isFollowing state is current
+      const profRes = await apiClient.getPublicProfile(username);
+      if (!profRes.success || !profRes.data) {
         setNotFound(true);
-      } else {
-        setProfile(prof);
-        if (postsRes.success) {
-          setPosts((postsRes as any).data || []);
-          setPostsCursor((postsRes as any).nextCursor || null);
-        }
+        setLoading(false);
+        return;
+      }
+      const prof = profRes.data as any;
+      setProfile(prof);
+
+      // If blocked by this user, skip posts fetch
+      if (prof.isBlockedBy) {
+        setLoading(false);
+        return;
+      }
+
+      const postsRes = await apiClient.getUserPosts(username);
+      if (postsRes.success) {
+        setPosts((postsRes as any).data || []);
+        setPostsCursor((postsRes as any).nextCursor || null);
       }
     } catch {
       setNotFound(true);
@@ -286,6 +294,29 @@ export default function PublicProfileScreen() {
     );
   }
 
+  // Blocked-by state — viewer is blocked by this user (Instagram-style: neutral message, no hint)
+  if (!isOwnProfile && profile?.isBlockedBy) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+          </TouchableOpacity>
+          <Text style={styles.headerName}>@{profile.username}</Text>
+          <View style={{ width: 36 }} />
+        </View>
+        <View style={styles.blockedWall}>
+          <View style={styles.blockedByIconWrap}>
+            <Ionicons name="lock-closed-outline" size={36} color="#94a3b8" />
+          </View>
+          <Text style={styles.blockedByName}>{profile.full_name}</Text>
+          <Text style={styles.blockedByUsername}>@{profile.username}</Text>
+          <Text style={styles.blockedByMsg}>This account's content isn't available.</Text>
+        </View>
+      </View>
+    );
+  }
+
   // Determine follow button label
   const getFollowLabel = () => {
     if (profile?.isFollowing) return 'Following';
@@ -508,6 +539,15 @@ const styles = StyleSheet.create({
     borderColor: '#1a365d',
   },
   unblockText: { color: '#1a365d', fontWeight: '700', fontSize: 15 },
+  blockedByIconWrap: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 4,
+  },
+  blockedByName: { fontSize: 18, fontWeight: '700', color: '#1a202c' },
+  blockedByUsername: { fontSize: 14, color: '#94a3b8', marginBottom: 6 },
+  blockedByMsg: { fontSize: 15, color: '#94a3b8', textAlign: 'center' },
   notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
   notFoundTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c' },
   notFoundSub: { fontSize: 15, color: '#718096', textAlign: 'center' },
