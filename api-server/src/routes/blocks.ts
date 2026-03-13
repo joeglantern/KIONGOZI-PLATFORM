@@ -76,12 +76,9 @@ router.get('/blocked', authenticateToken, async (req: Request, res: Response): P
   try {
     const blockerId = req.user!.id;
 
-    const { data, error } = await supabaseServiceClient
+    const { data: blockRows, error } = await supabaseServiceClient
       .from('blocks')
-      .select(`
-        blocked:blocked_id (id, full_name, username, avatar_url, is_verified),
-        created_at
-      `)
+      .select('blocked_id')
       .eq('blocker_id', blockerId)
       .order('created_at', { ascending: false });
 
@@ -90,7 +87,23 @@ router.get('/blocked', authenticateToken, async (req: Request, res: Response): P
       return;
     }
 
-    res.json({ success: true, data: (data || []).map((d: any) => d.blocked) });
+    const ids = (blockRows || []).map((r: any) => r.blocked_id);
+    if (ids.length === 0) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const { data: profiles, error: profileErr } = await supabaseServiceClient
+      .from('profiles')
+      .select('id, full_name, username, avatar_url, is_verified')
+      .in('id', ids);
+
+    if (profileErr) {
+      res.status(500).json({ success: false, error: 'Failed to fetch blocked users' });
+      return;
+    }
+
+    res.json({ success: true, data: profiles || [] });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch blocked users' });
   }
@@ -154,12 +167,9 @@ router.get('/muted', authenticateToken, async (req: Request, res: Response): Pro
   try {
     const muterId = req.user!.id;
 
-    const { data, error } = await supabaseServiceClient
+    const { data: muteRows, error } = await supabaseServiceClient
       .from('mutes')
-      .select(`
-        muted:muted_id (id, full_name, username, avatar_url, is_verified),
-        created_at
-      `)
+      .select('muted_id')
       .eq('muter_id', muterId)
       .order('created_at', { ascending: false });
 
@@ -168,7 +178,23 @@ router.get('/muted', authenticateToken, async (req: Request, res: Response): Pro
       return;
     }
 
-    res.json({ success: true, data: (data || []).map((d: any) => d.muted) });
+    const ids = (muteRows || []).map((r: any) => r.muted_id);
+    if (ids.length === 0) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const { data: profiles, error: profileErr } = await supabaseServiceClient
+      .from('profiles')
+      .select('id, full_name, username, avatar_url, is_verified')
+      .in('id', ids);
+
+    if (profileErr) {
+      res.status(500).json({ success: false, error: 'Failed to fetch muted users' });
+      return;
+    }
+
+    res.json({ success: true, data: profiles || [] });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch muted users' });
   }

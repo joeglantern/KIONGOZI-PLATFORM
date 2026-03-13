@@ -21,7 +21,7 @@ export default function PublicProfileScreen() {
   const { username } = route.params || {};
   const { user } = useAuthStore();
   const { fetchProfile, updateFollowState } = useProfileStore();
-  const { blockUser, muteUser } = useSocialStore();
+  const { blockUser, muteUser, unblockUser, blockedUserIds } = useSocialStore();
 
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
@@ -251,6 +251,40 @@ export default function PublicProfileScreen() {
   }
 
   const isOwnProfile = user?.id === profile?.id;
+  const isBlocked = !isOwnProfile && blockedUserIds.includes(profile?.id ?? '');
+
+  // Blocked state — show wall instead of profile
+  if (isBlocked) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+          </TouchableOpacity>
+          <Text style={styles.headerName}>@{profile?.username}</Text>
+          <View style={{ width: 36 }} />
+        </View>
+        <View style={styles.blockedWall}>
+          <Ionicons name="ban" size={52} color="#e2e8f0" />
+          <Text style={styles.blockedTitle}>You've blocked this user</Text>
+          <Text style={styles.blockedSub}>Unblock to see their profile and posts.</Text>
+          <TouchableOpacity
+            style={styles.unblockBtn}
+            onPress={() => Alert.alert(
+              `Unblock @${profile?.username}?`,
+              'They will be able to see your posts and interact with you again.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Unblock', onPress: () => unblockUser(profile.id) },
+              ]
+            )}
+          >
+            <Text style={styles.unblockText}>Unblock</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   // Determine follow button label
   const getFollowLabel = () => {
@@ -462,6 +496,18 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
   postsHeader: { fontSize: 16, fontWeight: '700', color: '#1a202c', paddingHorizontal: 16, paddingBottom: 8 },
   noPosts: { padding: 24, textAlign: 'center', color: '#a0aec0' },
+  blockedWall: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
+  blockedTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c' },
+  blockedSub: { fontSize: 15, color: '#718096', textAlign: 'center' },
+  unblockBtn: {
+    marginTop: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1a365d',
+  },
+  unblockText: { color: '#1a365d', fontWeight: '700', fontSize: 15 },
   notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
   notFoundTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c' },
   notFoundSub: { fontSize: 15, color: '#718096', textAlign: 'center' },
