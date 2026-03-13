@@ -3,7 +3,7 @@ import apiClient from '../utils/apiClient';
 
 export interface SocialNotification {
   id: string;
-  type: 'like' | 'comment' | 'repost' | 'mention' | 'follow' | 'dm' | 'info' | 'warning' | 'error';
+  type: 'like' | 'comment' | 'repost' | 'mention' | 'follow' | 'follow_request' | 'dm' | 'info' | 'warning' | 'error';
   postId?: string;
   conversationId?: string;
   fromUserId?: string;
@@ -12,6 +12,7 @@ export interface SocialNotification {
   message: string;
   read: boolean;
   created_at: string;
+  data?: Record<string, any>;
 }
 
 /** Map raw DB notification row → SocialNotification */
@@ -27,6 +28,7 @@ function mapNotification(raw: any): SocialNotification {
     message: raw.message ?? raw.title ?? '',
     read: raw.read ?? false,
     created_at: raw.created_at,
+    data: raw.data,
   };
 }
 
@@ -39,6 +41,7 @@ interface NotificationState {
 
   fetchNotifications: (refresh?: boolean) => Promise<void>;
   addNotification: (rawOrNotification: any) => void;
+  removeNotification: (id: string) => void;
   markAllRead: () => void;
   markRead: (id: string) => void;
   reset: () => void;
@@ -79,6 +82,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       notifications: [notification, ...s.notifications].slice(0, 100),
       unreadCount: s.unreadCount + (notification.read ? 0 : 1),
     }));
+  },
+
+  removeNotification: (id: string) => {
+    set(s => {
+      const notifications = s.notifications.filter(n => n.id !== id);
+      return {
+        notifications,
+        unreadCount: notifications.filter(n => !n.read).length,
+      };
+    });
   },
 
   markAllRead: () => {

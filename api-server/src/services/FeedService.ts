@@ -69,6 +69,35 @@ async function enrichWithUserState(posts: any[], userId?: string): Promise<any[]
 
 export { enrichWithUserState };
 
+/**
+ * Fetch the set of user IDs that should be excluded from feeds for a given user:
+ * - users they muted
+ * - users they blocked
+ * - users who blocked them
+ */
+async function getExcludeIds(userId: string): Promise<string[]> {
+  const [{ data: muted }, { data: blocked }, { data: blockedBy }] = await Promise.all([
+    supabaseServiceClient
+      .from('mutes')
+      .select('muted_id')
+      .eq('muter_id', userId),
+    supabaseServiceClient
+      .from('blocks')
+      .select('blocked_id')
+      .eq('blocker_id', userId),
+    supabaseServiceClient
+      .from('blocks')
+      .select('blocker_id')
+      .eq('blocked_id', userId),
+  ]);
+
+  const ids = new Set<string>();
+  (muted || []).forEach((r: any) => ids.add(r.muted_id));
+  (blocked || []).forEach((r: any) => ids.add(r.blocked_id));
+  (blockedBy || []).forEach((r: any) => ids.add(r.blocker_id));
+  return Array.from(ids);
+}
+
 class FeedService {
   /**
    * Get personalized fan-in feed for a user.
@@ -80,10 +109,13 @@ class FeedService {
     limit: number,
     cursor?: string
   ): Promise<{ data: any[]; nextCursor: string | null }> {
-    const { data: following, error: followErr } = await supabaseServiceClient
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', userId);
+    const [{ data: following, error: followErr }, excludeIds] = await Promise.all([
+      supabaseServiceClient
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId),
+      getExcludeIds(userId),
+    ]);
 
     if (followErr) throw followErr;
 
@@ -101,6 +133,10 @@ class FeedService {
       .is('parent_post_id', null)
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    if (excludeIds.length > 0) {
+      query = query.not('user_id', 'in', `(${excludeIds.join(',')})`);
+    }
 
     if (cursor) {
       query = query.lt('created_at', cursor);
@@ -122,6 +158,8 @@ class FeedService {
     cursor?: string,
     userId?: string
   ): Promise<{ data: any[]; nextCursor: string | null }> {
+    const excludeIds = userId ? await getExcludeIds(userId) : [];
+
     let query = supabaseServiceClient
       .from('posts')
       .select(POST_SELECT)
@@ -129,6 +167,10 @@ class FeedService {
       .is('parent_post_id', null)
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    if (excludeIds.length > 0) {
+      query = query.not('user_id', 'in', `(${excludeIds.join(',')})`);
+    }
 
     if (cursor) {
       query = query.lt('created_at', cursor);
@@ -161,7 +203,7 @@ class FeedService {
   ): Promise<{ data: any[]; nextCursor: string | null }> {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [{ data: pool, error }, { data: following }] = await Promise.all([
+    const [{ data: pool, error }, { data: following }, excludeIds] = await Promise.all([
       supabaseServiceClient
         .from('posts')
         .select(POST_SELECT)
@@ -175,14 +217,17 @@ class FeedService {
         .from('follows')
         .select('following_id')
         .eq('follower_id', userId),
+      getExcludeIds(userId),
     ]);
 
     if (error) throw error;
 
+    const excludeSet = new Set(excludeIds);
     const followingSet = new Set((following || []).map((f: any) => f.following_id));
     const now = Date.now();
 
     const scored = (pool || [])
+      .filter((p: any) => !excludeSet.has(p.user_id))
       .map((p: any) => {
         const ageH = (now - new Date(p.created_at).getTime()) / 3600000;
         const recency = ageH < 6 ? 1.0 : ageH < 24 ? 0.8 : ageH < 72 ? 0.5 : 0.2;

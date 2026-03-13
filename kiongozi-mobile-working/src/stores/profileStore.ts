@@ -10,11 +10,13 @@ export interface PublicProfile {
   banner_url?: string;
   is_bot?: boolean;
   is_verified?: boolean;
+  is_private?: boolean;
   follower_count: number;
   following_count: number;
   post_count: number;
   created_at: string;
   isFollowing?: boolean;
+  followRequestStatus?: string | null;
 }
 
 interface ProfileState {

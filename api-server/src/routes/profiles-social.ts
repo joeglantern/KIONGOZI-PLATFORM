@@ -12,7 +12,7 @@ router.get('/profile/me', authenticateToken, async (req: Request, res: Response)
   try {
     const { data: profile, error } = await supabaseServiceClient
       .from('profiles')
-      .select('id, full_name, username, bio, avatar_url, banner_url, is_bot, is_verified, follower_count, following_count, post_count, created_at')
+      .select('id, full_name, username, bio, avatar_url, banner_url, is_bot, is_verified, is_private, follower_count, following_count, post_count, created_at')
       .eq('id', req.user!.id)
       .single();
 
@@ -64,7 +64,7 @@ router.get('/users/:username', optionalAuth, async (req: Request, res: Response)
 
     const { data: profile, error } = await supabaseServiceClient
       .from('profiles')
-      .select('id, full_name, username, bio, avatar_url, banner_url, is_bot, is_verified, follower_count, following_count, post_count, created_at')
+      .select('id, full_name, username, bio, avatar_url, banner_url, is_bot, is_verified, is_private, follower_count, following_count, post_count, created_at')
       .eq('username', username)
       .single();
 
@@ -73,19 +73,29 @@ router.get('/users/:username', optionalAuth, async (req: Request, res: Response)
       return;
     }
 
-    // If requester is authenticated, check if they follow this user
+    // If requester is authenticated, check follow state
     let isFollowing = false;
+    let followRequestStatus: string | null = null;
     if (req.user) {
-      const { data: follow } = await supabaseServiceClient
-        .from('follows')
-        .select('id')
-        .eq('follower_id', req.user.id)
-        .eq('following_id', profile.id)
-        .single();
+      const [{ data: follow }, { data: followReq }] = await Promise.all([
+        supabaseServiceClient
+          .from('follows')
+          .select('id')
+          .eq('follower_id', req.user.id)
+          .eq('following_id', profile.id)
+          .maybeSingle(),
+        supabaseServiceClient
+          .from('follow_requests')
+          .select('status')
+          .eq('requester_id', req.user.id)
+          .eq('target_id', profile.id)
+          .maybeSingle(),
+      ]);
       isFollowing = !!follow;
+      followRequestStatus = followReq?.status ?? null;
     }
 
-    res.json({ success: true, data: { ...profile, isFollowing } });
+    res.json({ success: true, data: { ...profile, isFollowing, followRequestStatus } });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch profile' });
   }
@@ -170,6 +180,9 @@ router.patch(
       const updates: Record<string, any> = {};
       if (bio !== undefined) updates.bio = bio;
       if (full_name !== undefined) updates.full_name = full_name;
+      if (req.body.is_private !== undefined) {
+        updates.is_private = req.body.is_private === 'true' || req.body.is_private === true;
+      }
 
       if (username !== undefined) {
         // Validate username
@@ -211,7 +224,7 @@ router.patch(
         .from('profiles')
         .update(updates)
         .eq('id', userId)
-        .select('id, full_name, username, bio, avatar_url, banner_url, is_verified')
+        .select('id, full_name, username, bio, avatar_url, banner_url, is_verified, is_private')
         .single();
 
       if (error) {

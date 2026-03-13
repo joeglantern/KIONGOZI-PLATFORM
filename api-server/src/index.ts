@@ -26,6 +26,10 @@ import followsRoutes from './routes/follows';
 import profilesSocialRoutes from './routes/profiles-social';
 import dmRoutes from './routes/dm';
 import uploadRoutes from './routes/upload';
+import reportsRoutes from './routes/reports';
+import blocksRoutes from './routes/blocks';
+import legalRoutes from './routes/legal';
+import exportRoutes from './routes/export';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -113,7 +117,11 @@ app.use('/api/v1/websocket', websocketRoutes);
 app.use('/api/v1/social', apiRateLimit.middleware(), socialRoutes);
 app.use('/api/v1/social', apiRateLimit.middleware(), followsRoutes);
 app.use('/api/v1/social', apiRateLimit.middleware(), profilesSocialRoutes);
+app.use('/api/v1/social', apiRateLimit.middleware(), reportsRoutes);
+app.use('/api/v1/social', apiRateLimit.middleware(), blocksRoutes);
 app.use('/api/v1/dm', apiRateLimit.middleware(), dmRoutes);
+app.use('/api/v1/legal', legalRoutes);
+app.use('/api/v1/user', apiRateLimit.middleware(), exportRoutes);
 
 // Upload routes (stricter rate limit: 10 req/min)
 const uploadRateLimit = rateLimit({

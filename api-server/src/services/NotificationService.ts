@@ -3,7 +3,7 @@ import { sendExpoPush } from './PushService';
 
 interface NotifyParams {
   userId: string;   // recipient
-  type: 'like' | 'repost' | 'comment' | 'follow' | 'mention' | 'dm';
+  type: 'like' | 'repost' | 'comment' | 'follow' | 'follow_request' | 'mention' | 'dm';
   title: string;
   message: string;
   data?: Record<string, any>;
@@ -47,6 +47,17 @@ class NotificationService {
         // Send push notification (non-blocking, non-critical)
         setImmediate(async () => {
           try {
+            // Skip push if the sender is muted by the recipient
+            if (data?.from_user_id) {
+              const { data: muteRow } = await supabaseServiceClient
+                .from('mutes')
+                .select('id')
+                .eq('muter_id', userId)
+                .eq('muted_id', data.from_user_id)
+                .maybeSingle();
+              if (muteRow) return; // sender is muted — skip push, in-app notification already written
+            }
+
             const { data: tokenRows } = await supabaseServiceClient
               .from('push_tokens')
               .select('token')

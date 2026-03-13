@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl,
@@ -9,6 +9,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../utils/supabaseClient';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import apiClient from '../../utils/apiClient';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -23,15 +24,16 @@ function timeAgo(dateStr: string): string {
 }
 
 const TYPE_META: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  like:    { icon: 'heart',               color: '#f43f5e' },
-  comment: { icon: 'chatbubble-ellipses', color: '#3b82f6' },
-  repost:  { icon: 'repeat',              color: '#10b981' },
-  mention: { icon: 'at-circle',           color: '#8b5cf6' },
-  follow:  { icon: 'person-add',          color: '#f59e0b' },
-  dm:      { icon: 'paper-plane',         color: '#3b82f6' },
-  info:    { icon: 'information-circle',  color: '#3b82f6' },
-  warning: { icon: 'warning',             color: '#f59e0b' },
-  error:   { icon: 'close-circle',        color: '#f43f5e' },
+  like:           { icon: 'heart',               color: '#f43f5e' },
+  comment:        { icon: 'chatbubble-ellipses', color: '#3b82f6' },
+  repost:         { icon: 'repeat',              color: '#10b981' },
+  mention:        { icon: 'at-circle',           color: '#8b5cf6' },
+  follow:         { icon: 'person-add',          color: '#f59e0b' },
+  follow_request: { icon: 'person-add',          color: '#f59e0b' },
+  dm:             { icon: 'paper-plane',         color: '#3b82f6' },
+  info:           { icon: 'information-circle',  color: '#3b82f6' },
+  warning:        { icon: 'warning',             color: '#f59e0b' },
+  error:          { icon: 'close-circle',        color: '#f43f5e' },
 };
 
 // Extract sender name from message for bold display
@@ -40,7 +42,8 @@ function splitMessage(message: string): { name: string; rest: string } | null {
   const actions = [
     'liked your post', 'replied to your post', 'replied in your thread',
     'reposted your post', 'followed you', 'sent you a message',
-    'mentioned you in a post', 'replied to your post', '@kiongozi replied to your post',
+    'mentioned you in a post', '@kiongozi replied to your post',
+    'wants to follow you', 'accepted your follow request',
   ];
   for (const action of actions) {
     const idx = message.indexOf(action);
@@ -51,11 +54,74 @@ function splitMessage(message: string): { name: string; rest: string } | null {
   return null;
 }
 
-function NotificationItem({ item, onPress }: { item: SocialNotification; onPress: () => void }) {
+function FollowRequestButtons({
+  item,
+  onRemove,
+}: {
+  item: SocialNotification;
+  onRemove: (id: string) => void;
+}) {
+  const [loading, setLoading] = useState<'accept' | 'decline' | null>(null);
+  const requestId = item.data?.request_id as string | undefined;
+
+  const handleAccept = async () => {
+    if (!requestId) return;
+    setLoading('accept');
+    try {
+      const res = await apiClient.acceptFollowRequest(requestId);
+      if (res.success) onRemove(item.id);
+    } catch {}
+    setLoading(null);
+  };
+
+  const handleDecline = async () => {
+    if (!requestId) return;
+    setLoading('decline');
+    try {
+      const res = await apiClient.declineFollowRequest(requestId);
+      if (res.success) onRemove(item.id);
+    } catch {}
+    setLoading(null);
+  };
+
+  return (
+    <View style={styles.frButtons}>
+      <TouchableOpacity
+        style={[styles.frBtn, styles.frAccept]}
+        onPress={handleAccept}
+        disabled={!!loading}
+      >
+        {loading === 'accept'
+          ? <ActivityIndicator size="small" color="#fff" />
+          : <Text style={styles.frAcceptText}>Accept</Text>}
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.frBtn, styles.frDecline]}
+        onPress={handleDecline}
+        disabled={!!loading}
+      >
+        {loading === 'decline'
+          ? <ActivityIndicator size="small" color="#1a365d" />
+          : <Text style={styles.frDeclineText}>Decline</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function NotificationItem({
+  item,
+  onPress,
+  onRemove,
+}: {
+  item: SocialNotification;
+  onPress: () => void;
+  onRemove: (id: string) => void;
+}) {
   const meta = TYPE_META[item.type] ?? { icon: 'notifications' as any, color: '#94a3b8' };
   const isSocial = !!item.fromUsername;
   const isBot = item.fromUsername === 'kiongozi';
   const split = splitMessage(item.message);
+  const isFollowRequest = item.type === 'follow_request';
 
   return (
     <TouchableOpacity
@@ -79,7 +145,7 @@ function NotificationItem({ item, onPress }: { item: SocialNotification; onPress
         )}
       </View>
 
-      {/* Text */}
+      {/* Text + optional follow request buttons */}
       <View style={styles.textWrap}>
         <View style={styles.nameRow}>
           <Text style={styles.nameTime} numberOfLines={1}>
@@ -97,6 +163,9 @@ function NotificationItem({ item, onPress }: { item: SocialNotification; onPress
         <Text style={styles.messageText} numberOfLines={3}>
           {split ? split.rest : item.message}
         </Text>
+        {isFollowRequest && (
+          <FollowRequestButtons item={item} onRemove={onRemove} />
+        )}
       </View>
 
       {/* Unread dot */}
@@ -112,7 +181,7 @@ export default function NotificationsScreen() {
   const { user } = useAuthStore();
   const {
     notifications, unreadCount, isLoading, hasMore,
-    fetchNotifications, markAllRead, markRead, addNotification,
+    fetchNotifications, markAllRead, markRead, addNotification, removeNotification,
   } = useNotificationStore();
 
   useEffect(() => { fetchNotifications(true); }, []);
@@ -171,7 +240,11 @@ export default function NotificationsScreen() {
           data={notifications}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
-            <NotificationItem item={item} onPress={() => handlePress(item)} />
+            <NotificationItem
+              item={item}
+              onPress={() => handlePress(item)}
+              onRemove={(id) => { markRead(id); removeNotification?.(id); }}
+            />
           )}
           refreshControl={
             <RefreshControl
@@ -290,6 +363,20 @@ const styles = StyleSheet.create({
     marginTop: 6,
     flexShrink: 0,
   },
+
+  frButtons: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  frBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 72,
+  },
+  frAccept: { backgroundColor: '#1a365d' },
+  frAcceptText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  frDecline: { borderWidth: 1, borderColor: '#e2e8f0' },
+  frDeclineText: { color: '#4a5568', fontWeight: '600', fontSize: 14 },
 
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 12 },
   emptyIcon: {

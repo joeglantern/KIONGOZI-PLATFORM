@@ -9,10 +9,11 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { PostCard } from '../../components/social/PostCard';
 import { useProfileStore } from '../../stores/profileStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useSocialStore } from '../../stores/socialStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
-import { useSocialStore } from '../../stores/socialStore';
+import ReportModal from './ReportModal';
 
 export default function PublicProfileScreen() {
   const navigation = useNavigation<any>();
@@ -20,6 +21,7 @@ export default function PublicProfileScreen() {
   const { username } = route.params || {};
   const { user } = useAuthStore();
   const { fetchProfile, updateFollowState } = useProfileStore();
+  const { blockUser, muteUser } = useSocialStore();
 
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
@@ -29,6 +31,7 @@ export default function PublicProfileScreen() {
   const [notFound, setNotFound] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
   const { deletePost: deleteFromStore } = useSocialStore();
 
   useEffect(() => {
@@ -82,7 +85,7 @@ export default function PublicProfileScreen() {
     setEditTarget({ id: postId, content, visibility });
   }, []);
 
-  // Realtime: live-update follower count when anyone follows/unfollows this profile
+  // Realtime: live-update follower count
   useEffect(() => {
     if (!profile?.id) return;
 
@@ -91,16 +94,12 @@ export default function PublicProfileScreen() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'follows', filter: `following_id=eq.${profile.id}` },
-        () => {
-          setProfile((p: any) => p ? { ...p, follower_count: p.follower_count + 1 } : p);
-        }
+        () => setProfile((p: any) => p ? { ...p, follower_count: p.follower_count + 1 } : p)
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'follows', filter: `following_id=eq.${profile.id}` },
-        () => {
-          setProfile((p: any) => p ? { ...p, follower_count: Math.max(0, p.follower_count - 1) } : p);
-        }
+        () => setProfile((p: any) => p ? { ...p, follower_count: Math.max(0, p.follower_count - 1) } : p)
       )
       .subscribe();
 
@@ -109,32 +108,53 @@ export default function PublicProfileScreen() {
 
   const handleFollowToggle = useCallback(async () => {
     if (!profile) return;
-    const wasFollowing = profile.isFollowing;
-    const newFollowing = !wasFollowing;
 
-    // Optimistic update
-    setProfile((p: any) => p ? {
-      ...p,
-      isFollowing: newFollowing,
-      follower_count: newFollowing ? p.follower_count + 1 : Math.max(0, p.follower_count - 1)
-    } : p);
-    updateFollowState(username, newFollowing);
-
-    try {
-      if (wasFollowing) {
-        await apiClient.unfollowUser(profile.id);
-      } else {
-        await apiClient.followUser(profile.id);
-      }
-    } catch {
-      // Revert on error
+    // If already following → unfollow
+    if (profile.isFollowing) {
       setProfile((p: any) => p ? {
-        ...p,
-        isFollowing: wasFollowing,
-        follower_count: wasFollowing ? p.follower_count + 1 : Math.max(0, p.follower_count - 1)
+        ...p, isFollowing: false,
+        follower_count: Math.max(0, p.follower_count - 1)
       } : p);
-      updateFollowState(username, wasFollowing);
+      updateFollowState(username, false);
+      try {
+        await apiClient.unfollowUser(profile.id);
+      } catch {
+        setProfile((p: any) => p ? {
+          ...p, isFollowing: true,
+          follower_count: p.follower_count + 1
+        } : p);
+        updateFollowState(username, true);
+      }
+      return;
     }
+
+    // If request already sent → cancel (unfollow also cancels request)
+    if (profile.followRequestStatus === 'pending') {
+      setProfile((p: any) => p ? { ...p, followRequestStatus: null } : p);
+      try {
+        await apiClient.unfollowUser(profile.id);
+      } catch {
+        setProfile((p: any) => p ? { ...p, followRequestStatus: 'pending' } : p);
+      }
+      return;
+    }
+
+    // Follow / request
+    try {
+      const res = await apiClient.followUser(profile.id);
+      if (res.success) {
+        if ((res as any).status === 'requested') {
+          setProfile((p: any) => p ? { ...p, followRequestStatus: 'pending' } : p);
+        } else {
+          setProfile((p: any) => p ? {
+            ...p, isFollowing: true,
+            follower_count: p.follower_count + 1,
+            followRequestStatus: null
+          } : p);
+          updateFollowState(username, true);
+        }
+      }
+    } catch {}
   }, [profile, username, updateFollowState]);
 
   const handleMessage = async () => {
@@ -153,6 +173,57 @@ export default function PublicProfileScreen() {
     } catch {}
     setMessageLoading(false);
   };
+
+  const handleMoreOptions = useCallback(() => {
+    if (!profile) return;
+    Alert.alert(
+      profile.full_name,
+      undefined,
+      [
+        {
+          text: `Report @${profile.username}`,
+          onPress: () => setReportTarget({ type: 'user', id: profile.id, displayName: `@${profile.username}` }),
+        },
+        {
+          text: `Block @${profile.username}`,
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            `Block @${profile.username}?`,
+            'They will no longer be able to see your posts or contact you.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Block',
+                style: 'destructive',
+                onPress: async () => {
+                  await blockUser(profile.id);
+                  navigation.goBack();
+                },
+              },
+            ]
+          ),
+        },
+        {
+          text: `Mute @${profile.username}`,
+          onPress: () => Alert.alert(
+            `Mute @${profile.username}?`,
+            'Their posts will be hidden from your feed. They won\'t know they\'ve been muted.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Mute',
+                onPress: async () => {
+                  await muteUser(profile.id);
+                  Alert.alert('Muted', `@${profile.username} has been muted.`);
+                },
+              },
+            ]
+          ),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  }, [profile, blockUser, muteUser, navigation]);
 
   if (loading) {
     return <View style={styles.loading}><ActivityIndicator color="#1a365d" /></View>;
@@ -181,6 +252,13 @@ export default function PublicProfileScreen() {
 
   const isOwnProfile = user?.id === profile?.id;
 
+  // Determine follow button label
+  const getFollowLabel = () => {
+    if (profile?.isFollowing) return 'Following';
+    if (profile?.followRequestStatus === 'pending') return 'Requested';
+    return 'Follow';
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -189,6 +267,13 @@ export default function PublicProfileScreen() {
           <Ionicons name="arrow-back" size={24} color="#1a202c" />
         </TouchableOpacity>
         <Text style={styles.headerName}>{profile?.full_name}</Text>
+        {!isOwnProfile ? (
+          <TouchableOpacity onPress={handleMoreOptions} style={styles.moreBtn}>
+            <Ionicons name="ellipsis-horizontal" size={22} color="#1a202c" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
       </View>
 
       <FlatList
@@ -204,6 +289,9 @@ export default function PublicProfileScreen() {
             currentUserId={user?.id}
             onDeletePress={isOwnProfile ? () => handleDeletePost(item.id) : undefined}
             onEditPress={isOwnProfile ? handleEditPress : undefined}
+            onReportPress={!isOwnProfile ? (postId) => setReportTarget({
+              type: 'post', id: postId, displayName: 'this post'
+            }) : undefined}
           />
         )}
         ListFooterComponent={
@@ -242,10 +330,17 @@ export default function PublicProfileScreen() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={handleFollowToggle}
-                        style={[styles.followBtn, profile?.isFollowing && styles.followingBtn]}
+                        style={[
+                          styles.followBtn,
+                          profile?.isFollowing && styles.followingBtn,
+                          profile?.followRequestStatus === 'pending' && styles.requestedBtn,
+                        ]}
                       >
-                        <Text style={[styles.followText, profile?.isFollowing && styles.followingText]}>
-                          {profile?.isFollowing ? 'Following' : 'Follow'}
+                        <Text style={[
+                          styles.followText,
+                          (profile?.isFollowing || profile?.followRequestStatus === 'pending') && styles.followingText,
+                        ]}>
+                          {getFollowLabel()}
                         </Text>
                       </TouchableOpacity>
                     </>
@@ -291,6 +386,7 @@ export default function PublicProfileScreen() {
           <Text style={styles.noPosts}>No posts yet</Text>
         }
       />
+
       {editTarget && (
         <EditPostModal
           visible
@@ -300,6 +396,11 @@ export default function PublicProfileScreen() {
           onClose={() => setEditTarget(null)}
         />
       )}
+
+      <ReportModal
+        target={reportTarget}
+        onClose={() => setReportTarget(null)}
+      />
     </View>
   );
 }
@@ -315,8 +416,10 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 12,
     backgroundColor: '#fff',
+    justifyContent: 'space-between',
   },
-  headerName: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
+  headerName: { fontSize: 17, fontWeight: '700', color: '#1a202c', flex: 1, textAlign: 'center' },
+  moreBtn: { padding: 4 },
   banner: { width: '100%', height: 120 },
   profileSection: { padding: 16 },
   avatarRow: {
@@ -351,6 +454,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a365d',
   },
   followingBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#1a365d' },
+  requestedBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#a0aec0' },
   followText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   followingText: { color: '#1a365d' },
   editBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0' },

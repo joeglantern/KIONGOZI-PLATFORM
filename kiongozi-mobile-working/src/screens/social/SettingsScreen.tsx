@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { useSocialStore } from '../../stores/socialStore';
 import { supabase } from '../../utils/supabaseClient';
 import { registerForPushNotifications, unregisterPushNotifications } from '../../utils/pushNotifications';
 import apiClient from '../../utils/apiClient';
@@ -26,12 +29,20 @@ import apiClient from '../../utils/apiClient';
 const PUSH_ENABLED_KEY = 'push_notifications_enabled';
 const PUSH_TOKEN_KEY = 'push_token';
 
+const PRIVACY_POLICY_URL = 'https://chat.kiongozi.org/privacy-policy';
+const TERMS_URL = 'https://chat.kiongozi.org/terms';
+
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { signOut } = useAuthStore();
+  const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
+  const { loadBlockedAndMuted } = useSocialStore();
 
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [privateAccount, setPrivateAccount] = useState(false);
+  const [privacyLoading, setPrivacyLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // Change password modal
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
@@ -44,6 +55,13 @@ export default function SettingsScreen() {
       setPushEnabled(val === 'true');
     });
   }, []);
+
+  // Sync is_private from profile
+  useEffect(() => {
+    if (currentUserProfile?.is_private !== undefined) {
+      setPrivateAccount(!!currentUserProfile.is_private);
+    }
+  }, [currentUserProfile?.is_private]);
 
   const handlePushToggle = async (value: boolean) => {
     setPushLoading(true);
@@ -72,6 +90,56 @@ export default function SettingsScreen() {
     } finally {
       setPushLoading(false);
     }
+  };
+
+  const handlePrivateToggle = async (value: boolean) => {
+    setPrivacyLoading(true);
+    const prev = privateAccount;
+    setPrivateAccount(value);
+    try {
+      const res = await apiClient.updatePrivacySettings({ is_private: value });
+      if (!res.success) {
+        setPrivateAccount(prev);
+        Alert.alert('Error', 'Failed to update privacy setting.');
+      } else if (currentUserProfile?.username) {
+        fetchCurrentUserProfile(currentUserProfile.username);
+      }
+    } catch {
+      setPrivateAccount(prev);
+    } finally {
+      setPrivacyLoading(false);
+    }
+  };
+
+  const handleExportData = () => {
+    Alert.alert(
+      'Export My Data',
+      'This will download a JSON file with all your Kiongozi data (posts, follows, bookmarks).',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Export',
+          onPress: async () => {
+            setExportLoading(true);
+            try {
+              const res = await apiClient.exportUserData();
+              if (res.success || res.data) {
+                Alert.alert(
+                  'Data Export',
+                  'Your data export is ready. In a production build this would download a JSON file.',
+                );
+              } else {
+                Alert.alert('Error', res.error || 'Failed to export data.');
+              }
+            } catch {
+              Alert.alert('Error', 'Failed to export data. Please try again.');
+            } finally {
+              setExportLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSignOut = () => {
@@ -148,7 +216,7 @@ export default function SettingsScreen() {
   };
 
   const appVersion =
-    Constants.expoConfig?.version ?? Constants.manifest?.version ?? '1.0.0';
+    Constants.expoConfig?.version ?? (Constants as any).manifest?.version ?? '1.0.0';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -174,6 +242,46 @@ export default function SettingsScreen() {
             icon="lock-closed-outline"
             label="Change Password"
             onPress={() => setPasswordModalVisible(true)}
+          />
+          <SettingsRow
+            icon="download-outline"
+            label={exportLoading ? 'Exporting...' : 'Export My Data'}
+            onPress={handleExportData}
+            isLast
+          />
+        </View>
+
+        {/* PRIVACY */}
+        <SectionHeader label="Privacy" />
+        <View style={styles.section}>
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Ionicons name="lock-closed-outline" size={22} color="#4a5568" />
+              <View>
+                <Text style={styles.rowLabel}>Private Account</Text>
+                <Text style={styles.rowSub}>New followers must be approved</Text>
+              </View>
+            </View>
+            {privacyLoading ? (
+              <ActivityIndicator size="small" color="#1a365d" />
+            ) : (
+              <Switch
+                value={privateAccount}
+                onValueChange={handlePrivateToggle}
+                trackColor={{ false: '#cbd5e0', true: '#1a365d' }}
+                thumbColor="#fff"
+              />
+            )}
+          </View>
+          <SettingsRow
+            icon="ban-outline"
+            label="Blocked Users"
+            onPress={() => navigation.navigate('BlockedUsers')}
+          />
+          <SettingsRow
+            icon="volume-mute-outline"
+            label="Muted Users"
+            onPress={() => navigation.navigate('MutedUsers')}
             isLast
           />
         </View>
@@ -202,6 +310,16 @@ export default function SettingsScreen() {
         {/* ABOUT */}
         <SectionHeader label="About" />
         <View style={styles.section}>
+          <SettingsRow
+            icon="document-text-outline"
+            label="Privacy Policy"
+            onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+          />
+          <SettingsRow
+            icon="reader-outline"
+            label="Terms of Service"
+            onPress={() => Linking.openURL(TERMS_URL)}
+          />
           <View style={[styles.row, styles.rowLast]}>
             <View style={styles.rowLeft}>
               <Ionicons name="information-circle-outline" size={22} color="#4a5568" />
@@ -359,8 +477,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
   },
   rowLast: { borderBottomWidth: 0 },
-  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   rowLabel: { fontSize: 16, color: '#2d3748' },
+  rowSub: { fontSize: 12, color: '#a0aec0', marginTop: 1 },
   rowValue: { fontSize: 15, color: '#a0aec0' },
   dangerLabel: { color: '#e53e3e' },
   // Modal

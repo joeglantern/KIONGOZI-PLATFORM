@@ -75,6 +75,10 @@ interface SocialState {
   // Global like state — keyed by post id, used by every PostCard
   postInteractions: Record<string, PostInteraction>;
 
+  // Block/mute state
+  blockedUserIds: string[];
+  mutedUserIds: string[];
+
   // Actions
   fetchFeed: (refresh?: boolean) => Promise<void>;
   fetchExploreFeed: (refresh?: boolean) => Promise<void>;
@@ -87,6 +91,11 @@ interface SocialState {
   toggleRepost: (postId: string, delta: 1 | -1) => void;
   deletePost: (postId: string) => void;
   updatePost: (postId: string, updates: Partial<Post>) => void;
+  loadBlockedAndMuted: () => Promise<void>;
+  blockUser: (userId: string) => Promise<void>;
+  unblockUser: (userId: string) => Promise<void>;
+  muteUser: (userId: string) => Promise<void>;
+  unmuteUser: (userId: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -110,6 +119,9 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   bookmarkLoading: false,
 
   postInteractions: {},
+
+  blockedUserIds: [],
+  mutedUserIds: [],
 
   fetchFeed: async (refresh = false) => {
     const state = get();
@@ -314,6 +326,86 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }));
   },
 
+  loadBlockedAndMuted: async () => {
+    try {
+      const [blockedRes, mutedRes] = await Promise.all([
+        apiClient.getBlockedUsers(),
+        apiClient.getMutedUsers(),
+      ]);
+      set({
+        blockedUserIds: blockedRes.success ? (blockedRes.data || []).map((u: any) => u.id) : [],
+        mutedUserIds: mutedRes.success ? (mutedRes.data || []).map((u: any) => u.id) : [],
+      });
+    } catch (e) {
+      console.error('loadBlockedAndMuted error:', e);
+    }
+  },
+
+  blockUser: async (userId: string) => {
+    const prev = get().blockedUserIds;
+    // Optimistic
+    set(state => ({ blockedUserIds: [...state.blockedUserIds, userId] }));
+    // Remove their posts from all feeds
+    set(state => ({
+      feedPosts: state.feedPosts.filter(p => p.user_id !== userId),
+      forYouPosts: state.forYouPosts.filter(p => p.user_id !== userId),
+      explorePosts: state.explorePosts.filter(p => p.user_id !== userId),
+    }));
+    try {
+      const res = await apiClient.blockUser(userId);
+      if (!res.success && res.error !== 'Already blocked') {
+        set({ blockedUserIds: prev });
+      }
+    } catch {
+      set({ blockedUserIds: prev });
+    }
+  },
+
+  unblockUser: async (userId: string) => {
+    const prev = get().blockedUserIds;
+    set(state => ({ blockedUserIds: state.blockedUserIds.filter(id => id !== userId) }));
+    try {
+      const res = await apiClient.unblockUser(userId);
+      if (!res.success) {
+        set({ blockedUserIds: prev });
+      }
+    } catch {
+      set({ blockedUserIds: prev });
+    }
+  },
+
+  muteUser: async (userId: string) => {
+    const prev = get().mutedUserIds;
+    set(state => ({ mutedUserIds: [...state.mutedUserIds, userId] }));
+    // Remove their posts from all feeds
+    set(state => ({
+      feedPosts: state.feedPosts.filter(p => p.user_id !== userId),
+      forYouPosts: state.forYouPosts.filter(p => p.user_id !== userId),
+      explorePosts: state.explorePosts.filter(p => p.user_id !== userId),
+    }));
+    try {
+      const res = await apiClient.muteUser(userId);
+      if (!res.success && res.error !== 'Already muted') {
+        set({ mutedUserIds: prev });
+      }
+    } catch {
+      set({ mutedUserIds: prev });
+    }
+  },
+
+  unmuteUser: async (userId: string) => {
+    const prev = get().mutedUserIds;
+    set(state => ({ mutedUserIds: state.mutedUserIds.filter(id => id !== userId) }));
+    try {
+      const res = await apiClient.unmuteUser(userId);
+      if (!res.success) {
+        set({ mutedUserIds: prev });
+      }
+    } catch {
+      set({ mutedUserIds: prev });
+    }
+  },
+
   reset: () => set({
     feedPosts: [],
     explorePosts: [],
@@ -331,5 +423,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     bookmarkCursor: null,
     bookmarkLoading: false,
     postInteractions: {},
+    blockedUserIds: [],
+    mutedUserIds: [],
   })
 }));

@@ -21,6 +21,7 @@ interface PostCardProps {
   currentUserId?: string;
   onDeletePress?: () => void;
   onEditPress?: (postId: string, content: string, visibility: 'public' | 'followers') => void;
+  onReportPress?: (postId: string) => void;
 }
 
 function VideoThumbnail({ url, style, onPress }: { url: string; style?: any; onPress: () => void }) {
@@ -68,6 +69,7 @@ export function PostCard({
   currentUserId,
   onDeletePress,
   onEditPress,
+  onReportPress,
 }: PostCardProps) {
   const { toggleLike, toggleBookmark, toggleRepost, seedInteraction, postInteractions } = useSocialStore();
   const repostScale = useRef(new Animated.Value(1)).current;
@@ -190,33 +192,47 @@ export function PostCard({
     await toggleBookmark(activePost.id);
   }, [activePost.id, toggleBookmark]);
 
-  const handleOptions = useCallback(() => {
-    Alert.alert(
-      'Post Options',
-      undefined,
-      [
-        {
-          text: 'Edit Post',
-          onPress: () => onEditPress?.(activePost.id, activePost.content, activePost.visibility ?? 'public'),
-        },
-        {
-          text: 'Delete Post',
-          style: 'destructive',
-          onPress: () => Alert.alert(
-            'Delete Post',
-            'Are you sure you want to delete this post?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Delete', style: 'destructive', onPress: onDeletePress },
-            ]
-          ),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  }, [activePost.id, activePost.content, activePost.visibility, onEditPress, onDeletePress]);
+  const isOwnPost = !!(currentUserId && currentUserId === activePost.user_id);
 
-  const isOwnPost = currentUserId && currentUserId === activePost.user_id;
+  const handleOptions = useCallback(() => {
+    if (isOwnPost) {
+      Alert.alert(
+        'Post Options',
+        undefined,
+        [
+          {
+            text: 'Edit Post',
+            onPress: () => onEditPress?.(activePost.id, activePost.content, activePost.visibility ?? 'public'),
+          },
+          {
+            text: 'Delete Post',
+            style: 'destructive',
+            onPress: () => Alert.alert(
+              'Delete Post',
+              'Are you sure you want to delete this post?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: onDeletePress },
+              ]
+            ),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    } else {
+      Alert.alert(
+        'Post Options',
+        undefined,
+        [
+          {
+            text: 'Report Post',
+            onPress: () => onReportPress?.(activePost.id),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    }
+  }, [activePost.id, activePost.content, activePost.visibility, onEditPress, onDeletePress, onReportPress, isOwnPost]);
 
   // Build media items array for the viewer
   const mediaItems: MediaItem[] = (activePost.post_media ?? []).slice(0, 4).map(m => ({
@@ -406,7 +422,7 @@ export function PostCard({
             <Ionicons name="share-outline" size={18} color="#718096" />
           </TouchableOpacity>
 
-          {isOwnPost && (onDeletePress || onEditPress) && (
+          {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
             <TouchableOpacity style={styles.action} onPress={handleOptions}>
               <Ionicons name="ellipsis-horizontal" size={18} color="#718096" />
             </TouchableOpacity>

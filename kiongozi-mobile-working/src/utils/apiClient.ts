@@ -810,6 +810,85 @@ class ApiClient {
       body: JSON.stringify({ text, targetLang }),
     });
   }
+
+  // ================================
+  // REPORT / BLOCK / MUTE
+  // ================================
+
+  /** Report a post or user */
+  async reportContent(type: 'post' | 'user', id: string, reason: string, description?: string) {
+    return this.request('/api/v1/social/report', {
+      method: 'POST',
+      body: JSON.stringify({ type, id, reason, description }),
+    });
+  }
+
+  /** Block a user */
+  async blockUser(userId: string) {
+    return this.request(`/api/v1/social/block/${userId}`, { method: 'POST' });
+  }
+
+  /** Unblock a user */
+  async unblockUser(userId: string) {
+    return this.request(`/api/v1/social/block/${userId}`, { method: 'DELETE' });
+  }
+
+  /** Get list of blocked users */
+  async getBlockedUsers() {
+    return this.request('/api/v1/social/blocked', { method: 'GET' });
+  }
+
+  /** Mute a user */
+  async muteUser(userId: string) {
+    return this.request(`/api/v1/social/mute/${userId}`, { method: 'POST' });
+  }
+
+  /** Unmute a user */
+  async unmuteUser(userId: string) {
+    return this.request(`/api/v1/social/mute/${userId}`, { method: 'DELETE' });
+  }
+
+  /** Get list of muted users */
+  async getMutedUsers() {
+    return this.request('/api/v1/social/muted', { method: 'GET' });
+  }
+
+  // ================================
+  // FOLLOW REQUESTS
+  // ================================
+
+  /** Get pending follow requests for current user */
+  async getFollowRequests() {
+    return this.request('/api/v1/social/follow-requests', { method: 'GET' });
+  }
+
+  /** Accept a follow request */
+  async acceptFollowRequest(requestId: string) {
+    return this.request(`/api/v1/social/follow-requests/${requestId}/accept`, { method: 'POST' });
+  }
+
+  /** Decline a follow request */
+  async declineFollowRequest(requestId: string) {
+    return this.request(`/api/v1/social/follow-requests/${requestId}/decline`, { method: 'POST' });
+  }
+
+  /** Update privacy settings (is_private) */
+  async updatePrivacySettings(settings: { is_private?: boolean }) {
+    return this.request('/api/v1/social/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  /** Trigger user data export — returns JSON blob */
+  async exportUserData() {
+    return this.request('/api/v1/user/export', { method: 'GET' });
+  }
+
+  /** Get legal documents (privacy policy + ToS) */
+  async getLegalDocs() {
+    return this.request('/api/v1/legal', { method: 'GET' });
+  }
 }
 
 // Create singleton instance

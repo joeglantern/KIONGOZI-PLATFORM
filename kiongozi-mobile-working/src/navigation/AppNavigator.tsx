@@ -20,6 +20,8 @@ import FollowListScreen from '../screens/social/FollowListScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileTabScreen from '../screens/social/ProfileTabScreen';
 import SettingsScreen from '../screens/social/SettingsScreen';
+import BlockedUsersScreen from '../screens/social/BlockedUsersScreen';
+import MutedUsersScreen from '../screens/social/MutedUsersScreen';
 import { KiongoziChatFAB } from '../components/social/KiongoziChatFAB';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
@@ -82,6 +84,8 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <ProfileStack.Screen name="Bookmarks" component={BookmarksScreen} />
       <ProfileStack.Screen name="FollowList" component={FollowListScreen} />
+      <ProfileStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
+      <ProfileStack.Screen name="MutedUsers" component={MutedUsersScreen} />
     </ProfileStack.Navigator>
   );
 }
