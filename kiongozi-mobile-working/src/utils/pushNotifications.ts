@@ -57,23 +57,43 @@ export function setupNotificationHandlers(navigation: any): () => void {
   });
 
   // Tap on notification → navigate to relevant screen
-  const subscription = Notifications.addNotificationResponseReceivedListener(
-    response => {
-      const data = response.notification.request.content.data as any;
-      if (!navigation) return;
+  const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+    const data = response.notification.request.content.data as any;
+    if (!navigation) return;
 
-      if (data?.postId) {
-        navigation.navigate('PostDetail', { postId: data.postId });
-      } else if (data?.conversationId) {
-        navigation.navigate('DMConversation', {
-          conversationId: data.conversationId,
-          recipientId: data.recipientId,
-          recipientName: data.recipientName,
-          recipientAvatar: data.recipientAvatar,
-        });
-      }
+    // Normalise field names (backend sends snake_case)
+    const postId         = data?.post_id          ?? data?.postId;
+    const conversationId = data?.conversation_id  ?? data?.conversationId;
+    const fromUsername   = data?.from_username;
+    const fromUserId     = data?.from_user_id;
+    const fromAvatar     = data?.from_avatar_url;
+
+    if (conversationId) {
+      navigation.navigate('Notifications', {
+        screen: 'DMConversation',
+        params: {
+          conversationId,
+          recipientId:     fromUserId,
+          recipientName:   fromUsername,
+          recipientAvatar: fromAvatar,
+        },
+      });
+    } else if (postId) {
+      navigation.navigate('Notifications', {
+        screen: 'PostDetail',
+        params: { postId },
+      });
+    } else if (fromUsername) {
+      // follow notification — no postId, navigate to profile
+      navigation.navigate('Notifications', {
+        screen: 'PublicProfile',
+        params: { username: fromUsername },
+      });
+    } else {
+      // fallback — open Notifications tab
+      navigation.navigate('Notifications');
     }
-  );
+  });
 
   return () => subscription.remove();
 }

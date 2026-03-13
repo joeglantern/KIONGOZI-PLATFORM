@@ -1,4 +1,5 @@
 import { supabaseServiceClient } from '../config/supabase';
+import { sendExpoPush } from './PushService';
 
 interface NotifyParams {
   userId: string;   // recipient
@@ -43,6 +44,21 @@ class NotificationService {
           ioInstance.to(`user:${userId}`).emit('notification', notification);
         }
 
+        // Send push notification (non-blocking, non-critical)
+        setImmediate(async () => {
+          try {
+            const { data: tokenRows } = await supabaseServiceClient
+              .from('push_tokens')
+              .select('token')
+              .eq('user_id', userId);
+            const tokens = (tokenRows || []).map((r: any) => r.token);
+            if (tokens.length > 0) {
+              await sendExpoPush(tokens, title, message, { ...data, type });
+            }
+          } catch (pushErr) {
+            console.error('Push send error:', pushErr);
+          }
+        });
         return; // success — exit retry loop
       } catch (e) {
         lastError = e;
