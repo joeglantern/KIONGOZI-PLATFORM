@@ -58,6 +58,12 @@ export default function PublicProfileScreen() {
         return;
       }
 
+      // If private and viewer doesn't follow, skip posts fetch
+      if (prof.is_private && !prof.isFollowing && user?.id !== prof.id) {
+        setLoading(false);
+        return;
+      }
+
       const postsRes = await apiClient.getUserPosts(username);
       if (postsRes.success) {
         setPosts((postsRes as any).data || []);
@@ -443,12 +449,28 @@ export default function PublicProfileScreen() {
               </View>
             </View>
 
-            <View style={styles.divider} />
-            <Text style={styles.postsHeader}>Posts</Text>
+            {profile?.is_private && !profile?.isFollowing && !isOwnProfile ? (
+              <View style={styles.privateWall}>
+                <View style={styles.privateIconWrap}>
+                  <Ionicons name="lock-closed" size={28} color="#1a365d" />
+                </View>
+                <Text style={styles.privateTitle}>This account is private</Text>
+                <Text style={styles.privateSub}>
+                  Follow this account to see their posts.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.divider} />
+                <Text style={styles.postsHeader}>Posts</Text>
+              </>
+            )}
           </View>
         }
         ListEmptyComponent={
-          <Text style={styles.noPosts}>No posts yet</Text>
+          !(profile?.is_private && !profile?.isFollowing && !isOwnProfile)
+            ? <Text style={styles.noPosts}>No posts yet</Text>
+            : null
         }
       />
 
@@ -527,6 +549,23 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
   postsHeader: { fontSize: 16, fontWeight: '700', color: '#1a202c', paddingHorizontal: 16, paddingBottom: 8 },
   noPosts: { padding: 24, textAlign: 'center', color: '#a0aec0' },
+  privateWall: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 32,
+    gap: 10,
+  },
+  privateIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#eef2f7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  privateTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
+  privateSub: { fontSize: 14, color: '#718096', textAlign: 'center', lineHeight: 21 },
   blockedWall: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
   blockedTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c' },
   blockedSub: { fontSize: 15, color: '#718096', textAlign: 'center' },
