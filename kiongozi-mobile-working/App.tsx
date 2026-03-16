@@ -4,6 +4,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from './src/stores/authStore';
+import { useSocialStore } from './src/stores/socialStore';
 import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
 import { useSupabaseDeepLink } from './src/hooks/useSupabaseDeepLink';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -16,6 +17,7 @@ import {
 
 export default function App() {
   const { user, initialize, initialized } = useAuthStore();
+  const { loadBlockedAndMuted } = useSocialStore();
   const [isReady, setIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
@@ -48,12 +50,13 @@ export default function App() {
     }
   }, [isReady, initialized]);
 
-  // Register push token after authentication
+  // On auth: register push token + load block/mute lists
   useEffect(() => {
     if (user) {
       registerForPushNotifications().catch(err =>
         console.error('Push registration error:', err)
       );
+      loadBlockedAndMuted().catch(() => {});
     }
   }, [user]);
 

@@ -100,6 +100,19 @@ router.post('/conversations', authenticateToken, async (req: Request, res: Respo
       return;
     }
 
+    // Block check: either party has blocked the other
+    const { data: blockRow } = await supabaseServiceClient
+      .from('blocks')
+      .select('id')
+      .or(`and(blocker_id.eq.${userId},blocked_id.eq.${recipientId}),and(blocker_id.eq.${recipientId},blocked_id.eq.${userId})`)
+      .limit(1)
+      .maybeSingle();
+
+    if (blockRow) {
+      res.status(403).json({ success: false, error: 'Cannot start a conversation with this user' });
+      return;
+    }
+
     // Check if conversation already exists between these two users
     const { data: existingParticipation } = await supabaseServiceClient
       .from('dm_participants')
@@ -218,6 +231,29 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
     if (!participation) {
       res.status(403).json({ success: false, error: 'Not a participant in this conversation' });
       return;
+    }
+
+    // Block check: get the other participant and check if either party has blocked the other
+    const { data: otherParticipants } = await supabaseServiceClient
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', conversationId)
+      .neq('user_id', userId);
+
+    if (otherParticipants && otherParticipants.length > 0) {
+      const otherIds = otherParticipants.map((p: any) => p.user_id);
+      for (const otherId of otherIds) {
+        const { data: blockRow } = await supabaseServiceClient
+          .from('blocks')
+          .select('id')
+          .or(`and(blocker_id.eq.${userId},blocked_id.eq.${otherId}),and(blocker_id.eq.${otherId},blocked_id.eq.${userId})`)
+          .limit(1)
+          .maybeSingle();
+        if (blockRow) {
+          res.status(403).json({ success: false, error: 'Cannot send messages to this user' });
+          return;
+        }
+      }
     }
 
     const { data: message, error } = await supabaseServiceClient
