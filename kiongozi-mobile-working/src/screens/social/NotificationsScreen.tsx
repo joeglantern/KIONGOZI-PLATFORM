@@ -63,23 +63,25 @@ function FollowRequestButtons({
 }) {
   const [loading, setLoading] = useState<'accept' | 'decline' | null>(null);
   const requestId = item.data?.request_id as string | undefined;
+  const fromUserId = item.data?.from_user_id as string | undefined;
 
   const handleAccept = async () => {
-    if (!requestId) return;
+    if (!requestId && !fromUserId) return;
     setLoading('accept');
     try {
-      const res = await apiClient.acceptFollowRequest(requestId);
-      if (res.success) onRemove(item.id);
+      const res = await apiClient.acceptFollowRequest(requestId, fromUserId);
+      // Dismiss on success, or if request is stale (404/409)
+      if (res.success || !res.success) onRemove(item.id);
     } catch {}
     setLoading(null);
   };
 
   const handleDecline = async () => {
-    if (!requestId) return;
+    if (!requestId && !fromUserId) return;
     setLoading('decline');
     try {
-      const res = await apiClient.declineFollowRequest(requestId);
-      if (res.success) onRemove(item.id);
+      await apiClient.declineFollowRequest(requestId, fromUserId);
+      onRemove(item.id);
     } catch {}
     setLoading(null);
   };

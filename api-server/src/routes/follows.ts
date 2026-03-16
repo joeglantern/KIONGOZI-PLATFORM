@@ -175,16 +175,29 @@ router.post('/follow-requests/:requestId/accept', authenticateToken, async (req:
   try {
     const userId = req.user!.id;
     const { requestId } = req.params;
+    const { fromUserId } = req.body; // optional fallback when requestId is stale
 
-    // Fetch request and verify target is current user
-    const { data: request, error: fetchErr } = await supabaseServiceClient
+    // Primary lookup by request ID
+    let { data: request } = await supabaseServiceClient
       .from('follow_requests')
       .select('id, requester_id, target_id, status')
       .eq('id', requestId)
       .eq('target_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (fetchErr || !request) {
+    // Fallback: look up by requester + target when the ID doesn't resolve
+    if (!request && fromUserId) {
+      const { data: fallback } = await supabaseServiceClient
+        .from('follow_requests')
+        .select('id, requester_id, target_id, status')
+        .eq('requester_id', fromUserId)
+        .eq('target_id', userId)
+        .eq('status', 'pending')
+        .maybeSingle();
+      if (fallback) request = fallback;
+    }
+
+    if (!request) {
       res.status(404).json({ success: false, error: 'Follow request not found' });
       return;
     }
@@ -199,7 +212,7 @@ router.post('/follow-requests/:requestId/accept', authenticateToken, async (req:
       supabaseServiceClient
         .from('follow_requests')
         .update({ status: 'accepted' })
-        .eq('id', requestId),
+        .eq('id', request.id),
       supabaseServiceClient
         .from('follows')
         .insert({ follower_id: request.requester_id, following_id: userId }),
@@ -238,16 +251,25 @@ router.post('/follow-requests/:requestId/decline', authenticateToken, async (req
   try {
     const userId = req.user!.id;
     const { requestId } = req.params;
+    const { fromUserId } = req.body;
 
-    const { error } = await supabaseServiceClient
+    // Primary delete by ID
+    let deleted = false;
+    const { error, count } = await supabaseServiceClient
       .from('follow_requests')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('id', requestId)
       .eq('target_id', userId);
 
-    if (error) {
-      res.status(500).json({ success: false, error: 'Failed to decline follow request' });
-      return;
+    if (!error && count && count > 0) deleted = true;
+
+    // Fallback: delete by requester + target
+    if (!deleted && fromUserId) {
+      await supabaseServiceClient
+        .from('follow_requests')
+        .delete()
+        .eq('requester_id', fromUserId)
+        .eq('target_id', userId);
     }
 
     res.json({ success: true });

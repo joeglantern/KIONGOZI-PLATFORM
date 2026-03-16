@@ -863,13 +863,21 @@ class ApiClient {
   }
 
   /** Accept a follow request */
-  async acceptFollowRequest(requestId: string) {
-    return this.request(`/api/v1/social/follow-requests/${requestId}/accept`, { method: 'POST' });
+  async acceptFollowRequest(requestId: string | undefined, fromUserId?: string) {
+    const id = requestId || 'by-requester';
+    return this.request(`/api/v1/social/follow-requests/${id}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ fromUserId }),
+    });
   }
 
   /** Decline a follow request */
-  async declineFollowRequest(requestId: string) {
-    return this.request(`/api/v1/social/follow-requests/${requestId}/decline`, { method: 'POST' });
+  async declineFollowRequest(requestId: string | undefined, fromUserId?: string) {
+    const id = requestId || 'by-requester';
+    return this.request(`/api/v1/social/follow-requests/${id}/decline`, {
+      method: 'POST',
+      body: JSON.stringify({ fromUserId }),
+    });
   }
 
   /** Update privacy settings (is_private) */
