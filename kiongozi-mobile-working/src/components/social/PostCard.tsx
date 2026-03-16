@@ -13,6 +13,8 @@ import { useSocialStore } from '../../stores/socialStore';
 
 interface PostCardProps {
   post: Post;
+  hasConnectorBelow?: boolean;
+  style?: any;
   onPress?: () => void;
   onProfilePress?: (username: string) => void;
   onReplyPress?: () => void;
@@ -61,6 +63,8 @@ function timeAgo(dateStr: string): string {
 
 export function PostCard({
   post,
+  hasConnectorBelow = false,
+  style,
   onPress,
   onProfilePress,
   onReplyPress,
@@ -276,168 +280,176 @@ export function PostCard({
   };
 
   return (
-    <View style={styles.container}>
-      {/* Avatar */}
-      <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
-        <UserAvatar
-          avatarUrl={activePost.profiles?.avatar_url}
-          size={44}
-          isBot={activePost.profiles?.is_bot}
-          isVerified={activePost.profiles?.is_verified}
-        />
-      </TouchableOpacity>
-
-      <View style={styles.right}>
-        {/* "X reposted" banner */}
-        {isRepost && (
-          <TouchableOpacity
-            style={styles.repostBanner}
-            onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}
-          >
-            <Ionicons name="repeat-outline" size={13} color="#718096" />
-            <Text style={styles.repostBannerText}>{post.profiles?.full_name} reposted</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Tappable content area */}
-        <Pressable
-          onPress={(e) => {
-            const now = Date.now();
-            if (now - lastTapRef.current < 280) {
-              showHeartBurst(e.nativeEvent.locationX, e.nativeEvent.locationY);
-              if (!isLiked) handleLike();
-              lastTapRef.current = 0;
-            } else {
-              lastTapRef.current = now;
-              onPress?.();
-            }
-          }}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
-              <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
-            </TouchableOpacity>
-            {activePost.profiles?.username && (
-              <Text style={styles.username}>@{activePost.profiles.username}</Text>
-            )}
-            <Text style={styles.dot}>·</Text>
-            <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
-          </View>
-
-          {/* Content with Read more */}
-          <HashtagHighlight
-            content={activePost.content}
-            style={styles.content}
-            numberOfLines={measured && isTruncated && !expanded ? 4 : undefined}
-            onTextLayout={!measured ? handleTextLayout : undefined}
-            onMentionPress={handleMentionPress}
-            onHashtagPress={onHashtagPress}
-          />
-          {isTruncated && !expanded && (
-            <TouchableOpacity onPress={() => setExpanded(true)}>
-              <Text style={styles.readMore}>Read more</Text>
-            </TouchableOpacity>
-          )}
-          {isTruncated && expanded && (
-            <TouchableOpacity onPress={() => setExpanded(false)}>
-              <Text style={styles.readMore}>Show less</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Translation */}
-          {showTranslation && translatedText && (
-            <Text style={styles.translatedText}>{translatedText}</Text>
-          )}
-          {translating
-            ? <ActivityIndicator size="small" color="#3182ce" style={styles.translateSpinner} />
-            : <TouchableOpacity onPress={handleTranslate} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                <Text style={styles.translateLink}>
-                  {showTranslation ? '· Show original' : '· Translate'}
-                </Text>
-              </TouchableOpacity>
-          }
-
-          {/* Media grid */}
-          {activePost.post_media && activePost.post_media.length > 0 && (
-            <View style={styles.mediaContainer}>
-              {activePost.post_media.slice(0, 4).map((media, index) => {
-                const mediaStyle = [
-                  styles.mediaImage,
-                  activePost.post_media!.length === 1 ? styles.singleImage : styles.gridImage,
-                ];
-                return media.media_type === 'video' ? (
-                  <VideoThumbnail
-                    key={media.id}
-                    url={media.url}
-                    style={mediaStyle}
-                    onPress={() => openViewer(index)}
-                  />
-                ) : (
-                  <TouchableOpacity
-                    key={media.id}
-                    onPress={() => openViewer(index)}
-                    activeOpacity={0.9}
-                    style={mediaStyle}
-                  >
-                    <Image source={{ uri: media.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </Pressable>
-
-        {/* Actions */}
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.action} onPress={onReplyPress}>
-            <Ionicons name="chatbubble-outline" size={18} color="#718096" />
-            {activePost.comment_count > 0 && <Text style={styles.actionCount}>{activePost.comment_count}</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.action} onPress={handleRepost}>
-            <Animated.View style={{ transform: [{ scale: repostScale }] }}>
-              <Ionicons
-                name={isReposted ? 'repeat' : 'repeat-outline'}
-                size={18}
-                color={isReposted ? '#10b981' : '#718096'}
-              />
-            </Animated.View>
-            <RepostStack reposters={activePost.recentReposters ?? []} count={activePost.repost_count} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.action} onPress={handleLike}>
-            <Ionicons
-              name={isLiked ? 'heart' : 'heart-outline'}
-              size={18}
-              color={isLiked ? '#e53e3e' : '#718096'}
-            />
-            {likeCount > 0 && (
-              <Text style={[styles.actionCount, isLiked && styles.likedCount]}>
-                {likeCount}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.action} onPress={handleBookmark}>
-            <Ionicons
-              name={activePost.isBookmarked ? 'bookmark' : 'bookmark-outline'}
-              size={18}
-              color={activePost.isBookmarked ? '#1a365d' : '#718096'}
+    <View style={[styles.container, style]}>
+      <View style={[styles.inner, { paddingBottom: hasConnectorBelow ? 0 : 12 }]}>
+        {/* Left column: avatar + optional connector line */}
+        <View style={styles.leftCol}>
+          <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
+            <UserAvatar
+              avatarUrl={activePost.profiles?.avatar_url}
+              size={44}
+              isBot={activePost.profiles?.is_bot}
+              isVerified={activePost.profiles?.is_verified}
             />
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.action} onPress={handleShare}>
-            <Ionicons name="share-outline" size={18} color="#718096" />
-          </TouchableOpacity>
-
-          {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
-            <TouchableOpacity style={styles.action} onPress={handleOptions}>
-              <Ionicons name="ellipsis-horizontal" size={18} color="#718096" />
-            </TouchableOpacity>
+          {hasConnectorBelow && (
+            <View style={styles.connectorLine} />
           )}
         </View>
-        {repostTip && <Text style={styles.repostTip}>Already reposted</Text>}
+
+        {/* Right column */}
+        <View style={styles.right}>
+          {/* "X reposted" banner */}
+          {isRepost && (
+            <TouchableOpacity
+              style={styles.repostBanner}
+              onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}
+            >
+              <Ionicons name="repeat-outline" size={13} color="#718096" />
+              <Text style={styles.repostBannerText}>{post.profiles?.full_name} reposted</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Tappable content area */}
+          <Pressable
+            onPress={(e) => {
+              const now = Date.now();
+              if (now - lastTapRef.current < 280) {
+                showHeartBurst(e.nativeEvent.locationX, e.nativeEvent.locationY);
+                if (!isLiked) handleLike();
+                lastTapRef.current = 0;
+              } else {
+                lastTapRef.current = now;
+                onPress?.();
+              }
+            }}
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
+                <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
+              </TouchableOpacity>
+              {activePost.profiles?.username && (
+                <Text style={styles.username}>@{activePost.profiles.username}</Text>
+              )}
+              <Text style={styles.dot}>·</Text>
+              <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
+            </View>
+
+            {/* Content with Read more */}
+            <HashtagHighlight
+              content={activePost.content}
+              style={styles.content}
+              numberOfLines={measured && isTruncated && !expanded ? 4 : undefined}
+              onTextLayout={!measured ? handleTextLayout : undefined}
+              onMentionPress={handleMentionPress}
+              onHashtagPress={onHashtagPress}
+            />
+            {isTruncated && !expanded && (
+              <TouchableOpacity onPress={() => setExpanded(true)}>
+                <Text style={styles.readMore}>Read more</Text>
+              </TouchableOpacity>
+            )}
+            {isTruncated && expanded && (
+              <TouchableOpacity onPress={() => setExpanded(false)}>
+                <Text style={styles.readMore}>Show less</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Translation */}
+            {showTranslation && translatedText && (
+              <Text style={styles.translatedText}>{translatedText}</Text>
+            )}
+            {translating
+              ? <ActivityIndicator size="small" color="#3182ce" style={styles.translateSpinner} />
+              : <TouchableOpacity onPress={handleTranslate} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Text style={styles.translateLink}>
+                    {showTranslation ? '· Show original' : '· Translate'}
+                  </Text>
+                </TouchableOpacity>
+            }
+
+            {/* Media grid */}
+            {activePost.post_media && activePost.post_media.length > 0 && (
+              <View style={styles.mediaContainer}>
+                {activePost.post_media.slice(0, 4).map((media, index) => {
+                  const mediaStyle = [
+                    styles.mediaImage,
+                    activePost.post_media!.length === 1 ? styles.singleImage : styles.gridImage,
+                  ];
+                  return media.media_type === 'video' ? (
+                    <VideoThumbnail
+                      key={media.id}
+                      url={media.url}
+                      style={mediaStyle}
+                      onPress={() => openViewer(index)}
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      key={media.id}
+                      onPress={() => openViewer(index)}
+                      activeOpacity={0.9}
+                      style={mediaStyle}
+                    >
+                      <Image source={{ uri: media.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </Pressable>
+
+          {/* Actions */}
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.action} onPress={onReplyPress}>
+              <Ionicons name="chatbubble-outline" size={18} color="#718096" />
+              {activePost.comment_count > 0 && <Text style={styles.actionCount}>{activePost.comment_count}</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.action} onPress={handleRepost}>
+              <Animated.View style={{ transform: [{ scale: repostScale }] }}>
+                <Ionicons
+                  name={isReposted ? 'repeat' : 'repeat-outline'}
+                  size={18}
+                  color={isReposted ? '#10b981' : '#718096'}
+                />
+              </Animated.View>
+              <RepostStack reposters={activePost.recentReposters ?? []} count={activePost.repost_count} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.action} onPress={handleLike}>
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={18}
+                color={isLiked ? '#e53e3e' : '#718096'}
+              />
+              {likeCount > 0 && (
+                <Text style={[styles.actionCount, isLiked && styles.likedCount]}>
+                  {likeCount}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.action} onPress={handleBookmark}>
+              <Ionicons
+                name={activePost.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                size={18}
+                color={activePost.isBookmarked ? '#1a365d' : '#718096'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.action} onPress={handleShare}>
+              <Ionicons name="share-outline" size={18} color="#718096" />
+            </TouchableOpacity>
+
+            {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
+              <TouchableOpacity style={styles.action} onPress={handleOptions}>
+                <Ionicons name="ellipsis-horizontal" size={18} color="#718096" />
+              </TouchableOpacity>
+            )}
+          </View>
+          {repostTip && <Text style={styles.repostTip}>Already reposted</Text>}
+        </View>
       </View>
 
       {/* Full-screen media viewer */}
@@ -485,12 +497,26 @@ export function PostCard({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    padding: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e2e8f0',
     backgroundColor: '#fff',
-    gap: 10,
+  },
+  inner: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+  },
+  leftCol: {
+    alignItems: 'center',
+    width: 44,
+    marginRight: 10,
+  },
+  connectorLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: '#e2e8f0',
+    marginTop: 6,
+    minHeight: 20,
   },
   right: {
     flex: 1,

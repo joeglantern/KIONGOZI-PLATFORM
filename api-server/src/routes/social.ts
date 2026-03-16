@@ -106,6 +106,33 @@ router.get('/posts/:id', optionalAuth, async (req: Request, res: Response): Prom
   }
 });
 
+// GET /api/v1/social/posts/:id/ancestors — Fetch full ancestor chain for thread view
+router.get('/posts/:id/ancestors', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { data: start } = await supabaseServiceClient
+      .from('posts').select('parent_post_id').eq('id', req.params.id).single();
+    if (!start?.parent_post_id) {
+      res.json({ success: true, data: [] }); return;
+    }
+    const chain: any[] = [];
+    let currentId: string | null = start.parent_post_id;
+    for (let depth = 0; depth < 10 && currentId; depth++) {
+      const { data: post } = await supabaseServiceClient
+        .from('posts')
+        .select('*, profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified), post_media(*)')
+        .eq('id', currentId).single();
+      if (!post) break;
+      const ok = await canViewProfile(post.profiles?.id ?? post.user_id, req.user?.id);
+      if (!ok) break;
+      chain.unshift(post); // oldest first
+      currentId = post.parent_post_id ?? null;
+    }
+    res.json({ success: true, data: chain });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch thread context' });
+  }
+});
+
 // POST /api/v1/social/posts — Create post
 router.post('/posts', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {

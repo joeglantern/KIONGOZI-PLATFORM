@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
   TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Animated, Alert,
@@ -20,10 +20,11 @@ export default function PostDetailScreen() {
   const { user } = useAuthStore();
   const { deletePost } = useSocialStore();
 
-  const [post, setPost]       = useState<any>(null);
-  const [replies, setReplies] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [post, setPost]           = useState<any>(null);
+  const [replies, setReplies]     = useState<any[]>([]);
+  const [ancestors, setAncestors] = useState<any[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
   const [replyText, setReplyText]  = useState('');
   const [sending, setSending]      = useState(false);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
@@ -46,13 +47,15 @@ export default function PostDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [postRes, repliesRes] = await Promise.all([
+      const [postRes, repliesRes, ancestorsRes] = await Promise.all([
         apiClient.getPost(postId),
         apiClient.getPostReplies(postId),
+        apiClient.getPostAncestors(postId),
       ]);
       if (postRes.success) setPost(postRes.data);
       else setError('Post not found');
       if (repliesRes.success) setReplies(repliesRes.data || []);
+      if (ancestorsRes.success) setAncestors(ancestorsRes.data || []);
     } catch (e: any) {
       setError(e?.message?.includes('Network') ? 'Network error — check your connection' : 'Failed to load post');
     }
@@ -103,6 +106,23 @@ export default function PostDetailScreen() {
       .subscribe();
     return () => { supabase.removeChannel(likesChannel); };
   }, [postId]);
+
+  // Build flat thread array: ancestors → main post → replies
+  const threadItems = useMemo(() => [
+    ...ancestors.map(a  => ({ ...a, _role: 'ancestor' as const })),
+    ...(post ? [{ ...post, _role: 'main' as const }] : []),
+    ...replies.map(r => ({ ...r, _role: 'reply'  as const })),
+  ], [ancestors, post, replies]);
+
+  // After load, scroll so the focused (main) post is at the top when ancestors exist
+  useEffect(() => {
+    if (!loading && ancestors.length > 0 && threadItems.length > 0) {
+      const mainIndex = ancestors.length;
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({ index: mainIndex, animated: false });
+      }, 150);
+    }
+  }, [loading]);
 
   const handleSendReply = useCallback(async () => {
     if (!replyText.trim() || sending) return;
@@ -198,43 +218,35 @@ export default function PostDetailScreen() {
 
         <FlatList
           ref={flatListRef}
-          data={replies}
+          data={threadItems}
           keyExtractor={item => item.id}
-          ListHeaderComponent={
-            post ? (
-              <PostCard
-                post={post}
-                onProfilePress={(username) => navigation.navigate('PublicProfile', { username })}
-                onMentionPress={(username) => navigation.navigate('PublicProfile', { username })}
-                onHashtagPress={(tag) => navigation.navigate('Explore', { screen: 'ExploreMain', params: { initialQuery: `#${tag}` } })}
-                currentUserId={user?.id}
-                onDeletePress={() => handleDeletePost(post.id)}
-                onEditPress={handleEditPress}
-              />
-            ) : null
-          }
-          renderItem={({ item }) => (
-            <View>
-              {/* "Replying to @author" context */}
-              {parentAuthor && (
-                <View style={styles.replyingTo}>
-                  <Ionicons name="return-down-forward-outline" size={13} color="#a0aec0" />
-                  <Text style={styles.replyingToText}>Replying to <Text style={styles.replyingToHandle}>@{parentAuthor}</Text></Text>
-                </View>
-              )}
+          renderItem={({ item }) => {
+            const isAncestor = item._role === 'ancestor';
+            const isMain     = item._role === 'main';
+            const isReply    = item._role === 'reply';
+            const hasConnectorBelow = isAncestor || (isMain && replies.length > 0);
+
+            return (
               <PostCard
                 post={item}
-                onPress={() => navigation.push('PostDetail', { postId: item.id })}
-                onProfilePress={(username) => navigation.navigate('PublicProfile', { username })}
+                hasConnectorBelow={hasConnectorBelow}
+                style={isAncestor ? { opacity: 0.72 } : undefined}
+                onPress={isReply ? () => navigation.push('PostDetail', { postId: item.id }) : undefined}
+                onProfilePress={(u) => navigation.navigate('PublicProfile', { username: u })}
+                onMentionPress={(u) => navigation.navigate('PublicProfile', { username: u })}
+                onHashtagPress={(tag) => navigation.navigate('Explore', {
+                  screen: 'ExploreMain', params: { initialQuery: `#${tag}` }
+                })}
                 currentUserId={user?.id}
                 onDeletePress={() => handleDeletePost(item.id)}
                 onEditPress={handleEditPress}
               />
-            </View>
-          )}
+            );
+          }}
           ListEmptyComponent={
-            <Text style={styles.noReplies}>No replies yet — be the first!</Text>
+            !loading ? <Text style={styles.noReplies}>No replies yet — be the first!</Text> : null
           }
+          onScrollToIndexFailed={() => {}}
           contentContainerStyle={{ paddingBottom: 8 }}
         />
 
@@ -297,16 +309,6 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 15, color: '#718096', textAlign: 'center' },
   retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#1a365d', borderRadius: 20 },
   retryText: { color: '#fff', fontWeight: '700' },
-  replyingTo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 2,
-  },
-  replyingToText: { fontSize: 13, color: '#a0aec0' },
-  replyingToHandle: { color: '#1a365d', fontWeight: '600' },
   noReplies: { padding: 28, textAlign: 'center', color: '#a0aec0', fontSize: 14 },
   replyBar: {
     flexDirection: 'row',

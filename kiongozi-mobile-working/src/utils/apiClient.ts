@@ -603,6 +603,11 @@ class ApiClient {
     return this.request(`/api/v1/social/posts/${postId}/replies${params}`, { method: 'GET' });
   }
 
+  /** Get ancestor chain for a post (for thread view) */
+  async getPostAncestors(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}/ancestors`, { method: 'GET' });
+  }
+
   /** Follow a user */
   async followUser(userId: string) {
     return this.request(`/api/v1/social/follow/${userId}`, { method: 'POST' });
