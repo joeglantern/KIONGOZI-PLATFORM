@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Kiongozi Chat",
+    "name": "Kiongozi",
     "slug": "kiongozi-mobile-working",
     "version": "1.0.0",
     "description": "AI-powered learning for Kenya's Green Economy & Digital Transformation",
@@ -21,6 +21,9 @@
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice input functionality.",
         "NSSpeechRecognitionUsageDescription": "This app needs access to speech recognition to convert your voice to text.",
+        "NSPhotoLibraryUsageDescription": "Kiongozi needs access to your photo library to share images and videos in posts.",
+        "NSCameraUsageDescription": "Kiongozi needs access to your camera to take photos and videos for posts.",
+        "NSPhotoLibraryAddUsageDescription": "Kiongozi needs permission to save media to your photo library.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
@@ -47,6 +50,19 @@
     },
     "plugins": [
       "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#1a365d"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kiongozi needs access to your photo library to share images and videos.",
+          "cameraPermission": "Kiongozi needs access to your camera to capture photos and videos."
+        }
+      ],
       [
         "expo-build-properties",
         {

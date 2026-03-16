@@ -24,7 +24,7 @@ import apiClient from '../utils/apiClient';
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { signIn, signUp, loading } = useAuthStore();
+  const { signIn, signUp, resetPassword, loading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -36,6 +36,12 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Forgot password state
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -174,20 +180,96 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
           ]}>
             {/* Header */}
             <View style={styles.header}>
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require('../../assets/logo.png')}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.title}>
-                  {isSignUp ? 'Create an account' : 'Sign in'}
-                </Text>
-              </View>
+              {forgotMode ? (
+                <View style={styles.forgotHeader}>
+                  <TouchableOpacity
+                    onPress={() => setForgotMode(false)}
+                    style={styles.backBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="arrow-back" size={22} color="#111827" />
+                  </TouchableOpacity>
+                  <Text style={styles.title}>Reset Password</Text>
+                  <View style={styles.backBtnPlaceholder} />
+                </View>
+              ) : (
+                <View style={styles.logoContainer}>
+                  <Image
+                    source={require('../../assets/logo.png')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.title}>
+                    {isSignUp ? 'Create an account' : 'Sign in'}
+                  </Text>
+                </View>
+              )}
             </View>
 
+            {/* Forgot Password Card */}
+            {forgotMode && (
+              <View style={styles.formContainer}>
+                {resetSent ? (
+                  <View style={styles.resetSuccessCard}>
+                    <Ionicons name="checkmark-circle" size={48} color="#22c55e" style={{ alignSelf: 'center', marginBottom: 12 }} />
+                    <Text style={styles.resetSuccessTitle}>Check your email</Text>
+                    <Text style={styles.resetSuccessText}>
+                      We sent a password reset link to {resetEmail}. Tap the link to set a new password.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.submitButton}
+                      onPress={() => { setForgotMode(false); setResetSent(false); }}
+                    >
+                      <Text style={styles.submitButtonText}>Back to sign in</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.resetSubtitle}>
+                      Enter your email address and we'll send you a link to reset your password.
+                    </Text>
+                    <View style={styles.inputContainer}>
+                      <Ionicons name="mail-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, styles.inputWithIcon]}
+                        placeholder="Email address"
+                        placeholderTextColor="#9ca3af"
+                        value={resetEmail}
+                        onChangeText={setResetEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="email"
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.submitButton, (resetLoading || !resetEmail) && styles.submitButtonDisabled]}
+                      disabled={resetLoading || !resetEmail}
+                      onPress={async () => {
+                        setResetLoading(true);
+                        const result = await resetPassword(resetEmail);
+                        setResetLoading(false);
+                        if (result.success) {
+                          setResetSent(true);
+                        } else {
+                          Alert.alert('Error', result.error || 'Failed to send reset email.');
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      {resetLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.submitButtonText}>Send Reset Email</Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
+
             {/* Form Container */}
-            <View style={styles.formContainer}>
+            {!forgotMode && <View style={styles.formContainer}>
               {isSignUp && (
                 <>
                   <View style={styles.inputContainer}>
@@ -345,6 +427,15 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 </TouchableOpacity>
               </View>
 
+              {!isSignUp && (
+                <TouchableOpacity
+                  onPress={() => { setForgotMode(true); setResetSent(false); setResetEmail(email); }}
+                  style={styles.forgotLink}
+                >
+                  <Text style={styles.forgotText}>Forgot password?</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={[styles.submitButton, (loading || !email || !password) && styles.submitButtonDisabled]}
                 onPress={handleSubmit}
@@ -359,10 +450,10 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   </Text>
                 )}
               </TouchableOpacity>
-            </View>
+            </View>}
 
             {/* Switch Auth Mode */}
-            <View style={styles.footer}>
+            {!forgotMode && <View style={styles.footer}>
               <Text style={styles.footerText}>
                 {isSignUp ? 'Already have an account?' : "Don't have an account?"}
               </Text>
@@ -371,7 +462,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   {isSignUp ? 'Sign In' : 'Sign Up'}
                 </Text>
               </TouchableOpacity>
-            </View>
+            </View>}
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -586,5 +677,57 @@ const styles = StyleSheet.create({
     color: '#6366f1',
     fontSize: 14,
     fontWeight: '600',
+  },
+  forgotHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  backBtn: {
+    padding: 4,
+  },
+  backBtnPlaceholder: {
+    width: 30,
+  },
+  forgotLink: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+  forgotText: {
+    color: '#6366f1',
+    fontSize: 14,
+  },
+  resetSubtitle: {
+    fontSize: 15,
+    color: '#64748b',
+    marginBottom: 20,
+  },
+  cancelForgotBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 8,
+  },
+  cancelForgotText: {
+    color: '#64748b',
+    fontSize: 15,
+  },
+  resetSuccessCard: {
+    paddingVertical: 24,
+  },
+  resetSuccessTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  resetSuccessText: {
+    fontSize: 15,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 28,
+    lineHeight: 22,
   },
 });

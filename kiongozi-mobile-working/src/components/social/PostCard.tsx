@@ -99,6 +99,15 @@ export function PostCard({
   const [expanded, setExpanded] = useState(false);
   const [measured, setMeasured] = useState(false);
 
+  // Fall back to onProfilePress for @mention taps when no explicit handler is provided
+  const handleMentionPress = useCallback((username: string) => {
+    if (onMentionPress) {
+      onMentionPress(username);
+    } else if (onProfilePress) {
+      onProfilePress(username);
+    }
+  }, [onMentionPress, onProfilePress]);
+
   // When this is a repost, all interactions target the ORIGINAL post
   const isRepost = !!(post.repost_of_id && post.repost_of);
   const activePost = isRepost ? post.repost_of! : post;
@@ -322,7 +331,7 @@ export function PostCard({
             style={styles.content}
             numberOfLines={measured && isTruncated && !expanded ? 4 : undefined}
             onTextLayout={!measured ? handleTextLayout : undefined}
-            onMentionPress={onMentionPress}
+            onMentionPress={handleMentionPress}
             onHashtagPress={onHashtagPress}
           />
           {isTruncated && !expanded && (

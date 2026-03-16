@@ -15,6 +15,8 @@ interface AuthState {
   initialize: () => Promise<void>;
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   checkEmailVerified: () => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -228,6 +230,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       return { success: false, error: 'Email not verified yet' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  resetPassword: async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: 'kiongozi://reset-password',
+      });
+      return error ? { success: false, error: error.message } : { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  updatePassword: async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      return error ? { success: false, error: error.message } : { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

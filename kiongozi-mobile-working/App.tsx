@@ -5,11 +5,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from './src/stores/authStore';
 import { useSocialStore } from './src/stores/socialStore';
+import { supabase } from './src/utils/supabaseClient';
 import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
 import { useSupabaseDeepLink } from './src/hooks/useSupabaseDeepLink';
 import AppNavigator from './src/navigation/AppNavigator';
 import LoginScreen from './src/screens/LoginScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import {
   registerForPushNotifications,
   setupNotificationHandlers,
@@ -21,6 +23,7 @@ export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const navRef = useRef<any>(null);
 
   useEffect(() => {
@@ -68,6 +71,16 @@ export default function App() {
     }
   }, []);
 
+  // Listen for PASSWORD_RECOVERY event from deep link
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowResetPassword(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Handle deep links for Supabase auth (email verification, OAuth)
   useSupabaseDeepLink({
     onAuthSuccess: () => initialize(),
@@ -98,6 +111,10 @@ export default function App() {
         // First launch: show onboarding, then login
         <OnboardingScreen onDone={() => setOnboardingDone(true)} />
       )}
+      <ResetPasswordScreen
+        visible={showResetPassword}
+        onDismiss={() => setShowResetPassword(false)}
+      />
     </GestureHandlerRootView>
   );
 }

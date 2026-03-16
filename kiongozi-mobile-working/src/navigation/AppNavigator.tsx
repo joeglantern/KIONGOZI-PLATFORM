@@ -25,6 +25,7 @@ import MutedUsersScreen from '../screens/social/MutedUsersScreen';
 import { KiongoziChatFAB } from '../components/social/KiongoziChatFAB';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
+import { supabase } from '../utils/supabaseClient';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
@@ -123,14 +124,37 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const [activeRoute, setActiveRoute] = useState('');
   const internalNavRef = useRef<NavigationContainerRef<any>>(null);
   const navRef = externalNavRef ?? internalNavRef;
-  const { unreadCount } = useNotificationStore();
-  const { sessionExpired } = useAuthStore();
+  const { unreadCount, addNotification, fetchNotifications } = useNotificationStore();
+  const { user, sessionExpired } = useAuthStore();
 
   useEffect(() => {
     if (sessionExpired) {
       Alert.alert('Session expired', 'Your session has expired. Please sign in again.');
     }
   }, [sessionExpired]);
+
+  // Global notification listener — runs for the entire session regardless of active tab.
+  // Updates the badge and prepends new notifications to the store in real-time.
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Initial fetch so the badge is correct on first mount
+    fetchNotifications(true);
+
+    const channel = supabase
+      .channel(`global-notifications-${user.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'social_notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        if (payload.new) addNotification(payload.new);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const handleStateChange = useCallback((state: NavigationState | undefined) => {
     setActiveRoute(getActiveRouteName(state));

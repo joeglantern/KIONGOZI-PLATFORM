@@ -134,7 +134,7 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
 
     const { data: profile } = await supabaseServiceClient
       .from('profiles')
-      .select('id')
+      .select('id, is_private')
       .eq('username', username)
       .single();
 
@@ -153,6 +153,24 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
         .maybeSingle();
       if (blockedByRow) {
         res.json({ success: true, data: [], nextCursor: null });
+        return;
+      }
+    }
+
+    // Enforce private account: only followers (and the owner) can see posts
+    if (profile.is_private && req.user?.id !== profile.id) {
+      if (!req.user) {
+        res.status(403).json({ success: false, error: 'This account is private' });
+        return;
+      }
+      const { data: follow } = await supabaseServiceClient
+        .from('follows')
+        .select('id')
+        .eq('follower_id', req.user.id)
+        .eq('following_id', profile.id)
+        .maybeSingle();
+      if (!follow) {
+        res.status(403).json({ success: false, error: 'This account is private' });
         return;
       }
     }

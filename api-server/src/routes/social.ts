@@ -2,9 +2,35 @@ import { Router, Request, Response } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import MentionService from '../services/MentionService';
-import FeedService, { enrichWithUserState } from '../services/FeedService';
+import FeedService, { enrichWithUserState, getPrivateUserIds } from '../services/FeedService';
 import NotificationService from '../services/NotificationService';
 import OpenAI from 'openai';
+
+/**
+ * Returns true if the viewer can access posts from the given author.
+ * Private accounts are only visible to followers (and the account owner).
+ */
+async function canViewProfile(authorId: string, viewerId?: string): Promise<boolean> {
+  if (viewerId === authorId) return true;
+
+  const { data: profile } = await supabaseServiceClient
+    .from('profiles')
+    .select('is_private')
+    .eq('id', authorId)
+    .single();
+
+  if (!profile?.is_private) return true;
+  if (!viewerId) return false;
+
+  const { data: follow } = await supabaseServiceClient
+    .from('follows')
+    .select('id')
+    .eq('follower_id', viewerId)
+    .eq('following_id', authorId)
+    .maybeSingle();
+
+  return !!follow;
+}
 
 const router = Router();
 
@@ -46,7 +72,7 @@ router.get('/posts/:id', optionalAuth, async (req: Request, res: Response): Prom
       .from('posts')
       .select(`
         *,
-        profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
+        profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified, is_private),
         post_media (*),
         repost_of:repost_of_id (
           id, content, visibility, like_count, comment_count, repost_count, view_count,
@@ -62,6 +88,15 @@ router.get('/posts/:id', optionalAuth, async (req: Request, res: Response): Prom
       res.status(404).json({ success: false, error: 'Post not found' });
       return;
     }
+
+    // Enforce private account visibility
+    if (!(await canViewProfile(post.user_id, req.user?.id))) {
+      res.status(403).json({ success: false, error: 'This account is private' });
+      return;
+    }
+
+    // Strip is_private from the profiles object before returning
+    if (post.profiles) delete post.profiles.is_private;
 
     const [enriched] = await enrichWithUserState([post], req.user?.id);
     res.json({ success: true, data: enriched });
@@ -499,6 +534,18 @@ router.get('/posts/:id/replies', optionalAuth, async (req: Request, res: Respons
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
     const cursor = req.query.cursor as string | undefined;
 
+    // Enforce private account: check the parent post's author before returning replies
+    const { data: parentPost } = await supabaseServiceClient
+      .from('posts')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (parentPost && !(await canViewProfile(parentPost.user_id, req.user?.id))) {
+      res.status(403).json({ success: false, error: 'This account is private' });
+      return;
+    }
+
     let query = supabaseServiceClient
       .from('posts')
       .select(`
@@ -535,13 +582,15 @@ router.get('/posts/:id/replies', optionalAuth, async (req: Request, res: Respons
 // GET /api/v1/social/trending
 router.get('/trending', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {
+    const privateUserIds = await getPrivateUserIds();
+
     const { data: hashtags, error: hErr } = await supabaseServiceClient
       .from('hashtags')
       .select('id, tag, use_count')
       .order('use_count', { ascending: false })
       .limit(10);
 
-    const { data: posts, error: pErr } = await supabaseServiceClient
+    let postsQuery = supabaseServiceClient
       .from('posts')
       .select(`
         *,
@@ -551,6 +600,12 @@ router.get('/trending', optionalAuth, async (req: Request, res: Response): Promi
       .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
       .order('like_count', { ascending: false })
       .limit(10);
+
+    if (privateUserIds.length > 0) {
+      postsQuery = postsQuery.not('user_id', 'in', `(${privateUserIds.join(',')})`);
+    }
+
+    const { data: posts, error: pErr } = await postsQuery;
 
     if (hErr || pErr) {
       res.status(500).json({ success: false, error: 'Failed to fetch trending' });
@@ -573,15 +628,16 @@ router.get('/search', optionalAuth, async (req: Request, res: Response): Promise
       return;
     }
 
-    // Fetch IDs of users who have blocked the current viewer (to exclude from results)
-    let blockedByIds: string[] = [];
-    if (req.user) {
-      const { data: blockedByRows } = await supabaseServiceClient
-        .from('blocks')
-        .select('blocker_id')
-        .eq('blocked_id', req.user.id);
-      blockedByIds = (blockedByRows || []).map((r: any) => r.blocker_id);
-    }
+    // Fetch IDs of users who have blocked the current viewer + private users (to exclude from post results)
+    const [blockedByRows, privateUserIds] = await Promise.all([
+      req.user
+        ? supabaseServiceClient.from('blocks').select('blocker_id').eq('blocked_id', req.user.id)
+        : Promise.resolve({ data: [] }),
+      getPrivateUserIds(),
+    ]);
+
+    const blockedByIds = ((blockedByRows as any).data || []).map((r: any) => r.blocker_id);
+    const postExcludeIds = [...new Set([...blockedByIds, ...privateUserIds])];
 
     let postsQuery = supabaseServiceClient
       .from('posts')
@@ -597,8 +653,10 @@ router.get('/search', optionalAuth, async (req: Request, res: Response): Promise
       .or(`username.ilike.%${q}%,full_name.ilike.%${q}%`)
       .limit(10);
 
+    if (postExcludeIds.length > 0) {
+      postsQuery = postsQuery.not('user_id', 'in', `(${postExcludeIds.join(',')})`);
+    }
     if (blockedByIds.length > 0) {
-      postsQuery = postsQuery.not('user_id', 'in', `(${blockedByIds.join(',')})`);
       usersQuery = usersQuery.not('id', 'in', `(${blockedByIds.join(',')})`);
     }
 

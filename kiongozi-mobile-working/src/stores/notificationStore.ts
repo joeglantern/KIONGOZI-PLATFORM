@@ -78,10 +78,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   addNotification: (raw) => {
     const notification = raw.id && raw.created_at ? mapNotification(raw) : raw as SocialNotification;
-    set(s => ({
-      notifications: [notification, ...s.notifications].slice(0, 100),
-      unreadCount: s.unreadCount + (notification.read ? 0 : 1),
-    }));
+    set(s => {
+      // Deduplicate: ignore if already in the list (global + screen subscriptions both fire)
+      if (s.notifications.some(n => n.id === notification.id)) return s;
+      return {
+        notifications: [notification, ...s.notifications].slice(0, 100),
+        unreadCount: s.unreadCount + (notification.read ? 0 : 1),
+      };
+    });
   },
 
   removeNotification: (id: string) => {

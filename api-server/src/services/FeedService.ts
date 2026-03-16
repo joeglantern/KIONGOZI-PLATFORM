@@ -70,6 +70,20 @@ async function enrichWithUserState(posts: any[], userId?: string): Promise<any[]
 export { enrichWithUserState };
 
 /**
+ * Fetch all user IDs with private accounts.
+ * Used to exclude private accounts from public discovery feeds (explore, for-you, trending, search).
+ */
+async function getPrivateUserIds(): Promise<string[]> {
+  const { data } = await supabaseServiceClient
+    .from('profiles')
+    .select('id')
+    .eq('is_private', true);
+  return (data || []).map((r: any) => r.id);
+}
+
+export { getPrivateUserIds };
+
+/**
  * Fetch the set of user IDs that should be excluded from feeds for a given user:
  * - users they muted
  * - users they blocked
@@ -158,7 +172,11 @@ class FeedService {
     cursor?: string,
     userId?: string
   ): Promise<{ data: any[]; nextCursor: string | null }> {
-    const excludeIds = userId ? await getExcludeIds(userId) : [];
+    const [excludeIds, privateUserIds] = await Promise.all([
+      userId ? getExcludeIds(userId) : Promise.resolve([]),
+      getPrivateUserIds(),
+    ]);
+    const allExcludeIds = [...new Set([...excludeIds, ...privateUserIds])];
 
     let query = supabaseServiceClient
       .from('posts')
@@ -168,8 +186,8 @@ class FeedService {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (excludeIds.length > 0) {
-      query = query.not('user_id', 'in', `(${excludeIds.join(',')})`);
+    if (allExcludeIds.length > 0) {
+      query = query.not('user_id', 'in', `(${allExcludeIds.join(',')})`);
     }
 
     if (cursor) {
@@ -203,7 +221,7 @@ class FeedService {
   ): Promise<{ data: any[]; nextCursor: string | null }> {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [{ data: pool, error }, { data: following }, excludeIds] = await Promise.all([
+    const [{ data: pool, error }, { data: following }, excludeIds, privateUserIds] = await Promise.all([
       supabaseServiceClient
         .from('posts')
         .select(POST_SELECT)
@@ -218,11 +236,12 @@ class FeedService {
         .select('following_id')
         .eq('follower_id', userId),
       getExcludeIds(userId),
+      getPrivateUserIds(),
     ]);
 
     if (error) throw error;
 
-    const excludeSet = new Set(excludeIds);
+    const excludeSet = new Set([...excludeIds, ...privateUserIds]);
     const followingSet = new Set((following || []).map((f: any) => f.following_id));
     const now = Date.now();
 
