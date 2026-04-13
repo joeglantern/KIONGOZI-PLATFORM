@@ -24,10 +24,12 @@ interface CourseData {
     title: string;
     description: string;
     difficulty_level: string;
+    status: string;
     created_at: string;
     enrollment_count: number;
     avg_rating: number;
-    duration_minutes: number;
+    estimated_duration_hours: number;
+    thumbnail_url: string | null;
 }
 
 export default function InstructorCoursesPage() {
@@ -168,17 +170,24 @@ export default function InstructorCoursesPage() {
                     <div className="grid gap-4">
                         {filteredCourses.map((course) => (
                             <div key={course.id} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 md:p-6 flex flex-col md:flex-row gap-6 hover:shadow-md transition-shadow">
-                                <div className="w-full md:w-48 h-32 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center shrink-0">
-                                    {/* Placeholder for course image */}
-                                    <BookOpen className="w-10 h-10 text-gray-400" />
+                                                <div className="w-full md:w-48 h-32 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                                    {course.thumbnail_url
+                                        ? <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                                        : <BookOpen className="w-10 h-10 text-gray-400" />
+                                    }
                                 </div>
 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between mb-2">
                                         <div>
-                                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider mb-2 ${difficultyColors[course.difficulty_level]}`}>
-                                                {course.difficulty_level}
-                                            </span>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${difficultyColors[course.difficulty_level]}`}>
+                                                    {course.difficulty_level}
+                                                </span>
+                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${course.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
+                                                    {course.status || 'draft'}
+                                                </span>
+                                            </div>
                                             <Link href={`/courses/${course.id}`} className="block">
                                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white hover:text-orange-500 transition-colors truncate">
                                                     {course.title}
@@ -208,7 +217,7 @@ export default function InstructorCoursesPage() {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <Clock className="w-4 h-4" />
-                                            <span>{Math.round((course.duration_minutes || 0) / 60)}h {(course.duration_minutes || 0) % 60}m</span>
+                                            <span>{course.estimated_duration_hours || 0}h</span>
                                         </div>
                                     </div>
                                 </div>

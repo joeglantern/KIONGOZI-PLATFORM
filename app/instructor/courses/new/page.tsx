@@ -34,7 +34,7 @@ export default function CreateCoursePage() {
         description: '',
         difficulty_level: 'beginner',
         category_id: '',
-        duration_minutes: 60,
+        estimated_duration_hours: 1,
         thumbnail_url: '',
     });
 
@@ -94,9 +94,11 @@ export default function CreateCoursePage() {
                 .getPublicUrl(filePath);
 
             setFormData(prev => ({ ...prev, thumbnail_url: publicUrl }));
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error uploading file:', error);
-            alert('Error uploading image. Make sure the "courses" bucket exists in Supabase Storage.');
+            const message = error?.message || error?.error || 'Unknown error';
+            alert(`Error uploading image: ${message}`);
+            setPreviewUrl(null);
         } finally {
             setUploading(false);
         }
@@ -128,9 +130,19 @@ export default function CreateCoursePage() {
         callback(urls);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent | React.MouseEvent) => {
         e.preventDefault();
         if (!user) return;
+
+        // Validate required fields
+        if (!formData.title.trim()) {
+            alert('Please enter a course title.');
+            return;
+        }
+        if (!formData.category_id) {
+            alert('Please select a category.');
+            return;
+        }
 
         setLoading(true);
         try {
@@ -138,14 +150,14 @@ export default function CreateCoursePage() {
                 .from('courses')
                 .insert([
                     {
-                        title: formData.title,
+                        title: formData.title.trim(),
                         description: formData.description,
                         difficulty_level: formData.difficulty_level,
                         category_id: formData.category_id,
-                        duration_minutes: formData.duration_minutes,
-                        thumbnail_url: formData.thumbnail_url,
+                        estimated_duration_hours: formData.estimated_duration_hours,
+                        thumbnail_url: formData.thumbnail_url || null,
                         author_id: user.id,
-                        published: false
+                        status: 'draft'
                     }
                 ])
                 .select()
@@ -154,8 +166,10 @@ export default function CreateCoursePage() {
             if (error) throw error;
 
             router.push(`/instructor/courses/${data.id}/edit`);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating course:', error);
+            const message = error?.message || error?.details || 'Unknown error';
+            alert(`Failed to create course: ${message}`);
         } finally {
             setLoading(false);
         }
@@ -329,12 +343,13 @@ export default function CreateCoursePage() {
                             </div>
 
                             <div className="space-y-4">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Est. Duration (Min)</label>
+                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Est. Duration (Hours)</label>
                                 <input
                                     type="number"
                                     min="0"
-                                    value={formData.duration_minutes}
-                                    onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
+                                    step="0.5"
+                                    value={formData.estimated_duration_hours}
+                                    onChange={(e) => setFormData({ ...formData, estimated_duration_hours: parseFloat(e.target.value) || 0 })}
                                     className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                                 />
                             </div>

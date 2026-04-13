@@ -53,12 +53,14 @@
     "serwist": "^9.5.6",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
+    "tus-js-client": "^4.3.1",
     "use-sound": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.19",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/tus-js-client": "^1.8.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.0.0",
