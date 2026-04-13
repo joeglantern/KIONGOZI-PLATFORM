@@ -63,7 +63,7 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
     });
 
     const [questions, setQuestions] = useState<Question[]>([]);
-    const [activeQuestionIdx, setActiveQuestionIdx] = useState<number | null>(0);
+    const [activeQuestionIdx, setActiveQuestionIdx] = useState<number | null>(null);
 
     useEffect(() => {
         fetchCourseModules();
@@ -138,6 +138,7 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
             }));
 
             setQuestions(formattedQuestions);
+            setActiveQuestionIdx(formattedQuestions.length > 0 ? 0 : null);
         } catch (error) {
             console.error('Error fetching quiz data:', error);
         } finally {
@@ -388,10 +389,13 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
 
                     <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                         {questions.map((q, idx) => (
-                            <button
+                            <div
                                 key={idx}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => setActiveQuestionIdx(idx)}
-                                className={`w-full group flex items-center gap-3 p-4 rounded-2xl text-left border-2 transition-all ${activeQuestionIdx === idx
+                                onKeyDown={(e) => e.key === 'Enter' && setActiveQuestionIdx(idx)}
+                                className={`w-full group flex items-center gap-3 p-4 rounded-2xl text-left border-2 transition-all cursor-pointer ${activeQuestionIdx === idx
                                     ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-500/10'
                                     : 'border-transparent bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
                                     }`}
@@ -410,7 +414,7 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />
                                 </button>
-                            </button>
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -428,7 +432,7 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
             {/* Right Column: Active Question Editor */}
             <div className="lg:col-span-8">
                 <AnimatePresence mode="wait">
-                    {activeQuestionIdx !== null ? (
+                    {activeQuestionIdx !== null && questions[activeQuestionIdx] ? (
                         <motion.div
                             key={activeQuestionIdx}
                             initial={{ opacity: 0, x: 20 }}
