@@ -42,6 +42,8 @@ export default function EditCoursePage() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [publishing, setPublishing] = useState(false);
+    const [courseStatus, setCourseStatus] = useState<string>('draft');
     const [courses, setCourse] = useState<any>(null);
     const [modules, setModules] = useState<any[]>([]);
     const [quizzes, setQuizzes] = useState<any[]>([]);
@@ -106,6 +108,7 @@ export default function EditCoursePage() {
 
             if (courseError) throw courseError;
             setCourse(courseData);
+            setCourseStatus(courseData.status || 'draft');
             setCourseForm({
                 title: courseData.title,
                 description: courseData.description,
@@ -158,6 +161,23 @@ export default function EditCoursePage() {
             alert('Failed to save course');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleTogglePublish = async () => {
+        const newStatus = courseStatus === 'published' ? 'draft' : 'published';
+        try {
+            setPublishing(true);
+            const { error } = await supabase
+                .from('courses')
+                .update({ status: newStatus, published_at: newStatus === 'published' ? new Date().toISOString() : null })
+                .eq('id', courseId);
+            if (error) throw error;
+            setCourseStatus(newStatus);
+        } catch (error: any) {
+            alert(`Failed to ${newStatus === 'published' ? 'publish' : 'unpublish'}: ${error.message}`);
+        } finally {
+            setPublishing(false);
         }
     };
 
@@ -411,6 +431,22 @@ export default function EditCoursePage() {
                             onClick={() => window.open(`/courses/${courseId}`, '_blank')}
                         >
                             Preview Course
+                        </Button>
+                        <Button
+                            onClick={handleTogglePublish}
+                            disabled={publishing}
+                            className={`font-bold rounded-xl px-6 transition-all ${
+                                courseStatus === 'published'
+                                    ? 'bg-green-100 hover:bg-red-50 text-green-700 hover:text-red-600 border border-green-200 hover:border-red-200'
+                                    : 'bg-gray-100 hover:bg-green-50 text-gray-600 hover:text-green-700 border border-gray-200 hover:border-green-200'
+                            }`}
+                        >
+                            {publishing ? (
+                                <Loader2 className="w-4 h-4 animate-spin mr-2 inline" />
+                            ) : (
+                                <span className={`w-2 h-2 rounded-full mr-2 inline-block ${courseStatus === 'published' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            )}
+                            {courseStatus === 'published' ? 'Published' : 'Draft — Click to Publish'}
                         </Button>
                         <Button
                             onClick={handleSaveCourse}
