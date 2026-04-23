@@ -1,27 +1,18 @@
-"use client";
-
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useUser } from '@/app/contexts/UserContext';
+import { AuthCTA } from '@/components/landing/AuthCTA';
 import {
-  Sparkles,
   ArrowRight,
   BookOpen,
   Trophy,
   Users,
-  Zap,
   Target,
   Briefcase,
   Code,
   TreePine,
-  CheckCircle,
-  Star,
-  LayoutDashboard,
 } from 'lucide-react';
 
 export default function LandingPage() {
-  const { user } = useUser();
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
@@ -49,34 +40,19 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {user ? (
-                <Link href="/dashboard">
-                  <Button className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
-                    <LayoutDashboard className="w-5 h-5" />
-                    <span>Go to Dashboard</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </Button>
-                </Link>
-              ) : (
-                <Link href="/signup">
-                  <Button className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
-                    <span>Start Learning Free</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </Button>
-                </Link>
-              )}
-              <Link href="/browse">
-                <Button variant="outline" className="border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-500 px-8 py-6 text-lg rounded-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
+              <AuthCTA />
+              <Button asChild variant="outline" className="border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-500 px-8 py-6 text-lg rounded-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
+                <Link href="/browse">
                   <BookOpen className="w-5 h-5" />
                   <span>Browse Courses</span>
-                </Button>
-              </Link>
-              <Link href="/community">
-                <Button variant="outline" className="border-2 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-500 px-8 py-6 text-lg rounded-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="border-2 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-500 px-8 py-6 text-lg rounded-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
+                <Link href="/community">
                   <Users className="w-5 h-5" />
                   <span>Join Community</span>
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
 
             {/* Stats */}
@@ -189,12 +165,12 @@ export default function LandingPage() {
           <p className="text-xl text-orange-100 mb-8">
             Join thousands of learners building skills for Kenya's future
           </p>
-          <Link href="/signup">
-            <Button className="bg-white text-orange-600 hover:bg-gray-50 px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 mx-auto">
+          <Button asChild className="bg-white text-orange-600 hover:bg-gray-50 px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 mx-auto">
+            <Link href="/signup">
               <span>Get Started for Free</span>
               <ArrowRight className="w-5 h-5" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </section>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export type CookieCategory = 'essential' | 'analytics' | 'marketing' | 'functional';
@@ -151,22 +151,16 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         return preferences[category];
     }, [preferences]);
 
+    const value = useMemo(() => ({
+        hydrated, consentGiven, preferences, consentTimestamp,
+        showPreferences, setShowPreferences,
+        acceptAll, rejectAll, savePreferences, resetConsent, hasConsent,
+    }), [hydrated, consentGiven, preferences, consentTimestamp,
+        showPreferences, setShowPreferences,
+        acceptAll, rejectAll, savePreferences, resetConsent, hasConsent]);
+
     return (
-        <CookieConsentContext.Provider
-            value={{
-                hydrated,
-                consentGiven,
-                preferences,
-                consentTimestamp,
-                showPreferences,
-                setShowPreferences,
-                acceptAll,
-                rejectAll,
-                savePreferences,
-                resetConsent,
-                hasConsent,
-            }}
-        >
+        <CookieConsentContext.Provider value={value}>
             {children}
         </CookieConsentContext.Provider>
     );

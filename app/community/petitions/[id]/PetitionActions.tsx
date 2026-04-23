@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Share2, Copy, FileSignature } from 'lucide-react';
 import { createClient } from '@/app/utils/supabase/client';
@@ -18,7 +18,7 @@ export default function PetitionActions({ petition, currentUser, hasSignedProp }
     const [isSigning, setIsSigning] = useState(false);
     const [actionToast, setActionToast] = useState<ToastAction | null>(null);
     const { toast } = useToast();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const handleSign = async () => {
         if (!currentUser) {

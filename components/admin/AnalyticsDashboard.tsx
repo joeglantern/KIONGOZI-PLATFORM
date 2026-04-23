@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function AnalyticsDashboard() {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [loading, setLoading] = useState(true);
     const [metrics, setMetrics] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);

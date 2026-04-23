@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -23,7 +23,7 @@ export default function PetitionCard({ petition, currentUser, hasSignedProp = fa
     const [hasSigned, setHasSigned] = useState(hasSignedProp);
     const [isSigning, setIsSigning] = useState(false);
     const { toast } = useToast();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const progress = Math.min((signatureCount / (petition.target_signatures || 100)) * 100, 100);
 

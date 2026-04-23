@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
@@ -13,7 +13,7 @@ import { motion } from 'framer-motion';
 
 export default function AchievementsPage() {
     const { user, profile } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const [allBadges, setAllBadges] = useState<any[]>([]);
     const [userBadges, setUserBadges] = useState<any[]>([]);

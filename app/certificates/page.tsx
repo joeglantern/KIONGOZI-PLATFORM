@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
@@ -10,13 +10,27 @@ import { Award, Download, Eye, ShieldCheck, FileText, Search, Linkedin } from 'l
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { CertificatesSkeleton } from '@/components/ui/Skeleton';
+import Link from 'next/link';
+import Image from 'next/image';
 
-const generateCertificateHTML = (cert: any, userName: string) => {
-    const courseTitle = cert.course?.title || 'Course';
+const escapeHtml = (value: string) =>
+    value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+const createCertificateDocument = (cert: any, userName: string, autoPrint = false) => {
+    const courseTitle = escapeHtml(cert.course?.title || 'Course');
+    const recipientName = escapeHtml(userName || 'Learner');
+    const certificateNumber = escapeHtml(cert.certificate_number || 'Kiongozi');
     const issuedDate = new Date(cert.issued_at).toLocaleDateString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric'
     });
     const currentYear = new Date().getFullYear();
+    const safeIssuedDate = escapeHtml(issuedDate);
+    const printScript = autoPrint ? '<script>window.onload = () => window.print();</script>' : '';
 
     return `<!DOCTYPE html>
 <html>
@@ -121,7 +135,7 @@ const generateCertificateHTML = (cert: any, userName: string) => {
                 </div>
                 <div class="cert-id">
                     <div class="cert-id-label">Verify ID</div>
-                    <div class="cert-id-value">${cert.certificate_number}</div>
+                    <div class="cert-id-value">${certificateNumber}</div>
                 </div>
             </div>
 
@@ -129,14 +143,14 @@ const generateCertificateHTML = (cert: any, userName: string) => {
                 <div class="award-title">Certificate of Completion</div>
                 <div class="award-subtitle">Verified Achievement</div>
                 <div class="presented-to">This is proudly presented to</div>
-                <div class="recipient-name">${userName}</div>
+                <div class="recipient-name">${recipientName}</div>
                 <div class="reason">For successfully completing the program</div>
                 <div class="course-name">${courseTitle}</div>
             </div>
 
             <div class="footer">
                 <div class="signature-block">
-                    <div class="date-text">${issuedDate}</div>
+                    <div class="date-text">${safeIssuedDate}</div>
                     <div class="signature-line"></div>
                     <div class="signature-name">Date of Issue</div>
                     <div class="signature-title">Official Record</div>
@@ -161,14 +175,21 @@ const generateCertificateHTML = (cert: any, userName: string) => {
             </div>
         </div>
     </div>
-    <script>window.onload = () => window.print();</script>
+    ${printScript}
 </body>
 </html>`;
 };
 
+const openCertificateDocument = (html: string) => {
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+};
+
 export default function CertificatesPage() {
     const { user, profile } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const [certificates, setCertificates] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -176,26 +197,14 @@ export default function CertificatesPage() {
 
     const handleDownload = (cert: any) => {
         const userName = profile?.full_name || 'Learner';
-        const html = generateCertificateHTML(cert, userName);
-        const blob = new Blob([html], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Certificate-${cert.certificate_number || 'Kiongozi'}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const html = createCertificateDocument(cert, userName, true);
+        openCertificateDocument(html);
     };
 
     const handlePreview = (cert: any) => {
         const userName = profile?.full_name || 'Learner';
-        const html = generateCertificateHTML(cert, userName);
-        const win = window.open('', '_blank');
-        if (win) {
-            win.document.write(html);
-            win.document.close();
-        }
+        const html = createCertificateDocument(cert, userName, false);
+        openCertificateDocument(html);
     };
 
     const handleShareToLinkedIn = (cert: any) => {
@@ -208,7 +217,7 @@ export default function CertificatesPage() {
         window.open(linkedinUrl, '_blank');
     };
 
-    const fetchCertificates = async () => {
+    const fetchCertificates = useCallback(async () => {
         if (!user) return;
 
         try {
@@ -257,15 +266,15 @@ export default function CertificatesPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [supabase, user]);
 
     useEffect(() => {
         fetchCertificates();
-    }, [user]);
+    }, [fetchCertificates]);
 
     const filteredCertificates = certificates.filter(cert =>
         cert.course?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        cert.certificate_number.toLowerCase().includes(searchQuery.toLowerCase())
+        (cert.certificate_number || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -323,7 +332,13 @@ export default function CertificatesPage() {
                                             <div className="flex items-center space-x-4 mb-6">
                                                 <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0">
                                                     {cert.course?.thumbnail_url ? (
-                                                        <img src={cert.course.thumbnail_url} alt={cert.course.title} className="w-full h-full object-cover" />
+                                                        <Image
+                                                            src={cert.course.thumbnail_url}
+                                                            alt={cert.course.title}
+                                                            width={64}
+                                                            height={64}
+                                                            className="w-full h-full object-cover"
+                                                        />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center bg-orange-50 text-orange-500">
                                                             <FileText className="w-6 h-6" />
@@ -359,7 +374,7 @@ export default function CertificatesPage() {
                                                     className="rounded-2xl border-gray-100 text-xs font-black uppercase tracking-widest h-12 flex items-center justify-center gap-2"
                                                     onClick={() => handleDownload(cert)}
                                                 >
-                                                    <Download className="w-4 h-4" /> Download
+                                                    <Download className="w-4 h-4" /> Save PDF
                                                 </Button>
                                                 <Button
                                                     className="rounded-2xl bg-gray-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest h-12 flex items-center justify-center gap-2"
@@ -387,8 +402,10 @@ export default function CertificatesPage() {
                                 <p className="text-gray-500 max-w-sm mx-auto font-medium mb-8">
                                     Complete courses to earn official certificates and showcase your expertise to the world.
                                 </p>
-                                <Button className="bg-orange-600 hover:bg-orange-700 text-white font-black px-8 py-6 rounded-2xl shadow-lg shadow-orange-600/20">
-                                    Explore Courses
+                                <Button asChild className="bg-orange-600 hover:bg-orange-700 text-white font-black px-8 py-6 rounded-2xl shadow-lg shadow-orange-600/20">
+                                    <Link href="/courses">
+                                        Explore Courses
+                                    </Link>
                                 </Button>
                             </div>
                         )}

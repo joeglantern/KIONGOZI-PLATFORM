@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
+import { AuthIdentityManager } from '@/components/settings/AuthIdentityManager';
 import {
-    Settings,
     Bell,
     Lock,
     User,
@@ -30,20 +30,90 @@ const tabs = [
     { id: 'preference', name: 'Preferences', icon: Globe },
 ];
 
+const notificationStorageKey = 'kiongozi-settings-notifications';
+const preferenceStorageKey = 'kiongozi-settings-preferences';
+
+const defaultNotifications = {
+    email: true,
+    push: true,
+    achievements: true,
+};
+
+const defaultPreferences = {
+    language: 'English (US)',
+};
+
 export default function SettingsPage() {
     const { user } = useUser();
     const { contrast, setContrast, fontScale, setFontScale } = useTheme();
     const [activeTab, setActiveTab] = useState('account');
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [notifications, setNotifications] = useState(defaultNotifications);
+    const [savedNotifications, setSavedNotifications] = useState(defaultNotifications);
+    const [preferences, setPreferences] = useState(defaultPreferences);
+    const [savedPreferences, setSavedPreferences] = useState(defaultPreferences);
+    const showsPreferenceActions = ['notifications', 'preference'].includes(activeTab);
+    const hasUnsavedChanges =
+        JSON.stringify(notifications) !== JSON.stringify(savedNotifications) ||
+        JSON.stringify(preferences) !== JSON.stringify(savedPreferences);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const storedNotifications = localStorage.getItem(notificationStorageKey);
+        const storedPreferences = localStorage.getItem(preferenceStorageKey);
+
+        if (storedNotifications) {
+            try {
+                const parsed = JSON.parse(storedNotifications);
+                setNotifications({
+                    email: typeof parsed.email === 'boolean' ? parsed.email : defaultNotifications.email,
+                    push: typeof parsed.push === 'boolean' ? parsed.push : defaultNotifications.push,
+                    achievements: typeof parsed.achievements === 'boolean' ? parsed.achievements : defaultNotifications.achievements,
+                });
+                setSavedNotifications({
+                    email: typeof parsed.email === 'boolean' ? parsed.email : defaultNotifications.email,
+                    push: typeof parsed.push === 'boolean' ? parsed.push : defaultNotifications.push,
+                    achievements: typeof parsed.achievements === 'boolean' ? parsed.achievements : defaultNotifications.achievements,
+                });
+            } catch (error) {
+                console.error('Failed to load notification preferences:', error);
+            }
+        }
+
+        if (storedPreferences) {
+            try {
+                const parsed = JSON.parse(storedPreferences);
+                const nextPreferences = {
+                    language: typeof parsed.language === 'string' ? parsed.language : defaultPreferences.language,
+                };
+                setPreferences(nextPreferences);
+                setSavedPreferences(nextPreferences);
+            } catch (error) {
+                console.error('Failed to load device preferences:', error);
+            }
+        }
+    }, []);
 
     const handleSave = () => {
         setIsSaving(true);
-        setTimeout(() => {
-            setIsSaving(false);
+        try {
+            localStorage.setItem(notificationStorageKey, JSON.stringify(notifications));
+            localStorage.setItem(preferenceStorageKey, JSON.stringify(preferences));
+            setSavedNotifications(notifications);
+            setSavedPreferences(preferences);
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
-        }, 1000);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDiscard = () => {
+        setNotifications(savedNotifications);
+        setPreferences(savedPreferences);
+        setSaved(false);
     };
 
     return (
@@ -101,7 +171,10 @@ export default function SettingsPage() {
                                         <h2 className="text-xl font-black text-gray-900 tracking-tight capitalize">
                                             {activeTab} Settings
                                         </h2>
-                                        <p className="text-sm font-medium text-gray-400">Manage your {activeTab} information and preferences.</p>
+                                        <p className="text-sm font-medium text-gray-400">
+                                            Manage your {activeTab} information and preferences.
+                                            {activeTab === 'accessibility' ? ' Accessibility changes are saved automatically on this device.' : ''}
+                                        </p>
                                     </div>
 
                                     <div className="p-8 space-y-8">
@@ -115,6 +188,8 @@ export default function SettingsPage() {
                                                         <div className="ml-auto text-[10px] bg-gray-200 px-2 py-1 rounded-md uppercase tracking-tighter">Verified</div>
                                                     </div>
                                                 </div>
+
+                                                <AuthIdentityManager email={user?.email} />
                                             </div>
                                         )}
 
@@ -192,7 +267,24 @@ export default function SettingsPage() {
                                                             <div className="text-xs text-gray-500 font-medium">{opt.desc}</div>
                                                         </div>
                                                         <div className="relative inline-flex items-center cursor-pointer">
-                                                            <input type="checkbox" className="sr-only peer" defaultChecked />
+                                                            <input
+                                                                type="checkbox"
+                                                                className="sr-only peer"
+                                                                checked={
+                                                                    i === 0 ? notifications.email :
+                                                                        i === 1 ? notifications.push :
+                                                                            notifications.achievements
+                                                                }
+                                                                onChange={(event) => {
+                                                                    const checked = event.target.checked;
+                                                                    setNotifications((current) => ({
+                                                                        ...current,
+                                                                        ...(i === 0 ? { email: checked } : {}),
+                                                                        ...(i === 1 ? { push: checked } : {}),
+                                                                        ...(i === 2 ? { achievements: checked } : {}),
+                                                                    }));
+                                                                }}
+                                                            />
                                                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                                                         </div>
                                                     </div>
@@ -224,32 +316,60 @@ export default function SettingsPage() {
 
                                         {activeTab === 'preference' && (
                                             <div className="space-y-6">
-                                                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors cursor-pointer group border border-transparent hover:border-gray-100">
-                                                    <div className="flex items-center space-x-3">
+                                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                                    <div className="flex items-center space-x-3 mb-4">
                                                         <div className="p-2 bg-blue-50 text-blue-500 rounded-xl">
                                                             <Globe className="w-4 h-4" />
                                                         </div>
-                                                        <span className="text-sm font-bold text-gray-700">Interface Language</span>
+                                                        <div>
+                                                            <span className="text-sm font-bold text-gray-700">Interface Language</span>
+                                                            <p className="text-xs text-gray-500 font-medium">Stored on this device so the app can remember your preference.</p>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-xs font-black text-gray-400 group-hover:text-orange-500 transition-colors">English (US)</span>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        {['English (US)', 'Kiswahili (Beta)'].map((language) => (
+                                                            <button
+                                                                key={language}
+                                                                type="button"
+                                                                onClick={() => setPreferences((current) => ({ ...current, language }))}
+                                                                className={`rounded-2xl border px-4 py-4 text-left transition-all ${preferences.language === language
+                                                                    ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm'
+                                                                    : 'border-gray-200 bg-white text-gray-600 hover:border-orange-200'
+                                                                    }`}
+                                                            >
+                                                                <div className="text-sm font-black">{language}</div>
+                                                                <div className="text-xs font-medium mt-1">
+                                                                    {language === 'English (US)' ? 'Default production language.' : 'Preference only for now while localization catches up.'}
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
 
-                                        <div className="pt-8 flex justify-end items-center space-x-4">
-                                            <button className="text-sm font-black text-gray-400 hover:text-gray-600 transition-colors">Discard Changes</button>
-                                            <button
-                                                onClick={handleSave}
-                                                disabled={isSaving}
-                                                className="px-8 py-3 bg-orange-600 text-white font-black rounded-2xl shadow-lg shadow-orange-600/20 hover:bg-orange-700 transition-all flex items-center space-x-2 active:scale-95 disabled:opacity-50"
-                                            >
-                                                {isSaving ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <span>Save Preferences</span>
-                                                )}
-                                            </button>
-                                        </div>
+                                        {showsPreferenceActions && (
+                                            <div className="pt-8 flex justify-end items-center space-x-4">
+                                                <button
+                                                    onClick={handleDiscard}
+                                                    disabled={!hasUnsavedChanges || isSaving}
+                                                    className="text-sm font-black text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                                                >
+                                                    Discard Changes
+                                                </button>
+                                                <button
+                                                    onClick={handleSave}
+                                                    disabled={isSaving || !hasUnsavedChanges}
+                                                    className="px-8 py-3 bg-orange-600 text-white font-black rounded-2xl shadow-lg shadow-orange-600/20 hover:bg-orange-700 transition-all flex items-center space-x-2 active:scale-95 disabled:opacity-50"
+                                                >
+                                                    {isSaving ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <span>Save Preferences</span>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </section>
                             </div>

@@ -1,17 +1,50 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle2, User as UserIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
+function splitFullName(fullName?: string | null) {
+    if (!fullName) {
+        return { firstName: '', lastName: '' };
+    }
+
+    const parts = fullName
+        .split(/\s+/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    return {
+        firstName: parts[0] ?? '',
+        lastName: parts.length > 1 ? parts.slice(1).join(' ') : '',
+    };
+}
+
+function getSafeNext(next: string | null) {
+    if (!next || !next.startsWith('/') || next.startsWith('//')) {
+        return null;
+    }
+
+    return next;
+}
+
 export default function CompleteProfilePage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>}>
+            <CompleteProfileContent />
+        </Suspense>
+    );
+}
+
+function CompleteProfileContent() {
     const { user, profile, refreshProfile, loading: authLoading } = useUser();
     const router = useRouter();
-    const supabase = createClient();
+    const searchParams = useSearchParams();
+    const supabase = useMemo(() => createClient(), []);
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -21,25 +54,31 @@ export default function CompleteProfilePage() {
     const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const next = getSafeNext(searchParams.get('next'));
 
     useEffect(() => {
         if (!authLoading) {
             if (!user) {
-                router.replace('/login');
+                router.replace(next ? `/login?next=${encodeURIComponent(next)}` : '/login');
                 return;
             }
             if (profile) {
-                if (profile.first_name) setFirstName(profile.first_name);
+                const parsedName = splitFullName(profile.full_name);
+                if (profile.first_name || parsedName.firstName) {
+                    setFirstName(profile.first_name ?? parsedName.firstName);
+                }
                 if (profile.last_name) setLastName(profile.last_name);
+                else if (parsedName.lastName) setLastName(parsedName.lastName);
                 if (profile.username) setUsername(profile.username);
 
-                // If they already have all requirements, redirect to dashboard
-                if (profile.username && profile.first_name?.trim() && profile.last_name?.trim()) {
-                    router.replace('/dashboard');
+                const hasDisplayName = Boolean(profile.first_name?.trim() || profile.full_name?.trim());
+
+                if (profile.username && hasDisplayName) {
+                    router.replace(next ?? '/dashboard');
                 }
             }
         }
-    }, [user, profile, authLoading, router]);
+    }, [user, profile, authLoading, next, router]);
 
     // Check username availability with debouncing
     useEffect(() => {
@@ -92,8 +131,8 @@ export default function CompleteProfilePage() {
         e.preventDefault();
         setError('');
 
-        if (!firstName.trim() || !lastName.trim() || !username.trim()) {
-            setError('All fields are required.');
+        if (!firstName.trim() || !username.trim()) {
+            setError('First name and username are required.');
             return;
         }
 
@@ -106,13 +145,13 @@ export default function CompleteProfilePage() {
 
         try {
             const finalUsername = username.trim().toLowerCase();
-            const fullName = `${firstName.trim()} ${lastName.trim()}`;
+            const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
 
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({
                     first_name: firstName.trim(),
-                    last_name: lastName.trim(),
+                    last_name: lastName.trim() || null,
                     full_name: fullName,
                     username: finalUsername
                 })
@@ -134,7 +173,7 @@ export default function CompleteProfilePage() {
             });
 
             await refreshProfile();
-            router.replace('/dashboard');
+            router.replace(next ?? '/dashboard');
 
         } catch (err: any) {
             console.error('Submission error:', err);
@@ -190,7 +229,7 @@ export default function CompleteProfilePage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Last Name <span className="text-red-500">*</span>
+                                    Last Name
                                 </label>
                                 <input
                                     type="text"
@@ -198,7 +237,6 @@ export default function CompleteProfilePage() {
                                     onChange={(e) => setLastName(e.target.value)}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                     placeholder="Doe"
-                                    required
                                 />
                             </div>
                         </div>
@@ -236,7 +274,7 @@ export default function CompleteProfilePage() {
 
                         <Button
                             type="submit"
-                            disabled={isSubmitting || usernameAvailable === false || username.length < 3 || !firstName || !lastName}
+                            disabled={isSubmitting || usernameAvailable === false || username.length < 3 || !firstName.trim()}
                             className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-lg font-semibold shadow-md transition-all"
                         >
                             {isSubmitting ? (

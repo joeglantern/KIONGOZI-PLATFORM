@@ -18,7 +18,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export default function CoursesPage() {
     const { user } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const [courses, setCourses] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
@@ -55,6 +55,7 @@ export default function CoursesPage() {
 
         if (hasFoundValidCache) {
             setLoading(false);
+            return;
         }
 
         fetchData();
@@ -64,12 +65,16 @@ export default function CoursesPage() {
         if (!user) return;
 
         try {
-            // Run all three queries in parallel for faster loading
+            // Four parallel queries — no sequential waterfalls
             const [categoriesResult, coursesResult, enrollmentsResult, allEnrollmentsResult] = await Promise.all([
                 supabase.from('module_categories').select('id, name, color').order('name'),
-                supabase.from('courses').select(`*, module_categories(name, color), course_modules(learning_modules(media_type))`).eq('status', 'published'),
+                // Select only columns used by CourseCard — no nested module join
+                supabase
+                    .from('courses')
+                    .select('id, title, description, thumbnail_url, difficulty_level, estimated_duration_hours, category_id, module_categories(name, color)')
+                    .eq('status', 'published'),
                 supabase.from('course_enrollments').select('id, course_id, progress_percentage, status').eq('user_id', user.id),
-                // Single batch query for ALL enrollment counts (fixes N+1)
+                // Batch count of all enrollments per course (avoids N+1)
                 supabase.from('course_enrollments').select('course_id'),
             ]);
 

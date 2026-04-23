@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { createClient } from '@/app/utils/supabaseClient';
+import { usePathname } from 'next/navigation';
 import { useUser } from '@/app/contexts/UserContext';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 import { useTheme } from '@/app/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 import {
     Sparkles,
     Menu,
@@ -28,23 +28,32 @@ import {
 
 export function Navbar() {
     const { user, profile, signOut } = useUser();
-    const router = useRouter();
     const pathname = usePathname();
-    const supabase = createClient();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const { theme, toggleTheme } = useTheme();
 
+    const ticking = useRef(false);
     useEffect(() => {
         const handleScroll = () => {
-            setScrolled(window.scrollY > 10);
+            if (!ticking.current) {
+                ticking.current = true;
+                requestAnimationFrame(() => {
+                    setScrolled(window.scrollY > 10);
+                    ticking.current = false;
+                });
+            }
         };
-        window.addEventListener('scroll', handleScroll);
+        window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     const isActive = (path: string) => pathname === path;
     const isInstructor = profile?.role === 'instructor' || profile?.role === 'admin';
+    const desktopNavClass = (active: boolean) =>
+        cn(buttonVariants({ variant: 'ghost' }), active ? 'bg-orange-50 text-orange-600' : 'text-gray-700');
+    const mobileNavClass = cn(buttonVariants({ variant: 'ghost' }), 'w-full justify-start');
+    const mobileOutlineClass = cn(buttonVariants({ variant: 'outline' }), 'w-full');
 
     // Hide root navbar on instructor pages (they have their own navbar)
     if (pathname?.startsWith('/instructor')) return null;
@@ -75,106 +84,48 @@ export function Navbar() {
                     <div className="hidden md:flex items-center space-x-1">
                         {!user ? (
                             <>
-                                <Link href="/">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <Home className="w-4 h-4 mr-2" />
-                                        Home
-                                    </Button>
+                                <Link href="/" className={desktopNavClass(isActive('/'))}>
+                                    <Home className="w-4 h-4 mr-2" />
+                                    Home
                                 </Link>
-                                <Link href="/courses">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/browse') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <BookOpen className="w-4 h-4 mr-2" />
-                                        Browse Courses
-                                    </Button>
+                                <Link href="/courses" className={desktopNavClass(isActive('/browse'))}>
+                                    <BookOpen className="w-4 h-4 mr-2" />
+                                    Browse Courses
                                 </Link>
-                                <Link href="/community">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/community') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <Users className="w-4 h-4 mr-2" />
-                                        Community
-                                    </Button>
+                                <Link href="/community" className={desktopNavClass(isActive('/community'))}>
+                                    <Users className="w-4 h-4 mr-2" />
+                                    Community
                                 </Link>
-                                <Link href="/impact-map">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/impact-map') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <MapIcon className="w-4 h-4 mr-2" />
-                                        Impact Map
-                                    </Button>
+                                <Link href="/impact-map" className={desktopNavClass(isActive('/impact-map'))}>
+                                    <MapIcon className="w-4 h-4 mr-2" />
+                                    Impact Map
                                 </Link>
                             </>
                         ) : (
                             <>
-                                <Link href="/dashboard">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/dashboard') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <LayoutDashboard className="w-4 h-4 mr-2" />
-                                        Dashboard
-                                    </Button>
+                                <Link href="/dashboard" className={desktopNavClass(isActive('/dashboard'))}>
+                                    <LayoutDashboard className="w-4 h-4 mr-2" />
+                                    Dashboard
                                 </Link>
-                                <Link href="/courses">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/courses') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <BookOpen className="w-4 h-4 mr-2" />
-                                        Browse
-                                    </Button>
+                                <Link href="/courses" className={desktopNavClass(isActive('/courses'))}>
+                                    <BookOpen className="w-4 h-4 mr-2" />
+                                    Browse
                                 </Link>
-                                <Link href="/my-learning">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/my-learning') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <GraduationCap className="w-4 h-4 mr-2" />
-                                        My Learning
-                                    </Button>
+                                <Link href="/my-learning" className={desktopNavClass(isActive('/my-learning'))}>
+                                    <GraduationCap className="w-4 h-4 mr-2" />
+                                    My Learning
                                 </Link>
-                                <Link href="/community">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/community') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <Users className="w-4 h-4 mr-2" />
-                                        Community
-                                    </Button>
+                                <Link href="/community" className={desktopNavClass(isActive('/community'))}>
+                                    <Users className="w-4 h-4 mr-2" />
+                                    Community
                                 </Link>
-                                <Link href="/impact-map">
-                                    <Button
-                                        variant="ghost"
-                                        className={`${isActive('/impact-map') ? 'bg-orange-50 text-orange-600' : 'text-gray-700'
-                                            }`}
-                                    >
-                                        <MapIcon className="w-4 h-4 mr-2" />
-                                        Impact Map
-                                    </Button>
+                                <Link href="/impact-map" className={desktopNavClass(isActive('/impact-map'))}>
+                                    <MapIcon className="w-4 h-4 mr-2" />
+                                    Impact Map
                                 </Link>
                                 {isInstructor && (
-                                    <Link href="/instructor/dashboard">
-                                        <Button
-                                            className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md"
-                                        >
-                                            Instructor Panel
-                                        </Button>
+                                    <Link href="/instructor/dashboard" className={cn(buttonVariants(), 'bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md')}>
+                                        Instructor Panel
                                     </Link>
                                 )}
                             </>
@@ -213,17 +164,13 @@ export function Navbar() {
                                             <p className="text-xs text-gray-500 capitalize">{profile?.role || 'user'}</p>
                                         </div>
                                         <div className="py-1">
-                                            <Link href="/profile">
-                                                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                                                    <User className="w-4 h-4" />
-                                                    <span>Profile</span>
-                                                </button>
+                                            <Link href="/profile" className="flex w-full items-center space-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                                                <User className="w-4 h-4" />
+                                                <span>Profile</span>
                                             </Link>
-                                            <Link href="/settings">
-                                                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2">
-                                                    <Settings className="w-4 h-4" />
-                                                    <span>Settings</span>
-                                                </button>
+                                            <Link href="/settings" className="flex w-full items-center space-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                                                <Settings className="w-4 h-4" />
+                                                <span>Settings</span>
                                             </Link>
                                             <button
                                                 onClick={signOut}
@@ -238,15 +185,11 @@ export function Navbar() {
                             </>
                         ) : (
                             <>
-                                <Link href="/login">
-                                    <Button variant="ghost" className="text-gray-700">
-                                        Sign In
-                                    </Button>
+                                <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'text-gray-700')}>
+                                    Sign In
                                 </Link>
-                                <Link href="/signup">
-                                    <Button className="bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg">
-                                        Get Started
-                                    </Button>
+                                <Link href="/signup" className={cn(buttonVariants(), 'bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg')}>
+                                    Get Started
                                 </Link>
                             </>
                         )}
@@ -272,89 +215,63 @@ export function Navbar() {
                 <div className="px-4 py-3 space-y-2">
                     {!user ? (
                         <>
-                            <Link href="/" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <Home className="w-4 h-4 mr-2" />
-                                    Home
-                                </Button>
+                            <Link href="/" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <Home className="w-4 h-4 mr-2" />
+                                Home
                             </Link>
-                            <Link href="/courses" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <BookOpen className="w-4 h-4 mr-2" />
-                                    Browse Courses
-                                </Button>
+                            <Link href="/courses" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <BookOpen className="w-4 h-4 mr-2" />
+                                Browse Courses
                             </Link>
-                            <Link href="/community" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <Users className="w-4 h-4 mr-2" />
-                                    Community
-                                </Button>
+                            <Link href="/community" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <Users className="w-4 h-4 mr-2" />
+                                Community
                             </Link>
                             <div className="pt-3 border-t border-gray-200 space-y-2">
-                                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="outline" className="w-full">
-                                        Sign In
-                                    </Button>
+                                <Link href="/login" onClick={() => setMobileMenuOpen(false)} className={mobileOutlineClass}>
+                                    Sign In
                                 </Link>
-                                <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button className="w-full bg-orange-500">
-                                        Get Started
-                                    </Button>
+                                <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className={cn(buttonVariants(), 'w-full bg-orange-500')}>
+                                    Get Started
                                 </Link>
                             </div>
                         </>
                     ) : (
                         <>
-                            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <LayoutDashboard className="w-4 h-4 mr-2" />
-                                    Dashboard
-                                </Button>
+                            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <LayoutDashboard className="w-4 h-4 mr-2" />
+                                Dashboard
                             </Link>
-                            <Link href="/courses" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <BookOpen className="w-4 h-4 mr-2" />
-                                    Browse
-                                </Button>
+                            <Link href="/courses" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <BookOpen className="w-4 h-4 mr-2" />
+                                Browse
                             </Link>
-                            <Link href="/my-learning" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <GraduationCap className="w-4 h-4 mr-2" />
-                                    My Learning
-                                </Button>
+                            <Link href="/my-learning" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <GraduationCap className="w-4 h-4 mr-2" />
+                                My Learning
                             </Link>
-                            <Link href="/community" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <Users className="w-4 h-4 mr-2" />
-                                    Community
-                                </Button>
+                            <Link href="/community" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <Users className="w-4 h-4 mr-2" />
+                                Community
                             </Link>
-                            <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start">
-                                    <MapIcon className="w-4 h-4 mr-2" />
-                                    Impact Map
-                                </Button>
+                            <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <MapIcon className="w-4 h-4 mr-2" />
+                                Impact Map
                             </Link>
                             {isInstructor && (
-                                <Link href="/instructor/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button className="w-full justify-start bg-orange-500 text-white font-bold">
-                                        <LayoutDashboard className="w-4 h-4 mr-2" />
-                                        Instructor Panel
-                                    </Button>
+                                <Link href="/instructor/dashboard" onClick={() => setMobileMenuOpen(false)} className={cn(buttonVariants(), 'w-full justify-start bg-orange-500 text-white font-bold')}>
+                                    <LayoutDashboard className="w-4 h-4 mr-2" />
+                                    Instructor Panel
                                 </Link>
                             )}
                             <div className="pt-3 border-t border-gray-200 space-y-2">
-                                <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="ghost" className="w-full justify-start">
-                                        <User className="w-4 h-4 mr-2" />
-                                        Profile
-                                    </Button>
+                                <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                    <User className="w-4 h-4 mr-2" />
+                                    Profile
                                 </Link>
-                                <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>
-                                    <Button variant="ghost" className="w-full justify-start">
-                                        <Settings className="w-4 h-4 mr-2" />
-                                        Settings
-                                    </Button>
+                                <Link href="/settings" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                    <Settings className="w-4 h-4 mr-2" />
+                                    Settings
                                 </Link>
                                 <Button
                                     onClick={() => {

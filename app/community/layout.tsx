@@ -64,7 +64,7 @@ export default async function CommunityLayout({
                                             <Link href="/login">Sign In</Link>
                                         </Button>
                                         <Button asChild variant="outline" className="w-full border-civic-green/30 text-civic-green-dark hover:bg-civic-green/10">
-                                            <Link href="/register">Create Account</Link>
+                                            <Link href="/signup">Create Account</Link>
                                         </Button>
                                     </div>
                                 </CardContent>

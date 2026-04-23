@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,7 +18,7 @@ export default function RecordingManager({ eventId, initialRecordingUrl }: Recor
     const [isSaving, setIsSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(!initialRecordingUrl);
     const { toast } = useToast();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const handleSave = async () => {
         setIsSaving(true);

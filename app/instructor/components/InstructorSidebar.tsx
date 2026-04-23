@@ -13,6 +13,7 @@ import {
     LogOut,
     Sparkles
 } from 'lucide-react';
+import { useMemo } from 'react';
 import { useUser } from '@/app/contexts/UserContext';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -21,7 +22,7 @@ export function InstructorSidebar() {
     const pathname = usePathname();
     const { user, signOut } = useUser();
     const router = useRouter();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const isActive = (path: string) => pathname === path || pathname?.startsWith(`${path}/`);
 

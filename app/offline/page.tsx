@@ -22,12 +22,12 @@ export default function OfflinePage() {
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Try Again
                 </Button>
-                <Link href="/">
-                    <Button variant="outline" className="px-8 border-orange-200 text-orange-700 hover:bg-orange-50">
+                <Button asChild variant="outline" className="px-8 border-orange-200 text-orange-700 hover:bg-orange-50">
+                    <Link href="/">
                         <Home className="w-4 h-4 mr-2" />
                         Go Home
-                    </Button>
-                </Link>
+                    </Link>
+                </Button>
             </div>
         </div>
     );

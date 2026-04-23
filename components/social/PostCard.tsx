@@ -181,12 +181,12 @@ export default function PostCard({ post, currentUserId }: PostProps) {
                     <span className="text-xs font-medium">{likesCount || "Like"}</span>
                 </Button>
 
-                <Link href={`/community/post/${post.id}`}>
-                    <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 rounded-full text-muted-foreground hover:text-civic-green hover:bg-civic-green/5">
+                <Button asChild variant="ghost" size="sm" className="gap-1.5 h-8 px-3 rounded-full text-muted-foreground hover:text-civic-green hover:bg-civic-green/5">
+                    <Link href={`/community/post/${post.id}`}>
                         <MessageSquare className="h-4 w-4" />
                         <span className="text-xs font-medium">{post.comments_count || "Comment"}</span>
-                    </Button>
-                </Link>
+                    </Link>
+                </Button>
 
                 <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 rounded-full text-muted-foreground hover:text-civic-earth hover:bg-civic-earth/5 ml-auto" onClick={handleShare}>
                     <Share2 className="h-4 w-4" />

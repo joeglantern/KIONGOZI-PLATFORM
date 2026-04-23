@@ -9,9 +9,17 @@ interface PasswordInputProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   required?: boolean;
+  autoComplete?: string;
 }
 
-export default function PasswordInput({ id, value, onChange, placeholder = "Password", required = true }: PasswordInputProps) {
+export default function PasswordInput({
+  id,
+  value,
+  onChange,
+  placeholder = "Password",
+  required = true,
+  autoComplete,
+}: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -24,11 +32,14 @@ export default function PasswordInput({ id, value, onChange, placeholder = "Pass
         placeholder={placeholder}
         className="w-full rounded-lg px-4 py-3 pr-11 bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#c9975b] focus:border-transparent"
         required={required}
+        autoComplete={autoComplete}
       />
       <button
         type="button"
         onClick={() => setShowPassword(!showPassword)}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+        aria-label={showPassword ? "Hide password" : "Show password"}
+        aria-pressed={showPassword}
       >
         {showPassword ? (
           <EyeOff className="w-5 h-5" />

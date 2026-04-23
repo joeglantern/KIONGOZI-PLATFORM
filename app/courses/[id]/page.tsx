@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
-import { ModuleList } from '@/components/courses/ModuleList';
+import { ModuleList, type CourseContentItem } from '@/components/courses/ModuleList';
 import {
     BookOpen,
     Clock,
@@ -15,7 +15,7 @@ import {
     CheckCircle,
     ArrowLeft,
     Sparkles,
-    MessageSquare
+    MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -27,11 +27,12 @@ import Link from 'next/link';
 import { BookmarkButton } from '@/components/shared/BookmarkButton';
 import { CourseReviews } from '@/components/courses/CourseReviews';
 import { CourseDetailSkeleton } from '@/components/ui/Skeleton';
+import { xapi } from '@/lib/xapi';
 
 export default function CourseDetailPage() {
     const params = useParams();
     const router = useRouter();
-    const { user } = useUser();
+    const { user, profile } = useUser();
     // Stable client — never re-created on re-render
     const supabase = useMemo(() => createClient(), []);
 
@@ -42,12 +43,12 @@ export default function CourseDetailPage() {
     const [activeTab, setActiveTab] = useState<'content' | 'discussion' | 'reviews'>('content');
 
     const { data: courseData, isLoading: loading } = useQuery({
-        queryKey: ['course-full-details', courseId, user?.id],
+        queryKey: ['course-full-details', courseId, user?.id, profile?.role],
         queryFn: async () => {
             if (!user || !courseId) return null;
 
-            // Run course details, enrollment, and modules in parallel
-            const [courseResult, enrollmentResult, modulesResult] = await Promise.all([
+            // Run course details, enrollment, module links, and SCORM packages in parallel
+            const [courseResult, enrollmentResult, courseModulesResult, scormResult] = await Promise.all([
                 supabase
                     .from('courses')
                     .select('*, module_categories(name, color)')
@@ -64,26 +65,45 @@ export default function CourseDetailPage() {
                     .select(`
                         order_index,
                         is_required,
-                        learning_modules(
-                            id,
-                            title,
-                            description,
-                            estimated_duration_minutes
-                        )
+                        module_id
                     `)
                     .eq('course_id', courseId)
                     .order('order_index'),
+                supabase
+                    .from('scorm_packages')
+                    .select('id, title, version, entry_point, created_at')
+                    .eq('course_id', courseId)
+                    .eq('status', 'active')
+                    .order('created_at'),
             ]);
 
             if (courseResult.error) throw courseResult.error;
-            if (modulesResult.error) throw modulesResult.error;
+            if (courseModulesResult.error) throw courseModulesResult.error;
+
+            const scormPackages = scormResult.data || [];
 
             const course = courseResult.data;
             const enrollment = enrollmentResult.data;
-            const modulesData = modulesResult.data || [];
+            const courseModules = courseModulesResult.data || [];
+            const canReadDirectModules = profile?.role === 'admin' || course.author_id === user.id;
 
-            // Fetch user progress for all modules (needs module IDs from above)
-            const moduleIds = modulesData.map((m: any) => m.learning_modules.id);
+            const moduleIds = courseModules
+                .map((moduleLink: any) => moduleLink.module_id)
+                .filter(Boolean);
+
+            let moduleRecords: any[] = [];
+
+            if (moduleIds.length > 0) {
+                const moduleSource = canReadDirectModules ? 'learning_modules' : 'learning_module_previews';
+                const { data: modulesData, error: modulesError } = await supabase
+                    .from(moduleSource)
+                    .select('id, title, description, estimated_duration_minutes, media_type')
+                    .in('id', moduleIds);
+
+                if (modulesError) throw modulesError;
+                moduleRecords = modulesData || [];
+            }
+
             let progressMap = new Map();
 
             if (moduleIds.length > 0) {
@@ -98,18 +118,41 @@ export default function CourseDetailPage() {
                 );
             }
 
-            // Combine modules with progress
-            const modulesWithProgress = modulesData.map((m: any) => ({
-                ...m,
-                learning_modules: {
-                    ...m.learning_modules,
-                    user_progress: progressMap.has(m.learning_modules.id)
-                        ? [progressMap.get(m.learning_modules.id)]
-                        : []
-                }
-            }));
+            const moduleRecordMap = new Map(moduleRecords.map((module: any) => [module.id, module]));
 
-            return { course, enrollment, modules: modulesWithProgress };
+            // Combine modules with progress
+            const modulesWithProgress = courseModules
+                .map((moduleLink: any) => {
+                    const learningModule = moduleRecordMap.get(moduleLink.module_id);
+                    if (!learningModule) return null;
+
+                    return {
+                        ...moduleLink,
+                        learning_modules: {
+                            ...learningModule,
+                            user_progress: progressMap.has(learningModule.id)
+                                ? [progressMap.get(learningModule.id)]
+                                : []
+                        }
+                    };
+                })
+                .filter(Boolean);
+
+            let scormRegistrationMap = new Map<string, string>();
+
+            if (scormPackages.length > 0) {
+                const { data: registrations } = await supabase
+                    .from('scorm_registrations')
+                    .select('package_id, lesson_status')
+                    .eq('user_id', user.id)
+                    .in('package_id', scormPackages.map((p: any) => p.id));
+
+                scormRegistrationMap = new Map(
+                    (registrations || []).map((r: any) => [r.package_id, r.lesson_status])
+                );
+            }
+
+            return { course, enrollment, modules: modulesWithProgress, scormPackages, scormRegistrationMap };
         },
         enabled: !!user && !!courseId,
         staleTime: 1000 * 60 * 5, // 5 minutes
@@ -128,7 +171,37 @@ export default function CourseDetailPage() {
     const course = courseData?.course;
     const modules = courseData?.modules || [];
     const enrollment = courseData?.enrollment;
+    const scormPackages = courseData?.scormPackages || [];
+    const scormRegistrationMap = courseData?.scormRegistrationMap || new Map<string, string>();
     const queryClient = useQueryClient();
+
+    const contentItems: CourseContentItem[] = useMemo(() => {
+        const moduleItems: CourseContentItem[] = modules.map((m: any) => ({
+            id: m.learning_modules.id,
+            type: 'module',
+            title: m.learning_modules.title,
+            description: m.learning_modules.description,
+            durationMinutes: m.learning_modules.estimated_duration_minutes,
+            href: `/courses/${courseId}/modules/${m.learning_modules.id}`,
+            isCompleted: m.learning_modules.user_progress?.[0]?.status === 'completed',
+            isRequired: !!m.is_required,
+        }));
+
+        const scormItems: CourseContentItem[] = scormPackages.map((pkg: any) => {
+            const status = scormRegistrationMap.get(pkg.id);
+            return {
+                id: pkg.id,
+                type: 'scorm',
+                title: pkg.title,
+                description: `SCORM ${pkg.version} · Interactive module`,
+                href: `/lms/scorm/${pkg.id}`,
+                isCompleted: status === 'completed' || status === 'passed',
+                isRequired: false,
+            };
+        });
+
+        return [...moduleItems, ...scormItems];
+    }, [modules, scormPackages, scormRegistrationMap, courseId]);
 
 
     const handleEnroll = async () => {
@@ -151,13 +224,18 @@ export default function CourseDetailPage() {
 
             if (error) throw error;
 
+            // Emit xAPI: course enrolled
+            if (user.email) {
+                xapi.courseEnrolled(user.id, user.email, course.id, course.title);
+            }
+
             // Invalidate to re-fetch enrollment status
             await queryClient.invalidateQueries({ queryKey: ['course-full-details', courseId] });
 
-            // Redirect to first module
-            if (modules.length > 0) {
-                const firstModule = modules[0].learning_modules;
-                router.push(`/courses/${courseId}/modules/${firstModule.id}`);
+            // Redirect to first content item (module or SCORM package)
+            const firstItem = contentItems[0];
+            if (firstItem) {
+                router.push(firstItem.href);
             }
         } catch (error: any) {
             console.error('Error enrolling:', error);
@@ -168,14 +246,9 @@ export default function CourseDetailPage() {
     };
 
     const handleContinueLearning = () => {
-        // Find first incomplete module or first module
-        const incompleteModule = modules.find(
-            (m: any) => m.learning_modules.user_progress?.[0]?.status !== 'completed'
-        );
-
-        const targetModule = incompleteModule || modules[0];
-        if (targetModule) {
-            router.push(`/courses/${courseId}/modules/${targetModule.learning_modules.id}`);
+        const nextItem = contentItems.find((item) => !item.isCompleted) || contentItems[0];
+        if (nextItem) {
+            router.push(nextItem.href);
         }
     };
 
@@ -222,11 +295,11 @@ export default function CourseDetailPage() {
                 <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                     <div className="text-center">
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">Course not found</h2>
-                        <Link href="/courses">
-                            <Button className="bg-orange-600 hover:bg-orange-700 text-white">
+                        <Button asChild className="bg-orange-600 hover:bg-orange-700 text-white">
+                            <Link href="/courses">
                                 Browse Courses
-                            </Button>
-                        </Link>
+                            </Link>
+                        </Button>
                     </div>
                 </div>
             </ProtectedRoute>
@@ -235,8 +308,8 @@ export default function CourseDetailPage() {
 
     const isEnrolled = !!enrollment;
     const progress = enrollment?.progress_percentage || 0;
-    const completedModules = modules.filter((m) => m.learning_modules.user_progress?.[0]?.status === 'completed').length;
-    const totalModules = modules.length;
+    const completedModules = contentItems.filter((item) => item.isCompleted).length;
+    const totalModules = contentItems.length;
 
     return (
         <ProtectedRoute allowedRoles={['user', 'instructor', 'admin']}>
@@ -426,11 +499,11 @@ export default function CourseDetailPage() {
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
                                     >
-                                        <h2 className="text-2xl font-black text-gray-900 mb-8">Modules</h2>
-                                        {modules.length > 0 ? (
-                                            <ModuleList modules={modules} isEnrolled={isEnrolled} courseId={courseId} />
+                                        <h2 className="text-2xl font-black text-gray-900 mb-8">Lessons</h2>
+                                        {contentItems.length > 0 ? (
+                                            <ModuleList items={contentItems} isEnrolled={isEnrolled} />
                                         ) : (
-                                            <p className="text-gray-600 text-center py-12 font-bold italic">No modules available yet</p>
+                                            <p className="text-gray-600 text-center py-12 font-bold italic">No lessons available yet</p>
                                         )}
                                     </motion.div>
                                 ) : activeTab === 'discussion' ? (
@@ -480,7 +553,7 @@ export default function CourseDetailPage() {
                                         exit={{ opacity: 0, y: -10 }}
                                     >
                                         <h2 className="text-2xl font-black text-gray-900 mb-6">Course Reviews</h2>
-                                        <CourseReviews courseId={courseId} />
+                                        <CourseReviews courseId={courseId} canReview={isEnrolled} />
                                     </motion.div>
                                 ) : null}
                             </AnimatePresence>

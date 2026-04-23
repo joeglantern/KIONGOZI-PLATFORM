@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { createClient } from '@/app/utils/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -27,7 +27,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export function ImpactMap() {
     const [points, setPoints] = useState<any[]>([]);
     const [selectedPoint, setSelectedPoint] = useState<any>(null);
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',

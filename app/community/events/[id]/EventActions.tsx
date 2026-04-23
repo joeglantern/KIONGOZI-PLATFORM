@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Share2, Star } from 'lucide-react';
 import { createClient } from '@/app/utils/supabase/client';
@@ -17,7 +17,7 @@ export default function EventActions({ event, currentUser, rsvpStatusProp }: Eve
     const [rsvpStatus, setRsvpStatus] = useState<string | null>(rsvpStatusProp);
     const [isRsvping, setIsRsvping] = useState(false);
     const { toast } = useToast();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const handleRsvp = async (status: 'going' | 'interested') => {
         if (!currentUser) {

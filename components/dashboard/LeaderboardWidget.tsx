@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { Trophy, Medal, Crown, Loader2, User } from 'lucide-react';
@@ -17,7 +17,7 @@ interface LeaderboardEntry {
 
 export function LeaderboardWidget() {
     const { user } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [currentUserEntry, setCurrentUserEntry] = useState<LeaderboardEntry | null>(null);
     const [loading, setLoading] = useState(true);

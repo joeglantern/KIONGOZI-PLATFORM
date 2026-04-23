@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import * as tus from 'tus-js-client';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
 import { createClient } from '@/app/utils/supabaseClient';
@@ -23,22 +23,39 @@ import {
     ChevronDown,
     ChevronUp,
     Play,
-    MessageCircle
+    MessageCircle,
+    GripVertical
 } from 'lucide-react';
 import { MdEditor } from 'md-editor-rt';
 import 'md-editor-rt/lib/style.css';
 import { useTheme } from '@/app/contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import QuizBuilder from '@/components/quiz/QuizBuilder';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Package } from 'lucide-react';
+import ScormUpload from '@/components/scorm/ScormUpload';
 
 export default function EditCoursePage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>}>
+            <EditCourseContent />
+        </Suspense>
+    );
+}
+
+function EditCourseContent() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const { theme } = useTheme();
     const courseId = params.id as string;
+
+    const initialTab = useMemo(() => {
+        const t = searchParams.get('tab');
+        if (t === 'scorm' || t === 'modules' || t === 'quizzes') return t;
+        return 'details';
+    }, [searchParams]);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -47,7 +64,7 @@ export default function EditCoursePage() {
     const [courses, setCourse] = useState<any>(null);
     const [modules, setModules] = useState<any[]>([]);
     const [quizzes, setQuizzes] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'details' | 'modules' | 'quizzes'>('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'modules' | 'quizzes' | 'scorm'>(initialTab);
     const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
     const [isQuizBuilderOpen, setIsQuizBuilderOpen] = useState(false);
 
@@ -67,6 +84,7 @@ export default function EditCoursePage() {
     // Module Editor State
     const [editingModule, setEditingModule] = useState<any>(null);
     const [isModuleModalOpen, setIsModuleModalOpen] = useState(false);
+    const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [uploadingMedia, setUploadingMedia] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const uploadRef = useRef<tus.Upload | null>(null);
@@ -311,6 +329,28 @@ export default function EditCoursePage() {
         }
     };
 
+    const handleDragStart = (idx: number) => setDragIndex(idx);
+
+    const handleDragOver = (e: React.DragEvent, idx: number) => {
+        e.preventDefault();
+        if (dragIndex === null || dragIndex === idx) return;
+        const reordered = [...modules];
+        const [moved] = reordered.splice(dragIndex, 1);
+        reordered.splice(idx, 0, moved);
+        setModules(reordered);
+        setDragIndex(idx);
+    };
+
+    const handleDrop = async () => {
+        setDragIndex(null);
+        // Persist new order_index for every module
+        await Promise.all(
+            modules.map((m, i) =>
+                supabase.from('course_modules').update({ order_index: i }).eq('id', m.id)
+            )
+        );
+    };
+
     const handleMediaUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !user) return;
@@ -479,6 +519,12 @@ export default function EditCoursePage() {
                     >
                         Quizzes ({quizzes.length})
                     </button>
+                    <button
+                        onClick={() => setActiveTab('scorm')}
+                        className={`px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'scorm' ? 'bg-white dark:bg-gray-700 text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                        SCORM
+                    </button>
                 </div>
 
                 <AnimatePresence mode="wait">
@@ -594,9 +640,17 @@ export default function EditCoursePage() {
                                     </div>
                                 ) : (
                                     modules.map((m, idx) => (
-                                        <div key={m.id} className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex items-center justify-between group hover:shadow-md transition-all">
-                                            <div className="flex items-center gap-5">
-                                                <div className="w-10 h-10 bg-orange-50 dark:bg-orange-950 rounded-xl flex items-center justify-center text-orange-600 font-black text-sm">
+                                        <div
+                                            key={m.id}
+                                            draggable
+                                            onDragStart={() => handleDragStart(idx)}
+                                            onDragOver={(e) => handleDragOver(e, idx)}
+                                            onDrop={handleDrop}
+                                            className={`bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex items-center justify-between group hover:shadow-md transition-all ${dragIndex === idx ? 'opacity-50 scale-[0.98]' : ''}`}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <GripVertical className="w-4 h-4 text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                                                <div className="w-10 h-10 bg-orange-50 dark:bg-orange-950 rounded-xl flex items-center justify-center text-orange-600 font-black text-sm flex-shrink-0">
                                                     {idx + 1}
                                                 </div>
                                                 <div>
@@ -726,6 +780,49 @@ export default function EditCoursePage() {
                                     )}
                                 </div>
                             )}
+                        </motion.div>
+                    ) : activeTab === 'scorm' ? (
+                        <motion.div
+                            key="scorm"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                        >
+                            <div>
+                                <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-wider">SCORM Package</h2>
+                                <p className="text-sm text-gray-500 font-medium mt-1">
+                                    Upload an Articulate, Captivate, or any SCORM 1.2 package to embed in this course.
+                                </p>
+                            </div>
+
+                            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/20 rounded-2xl flex items-center justify-center">
+                                        <Package className="w-5 h-5 text-orange-500" />
+                                    </div>
+                                    <div>
+                                        <p className="font-black text-gray-900 dark:text-white text-sm uppercase tracking-widest">SCORM 1.2 Import</p>
+                                        <p className="text-xs text-gray-400">Articulate Storyline · Rise · Adobe Captivate · iSpring · any SCORM 1.2</p>
+                                    </div>
+                                </div>
+                                <ScormUpload
+                                    courseId={courseId}
+                                    onPackageLinked={(pkg) => {
+                                        // Optionally refresh course data
+                                    }}
+                                />
+                            </div>
+
+                            <div className="bg-orange-50/50 dark:bg-orange-900/10 rounded-2xl border border-orange-100 dark:border-orange-800/30 p-5">
+                                <p className="text-xs font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">How it works</p>
+                                <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1.5 list-decimal list-inside">
+                                    <li>Export your course as SCORM 1.2 from Articulate or Captivate</li>
+                                    <li>Upload the .zip file above — all files are extracted and stored securely</li>
+                                    <li>Students launch the content from within this course — progress and scores sync automatically</li>
+                                    <li>All interactions are tracked via xAPI statements in the Kiongozi LRS</li>
+                                </ol>
+                            </div>
                         </motion.div>
                     ) : null}
                 </AnimatePresence>

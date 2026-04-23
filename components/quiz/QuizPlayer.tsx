@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/app/utils/supabaseClient';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     ChevronRight,
@@ -29,6 +28,7 @@ interface QuizData {
     description: string;
     passing_score: number;
     time_limit_minutes: number;
+    module_id: string;
 }
 
 interface Question {
@@ -46,7 +46,6 @@ interface Option {
 }
 
 export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerProps) {
-    const supabase = createClient();
     const [loading, setLoading] = useState(true);
     const [quiz, setQuiz] = useState<QuizData | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
@@ -56,10 +55,105 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [score, setScore] = useState(0);
     const [passed, setPassed] = useState(false);
+    const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
+
+    const fetchQuizData = useCallback(async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`/api/courses/${courseId}/quizzes/${quizId}`, {
+                credentials: 'include',
+            });
+
+            const payload = await response.json().catch(() => null);
+            if (!response.ok) {
+                throw new Error(payload?.error || 'Failed to load this quiz.');
+            }
+
+            const quizData = payload?.quiz;
+            const questionsData = payload?.questions || [];
+
+            setQuiz(quizData);
+
+            if (quizData.time_limit_minutes > 0) {
+                setTimeLeft(quizData.time_limit_minutes * 60);
+            }
+
+            // Fetch questions and options
+            const formattedQuestions = questionsData.map((q: any) => ({
+                ...q,
+                options: q.options || []
+            }));
+
+            setQuestions(formattedQuestions);
+        } catch (error) {
+            console.error('Error fetching quiz:', error);
+            setSubmissionMessage(error instanceof Error ? error.message : 'Failed to load this quiz.');
+        } finally {
+            setLoading(false);
+        }
+    }, [courseId, quizId]);
 
     useEffect(() => {
         fetchQuizData();
-    }, [quizId]);
+    }, [fetchQuizData]);
+
+    const handleOptionSelect = (questionId: string, optionId: string) => {
+        if (submitted) return;
+        setUserAnswers(prev => ({ ...prev, [questionId]: optionId }));
+    };
+
+    const handleSubmit = useCallback(async () => {
+        if (submitted) return;
+        setSubmitted(true);
+
+        let totalPoints = 0;
+        setSubmissionMessage(null);
+
+        try {
+            questions.forEach(q => {
+                totalPoints += q.points;
+            });
+
+            if (totalPoints === 0) {
+                throw new Error('Quiz configuration is invalid.');
+            }
+
+            const response = await fetch(`/api/courses/${courseId}/quizzes/${quizId}`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ answers: userAnswers }),
+            });
+
+            const payload = await response.json().catch(() => null);
+            if (!response.ok) {
+                throw new Error(payload?.error || 'Your result could not be saved.');
+            }
+
+            const finalScore = payload?.score ?? 0;
+            const didPass = !!payload?.passed;
+
+            setScore(finalScore);
+            setPassed(didPass);
+            setSubmissionMessage(payload?.message || null);
+
+            if (didPass) {
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#f97316', '#fbbf24', '#ffffff']
+                });
+            }
+
+            if (onComplete) onComplete(finalScore, didPass);
+        } catch (error) {
+            console.error('Error recording attempt:', error);
+            setSubmissionMessage('Your result was calculated, but saving the attempt failed.');
+        }
+    }, [courseId, onComplete, questions, quizId, submitted, userAnswers]);
 
     useEffect(() => {
         if (timeLeft !== null && timeLeft > 0 && !submitted) {
@@ -70,126 +164,7 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
         } else if (timeLeft === 0 && !submitted) {
             handleSubmit();
         }
-    }, [timeLeft, submitted]);
-
-    const fetchQuizData = async () => {
-        try {
-            setLoading(true);
-            // Fetch quiz metadata
-            const { data: quizData, error: quizError } = await supabase
-                .from('quizzes')
-                .select('*')
-                .eq('id', quizId)
-                .single();
-
-            if (quizError) throw quizError;
-            setQuiz(quizData);
-
-            if (quizData.time_limit_minutes > 0) {
-                setTimeLeft(quizData.time_limit_minutes * 60);
-            }
-
-            // Fetch questions and options
-            const { data: questionsData, error: questionsError } = await supabase
-                .from('quiz_questions')
-                .select(`
-                    id,
-                    question_text,
-                    question_type,
-                    points,
-                    quiz_options (
-                        id,
-                        option_text,
-                        is_correct
-                    )
-                `)
-                .eq('quiz_id', quizId)
-                .order('order_index');
-
-            if (questionsError) throw questionsError;
-
-            const formattedQuestions = questionsData.map((q: any) => ({
-                ...q,
-                options: q.quiz_options
-            }));
-
-            setQuestions(formattedQuestions);
-        } catch (error) {
-            console.error('Error fetching quiz:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleOptionSelect = (questionId: string, optionId: string) => {
-        if (submitted) return;
-        setUserAnswers(prev => ({ ...prev, [questionId]: optionId }));
-    };
-
-    const handleSubmit = async () => {
-        if (submitted) return;
-        setSubmitted(true);
-
-        let totalPoints = 0;
-        let earnedPoints = 0;
-
-        questions.forEach(q => {
-            totalPoints += q.points;
-            const selectedOptionId = userAnswers[q.id];
-            const correctOption = q.options.find(o => o.is_correct);
-            if (correctOption && selectedOptionId === correctOption.id) {
-                earnedPoints += q.points;
-            }
-        });
-
-        const finalScore = Math.round((earnedPoints / totalPoints) * 100);
-        const didPass = finalScore >= (quiz?.passing_score || 70);
-
-        setScore(finalScore);
-        setPassed(didPass);
-
-        if (didPass) {
-            confetti({
-                particleCount: 150,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#f97316', '#fbbf24', '#ffffff']
-            });
-        }
-
-        // Record attempt
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                await supabase.from('quiz_attempts').insert({
-                    quiz_id: quizId,
-                    user_id: user.id,
-                    score: finalScore,
-                    passed: didPass
-                });
-
-                // Award XP if passed
-                if (didPass) {
-                    // Fetch existing XP
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('xp')
-                        .eq('id', user.id)
-                        .single();
-
-                    const xpToAward = 50; // Quizzes award 50 XP
-                    await supabase
-                        .from('profiles')
-                        .update({ xp: (profile?.xp || 0) + xpToAward })
-                        .eq('id', user.id);
-                }
-            }
-        } catch (error) {
-            console.error('Error recording attempt:', error);
-        }
-
-        if (onComplete) onComplete(finalScore, didPass);
-    };
+    }, [timeLeft, submitted, handleSubmit]);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -211,7 +186,7 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-8 rounded-3xl text-center">
                 <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                 <h3 className="text-xl font-black text-red-900 dark:text-red-400 mb-2">Quiz not found</h3>
-                <p className="text-red-700 dark:text-red-300">We couldn't load the questions for this quiz. Please contact your instructor.</p>
+                <p className="text-red-700 dark:text-red-300">{submissionMessage || "We couldn't load the questions for this quiz. Please contact your instructor."}</p>
             </div>
         );
     }
@@ -236,7 +211,7 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400 text-lg mb-10 max-w-md mx-auto">
                     {passed
-                        ? `You passed the quiz with a score of ${score}%! You've earned 50 XP.`
+                        ? (submissionMessage || `You passed the quiz with a score of ${score}%!`)
                         : `You scored ${score}%, which is below the ${quiz.passing_score}% required to pass. Take another look at the material and try again!`}
                 </p>
 
