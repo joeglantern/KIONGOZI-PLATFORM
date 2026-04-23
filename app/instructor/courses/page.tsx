@@ -6,11 +6,11 @@ import { useUser } from '@/app/contexts/UserContext';
 import { createClient } from '@/app/utils/supabaseClient';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import {
     Search,
     Filter,
     Plus,
-    MoreVertical,
     BookOpen,
     Users,
     Clock,
@@ -18,6 +18,12 @@ import {
     Edit3
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
+
+const DIFFICULTY_COLORS: Record<string, string> = {
+    beginner: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    intermediate: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    advanced: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+};
 
 interface CourseData {
     id: string;
@@ -48,42 +54,45 @@ export default function InstructorCoursesPage() {
         try {
             const { data: myCourses, error } = await supabase
                 .from('courses')
-                .select('*')
+                .select('id, title, description, difficulty_level, status, created_at, estimated_duration_hours, thumbnail_url')
                 .eq('author_id', user.id)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
+            if (!myCourses?.length) { setLoading(false); return; }
 
-            if (myCourses) {
-                // Fetch enrollments and reviews for stats
-                const courseIds = myCourses.map(c => c.id);
+            const courseIds = myCourses.map(c => c.id);
 
-                const { data: enrollments } = await supabase
-                    .from('course_enrollments')
-                    .select('course_id')
-                    .in('course_id', courseIds);
+            const [{ data: enrollments }, { data: reviews }] = await Promise.all([
+                supabase.from('course_enrollments').select('course_id').in('course_id', courseIds),
+                supabase.from('course_reviews').select('course_id, rating').in('course_id', courseIds),
+            ]);
 
-                const { data: reviews } = await supabase
-                    .from('course_reviews')
-                    .select('course_id, rating')
-                    .in('course_id', courseIds);
-
-                const coursesWithStats = myCourses.map(course => {
-                    const courseEnrollments = enrollments?.filter(e => e.course_id === course.id) || [];
-                    const courseReviews = reviews?.filter(r => r.course_id === course.id) || [];
-                    const avgRating = courseReviews.length > 0
-                        ? courseReviews.reduce((sum, r) => sum + r.rating, 0) / courseReviews.length
-                        : 0;
-
-                    return {
-                        ...course,
-                        enrollment_count: courseEnrollments.length,
-                        avg_rating: Math.round(avgRating * 10) / 10,
-                    };
-                });
-
-                setCourses(coursesWithStats);
+            const enrollCountByCourse = new Map<string, number>();
+            for (const e of enrollments ?? []) {
+                enrollCountByCourse.set(e.course_id, (enrollCountByCourse.get(e.course_id) ?? 0) + 1);
             }
+
+            const reviewsByCourse = new Map<string, number[]>();
+            for (const r of reviews ?? []) {
+                const list = reviewsByCourse.get(r.course_id) ?? [];
+                list.push(r.rating);
+                reviewsByCourse.set(r.course_id, list);
+            }
+
+            const coursesWithStats = myCourses.map(course => {
+                const ratings = reviewsByCourse.get(course.id) ?? [];
+                const avgRating = ratings.length > 0
+                    ? Math.round((ratings.reduce((s, r) => s + r, 0) / ratings.length) * 10) / 10
+                    : 0;
+                return {
+                    ...course,
+                    enrollment_count: enrollCountByCourse.get(course.id) ?? 0,
+                    avg_rating: avgRating,
+                };
+            });
+
+            setCourses(coursesWithStats);
         } catch (err) {
             console.error('Error fetching courses:', err);
         } finally {
@@ -94,12 +103,6 @@ export default function InstructorCoursesPage() {
     const filteredCourses = courses.filter(course =>
         course.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
-    const difficultyColors: Record<string, string> = {
-        beginner: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-        intermediate: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-        advanced: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-    };
 
     return (
         <ProtectedRoute allowedRoles={['instructor', 'admin']}>
@@ -170,9 +173,9 @@ export default function InstructorCoursesPage() {
                     <div className="grid gap-4">
                         {filteredCourses.map((course) => (
                             <div key={course.id} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 md:p-6 flex flex-col md:flex-row gap-6 hover:shadow-md transition-shadow">
-                                                <div className="w-full md:w-48 h-32 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                                                <div className="relative w-full md:w-48 h-32 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
                                     {course.thumbnail_url
-                                        ? <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                                        ? <Image src={course.thumbnail_url} alt={course.title} fill className="object-cover" unoptimized />
                                         : <BookOpen className="w-10 h-10 text-gray-400" />
                                     }
                                 </div>
@@ -181,7 +184,7 @@ export default function InstructorCoursesPage() {
                                     <div className="flex items-start justify-between mb-2">
                                         <div>
                                             <div className="flex items-center gap-2 mb-2">
-                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${difficultyColors[course.difficulty_level]}`}>
+                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${DIFFICULTY_COLORS[course.difficulty_level]}`}>
                                                     {course.difficulty_level}
                                                 </span>
                                                 <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${course.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>

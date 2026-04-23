@@ -18,6 +18,12 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 
+const DIFFICULTY_COLORS: Record<string, string> = {
+    beginner: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    intermediate: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    advanced: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+};
+
 interface CourseData {
     id: string;
     title: string;
@@ -64,17 +70,17 @@ export default function InstructorDashboardPage() {
 
             const courseIds = myCourses.map(c => c.id);
 
-            // 2. Fetch enrollments for all courses
-            const { data: enrollments } = await supabase
-                .from('course_enrollments')
-                .select('course_id, progress_percentage, status, user_id')
-                .in('course_id', courseIds);
-
-            // 3. Fetch average rating from reviews
-            const { data: reviews } = await supabase
-                .from('course_reviews')
-                .select('rating, course_id')
-                .in('course_id', courseIds);
+            // 2+3. Fetch enrollments and reviews in parallel
+            const [{ data: enrollments }, { data: reviews }] = await Promise.all([
+                supabase
+                    .from('course_enrollments')
+                    .select('course_id, progress_percentage, status, user_id')
+                    .in('course_id', courseIds),
+                supabase
+                    .from('course_reviews')
+                    .select('rating, course_id')
+                    .in('course_id', courseIds),
+            ]);
 
             // Calculate per-course stats
             const courseStats: CourseData[] = myCourses.map(course => {
@@ -113,12 +119,6 @@ export default function InstructorDashboardPage() {
     const overallCompletion = totalEnrollments > 0
         ? Math.round(courses.reduce((s, c) => s + (c.completed_count), 0) / totalEnrollments * 100)
         : 0;
-
-    const difficultyColors: Record<string, string> = {
-        beginner: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-        intermediate: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-        advanced: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-    };
 
     return (
         <ProtectedRoute allowedRoles={['instructor', 'admin']}>
@@ -248,7 +248,7 @@ export default function InstructorDashboardPage() {
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="font-bold text-gray-900 dark:text-white text-sm truncate">{course.title}</h3>
                                                     <div className="flex items-center gap-3 mt-1">
-                                                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${difficultyColors[course.difficulty_level] || 'bg-gray-100 text-gray-600'}`}>
+                                                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${DIFFICULTY_COLORS[course.difficulty_level] || 'bg-gray-100 text-gray-600'}`}>
                                                             {course.difficulty_level}
                                                         </span>
                                                         <span className="text-xs text-gray-400 font-medium">

@@ -59,15 +59,29 @@ export default function InstructorAnalyticsPage() {
 
             const courseIds = instructorCourses.map(c => c.id);
 
-            // Get enrollments for all courses
-            const { data: enrollments } = await supabase
-                .from('course_enrollments')
-                .select('course_id, progress_percentage, status, user_id')
-                .in('course_id', courseIds);
+            // Get enrollments and SCORM packages in parallel
+            const [{ data: enrollments }, { data: scormPackages }] = await Promise.all([
+                supabase
+                    .from('course_enrollments')
+                    .select('course_id, progress_percentage, status, user_id')
+                    .in('course_id', courseIds),
+                supabase
+                    .from('scorm_packages')
+                    .select('id, title, course_id')
+                    .in('course_id', courseIds)
+                    .eq('status', 'active'),
+            ]);
 
-            // Calculate stats per course
+            // Group enrollments by course_id for O(1) access
+            const enrollmentsByCourse = new Map<string, typeof enrollments>();
+            for (const e of enrollments ?? []) {
+                const list = enrollmentsByCourse.get(e.course_id) ?? [];
+                list.push(e);
+                enrollmentsByCourse.set(e.course_id, list);
+            }
+
             const courseStats: CourseStats[] = instructorCourses.map(course => {
-                const courseEnrollments = enrollments?.filter(e => e.course_id === course.id) || [];
+                const courseEnrollments = enrollmentsByCourse.get(course.id) ?? [];
                 const avg = courseEnrollments.length > 0
                     ? Math.round(courseEnrollments.reduce((s, e) => s + (e.progress_percentage || 0), 0) / courseEnrollments.length)
                     : 0;
@@ -83,16 +97,8 @@ export default function InstructorAnalyticsPage() {
 
             setCourses(courseStats);
 
-            // Unique students
-            const uniqueStudents = new Set(enrollments?.map(e => e.user_id) || []);
+            const uniqueStudents = new Set(enrollments?.map(e => e.user_id) ?? []);
             setTotalStudents(uniqueStudents.size);
-
-            // SCORM analytics
-            const { data: scormPackages } = await supabase
-                .from('scorm_packages')
-                .select('id, title, course_id')
-                .in('course_id', courseIds)
-                .eq('status', 'active');
 
             if (scormPackages?.length) {
                 const pkgIds = scormPackages.map(p => p.id);
@@ -101,8 +107,17 @@ export default function InstructorAnalyticsPage() {
                     .select('package_id, lesson_status, score_raw')
                     .in('package_id', pkgIds);
 
+                // Group registrations by package_id for O(1) access
+                const regsByPackage = new Map<string, NonNullable<typeof registrations>>();
+                for (const r of registrations ?? []) {
+                    const list = regsByPackage.get(r.package_id) ?? [];
+                    list.push(r);
+                    regsByPackage.set(r.package_id, list);
+                }
+
+                const courseMap = new Map(instructorCourses.map(c => [c.id, c.title]));
                 const stats: ScormStat[] = scormPackages.map(pkg => {
-                    const regs = registrations?.filter(r => r.package_id === pkg.id) || [];
+                    const regs = regsByPackage.get(pkg.id) ?? [];
                     const completed = regs.filter(r =>
                         r.lesson_status === 'completed' || r.lesson_status === 'passed'
                     ).length;
@@ -112,11 +127,10 @@ export default function InstructorAnalyticsPage() {
                     const avg = scores.length
                         ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
                         : null;
-                    const course = instructorCourses.find(c => c.id === pkg.course_id);
                     return {
                         id: pkg.id,
                         title: pkg.title,
-                        course_title: course?.title || '—',
+                        course_title: courseMap.get(pkg.course_id) ?? '—',
                         launches: regs.length,
                         completions: completed,
                         avg_score: avg,

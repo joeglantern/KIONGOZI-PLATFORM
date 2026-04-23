@@ -207,6 +207,7 @@ export default function MyLearningPage() {
                                                     className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-xl hover:shadow-orange-500/5 transition-all flex flex-col"
                                                 >
                                                     {(() => {
+                                                        const course: any = Array.isArray(enrollment.courses) ? enrollment.courses[0] : enrollment.courses;
                                                         return (
                                                             <>
                                                                 <div className="p-8 flex-1">
@@ -219,12 +220,12 @@ export default function MyLearningPage() {
                                                                         </div>
                                                                         <div className="flex items-center space-x-1.5 text-orange-500 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100/50">
                                                                             <Star className="w-3 h-3 fill-orange-500" />
-                                                                            <span className="text-[10px] font-black uppercase tracking-tighter">Lvl {enrollment.courses.difficulty_level || 'Elite'}</span>
+                                                                            <span className="text-[10px] font-black uppercase tracking-tighter">Lvl {course?.difficulty_level || 'Elite'}</span>
                                                                         </div>
                                                                     </div>
 
                                                                     <h3 className="text-2xl font-black text-gray-900 group-hover:text-orange-600 transition-colors mb-4 leading-tight">
-                                                                        {enrollment.courses.title}
+                                                                        {course?.title}
                                                                     </h3>
 
                                                                     <div className="flex items-center space-x-5 mb-10 text-gray-400 text-[10px] font-black uppercase tracking-widest">
@@ -232,7 +233,7 @@ export default function MyLearningPage() {
                                                                             <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
                                                                                 <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
                                                                             </div>
-                                                                            <span>{enrollment.courses.estimated_duration_hours || '—'}h Total</span>
+                                                                            <span>{course?.estimated_duration_hours || '—'}h Total</span>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
                                                                             <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
