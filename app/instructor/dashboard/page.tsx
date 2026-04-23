@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
 import { createClient } from '@/app/utils/supabaseClient';
@@ -30,7 +30,7 @@ interface CourseData {
 
 export default function InstructorDashboardPage() {
     const { user, profile } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [courses, setCourses] = useState<CourseData[]>([]);
     const [totalStudents, setTotalStudents] = useState(0);
     const [avgRating, setAvgRating] = useState(0);
@@ -215,11 +215,11 @@ export default function InstructorDashboardPage() {
                                     <BookOpen className="w-5 h-5 text-orange-500" />
                                     Recent Courses
                                 </h2>
-                                <Link href="/instructor/courses">
-                                    <Button variant="ghost" className="text-orange-600 dark:text-orange-400 font-bold hover:bg-orange-50 dark:hover:bg-orange-900/20">
+                                <Button asChild variant="ghost" className="text-orange-600 dark:text-orange-400 font-bold hover:bg-orange-50 dark:hover:bg-orange-900/20">
+                                    <Link href="/instructor/courses">
                                         View All <ArrowRight className="w-4 h-4 ml-1" />
-                                    </Button>
-                                </Link>
+                                    </Link>
+                                </Button>
                             </div>
 
                             {courses.length === 0 ? (
@@ -231,11 +231,11 @@ export default function InstructorDashboardPage() {
                                     <p className="text-gray-500 font-medium max-w-sm mb-6">
                                         You haven't created any courses. Head to 'My Courses' to create one!
                                     </p>
-                                    <Link href="/instructor/courses">
-                                        <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl px-6 py-4">
+                                    <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl px-6 py-4">
+                                        <Link href="/instructor/courses">
                                             Create Course
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </Button>
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-100 dark:divide-gray-800">

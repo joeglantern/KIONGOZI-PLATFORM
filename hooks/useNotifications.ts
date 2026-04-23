@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 
@@ -18,14 +18,18 @@ export interface Notification {
 
 export function useNotifications() {
     const { user } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
 
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
     const fetchNotifications = useCallback(async () => {
-        if (!user) return;
+        if (!user) {
+            setNotifications([]);
+            setLoading(false);
+            return;
+        }
         try {
             const { data, error } = await supabase
                 .from('notifications')
@@ -44,7 +48,7 @@ export function useNotifications() {
         } finally {
             setLoading(false);
         }
-    }, [user?.id, supabase]);
+    }, [supabase, user]);
 
     const markAsRead = useCallback(async (id: string) => {
         await supabase
@@ -55,7 +59,7 @@ export function useNotifications() {
         setNotifications(prev =>
             prev.map(n => n.id === id ? { ...n, is_read: true } : n)
         );
-    }, []);
+    }, [supabase]);
 
     const markAllRead = useCallback(async () => {
         if (!user) return;
@@ -68,7 +72,7 @@ export function useNotifications() {
         setNotifications(prev =>
             prev.map(n => ({ ...n, is_read: true }))
         );
-    }, [user]);
+    }, [supabase, user]);
 
     // Fetch on mount
     useEffect(() => {

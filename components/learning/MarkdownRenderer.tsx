@@ -1,13 +1,15 @@
 "use client";
 
+import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import NextImage from 'next/image';
 
 interface MarkdownRendererProps {
     content: string;
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: MarkdownRendererProps) {
     return (
         <div className="prose prose-slate max-w-none prose-headings:font-bold prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-p:text-gray-600 prose-p:leading-relaxed prose-li:text-gray-600 prose-strong:text-gray-900 prose-blockquote:border-orange-500 prose-blockquote:bg-orange-50/50 prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1 prose-code:rounded">
             <ReactMarkdown
@@ -66,8 +68,16 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                     a: ({ node, ...props }) => (
                         <a className="text-orange-600 hover:text-orange-700 underline underline-offset-4 font-medium transition-colors" {...props} />
                     ),
-                    img: ({ node, ...props }) => (
-                        <img className="rounded-2xl my-8 max-w-full h-auto shadow-md border border-gray-100" {...props} />
+                    img: ({ node, src, alt, ...props }) => (
+                        <span className="block relative my-8 w-full" style={{ minHeight: '200px' }}>
+                            <NextImage
+                                src={src || ''}
+                                alt={alt || ''}
+                                fill
+                                className="rounded-2xl shadow-md border border-gray-100 object-contain"
+                                unoptimized={src?.startsWith('data:') || src?.startsWith('blob:')}
+                            />
+                        </span>
                     ),
                     hr: ({ node, ...props }) => (
                         <hr className="my-10 border-gray-100" {...props} />
@@ -92,4 +102,4 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             </ReactMarkdown>
         </div>
     );
-}
+});

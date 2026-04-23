@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
@@ -33,7 +33,7 @@ interface RoomListProps {
 }
 
 export function RoomList({ onSelectRoom, currentRoomId }: RoomListProps) {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const { user } = useUser();
     const [searchQuery, setSearchQuery] = useState('');
 

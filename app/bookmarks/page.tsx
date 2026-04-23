@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
@@ -33,7 +33,7 @@ interface SavedItem {
 }
 
 export default function BookmarksPage() {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const { user } = useUser();
     const [bookmarks, setBookmarks] = useState<SavedItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -192,11 +192,11 @@ export default function BookmarksPage() {
                                             <span className="text-[10px] font-bold text-gray-400">
                                                 Added {new Date(bookmark.created_at).toLocaleDateString()}
                                             </span>
-                                            <Link href={bookmark.metadata?.link || '#'}>
-                                                <Button variant="ghost" className="text-orange-600 hover:bg-orange-50 font-black text-xs h-9 gap-2">
+                                            <Button asChild variant="ghost" className="text-orange-600 hover:bg-orange-50 font-black text-xs h-9 gap-2">
+                                                <Link href={bookmark.metadata?.link || '#'}>
                                                     Open <ExternalLink className="w-3 h-3" />
-                                                </Button>
-                                            </Link>
+                                                </Link>
+                                            </Button>
                                         </div>
                                     </motion.div>
                                 ))}

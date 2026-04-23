@@ -138,12 +138,12 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
                                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Issuer</span>
                                 <span className="text-sm font-black text-gray-900">The Kiongozi Platform</span>
                             </div>
-                            <Link href="/">
-                                <Button className="bg-gray-900 text-white hover:bg-black px-8 py-6 rounded-2xl shadow-lg transition-all font-black uppercase text-xs tracking-widest">
+                            <Button asChild className="bg-gray-900 text-white hover:bg-black px-8 py-6 rounded-2xl shadow-lg transition-all font-black uppercase text-xs tracking-widest">
+                                <Link href="/">
                                     Explore Higher Learning
                                     <ExternalLink className="w-4 h-4 ml-2" />
-                                </Button>
-                            </Link>
+                                </Link>
+                            </Button>
                         </div>
                     </div>
                 </div>

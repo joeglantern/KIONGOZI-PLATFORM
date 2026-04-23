@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/app/utils/supabaseClient';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -33,7 +33,7 @@ const CategoryBarChart = dynamic(() => import('@/components/dashboard/CategoryBa
 
 export default function DashboardPage() {
     const { user, profile } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [badges, setBadges] = useState<any[]>([]);
@@ -214,11 +214,11 @@ export default function DashboardPage() {
                                     Your learning journey continues here.
                                 </p>
                             </div>
-                            <Link href="/courses">
-                                <Button className="bg-gray-900 hover:bg-black text-white rounded-xl px-5 py-5 font-bold flex items-center gap-2 transition-all text-sm">
+                            <Button asChild className="bg-gray-900 hover:bg-black text-white rounded-xl px-5 py-5 font-bold flex items-center gap-2 transition-all text-sm">
+                                <Link href="/courses">
                                     Browse Courses <ArrowRight className="w-4 h-4" />
-                                </Button>
-                            </Link>
+                                </Link>
+                            </Button>
                         </div>
 
                         {/* Continue Learning Banner */}
@@ -290,11 +290,11 @@ export default function DashboardPage() {
                             <div className="lg:col-span-2 space-y-6">
                                 <div className="flex items-center justify-between">
                                     <h2 className="text-xl font-bold text-gray-900 tracking-tight">Active Courses</h2>
-                                    <Link href="/courses">
-                                        <Button variant="ghost" className="text-orange-600 hover:text-orange-700 font-bold flex items-center gap-2 text-xs">
+                                    <Button asChild variant="ghost" className="text-orange-600 hover:text-orange-700 font-bold flex items-center gap-2 text-xs">
+                                        <Link href="/courses">
                                             View All <ArrowRight className="w-3 h-3" />
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </Button>
                                 </div>
 
                                 {loading ? (
@@ -361,11 +361,11 @@ export default function DashboardPage() {
                                         </div>
                                         <h3 className="text-lg font-bold text-gray-900 mb-1">Start Learning</h3>
                                         <p className="text-gray-500 mb-6 text-sm">Enroll in your first course to see progress here.</p>
-                                        <Link href="/courses">
-                                            <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
+                                        <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
+                                            <Link href="/courses">
                                                 Browse Courses
-                                            </Button>
-                                        </Link>
+                                            </Link>
+                                        </Button>
                                     </div>
                                 )}
                             </div>

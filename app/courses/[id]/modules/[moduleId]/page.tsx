@@ -9,6 +9,7 @@ import { ModuleSidebar } from '@/components/learning/ModuleSidebar';
 import {
     Loader2,
     CheckCircle,
+    Lock,
     ChevronLeft,
     ChevronRight,
     Home,
@@ -34,7 +35,8 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import Link from 'next/link';
-import { XP_PER_MODULE, updateUserStreak } from '@/lib/gamification';
+import { XP_PER_MODULE } from '@/lib/gamification';
+import { xapi } from '@/lib/xapi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookmarkButton } from '@/components/shared/BookmarkButton';
 import { XPCelebration } from '@/components/gamification/XPCelebration';
@@ -47,7 +49,7 @@ import { ModuleViewerSkeleton } from '@/components/ui/Skeleton';
 export default function ModuleViewerPage() {
     const params = useParams();
     const router = useRouter();
-    const { user, refreshProfile } = useUser();
+    const { user, profile, refreshProfile } = useUser();
     const supabase = useMemo(() => createClient(), []);
     const queryClient = useQueryClient();
 
@@ -72,13 +74,48 @@ export default function ModuleViewerPage() {
 
     const { speak, stop, isSpeaking, supported } = useTextToSpeech();
 
+    const { data: accessState, isLoading: loadingAccess } = useQuery({
+        queryKey: ['course-module-access', courseId, user?.id, profile?.role],
+        queryFn: async () => {
+            if (!user) return { canAccess: false };
+
+            if (profile?.role === 'admin') {
+                return { canAccess: true };
+            }
+
+            const { data: courseRecord, error: courseError } = await supabase
+                .from('courses')
+                .select('author_id')
+                .eq('id', courseId)
+                .maybeSingle();
+
+            if (courseError) throw courseError;
+            if (courseRecord?.author_id === user.id) {
+                return { canAccess: true };
+            }
+
+            const { data, error } = await supabase
+                .from('course_enrollments')
+                .select('id, status')
+                .eq('course_id', courseId)
+                .eq('user_id', user.id)
+                .in('status', ['active', 'completed'])
+                .maybeSingle();
+
+            if (error) throw error;
+            return { canAccess: !!data };
+        },
+        enabled: !!courseId && !!user,
+        staleTime: 60 * 1000,
+    });
+
     // 1. Fetch Course Info
     const { data: course, isLoading: loadingCourse } = useQuery({
         queryKey: ['course', courseId],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('courses')
-                .select('id, title')
+                .select('id, title, author_id')
                 .eq('id', courseId)
                 .single();
             if (error) throw error;
@@ -92,40 +129,62 @@ export default function ModuleViewerPage() {
     const { data: rawModules, isLoading: loadingModules } = useQuery({
         queryKey: ['course-modules', courseId],
         queryFn: async () => {
-            const { data, error } = await supabase
+            const { data: courseModuleLinks, error: courseModuleError } = await supabase
                 .from('course_modules')
-                .select(`
-                    order_index,
-                    learning_modules(
-                        id,
-                        title,
-                        description,
-                        estimated_duration_minutes,
-                        media_type
-                    )
-                `)
+                .select('order_index, module_id')
                 .eq('course_id', courseId)
                 .order('order_index');
-            if (error) throw error;
-            return data;
+
+            if (courseModuleError) throw courseModuleError;
+
+            const moduleIds = (courseModuleLinks || []).map((moduleLink: any) => moduleLink.module_id).filter(Boolean);
+            if (moduleIds.length === 0) return [];
+
+            const moduleSource = profile?.role === 'admin' || course?.author_id === user?.id
+                ? 'learning_modules'
+                : 'learning_module_previews';
+
+            const { data: moduleRows, error: moduleError } = await supabase
+                .from(moduleSource)
+                .select('id, title, description, estimated_duration_minutes, media_type')
+                .in('id', moduleIds);
+
+            if (moduleError) throw moduleError;
+
+            const moduleMap = new Map((moduleRows || []).map((module: any) => [module.id, module]));
+
+            return (courseModuleLinks || [])
+                .map((moduleLink: any) => {
+                    const learningModule = moduleMap.get(moduleLink.module_id);
+                    if (!learningModule) return null;
+                    return {
+                        ...moduleLink,
+                        learning_modules: learningModule,
+                    };
+                })
+                .filter(Boolean);
         },
-        enabled: !!courseId && !!user,
+        enabled: !!courseId && !!user && !!accessState?.canAccess && !!course,
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
+
+    const moduleBelongsToCourse = useMemo(() => {
+        if (!rawModules) return undefined;
+        return rawModules.some((module: any) => module.learning_modules.id === moduleId);
+    }, [rawModules, moduleId]);
 
     // 3. Fetch Current Module Content
     const { data: moduleData, isLoading: loadingModuleContent } = useQuery({
         queryKey: ['module', moduleId],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('learning_modules')
-                .select('*')
-                .eq('id', moduleId)
-                .single();
-            if (error) throw error;
-            return data;
+            const response = await fetch(`/api/courses/${courseId}/modules/${moduleId}`, {
+                credentials: 'include',
+            });
+            const payload = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(payload?.error || 'Failed to load module.');
+            return payload?.module;
         },
-        enabled: !!moduleId && !!user,
+        enabled: !!moduleId && !!user && !!accessState?.canAccess && moduleBelongsToCourse === true,
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
@@ -142,7 +201,7 @@ export default function ModuleViewerPage() {
             if (error) throw error;
             return data || [];
         },
-        enabled: !!courseId && !!user,
+        enabled: !!courseId && !!user && !!accessState?.canAccess,
         staleTime: 1 * 60 * 1000, // 1 minute (progress updates often)
     });
 
@@ -158,12 +217,12 @@ export default function ModuleViewerPage() {
             if (error && error.code !== 'PGRST116') console.error(error);
             return data;
         },
-        enabled: !!moduleId && !!user,
+        enabled: !!moduleId && !!user && !!accessState?.canAccess && moduleBelongsToCourse === true,
         staleTime: 5 * 60 * 1000,
     });
 
     // Derive computed state
-    const loading = loadingCourse || loadingModules || loadingModuleContent || loadingProgress;
+    const loading = loadingAccess || loadingCourse || loadingModules || loadingModuleContent || loadingProgress;
 
     // Combine modules with progress
     const allModules = useMemo(() => {
@@ -199,7 +258,7 @@ export default function ModuleViewerPage() {
     }, [currentModuleProgress?.notes, moduleId]); // Reset notes when switching modules
 
     const handleMarkComplete = async () => {
-        if (!user || !moduleData) return;
+        if (!user || !moduleData || !accessState?.canAccess || isCompleted) return;
 
         try {
             setCompleting(true);
@@ -220,6 +279,11 @@ export default function ModuleViewerPage() {
                 }, { onConflict: 'user_id, module_id' });
 
             if (upsertError) throw upsertError;
+
+            // Emit xAPI: module completed
+            if (user.email) {
+                xapi.moduleCompleted(user.id, user.email, moduleId, moduleData.title, courseId);
+            }
 
             // 2. Centralized Game logic: XP, Leveling, Streaks, and Badges all in one transaction
             const { data: gamificationResult, error: gamificationError } = await supabase.rpc('award_lms_action', {
@@ -313,6 +377,11 @@ export default function ModuleViewerPage() {
 
             queryClient.invalidateQueries({ queryKey: ['course-enrollments'] });
 
+            // Emit xAPI: course completed when progress reaches 100%
+            if (progressPercentage === 100 && user?.email && course) {
+                xapi.courseCompleted(user.id, user.email, courseId, course.title);
+            }
+
             return progressPercentage === 100;
 
         } catch (error) {
@@ -327,11 +396,11 @@ export default function ModuleViewerPage() {
         if (!loading) {
             initialNotesRef.current = notes;
         }
-    }, [loading, moduleId]);
+    }, [loading, moduleId, notes]);
 
     // Auto-save notes (only fires when user actually edits)
     useEffect(() => {
-        if (!user || loading) return;
+        if (!user || loading || !accessState?.canAccess) return;
         // Skip if notes haven't changed from the initial load
         if (initialNotesRef.current === null || notes === initialNotesRef.current) return;
 
@@ -359,7 +428,7 @@ export default function ModuleViewerPage() {
         }, 1000);
 
         return () => clearTimeout(timer);
-    }, [notes, user, moduleId, courseId, loading]);
+    }, [notes, user, moduleId, courseId, loading, accessState?.canAccess, supabase]);
 
     const navigateToModule = (direction: 'prev' | 'next') => {
         const currentIndex = allModules.findIndex((m: any) => m.learning_modules.id === moduleId);
@@ -394,7 +463,37 @@ export default function ModuleViewerPage() {
         );
     }
 
-    if (!moduleData || !course) {
+    if (!accessState?.canAccess) {
+        return (
+            <ProtectedRoute allowedRoles={['user', 'instructor', 'admin']}>
+                <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+                    <div className="max-w-md w-full bg-white border border-gray-100 rounded-3xl shadow-sm p-8 text-center">
+                        <div className="w-16 h-16 rounded-3xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto mb-6">
+                            <Lock className="w-8 h-8" />
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-900 mb-3">Enrollment required</h2>
+                        <p className="text-gray-500 font-medium mb-6">
+                            This lesson is only available after you enroll in the course. Yes, the app should have enforced that already.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <Button asChild className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl">
+                                <Link href={`/courses/${courseId}`}>
+                                    Go to Course
+                                </Link>
+                            </Button>
+                            <Button asChild variant="outline" className="rounded-xl">
+                                <Link href="/courses">
+                                    Browse Courses
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </ProtectedRoute>
+        );
+    }
+
+    if (moduleBelongsToCourse === false || !moduleData || !course) {
         return (
             <ProtectedRoute allowedRoles={['user', 'instructor', 'admin']}>
                 <div className="min-h-screen bg-gray-50 flex items-center justify-center">

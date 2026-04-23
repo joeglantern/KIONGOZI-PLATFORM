@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from 'react';
 import { useUser } from '@/app/contexts/UserContext';
 import { createClient } from '@/app/utils/supabaseClient';
 import Link from 'next/link';
@@ -26,7 +27,7 @@ interface InstructorNavbarProps {
 export function InstructorNavbar({ onMenuClick }: InstructorNavbarProps) {
     const { user, profile, signOut } = useUser();
     const router = useRouter();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const { theme, toggleTheme } = useTheme();
 
     return (
@@ -52,15 +53,16 @@ export function InstructorNavbar({ onMenuClick }: InstructorNavbarProps) {
 
             <div className="flex items-center gap-3">
                 {/* Switch to Student View */}
-                <Link href="/dashboard">
-                    <Button
-                        variant="outline"
-                        className="hidden sm:flex items-center gap-2 text-sm border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-xl"
-                    >
+                <Button
+                    asChild
+                    variant="outline"
+                    className="hidden sm:flex items-center gap-2 text-sm border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-xl"
+                >
+                    <Link href="/dashboard">
                         <GraduationCap className="w-4 h-4" />
                         Student View
-                    </Button>
-                </Link>
+                    </Link>
+                </Button>
 
                 <NotificationDropdown />
 

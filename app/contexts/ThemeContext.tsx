@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -78,15 +78,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         document.documentElement.style.fontSize = `${val * 100}%`;
     }, []);
 
+    const value = useMemo(() => ({
+        theme, toggleTheme, contrast, setContrast, fontScale, setFontScale
+    }), [theme, toggleTheme, contrast, setContrast, fontScale, setFontScale]);
+
     return (
-        <ThemeContext.Provider value={{
-            theme,
-            toggleTheme,
-            contrast,
-            setContrast,
-            fontScale,
-            setFontScale
-        }}>
+        <ThemeContext.Provider value={value}>
             {children}
         </ThemeContext.Provider>
     );

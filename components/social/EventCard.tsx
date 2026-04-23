@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +29,7 @@ export default function EventCard({ event, currentUser, rsvpStatusProp = null }:
     const [rsvpStatus, setRsvpStatus] = useState<string | null>(rsvpStatusProp);
     const [isRsvping, setIsRsvping] = useState(false);
     const { toast } = useToast();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const handleRsvp = async (status: 'going' | 'interested') => {
         if (!currentUser) {

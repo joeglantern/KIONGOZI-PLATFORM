@@ -17,8 +17,7 @@ import {
     ArrowRight,
     Calendar,
     Star,
-    PlayCircle,
-    FileText
+    Package
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,30 +38,65 @@ export default function MyLearningPage() {
             const { data, error } = await supabase
                 .from('course_enrollments')
                 .select(`
-                    *,
+                    id, course_id, user_id, status, progress_percentage, updated_at,
                     courses (
-                        *,
-                        course_modules (
-                            learning_modules (
-                                media_type
-                            )
-                        )
+                        id, title, description, thumbnail_url, difficulty_level,
+                        estimated_duration_hours, category_id
                     )
                 `)
                 .eq('user_id', user!.id)
-                .order('updated_at', { ascending: false });
+                .order('updated_at', { ascending: false })
+                .limit(50);
 
             if (error) throw error;
             return data || [];
         },
         enabled: !!user,
-        staleTime: 5 * 60 * 1000, // 5 minutes — cached between navigations
+        staleTime: 5 * 60 * 1000,
     });
 
+    // Fetch SCORM packages + registrations in parallel (not chained)
+    const courseIds = enrolledCourses.map((e: any) => e.course_id);
+    const { data: scormPackages = [] } = useQuery({
+        queryKey: ['my-scorm-packages', user?.id, courseIds.join(',')],
+        queryFn: async () => {
+            if (!courseIds.length) return [];
 
-    const filteredCourses = enrolledCourses.filter(enrollment =>
+            const [packagesResult, registrationsResult] = await Promise.all([
+                supabase
+                    .from('scorm_packages')
+                    .select('id, course_id, title')
+                    .in('course_id', courseIds)
+                    .eq('status', 'active'),
+                // Pre-fetch all SCORM registrations for this user in one shot
+                supabase
+                    .from('scorm_registrations')
+                    .select('package_id, lesson_status')
+                    .eq('user_id', user!.id),
+            ]);
+
+            const packages = packagesResult.data || [];
+            const registrations = registrationsResult.data || [];
+
+            if (!packages.length) return [];
+
+            const regMap = new Map(registrations.map((r: any) => [r.package_id, r]));
+
+            return packages.map((pkg: any) => ({
+                ...pkg,
+                registration: regMap.get(pkg.id) || null,
+            }));
+        },
+        enabled: !!user && enrolledCourses.length > 0,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const filteredCourses = enrolledCourses.filter((enrollment: any) =>
         enrollment.courses?.title?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const getCourseScorm = (courseId: string) =>
+        scormPackages.filter((p: any) => p.course_id === courseId);
 
     const paginatedCourses = filteredCourses.slice(
         (currentPage - 1) * ITEMS_PER_PAGE,
@@ -173,13 +207,6 @@ export default function MyLearningPage() {
                                                     className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden group hover:shadow-xl hover:shadow-orange-500/5 transition-all flex flex-col"
                                                 >
                                                     {(() => {
-                                                        const hasVideo = enrollment.courses?.course_modules?.some((cm: any) => cm.learning_modules?.media_type === 'video');
-                                                        const hasText = enrollment.courses?.course_modules?.some((cm: any) => cm.learning_modules?.media_type === 'text');
-                                                        let mediaLabel = 'Standard Course';
-                                                        if (hasVideo && hasText) mediaLabel = 'Video & Text';
-                                                        else if (hasVideo) mediaLabel = 'Video Course';
-                                                        else if (hasText) mediaLabel = 'Text Course';
-
                                                         return (
                                                             <>
                                                                 <div className="p-8 flex-1">
@@ -205,25 +232,13 @@ export default function MyLearningPage() {
                                                                             <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
                                                                                 <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
                                                                             </div>
-                                                                            <span>{enrollment.courses.duration_hours || '12'}h Total</span>
+                                                                            <span>{enrollment.courses.estimated_duration_hours || '—'}h Total</span>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
                                                                             <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
                                                                                 <Calendar className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
                                                                             </div>
                                                                             <span>Active Path</span>
-                                                                        </div>
-                                                                        <div className="flex items-center space-x-2">
-                                                                            <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
-                                                                                {hasVideo && hasText ? (
-                                                                                    <PlayCircle className="w-3.5 h-3.5 text-orange-400 group-hover:text-orange-500" />
-                                                                                ) : hasVideo ? (
-                                                                                    <PlayCircle className="w-3.5 h-3.5 text-orange-400 group-hover:text-orange-500" />
-                                                                                ) : (
-                                                                                    <FileText className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-500" />
-                                                                                )}
-                                                                            </div>
-                                                                            <span className="text-gray-500 group-hover:text-gray-700">{mediaLabel}</span>
                                                                         </div>
                                                                     </div>
 
@@ -240,6 +255,34 @@ export default function MyLearningPage() {
                                                                             />
                                                                         </div>
                                                                     </div>
+
+                                                                    {/* SCORM packages for this course */}
+                                                                    {(() => {
+                                                                        const pkgs = getCourseScorm(enrollment.course_id);
+                                                                        if (!pkgs.length) return null;
+                                                                        return (
+                                                                            <div className="pt-2 space-y-2">
+                                                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Interactive Content</span>
+                                                                                {pkgs.map((pkg: any) => {
+                                                                                    const status = pkg.registration?.lesson_status;
+                                                                                    const isDone = status === 'completed' || status === 'passed';
+                                                                                    return (
+                                                                                        <Link key={pkg.id} href={`/lms/scorm/${pkg.id}`}>
+                                                                                            <div className="flex items-center justify-between px-3 py-2 bg-purple-50 border border-purple-100 rounded-xl hover:bg-purple-100 transition-colors cursor-pointer">
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    <Package className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+                                                                                                    <span className="text-xs font-bold text-gray-700 truncate max-w-[160px]">{pkg.title}</span>
+                                                                                                </div>
+                                                                                                <span className={`text-[10px] font-black uppercase tracking-wide flex-shrink-0 ${isDone ? 'text-green-600' : status === 'incomplete' ? 'text-blue-500' : 'text-gray-400'}`}>
+                                                                                                    {isDone ? 'Done' : status === 'incomplete' ? 'In Progress' : 'Launch'}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </Link>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        );
+                                                                    })()}
                                                                 </div>
 
                                                                 <div className="px-8 py-6 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between group-hover:bg-orange-50 transition-colors">

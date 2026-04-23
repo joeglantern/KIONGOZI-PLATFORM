@@ -20,7 +20,7 @@ export default function CommentSection({ postId, currentUser }: CommentSectionPr
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     // Fetch comments
     useEffect(() => {

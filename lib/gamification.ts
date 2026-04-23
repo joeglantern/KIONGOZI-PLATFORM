@@ -63,39 +63,33 @@ export async function checkAndAwardBadges(supabase: SupabaseClient, userId: stri
             .eq('user_id', userId);
 
         const earnedBadgeIds = new Set(earnedBadges?.map(b => b.badge_id) || []);
-        const newBadges = [];
+        const badgesToAward = [];
 
-        // 4. Logic for awarding based on requirements
         for (const badge of allBadges) {
             if (earnedBadgeIds.has(badge.id)) continue;
 
-            let shouldAward = false;
-
-            if (badge.requirement_type === 'modules_completed') {
-                if (completedCount >= badge.requirement_value) {
-                    shouldAward = true;
-                }
-            }
-            // Add other requirement types here (e.g., courses_completed, streaks)
-
-            if (shouldAward) {
-                const { error } = await supabase
-                    .from('user_badges')
-                    .insert({
-                        user_id: userId,
-                        badge_id: badge.id,
-                        earned_at: new Date().toISOString()
-                    });
-
-                if (!error) {
-                    newBadges.push(badge);
-                } else {
-                    console.error(`Error awarding badge ${badge.id}:`, error);
-                }
+            if (badge.requirement_type === 'modules_completed' && completedCount >= badge.requirement_value) {
+                badgesToAward.push(badge);
             }
         }
 
-        return newBadges;
+        if (badgesToAward.length === 0) return [];
+
+        const now = new Date().toISOString();
+        const { error } = await supabase
+            .from('user_badges')
+            .insert(badgesToAward.map(badge => ({
+                user_id: userId,
+                badge_id: badge.id,
+                earned_at: now,
+            })));
+
+        if (error) {
+            console.error('Error awarding badges:', error);
+            return [];
+        }
+
+        return badgesToAward;
     } catch (error) {
         console.error('Error awarding badges:', error);
         return [];

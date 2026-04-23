@@ -11,8 +11,6 @@ const withSerwist = (nextConfig) => {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
   reactStrictMode: true,
@@ -21,6 +19,31 @@ const nextConfig = {
   images: {
     minimumCacheTTL: 31536000,
     formats: ['image/avif', 'image/webp'],
+    remotePatterns: [
+      { protocol: 'https', hostname: '**' },
+    ],
+  },
+  experimental: {
+    // Tree-shake icon and UI packages: only bundle what's actually imported
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-avatar',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-label',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-progress',
+      '@radix-ui/react-scroll-area',
+      '@radix-ui/react-select',
+      '@radix-ui/react-separator',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-toast',
+      'framer-motion',
+      'recharts',
+    ],
   },
   outputFileTracingRoot: require('path').join(__dirname),
   async rewrites() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
@@ -12,7 +12,8 @@ import {
     Loader2,
     Save,
     UploadCloud,
-    Plus
+    Plus,
+    Package
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -24,7 +25,7 @@ import { useEffect } from 'react';
 export default function CreateCoursePage() {
     const { user } = useUser();
     const router = useRouter();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [loading, setLoading] = useState(false);
     const { theme } = useTheme();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -165,7 +166,7 @@ export default function CreateCoursePage() {
 
             if (error) throw error;
 
-            router.push(`/instructor/courses/${data.id}/edit`);
+            router.push(`/instructor/courses/${data.id}/edit?tab=scorm`);
         } catch (error: any) {
             console.error('Error creating course:', error);
             const message = error?.message || error?.details || 'Unknown error';
@@ -310,6 +311,19 @@ export default function CreateCoursePage() {
                                 <Sparkles className="w-3 h-3" />
                                 Markdown supported (GFM)
                             </p>
+                        </div>
+
+                        {/* SCORM hint */}
+                        <div className="flex items-start gap-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30 rounded-2xl p-5">
+                            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <Package className="w-5 h-5 text-orange-600" />
+                            </div>
+                            <div>
+                                <p className="font-black text-gray-900 dark:text-white text-sm">Have a SCORM package?</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Save this course first — you'll land directly on the SCORM upload tab to attach your Articulate, Captivate, or Rise package.
+                                </p>
+                            </div>
                         </div>
 
                         {/* Settings Grid */}

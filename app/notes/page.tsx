@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
@@ -42,20 +42,14 @@ interface GroupedNotes {
 }
 
 export default function NotesPage() {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const { user } = useUser();
     const [notes, setNotes] = useState<NoteEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        if (user) {
-            fetchNotes();
-        }
-    }, [user]);
-
-    const fetchNotes = async () => {
+    const fetchNotes = useCallback(async () => {
         try {
             setLoading(true);
             const { data, error } = await supabase
@@ -66,7 +60,6 @@ export default function NotesPage() {
                     updated_at,
                     course_id,
                     module_id,
-                    learning_modules (title),
                     courses (title)
                 `)
                 .eq('user_id', user!.id)
@@ -75,11 +68,33 @@ export default function NotesPage() {
                 .order('updated_at', { ascending: false });
 
             if (error) throw error;
-            setNotes(data as any[] || []);
+
+            const progressRows = data || [];
+            const moduleIds = progressRows.map((note: any) => note.module_id).filter(Boolean);
+            let moduleTitleMap = new Map<string, string>();
+
+            if (moduleIds.length > 0) {
+                const { data: modulePreviews, error: moduleError } = await supabase
+                    .from('learning_module_previews')
+                    .select('id, title')
+                    .in('id', moduleIds);
+
+                if (moduleError) throw moduleError;
+                moduleTitleMap = new Map((modulePreviews || []).map((module: any) => [module.id, module.title]));
+            }
+
+            const hydratedNotes = progressRows.map((note: any) => ({
+                ...note,
+                learning_modules: {
+                    title: moduleTitleMap.get(note.module_id) || 'Learning Module',
+                },
+            }));
+
+            setNotes(hydratedNotes as any[] || []);
 
             // Auto-expand all courses initially
-            if (data) {
-                const uniqueCourses = new Set(data.map(n => n.course_id || 'unknown'));
+            if (hydratedNotes.length > 0) {
+                const uniqueCourses = new Set(hydratedNotes.map((n: any) => n.course_id || 'unknown'));
                 setExpandedCourses(uniqueCourses);
             }
         } catch (error) {
@@ -87,7 +102,13 @@ export default function NotesPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [supabase, user]);
+
+    useEffect(() => {
+        if (user) {
+            fetchNotes();
+        }
+    }, [fetchNotes, user]);
 
     const toggleCourseExpansion = (courseId: string) => {
         const next = new Set(expandedCourses);

@@ -1,9 +1,11 @@
 import './globals.css';
+import { Suspense } from 'react';
 import { Roboto } from 'next/font/google';
+import dynamic from 'next/dynamic';
 
 const roboto = Roboto({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['400', '500', '700'],
   display: 'swap',
   variable: '--font-roboto',
 });
@@ -13,12 +15,20 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { CookieConsentProvider } from './contexts/CookieConsentContext';
 import { QueryProvider } from './providers/QueryProvider';
 import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
-import { OfflineDetector } from '@/components/ui/OfflineDetector';
-import { ConditionalMain } from '@/components/layout/ConditionalMain';
 import { Toaster } from '@/components/ui/toaster';
-import { CookieConsentLoader } from '@/components/layout/CookieConsentLoader';
+
+// Lazy-load non-critical layout pieces so they don't block initial paint
+const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })), {
+  ssr: true,
+  loading: () => null,
+});
+const OfflineDetector = dynamic(() => import('@/components/ui/OfflineDetector').then(m => ({ default: m.OfflineDetector })), {
+  ssr: false,
+});
+const CookieConsentLoader = dynamic(() => import('@/components/layout/CookieConsentLoader').then(m => ({ default: m.CookieConsentLoader })), {
+  ssr: false,
+});
 
 export const metadata: Metadata = {
   title: 'The Kiongozi Platform | Empowering Civic Action & Climate Advocacy',
@@ -63,12 +73,16 @@ export default function RootLayout({
                 <OfflineDetector />
                 <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
                   <Navbar />
-                  <ConditionalMain>
+                  <main className="flex-1 pt-16">
                     <ErrorBoundary>
-                      {children}
+                      <Suspense fallback={null}>
+                        {children}
+                      </Suspense>
                     </ErrorBoundary>
-                  </ConditionalMain>
-                  <Footer />
+                  </main>
+                  <Suspense fallback={null}>
+                    <Footer />
+                  </Suspense>
                   <Toaster />
                 </div>
                 <CookieConsentLoader />

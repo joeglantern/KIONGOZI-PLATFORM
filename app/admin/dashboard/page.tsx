@@ -44,30 +44,30 @@ export default function AdminDashboardPage() {
                             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Quick Actions</h2>
                                 <div className="grid md:grid-cols-2 gap-4">
-                                    <Link href="/admin/users">
-                                        <Button className="w-full bg-orange-600 hover:bg-orange-700 justify-start">
+                                    <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 justify-start">
+                                        <Link href="/admin/users">
                                             <Users className="w-5 h-5 mr-2" />
                                             Manage Users
-                                        </Button>
-                                    </Link>
-                                    <Link href="/admin/courses">
-                                        <Button variant="outline" className="w-full justify-start border-2">
+                                        </Link>
+                                    </Button>
+                                    <Button asChild variant="outline" className="w-full justify-start border-2">
+                                        <Link href="/admin/courses">
                                             <BookOpen className="w-5 h-5 mr-2" />
                                             Manage Courses
-                                        </Button>
-                                    </Link>
-                                    <Link href="/admin/reports">
-                                        <Button variant="outline" className="w-full justify-start border-2">
+                                        </Link>
+                                    </Button>
+                                    <Button asChild variant="outline" className="w-full justify-start border-2">
+                                        <Link href="/admin/reports">
                                             <BarChart3 className="w-5 h-5 mr-2" />
                                             View Reports
-                                        </Button>
-                                    </Link>
-                                    <Link href="/admin/settings">
-                                        <Button variant="outline" className="w-full justify-start border-2">
+                                        </Link>
+                                    </Button>
+                                    <Button asChild variant="outline" className="w-full justify-start border-2">
+                                        <Link href="/admin/settings">
                                             <Settings className="w-5 h-5 mr-2" />
                                             System Settings
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </Button>
                                 </div>
                             </div>
 

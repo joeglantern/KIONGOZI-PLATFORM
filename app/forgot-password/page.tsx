@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@/app/utils/supabaseClient';
 import { Button } from '@/components/ui/button';
-import { Mail, Loader2, AlertCircle, CheckCircle, Sparkles, ArrowLeft } from 'lucide-react';
+import { Mail, Loader2, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,16 +44,16 @@ export default function ForgotPasswordPage() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email</h2>
           <p className="text-gray-600 mb-6">
-            We've sent a password reset link to <strong>{email}</strong>
+            If an account exists for <strong>{email}</strong>, a password reset link is on the way.
           </p>
           <p className="text-sm text-gray-500 mb-6">
             Click the link in the email to reset your password. The link will expire in 1 hour.
           </p>
-          <Link href="/login">
-            <Button className="w-full bg-orange-600 hover:bg-orange-700">
+          <Button asChild className="w-full bg-orange-600 hover:bg-orange-700">
+            <Link href="/login">
               Back to Login
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
     );
@@ -140,16 +140,16 @@ export default function ForgotPasswordPage() {
 
           {/* Back to Login */}
           <div className="mt-6">
-            <Link href="/login">
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-gray-600 hover:text-gray-900 flex items-center justify-center space-x-2"
-              >
+            <Button
+              asChild
+              variant="ghost"
+              className="w-full text-gray-600 hover:text-gray-900 flex items-center justify-center space-x-2"
+            >
+              <Link href="/login">
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back to Login</span>
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </div>

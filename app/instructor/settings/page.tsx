@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { createClient } from '@/app/utils/supabaseClient';
+import { AuthIdentityManager } from '@/components/settings/AuthIdentityManager';
 import {
     Settings,
     Bell,
@@ -16,8 +17,6 @@ import {
     Mail,
     AlertCircle,
     Accessibility,
-    Type,
-    Volume2
 } from 'lucide-react';
 import { useTheme } from '@/app/contexts/ThemeContext';
 import { useUser } from '@/app/contexts/UserContext';
@@ -34,11 +33,12 @@ const tabs = [
 export default function InstructorSettingsPage() {
     const { user, profile, refreshProfile } = useUser();
     const { contrast, setContrast, fontScale, setFontScale } = useTheme();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [activeTab, setActiveTab] = useState('account');
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const showsProfileActions = activeTab === 'account';
 
     const [form, setForm] = useState({
         username: profile?.username || '',
@@ -202,6 +202,8 @@ export default function InstructorSettingsPage() {
                                             </div>
                                         </div>
 
+                                        <AuthIdentityManager email={user?.email} />
+
                                         {error && (
                                             <div className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-2">
                                                 <AlertCircle className="w-4 h-4" />
@@ -314,20 +316,22 @@ export default function InstructorSettingsPage() {
                                     </div>
                                 )}
 
-                                <div className="pt-8 flex justify-end items-center space-x-4">
-                                    <button className="text-sm font-black text-gray-400 hover:text-gray-600 transition-colors">Discard</button>
-                                    <button
-                                        onClick={handleSave}
-                                        disabled={isSaving}
-                                        className="px-8 py-3 bg-orange-600 text-white font-black rounded-2xl shadow-lg shadow-orange-600/20 hover:bg-orange-700 transition-all flex items-center space-x-2 active:scale-95 disabled:opacity-50"
-                                    >
-                                        {isSaving ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : (
-                                            <span>Update Profile</span>
-                                        )}
-                                    </button>
-                                </div>
+                                {showsProfileActions && (
+                                    <div className="pt-8 flex justify-end items-center space-x-4">
+                                        <button className="text-sm font-black text-gray-400 hover:text-gray-600 transition-colors">Discard</button>
+                                        <button
+                                            onClick={handleSave}
+                                            disabled={isSaving}
+                                            className="px-8 py-3 bg-orange-600 text-white font-black rounded-2xl shadow-lg shadow-orange-600/20 hover:bg-orange-700 transition-all flex items-center space-x-2 active:scale-95 disabled:opacity-50"
+                                        >
+                                            {isSaving ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <span>Update Profile</span>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </section>
                     </div>

@@ -1,8 +1,17 @@
 "use client";
 
-import { BookOpen, Clock, Users, TrendingUp, PlayCircle, FileText } from 'lucide-react';
+import { memo } from 'react';
+import { BookOpen, Clock, Users, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+
+// Hoisted outside component — no re-allocation on every render
+const DIFFICULTY_COLORS: Record<string, string> = {
+    beginner: 'bg-orange-100 text-orange-700 border-orange-300',
+    intermediate: 'bg-blue-100 text-blue-700 border-blue-300',
+    advanced: 'bg-orange-500 text-white border-orange-600',
+};
 
 interface CourseCardProps {
     course: {
@@ -12,6 +21,7 @@ interface CourseCardProps {
         thumbnail_url?: string;
         difficulty_level: string;
         estimated_duration_hours: number;
+        enrollment_count?: number;
         module_categories?: {
             name: string;
             color?: string;
@@ -21,47 +31,26 @@ interface CourseCardProps {
             progress_percentage: number;
             status: string;
         }>;
-        _count?: {
-            enrollments: number;
-        };
-        course_modules?: Array<{
-            learning_modules?: {
-                media_type?: string;
-            };
-        }>;
     };
 }
 
-export function CourseCard({ course }: CourseCardProps) {
+export const CourseCard = memo(function CourseCard({ course }: CourseCardProps) {
     const enrollment = course.course_enrollments?.[0];
     const isEnrolled = !!enrollment;
     const progress = enrollment?.progress_percentage || 0;
-
-    const difficultyColors = {
-        beginner: 'bg-orange-100 text-orange-700 border-orange-300',
-        intermediate: 'bg-blue-100 text-blue-700 border-blue-300',
-        advanced: 'bg-orange-500 text-white border-orange-600',
-    };
-
-    const difficultyColor = difficultyColors[course.difficulty_level as keyof typeof difficultyColors] || difficultyColors.beginner;
-
-    const hasVideo = course.course_modules?.some((cm: any) => cm.learning_modules?.media_type === 'video');
-    const hasText = course.course_modules?.some((cm: any) => cm.learning_modules?.media_type === 'text');
-
-    let mediaLabel = 'Standard Course';
-    if (hasVideo && hasText) mediaLabel = 'Video & Text';
-    else if (hasVideo) mediaLabel = 'Video Course';
-    else if (hasText) mediaLabel = 'Text Course';
+    const difficultyColor = DIFFICULTY_COLORS[course.difficulty_level] ?? DIFFICULTY_COLORS.beginner;
 
     return (
         <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group">
             {/* Thumbnail */}
             <div className="relative h-48 bg-orange-100 overflow-hidden">
                 {course.thumbnail_url ? (
-                    <img
+                    <Image
                         src={course.thumbnail_url}
                         alt={course.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -91,12 +80,10 @@ export function CourseCard({ course }: CourseCardProps) {
 
             {/* Content */}
             <div className="p-5">
-                {/* Title */}
                 <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
                     {course.title}
                 </h3>
 
-                {/* Description */}
                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                     {course.description}
                 </p>
@@ -107,22 +94,12 @@ export function CourseCard({ course }: CourseCardProps) {
                         <Clock className="w-4 h-4" />
                         <span>{course.estimated_duration_hours}h</span>
                     </div>
-                    {course._count?.enrollments !== undefined && (
+                    {course.enrollment_count !== undefined && course.enrollment_count > 0 && (
                         <div className="flex items-center gap-1">
                             <Users className="w-4 h-4" />
-                            <span>{course._count.enrollments} enrolled</span>
+                            <span>{course.enrollment_count} enrolled</span>
                         </div>
                     )}
-                    <div className="flex items-center gap-1">
-                        {hasVideo && hasText ? (
-                            <PlayCircle className="w-4 h-4 text-orange-500" />
-                        ) : hasVideo ? (
-                            <PlayCircle className="w-4 h-4 text-orange-500" />
-                        ) : (
-                            <FileText className="w-4 h-4 text-blue-500" />
-                        )}
-                        <span className="font-medium text-gray-600">{mediaLabel}</span>
-                    </div>
                     <div className={`px-2 py-0.5 rounded-full border text-xs font-medium ${difficultyColor}`}>
                         {course.difficulty_level}
                     </div>
@@ -137,17 +114,18 @@ export function CourseCard({ course }: CourseCardProps) {
                 )}
 
                 {/* Action Button */}
-                <Link href={`/courses/${course.id}`} className="block">
-                    <Button
-                        className={`w-full ${isEnrolled
-                            ? 'bg-orange-600 hover:bg-orange-700'
-                            : 'bg-blue-600 hover:bg-blue-700'
-                            } text-white font-semibold shadow-md hover:shadow-lg transition-all`}
-                    >
+                <Button
+                    asChild
+                    className={`w-full ${isEnrolled
+                        ? 'bg-orange-600 hover:bg-orange-700'
+                        : 'bg-blue-600 hover:bg-blue-700'
+                        } text-white font-semibold shadow-md hover:shadow-lg transition-all`}
+                >
+                    <Link href={`/courses/${course.id}`}>
                         {isEnrolled ? 'Continue Learning' : 'View Course'}
-                    </Button>
-                </Link>
+                    </Link>
+                </Button>
             </div>
         </div>
     );
-}
+});

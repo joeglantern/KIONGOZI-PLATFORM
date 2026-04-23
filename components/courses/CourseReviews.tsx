@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { Star, Send, Loader2, User } from 'lucide-react';
@@ -16,11 +16,12 @@ interface Review {
 
 interface CourseReviewsProps {
     courseId: string;
+    canReview?: boolean;
 }
 
-export function CourseReviews({ courseId }: CourseReviewsProps) {
+export function CourseReviews({ courseId, canReview = false }: CourseReviewsProps) {
     const { user } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [reviews, setReviews] = useState<Review[]>([]);
     const [avgRating, setAvgRating] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -30,11 +31,7 @@ export function CourseReviews({ courseId }: CourseReviewsProps) {
     const [reviewText, setReviewText] = useState('');
     const [hasReviewed, setHasReviewed] = useState(false);
 
-    useEffect(() => {
-        fetchReviews();
-    }, [courseId]);
-
-    const fetchReviews = async () => {
+    const fetchReviews = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from('course_reviews')
@@ -67,10 +64,14 @@ export function CourseReviews({ courseId }: CourseReviewsProps) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [courseId, supabase, user]);
+
+    useEffect(() => {
+        fetchReviews();
+    }, [fetchReviews]);
 
     const handleSubmit = async () => {
-        if (!user || userRating === 0) return;
+        if (!user || userRating === 0 || !canReview) return;
         try {
             setSubmitting(true);
             const { error } = await supabase
@@ -134,23 +135,31 @@ export function CourseReviews({ courseId }: CourseReviewsProps) {
                     <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-3">
                         {hasReviewed ? 'Update Your Review' : 'Write a Review'}
                     </h4>
-                    <div className="mb-3">
-                        <StarRating rating={userRating} interactive size="w-7 h-7" />
-                    </div>
-                    <textarea
-                        value={reviewText}
-                        onChange={(e) => setReviewText(e.target.value)}
-                        placeholder="Share your experience with this course..."
-                        className="w-full h-24 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 focus:border-orange-500 focus:ring-orange-500 resize-none text-sm"
-                    />
-                    <button
-                        onClick={handleSubmit}
-                        disabled={userRating === 0 || submitting}
-                        className="mt-3 flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
-                    >
-                        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {hasReviewed ? 'Update' : 'Submit'} Review
-                    </button>
+                    {canReview ? (
+                        <>
+                            <div className="mb-3">
+                                <StarRating rating={userRating} interactive size="w-7 h-7" />
+                            </div>
+                            <textarea
+                                value={reviewText}
+                                onChange={(e) => setReviewText(e.target.value)}
+                                placeholder="Share your experience with this course..."
+                                className="w-full h-24 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 focus:border-orange-500 focus:ring-orange-500 resize-none text-sm"
+                            />
+                            <button
+                                onClick={handleSubmit}
+                                disabled={userRating === 0 || submitting}
+                                className="mt-3 flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
+                            >
+                                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                {hasReviewed ? 'Update' : 'Submit'} Review
+                            </button>
+                        </>
+                    ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Enroll in the course before leaving a review. Wild idea, but reviews should come from actual learners.
+                        </p>
+                    )}
                 </div>
             )}
 

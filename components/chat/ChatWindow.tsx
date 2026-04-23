@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import {
@@ -37,7 +37,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ roomId, recipientName, recipientRole }: ChatWindowProps) {
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const { user } = useUser();
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');

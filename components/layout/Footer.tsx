@@ -1,17 +1,9 @@
-"use client";
-
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Sparkles, Mail, Github, Twitter, Linkedin, Heart } from 'lucide-react';
+import { Mail, Github, Twitter, Linkedin } from 'lucide-react';
 
 export function Footer() {
-    const pathname = usePathname();
     const currentYear = new Date().getFullYear();
-
-    // Hide footer on instructor pages (they have their own layout)
-    if (pathname?.startsWith('/instructor')) return null;
-
 
     return (
         <footer className="bg-gray-900 text-gray-300">

@@ -1,17 +1,61 @@
 "use client";
 
-import { useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabaseClient';
-import { Button } from '@/components/ui/button';
+import { useUser } from '@/app/contexts/UserContext';
+import { Button, buttonVariants } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
-import { UserPlus, Mail, Loader2, AlertCircle, CheckCircle, Sparkles, User } from 'lucide-react';
+import { UserPlus, Mail, Loader2, AlertCircle, CheckCircle, User } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+function getSafeNext(next: string | null) {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) {
+    return null;
+  }
+
+  return next;
+}
+
+function getPostSignupPath(
+  next: string | null,
+  role?: 'user' | 'instructor' | 'admin' | null,
+  isProfileIncomplete?: boolean
+) {
+  if (isProfileIncomplete) {
+    return next ? `/complete-profile?next=${encodeURIComponent(next)}` : '/complete-profile';
+  }
+
+  if (next) {
+    return next;
+  }
+
+  if (role === 'admin') {
+    return '/admin/dashboard';
+  }
+
+  if (role === 'instructor') {
+    return '/instructor/dashboard';
+  }
+
+  return '/dashboard';
+}
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>}>
+      <SignupContent />
+    </Suspense>
+  );
+}
+
+function SignupContent() {
   const router = useRouter();
-  const supabase = createClient();
+  const searchParams = useSearchParams();
+  const supabase = useMemo(() => createClient(), []);
+  const { user, profile, loading: authLoading } = useUser();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -19,8 +63,21 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const next = getSafeNext(searchParams.get('next'));
+  const profileIsIncomplete = user && profile
+    ? !profile.username || !(profile.first_name?.trim() || profile.full_name?.trim())
+    : false;
+
+  useEffect(() => {
+    if (authLoading || !user) {
+      return;
+    }
+
+    router.replace(getPostSignupPath(next, profile?.role, profileIsIncomplete));
+  }, [authLoading, next, profile?.role, profileIsIncomplete, router, user]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,32 +113,14 @@ export default function SignupPage() {
 
       if (signUpError) throw signUpError;
 
+      if (data.session) {
+        router.push(getPostSignupPath(next));
+        router.refresh();
+        return;
+      }
+
       if (data.user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: email,
-            first_name: firstName,
-            last_name: lastName,
-            full_name: `${firstName} ${lastName}`,
-            role: 'user', // Default role
-            status: 'active',
-            total_xp: 0,
-            level: 1,
-          });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-        }
-
         setSuccess(true);
-
-        // Redirect after 2 seconds
-        setTimeout(() => {
-          router.push('/login');
-        }, 2000);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
@@ -99,10 +138,25 @@ export default function SignupPage() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
           <p className="text-gray-600 mb-4">
-            Check your email to verify your account, then sign in to start learning.
+            If your account needs email verification, check your inbox for the confirmation link before signing in.
           </p>
-          <p className="text-sm text-gray-500">Redirecting to login...</p>
+          <p className="text-sm text-gray-500 mb-6">
+            If you already have access, you can continue to sign in now.
+          </p>
+          <Button asChild className="w-full bg-orange-600 hover:bg-orange-700">
+            <Link href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'}>
+              Continue to Sign In
+            </Link>
+          </Button>
         </div>
+      </div>
+    );
+  }
+
+  if (authLoading || user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
   }
@@ -160,6 +214,7 @@ export default function SignupPage() {
                     required
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                     placeholder="John"
+                    autoComplete="given-name"
                   />
                 </div>
               </div>
@@ -175,6 +230,7 @@ export default function SignupPage() {
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                   placeholder="Doe"
+                  autoComplete="family-name"
                 />
               </div>
             </div>
@@ -194,6 +250,7 @@ export default function SignupPage() {
                   required
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                   placeholder="you@example.com"
+                  autoComplete="email"
                 />
               </div>
             </div>
@@ -209,6 +266,7 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="At least 6 characters"
+                autoComplete="new-password"
               />
             </div>
 
@@ -223,13 +281,14 @@ export default function SignupPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 placeholder="Re-enter your password"
+                autoComplete="new-password"
               />
             </div>
 
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || oauthLoading}
               className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2"
             >
               {loading ? (
@@ -260,37 +319,57 @@ export default function SignupPage() {
             type="button"
             variant="outline"
             onClick={async () => {
+              setOauthLoading(true);
+              setError('');
+
+              const redirectTo = new URL('/auth/callback', window.location.origin);
+              if (next) {
+                redirectTo.searchParams.set('next', next);
+              }
+
               const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                  redirectTo: `${location.origin}/auth/callback`,
+                  redirectTo: redirectTo.toString(),
                 },
-              })
+              });
+
               if (error) {
-                setError(error.message)
+                setOauthLoading(false);
+                setError(error.message);
               }
             }}
+            disabled={loading || oauthLoading}
             className="w-full border border-gray-300 hover:bg-gray-50 py-3 rounded-lg font-semibold transition-all flex items-center justify-center space-x-2"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 4.63c1.69 0 3.21.58 4.39 1.7L19.5 3.23C17.47 1.35 14.97 0 12 0 7.7 0 3.99 2.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-            <span>Sign up with Google</span>
+            {oauthLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Redirecting to Google...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 4.63c1.69 0 3.21.58 4.39 1.7L19.5 3.23C17.47 1.35 14.97 0 12 0 7.7 0 3.99 2.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                </svg>
+                <span>Sign up with Google</span>
+              </>
+            )}
           </Button>
 
           {/* Divider */}
@@ -304,14 +383,11 @@ export default function SignupPage() {
           </div>
 
           {/* Login Link */}
-          <Link href="/login">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-500 py-3 rounded-lg font-semibold transition-all"
-            >
-              Sign In
-            </Button>
+          <Link
+            href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'}
+            className={cn(buttonVariants({ variant: 'outline' }), 'w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-500 py-3 rounded-lg font-semibold transition-all')}
+          >
+            Sign In
           </Link>
         </div>
 

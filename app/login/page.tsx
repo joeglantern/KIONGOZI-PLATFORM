@@ -1,24 +1,81 @@
 "use client";
 
-import { useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabaseClient';
-import { Button } from '@/components/ui/button';
+import { useUser } from '@/app/contexts/UserContext';
+import { Button, buttonVariants } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
-import { LogIn, Mail, Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import { LogIn, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+function getSafeNext(next: string | null) {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) {
+    return null;
+  }
+
+  return next;
+}
+
+function getPostLoginPath(
+  next: string | null,
+  role?: 'user' | 'instructor' | 'admin' | null,
+  isProfileIncomplete?: boolean
+) {
+  if (isProfileIncomplete) {
+    return next ? `/complete-profile?next=${encodeURIComponent(next)}` : '/complete-profile';
+  }
+
+  if (next) {
+    return next;
+  }
+
+  if (role === 'admin') {
+    return '/admin/dashboard';
+  }
+
+  if (role === 'instructor') {
+    return '/instructor/dashboard';
+  }
+
+  return '/dashboard';
+}
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
-  const supabase = createClient();
+  const searchParams = useSearchParams();
+  const supabase = useMemo(() => createClient(), []);
   const { toast } = useToast();
+  const { user, profile, loading: authLoading } = useUser();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [error, setError] = useState('');
+  const next = getSafeNext(searchParams.get('next'));
+  const profileIsIncomplete = user && profile
+    ? !profile.username || !(profile.first_name?.trim() || profile.full_name?.trim())
+    : false;
+
+  useEffect(() => {
+    if (authLoading || !user) {
+      return;
+    }
+
+    router.replace(getPostLoginPath(next, profile?.role, profileIsIncomplete));
+  }, [authLoading, next, profile?.role, profileIsIncomplete, router, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,24 +92,22 @@ export default function LoginPage() {
 
       if (data.user) {
         // Get user role from profiles table
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, username, first_name, full_name')
           .eq('id', data.user.id)
           .single();
 
-        // Redirect based on role
-        if (profile?.role === 'admin') {
-          router.push('/admin/dashboard');
-          toast({ title: 'Success', description: 'Logged in successfully as Admin.' });
-        } else if (profile?.role === 'instructor') {
-          router.push('/instructor/dashboard');
-          toast({ title: 'Success', description: 'Logged in successfully as Instructor.' });
-        } else {
-          router.push('/dashboard');
-          toast({ title: 'Success', description: 'Logged in successfully.' });
+        if (profileError) {
+          console.error('Error loading profile after login:', profileError);
         }
+
+        const isIncomplete = !profile?.username || !(profile?.first_name?.trim() || profile?.full_name?.trim());
+        const destination = getPostLoginPath(next, profile?.role, isIncomplete);
+
+        router.push(destination);
         router.refresh();
+        toast({ title: 'Success', description: 'Logged in successfully.' });
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
@@ -61,6 +116,14 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  if (authLoading || user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -114,6 +177,7 @@ export default function LoginPage() {
                   required
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                   placeholder="you@example.com"
+                  autoComplete="email"
                 />
               </div>
             </div>
@@ -137,13 +201,14 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="Enter your password"
+                autoComplete="current-password"
               />
             </div>
 
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || oauthLoading}
               className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2"
             >
               {loading ? (
@@ -174,49 +239,66 @@ export default function LoginPage() {
             type="button"
             variant="outline"
             onClick={async () => {
+              setOauthLoading(true);
+              setError('');
+
+              const redirectTo = new URL('/auth/callback', window.location.origin);
+              if (next) {
+                redirectTo.searchParams.set('next', next);
+              }
+
               const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                  redirectTo: `${location.origin}/auth/callback`,
+                  redirectTo: redirectTo.toString(),
                 },
-              })
+              });
+
               if (error) {
+                setOauthLoading(false);
                 setError(error.message);
                 toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
               }
             }}
+            disabled={loading || oauthLoading}
             className="w-full border border-gray-300 hover:bg-gray-50 py-3 rounded-lg font-semibold transition-all flex items-center justify-center space-x-2 mb-6"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 4.63c1.69 0 3.21.58 4.39 1.7L19.5 3.23C17.47 1.35 14.97 0 12 0 7.7 0 3.99 2.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-            <span>Sign in with Google</span>
+            {oauthLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Redirecting to Google...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 4.63c1.69 0 3.21.58 4.39 1.7L19.5 3.23C17.47 1.35 14.97 0 12 0 7.7 0 3.99 2.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                </svg>
+                <span>Sign in with Google</span>
+              </>
+            )}
           </Button>
 
           {/* Signup Link */}
-          <Link href="/signup">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-500 py-3 rounded-lg font-semibold transition-all"
-            >
-              Create an Account
-            </Button>
+          <Link
+            href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
+            className={cn(buttonVariants({ variant: 'outline' }), 'w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-500 py-3 rounded-lg font-semibold transition-all')}
+          >
+            Create an Account
           </Link>
         </div>
 

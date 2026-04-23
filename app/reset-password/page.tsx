@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabaseClient';
@@ -12,13 +12,14 @@ import Link from 'next/link';
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [recoveryReady, setRecoveryReady] = useState(false);
 
   useEffect(() => {
     // Check if we have the recovery token in the URL
@@ -29,6 +30,34 @@ function ResetPasswordForm() {
       setError(errorDescription || 'Invalid or expired reset link. Please request a new one.');
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted && session) {
+        setRecoveryReady(true);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) {
+        return;
+      }
+
+      if (event === 'PASSWORD_RECOVERY' || Boolean(session)) {
+        setRecoveryReady(true);
+        setError('');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +71,11 @@ function ResetPasswordForm() {
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+
+    if (!recoveryReady) {
+      setError('Open the password reset link from your email to set a new password.');
       return;
     }
 
@@ -130,6 +164,7 @@ function ResetPasswordForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="Enter new password"
+                autoComplete="new-password"
               />
               {password && (
                 <p className={`text-xs mt-1 ${passwordValid ? 'text-green-600' : 'text-gray-500'}`}>
@@ -148,6 +183,7 @@ function ResetPasswordForm() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 placeholder="Confirm new password"
+                autoComplete="new-password"
               />
               {confirmPassword && (
                 <p className={`text-xs mt-1 ${passwordsMatch ? 'text-green-600' : 'text-red-600'}`}>
@@ -158,7 +194,7 @@ function ResetPasswordForm() {
 
             <Button
               type="submit"
-              disabled={loading || !passwordValid || !passwordsMatch}
+              disabled={loading || !recoveryReady || !passwordValid || !passwordsMatch}
               className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
@@ -174,6 +210,12 @@ function ResetPasswordForm() {
               )}
             </Button>
           </form>
+
+          {!recoveryReady && !error && (
+            <p className="mt-4 text-sm text-gray-500">
+              Open the recovery link from your email first. This page will unlock automatically when the recovery session is ready.
+            </p>
+          )}
 
           <div className="mt-6 text-center">
             <Link

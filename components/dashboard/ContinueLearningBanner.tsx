@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import Link from 'next/link';
@@ -20,44 +20,54 @@ interface ContinueCourse {
  */
 export function ContinueLearningBanner() {
     const { user } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [course, setCourse] = useState<ContinueCourse | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchContinueCourse = async () => {
-            if (!user) return;
-            try {
-                const { data } = await supabase
-                    .from('course_enrollments')
-                    .select(`
-                        course_id,
-                        progress_percentage,
-                        courses(title)
-                    `)
+    const fetchContinueCourse = useCallback(async () => {
+        if (!user) return;
+        try {
+            const { data } = await supabase
+                .from('course_enrollments')
+                .select(`
+                    course_id,
+                    progress_percentage,
+                    courses(title)
+                `)
+                .eq('user_id', user.id)
+                .neq('status', 'completed')
+                .order('last_accessed_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (data) {
+                const courseData: any = Array.isArray(data.courses) ? data.courses[0] : data.courses;
+                const { data: lastProgress } = await supabase
+                    .from('user_progress')
+                    .select('module_id')
                     .eq('user_id', user.id)
-                    .neq('status', 'completed')
-                    .order('last_accessed_at', { ascending: false })
+                    .eq('course_id', data.course_id)
+                    .order('updated_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
 
-                if (data) {
-                    const courseData: any = Array.isArray(data.courses) ? data.courses[0] : data.courses;
-                    setCourse({
-                        course_id: data.course_id,
-                        course_title: courseData?.title || 'Untitled Course',
-                        progress: data.progress_percentage || 0,
-                    });
-                }
-            } catch (err) {
-                console.error('Error fetching continue course:', err);
-            } finally {
-                setLoading(false);
+                setCourse({
+                    course_id: data.course_id,
+                    course_title: courseData?.title || 'Untitled Course',
+                    progress: data.progress_percentage || 0,
+                    last_module_id: lastProgress?.module_id || undefined,
+                });
             }
-        };
+        } catch (err) {
+            console.error('Error fetching continue course:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [supabase, user]);
 
+    useEffect(() => {
         fetchContinueCourse();
-    }, [user]);
+    }, [fetchContinueCourse]);
 
     if (loading) {
         return (
@@ -72,7 +82,7 @@ export function ContinueLearningBanner() {
     if (!course) return null;
 
     return (
-        <Link href={`/courses/${course.course_id}`}>
+        <Link href={course.last_module_id ? `/courses/${course.course_id}/modules/${course.last_module_id}` : `/courses/${course.course_id}`}>
             <div className="group relative overflow-hidden bg-orange-600 rounded-2xl p-6 shadow-lg shadow-orange-500/20 hover:shadow-xl hover:shadow-orange-500/30 transition-all cursor-pointer">
                 {/* Background decoration */}
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />

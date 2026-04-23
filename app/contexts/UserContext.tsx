@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/app/utils/supabaseClient';
 import type { User } from '@supabase/supabase-js';
@@ -8,10 +8,11 @@ import type { User } from '@supabase/supabase-js';
 interface UserProfile {
   id: string;
   email: string;
-  full_name: string;
-  first_name: string;
-  last_name: string;
-  username?: string;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  avatar_url?: string | null;
+  username?: string | null;
   role: 'user' | 'instructor' | 'admin';
   status: string;
   total_xp: number;
@@ -47,18 +48,22 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // Profile completion interceptor
   useEffect(() => {
     if (!loading && user && profile) {
-      const isMissingInfo = !profile.username || !profile.first_name?.trim() || !profile.last_name?.trim();
+      const hasDisplayName = Boolean(profile.first_name?.trim() || profile.full_name?.trim());
+      const isMissingInfo = !profile.username || !hasDisplayName;
       const isCurrentlyCompleting = pathname === '/complete-profile';
 
       // Prevent routing loops
       if (isMissingInfo && !isCurrentlyCompleting) {
-        router.replace('/complete-profile');
+        const nextParam = pathname && pathname !== '/complete-profile'
+          ? `?next=${encodeURIComponent(pathname)}`
+          : '';
+        router.replace(`/complete-profile${nextParam}`);
       }
     }
   }, [loading, user, profile, pathname, router]);
 
   // Memoize fetchProfile
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -73,59 +78,48 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching profile:', error);
       // Don't clear profile on temporary errors
     }
-  };
+  }, [supabase]);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id);
     }
-  };
+  }, [fetchProfile, user]);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const syncSession = async (session: { user: User } | null) => {
       if (session?.user) {
-        setUser(session.user); // Only set if exists
-        fetchProfile(session.user.id);
+        setUser(session.user);
+        await fetchProfile(session.user.id);
       } else {
         setUser(null);
         setProfile(null);
       }
+
       setLoading(false);
+    };
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      void syncSession(session);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      // OPTIMIZATION: Only update if the user ID actually changed
-      // This prevents "tab focus" events from triggering a full app re-render
-      // if the session was just refreshed but the user is the same.
-      const currentUserId = user?.id;
-      const newUserId = session?.user?.id;
-
-      if (newUserId !== currentUserId) {
-        setUser(session?.user ?? null);
-        if (newUserId) {
-          fetchProfile(newUserId);
-        } else {
-          setProfile(null);
-        }
-      }
-
-      // Always ensure loading is false after a check
-      setLoading(false);
+      void syncSession(session);
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]); // Removed 'user' from dependency to avoid re-subscribing loop
+  }, [fetchProfile, supabase]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
     window.location.href = '/';
-  };
+  }, [supabase]);
 
   // MEMOIZED VALUE
   const value = useMemo(() => ({
@@ -134,7 +128,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     loading,
     signOut,
     refreshProfile
-  }), [user, profile, loading]);
+  }), [user, profile, loading, signOut, refreshProfile]);
 
   return (
     <UserContext.Provider value={value}>

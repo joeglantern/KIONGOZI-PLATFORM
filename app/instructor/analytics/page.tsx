@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -9,7 +9,8 @@ import {
     BookOpen,
     TrendingUp,
     Award,
-    BarChart3
+    BarChart3,
+    Package
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 
@@ -21,10 +22,20 @@ interface CourseStats {
     completed_count: number;
 }
 
+interface ScormStat {
+    id: string;
+    title: string;
+    course_title: string;
+    launches: number;
+    completions: number;
+    avg_score: number | null;
+}
+
 export default function InstructorAnalyticsPage() {
     const { user } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const [courses, setCourses] = useState<CourseStats[]>([]);
+    const [scormStats, setScormStats] = useState<ScormStat[]>([]);
     const [totalStudents, setTotalStudents] = useState(0);
     const [loading, setLoading] = useState(true);
 
@@ -75,6 +86,44 @@ export default function InstructorAnalyticsPage() {
             // Unique students
             const uniqueStudents = new Set(enrollments?.map(e => e.user_id) || []);
             setTotalStudents(uniqueStudents.size);
+
+            // SCORM analytics
+            const { data: scormPackages } = await supabase
+                .from('scorm_packages')
+                .select('id, title, course_id')
+                .in('course_id', courseIds)
+                .eq('status', 'active');
+
+            if (scormPackages?.length) {
+                const pkgIds = scormPackages.map(p => p.id);
+                const { data: registrations } = await supabase
+                    .from('scorm_registrations')
+                    .select('package_id, lesson_status, score_raw')
+                    .in('package_id', pkgIds);
+
+                const stats: ScormStat[] = scormPackages.map(pkg => {
+                    const regs = registrations?.filter(r => r.package_id === pkg.id) || [];
+                    const completed = regs.filter(r =>
+                        r.lesson_status === 'completed' || r.lesson_status === 'passed'
+                    ).length;
+                    const scores = regs
+                        .map(r => r.score_raw)
+                        .filter((s): s is number => s !== null && s !== undefined);
+                    const avg = scores.length
+                        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+                        : null;
+                    const course = instructorCourses.find(c => c.id === pkg.course_id);
+                    return {
+                        id: pkg.id,
+                        title: pkg.title,
+                        course_title: course?.title || '—',
+                        launches: regs.length,
+                        completions: completed,
+                        avg_score: avg,
+                    };
+                });
+                setScormStats(stats);
+            }
         } catch (err) {
             console.error('Analytics error:', err);
         } finally {
@@ -227,6 +276,69 @@ export default function InstructorAnalyticsPage() {
                                 </div>
                             )}
                         </div>
+                        {/* SCORM Analytics */}
+                        {scormStats.length > 0 && (
+                            <div className="mt-8 bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                                <div className="p-6 border-b border-gray-100 dark:border-gray-800">
+                                    <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+                                        <Package className="w-5 h-5 text-purple-500" />
+                                        SCORM Package Analytics
+                                    </h2>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="bg-gray-50 dark:bg-gray-800/50">
+                                                <th className="text-left text-xs font-black text-gray-400 uppercase tracking-wider px-6 py-4">Package</th>
+                                                <th className="text-left text-xs font-black text-gray-400 uppercase tracking-wider px-6 py-4">Course</th>
+                                                <th className="text-center text-xs font-black text-gray-400 uppercase tracking-wider px-6 py-4">Launches</th>
+                                                <th className="text-center text-xs font-black text-gray-400 uppercase tracking-wider px-6 py-4">Completions</th>
+                                                <th className="text-center text-xs font-black text-gray-400 uppercase tracking-wider px-6 py-4">Avg Score</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {scormStats.map(stat => (
+                                                <tr key={stat.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <p className="font-bold text-gray-900 dark:text-white text-sm">{stat.title}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <p className="text-sm text-gray-500">{stat.course_title}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400">
+                                                            <Users className="w-3.5 h-3.5" />
+                                                            {stat.launches}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="inline-flex items-center gap-1 text-sm font-bold text-green-600 dark:text-green-400">
+                                                            <Award className="w-3.5 h-3.5" />
+                                                            {stat.completions}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        {stat.avg_score !== null ? (
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <div className="w-20 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className="h-full bg-purple-500 rounded-full transition-all"
+                                                                        style={{ width: `${stat.avg_score}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-xs font-bold text-gray-500">{stat.avg_score}%</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

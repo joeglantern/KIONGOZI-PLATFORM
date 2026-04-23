@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ProfilePage() {
     const { user, profile, refreshProfile } = useUser();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
 
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -81,6 +81,7 @@ export default function ProfilePage() {
                     last_name: formData.last_name,
                     full_name: `${formData.first_name.trim()} ${formData.last_name.trim()}`,
                     username: formData.username.trim() ? formData.username.trim().toLowerCase() : null,
+                    bio: formData.bio.trim() || null,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', user.id);
@@ -112,7 +113,7 @@ export default function ProfilePage() {
                             <div className="flex items-center space-x-2 bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100">
                                 <Star className="w-4 h-4 text-orange-500 fill-orange-500" />
                                 <span className="text-xs font-black text-orange-700 uppercase tracking-widest">
-                                    VIP Learner
+                                    Level {profile?.level || 1} Learner
                                 </span>
                             </div>
                         </div>
@@ -129,7 +130,12 @@ export default function ProfilePage() {
                                     <div className="w-32 h-32 bg-orange-100 rounded-[2rem] flex items-center justify-center text-4xl font-black text-orange-600 border-4 border-white shadow-xl ring-2 ring-orange-50">
                                         {profile?.first_name?.[0] || 'L'}
                                     </div>
-                                    <button className="absolute -bottom-2 -right-2 p-2.5 bg-white rounded-2xl shadow-lg border border-gray-100 text-gray-400 hover:text-orange-500 transition-all hover:scale-110">
+                                    <button
+                                        type="button"
+                                        disabled
+                                        title="Avatar uploads are not available yet."
+                                        className="absolute -bottom-2 -right-2 p-2.5 bg-white rounded-2xl shadow-lg border border-gray-100 text-gray-300 cursor-not-allowed"
+                                    >
                                         <Camera className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -234,6 +240,21 @@ export default function ProfilePage() {
                                             </div>
                                         </div>
 
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Bio</label>
+                                            <textarea
+                                                value={formData.bio}
+                                                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                                                rows={4}
+                                                maxLength={280}
+                                                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500/30 transition-all font-medium text-gray-900 resize-none"
+                                                placeholder="Tell other learners a little about yourself."
+                                            />
+                                            <div className="text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                {formData.bio.length}/280
+                                            </div>
+                                        </div>
+
                                         {error && (
                                             <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-red-600 text-xs font-bold">
                                                 {error}
@@ -328,7 +349,7 @@ export default function ProfilePage() {
                                 <div className="bg-orange-50 rounded-[2rem] p-8 border border-orange-100">
                                     <h4 className="text-sm font-black text-orange-900 uppercase tracking-widest mb-4">Quick Tip</h4>
                                     <p className="text-orange-800 text-sm font-medium leading-relaxed">
-                                        A complete profile with a display name and avatar helps you stand out on the **Leaderboard** and build your reputation.
+                                        A complete profile with a display name and short bio helps you stand out on the leaderboard and build your reputation.
                                     </p>
                                 </div>
                             </div>
