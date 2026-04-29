@@ -14,6 +14,12 @@ import { Loader2, ArrowLeft, CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
 import { INTERNAL_LIVE_STAGE, VALID_EVENT_TYPES, isSafeUrl } from '@/lib/events';
 
+/** Format a Date as the value a datetime-local input expects: YYYY-MM-DDTHH:MM */
+function toDatetimeLocal(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export default function CreateEventPage() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -24,9 +30,23 @@ export default function CreateEventPage() {
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Earliest selectable start time — rounded up to the next minute
+    const nowLocal = toDatetimeLocal(new Date());
     const router = useRouter();
     const { toast } = useToast();
     const supabase = useMemo(() => createClient(), []);
+
+    const handleStartTimeChange = (val: string) => {
+        setStartTime(val);
+        if (!val) return;
+        const start = new Date(val);
+        const suggestedEnd = new Date(start.getTime() + 60 * 60 * 1000); // +1 hour
+        // Auto-fill end time if blank, or push it forward if it's now before the new start
+        if (!endTime || new Date(endTime) <= start) {
+            setEndTime(toDatetimeLocal(suggestedEnd));
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -208,7 +228,8 @@ export default function CreateEventPage() {
                                     id="start"
                                     type="datetime-local"
                                     value={startTime}
-                                    onChange={(e) => setStartTime(e.target.value)}
+                                    min={nowLocal}
+                                    onChange={(e) => handleStartTimeChange(e.target.value)}
                                     required
                                 />
                             </div>
@@ -219,10 +240,13 @@ export default function CreateEventPage() {
                                     id="end"
                                     type="datetime-local"
                                     value={endTime}
-                                    min={startTime || undefined}
+                                    min={startTime || nowLocal}
                                     onChange={(e) => setEndTime(e.target.value)}
                                     required
                                 />
+                                {startTime && endTime && new Date(endTime) <= new Date(startTime) && (
+                                    <p className="text-xs text-red-500">End time must be after start time</p>
+                                )}
                             </div>
                         </div>
 
