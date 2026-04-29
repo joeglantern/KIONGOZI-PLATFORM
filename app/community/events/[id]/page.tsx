@@ -1,6 +1,6 @@
 import { createClient } from '@/app/utils/supabase/server';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, ArrowLeft, Clock, Users, CheckCircle2, Share2 } from 'lucide-react';
+import { Calendar, MapPin, ArrowLeft, Clock, Users, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import EventActions from './EventActions';
 import RecordingManager from '../create/RecordingManager';
+import { INTERNAL_LIVE_STAGE, isSafeUrl } from '@/lib/events';
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
@@ -25,11 +26,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     }
 
     // Fetch profile separately to avoid RLS join failures
-    const { data: creatorProfile } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', event.created_by)
-        .maybeSingle();
+    const { data: creatorProfile } = event.created_by
+        ? await supabase.from('profiles').select('username').eq('id', event.created_by).maybeSingle()
+        : { data: null };
 
     // Check RSVP status
     let rsvpStatus: 'going' | 'interested' | null = null;
@@ -51,6 +50,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         workshop: 'bg-yellow-100 text-yellow-800 border-yellow-200',
         meetup: 'bg-purple-100 text-purple-800 border-purple-200',
     };
+
+    const safeRecordingUrl = event.recording_url && isSafeUrl(event.recording_url) ? event.recording_url : null;
+    const isInternalStage = event.meeting_url === INTERNAL_LIVE_STAGE;
+    const safeExternalUrl = !isInternalStage && event.meeting_url && isSafeUrl(event.meeting_url) ? event.meeting_url : null;
+    const hasVirtualStage = isInternalStage || safeExternalUrl;
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
@@ -77,7 +81,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                             </div>
                         )}
                         <div className="absolute top-4 left-4">
-                            <Badge className={`uppercase text-sm font-bold shadow-sm ${EVENT_TYPE_COLORS[event.event_type] || 'bg-gray-100'}`}>
+                            <Badge className={`uppercase text-sm font-bold shadow-sm ${EVENT_TYPE_COLORS[event.event_type] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
                                 {event.event_type}
                             </Badge>
                         </div>
@@ -117,7 +121,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                             </p>
 
                             {/* Virtual Event Logic */}
-                            {(event.meeting_url || event.meeting_url === 'INTERNAL_LIVE_STAGE') && (
+                            {hasVirtualStage && (
                                 <div className="mt-8 p-4 bg-muted/50 border border-border rounded-lg flex flex-col md:flex-row items-center justify-between shadow-sm gap-4">
                                     <div className="flex-1">
                                         <h4 className="font-semibold text-foreground flex items-center gap-2">
@@ -128,7 +132,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                                             {new Date(event.end_time) > new Date() ? "Live Stage" : "Past Session"}
                                         </h4>
                                         <p className="text-sm text-muted-foreground">
-                                            {event.meeting_url === 'INTERNAL_LIVE_STAGE'
+                                            {isInternalStage
                                                 ? (new Date(event.end_time) > new Date()
                                                     ? "Session is active. Join the conversation!"
                                                     : "This session has ended, but the room remains open for catch-up.")
@@ -137,16 +141,16 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                                     </div>
 
                                     <div className="flex gap-2">
-                                        {event.recording_url && (
+                                        {safeRecordingUrl && (
                                             <Button variant="outline" asChild className="gap-2 border-civic-green/30 text-civic-green-dark">
-                                                <a href={event.recording_url} target="_blank" rel="noopener noreferrer">
+                                                <a href={safeRecordingUrl} target="_blank" rel="noopener noreferrer">
                                                     <Calendar className="h-4 w-4" />
                                                     Watch Recording
                                                 </a>
                                             </Button>
                                         )}
 
-                                        {event.meeting_url === 'INTERNAL_LIVE_STAGE' ? (
+                                        {isInternalStage ? (
                                             <Button asChild className="gap-2 bg-red-600 hover:bg-red-700 text-white shadow-md">
                                                 <Link href={`/community/events/${event.id}/live`}>
                                                     <Users className="h-4 w-4" />
@@ -154,9 +158,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                                                 </Link>
                                             </Button>
                                         ) : (
-                                            new Date(event.end_time) > new Date() && (
+                                            safeExternalUrl && new Date(event.end_time) > new Date() && (
                                                 <Button asChild className="gap-2">
-                                                    <a href={event.meeting_url} target="_blank" rel="noopener noreferrer">
+                                                    <a href={safeExternalUrl} target="_blank" rel="noopener noreferrer">
                                                         External Link
                                                         <Share2 className="h-4 w-4" />
                                                     </a>

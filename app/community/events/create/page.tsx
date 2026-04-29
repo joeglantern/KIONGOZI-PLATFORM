@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
+import { INTERNAL_LIVE_STAGE, VALID_EVENT_TYPES, isSafeUrl } from '@/lib/events';
 
 export default function CreateEventPage() {
     const [title, setTitle] = useState('');
@@ -31,11 +32,22 @@ export default function CreateEventPage() {
         e.preventDefault();
 
         if (!title || !description || !location || !startTime || !endTime) {
-            toast({
-                title: "Missing Information",
-                description: "Please fill in all required fields.",
-                variant: "destructive",
-            });
+            toast({ title: "Missing Information", description: "Please fill in all required fields.", variant: "destructive" });
+            return;
+        }
+
+        if (new Date(endTime) <= new Date(startTime)) {
+            toast({ title: "Invalid Times", description: "End time must be after start time.", variant: "destructive" });
+            return;
+        }
+
+        if (!useNativeVideo && meetingUrl && !isSafeUrl(meetingUrl)) {
+            toast({ title: "Invalid Meeting Link", description: "Meeting link must start with https:// or http://", variant: "destructive" });
+            return;
+        }
+
+        if (!VALID_EVENT_TYPES.includes(eventType as any)) {
+            toast({ title: "Invalid Event Type", variant: "destructive" });
             return;
         }
 
@@ -44,29 +56,19 @@ export default function CreateEventPage() {
             const { data: { user } } = await supabase.auth.getUser();
 
             if (!user) {
-                toast({
-                    title: "Authentication Required",
-                    description: "Please log in to host an event.",
-                    variant: "destructive",
-                });
+                toast({ title: "Authentication Required", description: "Please log in to host an event.", variant: "destructive" });
                 return;
             }
 
-            // If using native video, we don't save a meeting_url (or we could save a special one)
-            // But we'll rely on a check in the UI to show the 'Join Stage' button if no external URL is present
-            // Wait, we need a flag. Let's hijack meeting_url with a 'INTERNAL' flag or just save null
-            // and add a column?
-            // For now, let's use a convention: meeting_url = 'INTERNAL_LIVE_STAGE'
-
-            const finalMeetingUrl = useNativeVideo ? 'INTERNAL_LIVE_STAGE' : meetingUrl;
+            const finalMeetingUrl = useNativeVideo ? INTERNAL_LIVE_STAGE : meetingUrl;
 
             const { data, error } = await supabase
                 .from('social_events')
                 .insert({
-                    title,
-                    description,
+                    title: title.trim(),
+                    description: description.trim(),
                     event_type: eventType,
-                    location,
+                    location: location.trim(),
                     meeting_url: finalMeetingUrl || null,
                     start_time: new Date(startTime).toISOString(),
                     end_time: new Date(endTime).toISOString(),
@@ -217,6 +219,7 @@ export default function CreateEventPage() {
                                     id="end"
                                     type="datetime-local"
                                     value={endTime}
+                                    min={startTime || undefined}
                                     onChange={(e) => setEndTime(e.target.value)}
                                     required
                                 />

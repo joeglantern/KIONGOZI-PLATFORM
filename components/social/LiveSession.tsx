@@ -51,13 +51,9 @@ export default function LiveSession({ roomName, userName, userEmail, isHost }: L
             configOverwrite: {
                 startWithAudioMuted: true,
                 startWithVideoMuted: true,
-                prejoinPageEnabled: false,
-                enableLobby: false, // Try to bypass lobby if possible
+                prejoinPageEnabled: true,  // Show pre-join screen so users confirm name before entering
                 requireDisplayName: true,
                 disableSettings: false,
-                theme: {
-                    default: 'dark'
-                }
             },
             interfaceConfigOverwrite: {
                 TOOLBAR_BUTTONS: [
