@@ -15,7 +15,7 @@ export async function createClient() {
                 setAll(cookiesToSet) {
                     try {
                         cookiesToSet.forEach(({ name, value, options }) => {
-                            const domain = process.env.NODE_ENV === 'production' ? '.kiongozi.org' : undefined;
+                            const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
                             cookieStore.set(name, value, { ...options, domain });
                         });
                     } catch {

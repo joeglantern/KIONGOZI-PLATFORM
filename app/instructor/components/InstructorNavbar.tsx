@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
 import { useUser } from '@/app/contexts/UserContext';
-import { createClient } from '@/app/utils/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -27,7 +25,6 @@ interface InstructorNavbarProps {
 export function InstructorNavbar({ onMenuClick }: InstructorNavbarProps) {
     const { user, profile, signOut } = useUser();
     const router = useRouter();
-    const supabase = useMemo(() => createClient(), []);
     const { theme, toggleTheme } = useTheme();
 
     return (

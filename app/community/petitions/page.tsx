@@ -13,7 +13,8 @@ export default async function PetitionsPage() {
         .from('social_petitions')
         .select('*')
         .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
     // If user is logged in, check which petitions they've signed
     let signedPetitionIds = new Set();

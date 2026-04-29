@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { logCourseRevision } from '@/lib/course-authoring';
 import {
     Plus,
     Trash2,
@@ -50,6 +52,7 @@ interface Option {
 
 export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: QuizBuilderProps) {
     const supabase = useMemo(() => createClient(), []);
+    const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [availableModules, setAvailableModules] = useState<any[]>([]);
@@ -85,7 +88,11 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
             .order('order_index');
 
         if (data) {
-            setAvailableModules(data.map((m: any) => m.learning_modules));
+            setAvailableModules(
+                data
+                    .map((m: any) => Array.isArray(m.learning_modules) ? m.learning_modules[0] : m.learning_modules)
+                    .filter(Boolean)
+            );
         }
     };
 
@@ -205,99 +212,89 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
         setQuestions(newQuestions);
     };
 
+    const validationIssues = useMemo(() => {
+        const issues: string[] = [];
+
+        if (!metadata.title.trim()) {
+            issues.push('Add a quiz title.');
+        }
+
+        if (questions.length === 0) {
+            issues.push('Add at least one question.');
+        }
+
+        questions.forEach((question, index) => {
+            if (!question.question_text.trim()) {
+                issues.push(`Question ${index + 1} is missing its text.`);
+            }
+
+            const filledOptions = question.options.filter((option) => option.option_text.trim());
+            if (filledOptions.length < 2) {
+                issues.push(`Question ${index + 1} needs at least two answer options.`);
+            }
+
+            const correctOptions = question.options.filter((option) => option.is_correct);
+            if (correctOptions.length === 0) {
+                issues.push(`Question ${index + 1} needs a correct answer selected.`);
+            }
+        });
+
+        return issues;
+    }, [metadata.title, questions]);
+
     const handleSave = async () => {
-        if (!metadata.title) {
-            alert('Please enter a quiz title');
+        if (validationIssues.length > 0) {
+            toast({
+                title: 'Quiz needs attention',
+                description: validationIssues[0],
+                variant: 'destructive',
+            });
             return;
         }
 
         try {
             setSaving(true);
 
-            // 1. Create or Update Quiz metadata
-            let currentQuizId = quizId;
-            if (!currentQuizId) {
-                const { data, error } = await supabase
-                    .from('quizzes')
-                    .insert({
-                        course_id: courseId,
-                        module_id: metadata.module_id || null,
-                        title: metadata.title,
-                        description: metadata.description,
-                        passing_score: metadata.passing_score,
-                        time_limit_minutes: metadata.time_limit_minutes
-                    })
-                    .select()
-                    .single();
+            const payload = { metadata, questions };
 
-                if (error) throw error;
-                currentQuizId = data.id;
-            } else {
-                const { error } = await supabase
-                    .from('quizzes')
-                    .update({
-                        module_id: metadata.module_id || null,
-                        title: metadata.title,
-                        description: metadata.description,
-                        passing_score: metadata.passing_score,
-                        time_limit_minutes: metadata.time_limit_minutes
-                    })
-                    .eq('id', currentQuizId);
+            // Single server round-trip — atomic create or update
+            const url = quizId
+                ? `/api/courses/${courseId}/quizzes/${quizId}`
+                : `/api/courses/${courseId}/quizzes`;
 
-                if (error) throw error;
+            const response = await fetch(url, {
+                method: quizId ? 'PUT' : 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            const result = await response.json().catch(() => null);
+            if (!response.ok) {
+                throw new Error(result?.error || 'Failed to save quiz.');
             }
 
-            // 2. Save Questions and Options
-            // For simplicity, we'll replace all questions if it's an update (or we could do diffing)
-            // But let's try a bit cleaner: if question has ID, update it; if not, insert.
+            const savedQuizId: string = result.quizId;
 
-            for (let i = 0; i < questions.length; i++) {
-                const q = questions[i];
-                let questionId = q.id;
+            const { data: authData } = await supabase.auth.getUser();
+            await logCourseRevision(supabase, {
+                courseId,
+                entityType: 'quiz',
+                entityId: savedQuizId,
+                summary: `Updated quiz: ${metadata.title}`,
+                snapshot: { metadata, questions },
+                createdBy: authData.user?.id,
+            });
 
-                if (!questionId) {
-                    const { data, error } = await supabase
-                        .from('quiz_questions')
-                        .insert({
-                            quiz_id: currentQuizId,
-                            question_text: q.question_text,
-                            question_type: q.question_type,
-                            points: q.points,
-                            order_index: i
-                        })
-                        .select()
-                        .single();
-                    if (error) throw error;
-                    questionId = data.id;
-                } else {
-                    await supabase
-                        .from('quiz_questions')
-                        .update({
-                            question_text: q.question_text,
-                            points: q.points,
-                            order_index: i
-                        })
-                        .eq('id', questionId);
-                }
-
-                // Options for this question
-                // Wiping and re-inserting options is usually safer for dynamic forms
-                await supabase.from('quiz_options').delete().eq('question_id', questionId);
-
-                const optionsToInsert = q.options.map(o => ({
-                    question_id: questionId,
-                    option_text: o.option_text,
-                    is_correct: o.is_correct
-                }));
-
-                await supabase.from('quiz_options').insert(optionsToInsert);
-            }
-
-            if (onSave) onSave(currentQuizId!);
-            alert('Quiz saved successfully!');
-        } catch (error) {
+            toast({ title: 'Quiz saved', description: `${metadata.title} is ready.` });
+            if (onSave) onSave(savedQuizId);
+        } catch (error: any) {
             console.error('Error saving quiz:', error);
-            alert('Failed to save quiz. Check console for details.');
+            toast({
+                title: 'Failed to save quiz',
+                description: error.message || 'Please try again.',
+                variant: 'destructive',
+            });
         } finally {
             setSaving(false);
         }
@@ -324,6 +321,24 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
                     </div>
 
                     <div className="space-y-4">
+                        {validationIssues.length > 0 && (
+                            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-2">Needs Attention</p>
+                                <ul className="space-y-1">
+                                    {validationIssues.slice(0, 4).map((issue) => (
+                                        <li key={issue} className="text-xs font-medium text-red-700">
+                                            {issue}
+                                        </li>
+                                    ))}
+                                    {validationIssues.length > 4 && (
+                                        <li className="text-xs font-medium text-red-700">
+                                            {validationIssues.length - 4} more issue(s)…
+                                        </li>
+                                    )}
+                                </ul>
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 ml-1">Quiz Title</label>
                             <input
@@ -336,17 +351,12 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 ml-1">Linked Module (Optional)</label>
-                            <select
-                                value={metadata.module_id || ''}
-                                onChange={(e) => setMetadata({ ...metadata, module_id: e.target.value || null })}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-4 font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 transition-all appearance-none cursor-pointer"
-                            >
-                                <option value="">General Course Quiz</option>
-                                {availableModules.map(m => (
-                                    <option key={m.id} value={m.id}>{m.title}</option>
-                                ))}
-                            </select>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 ml-1">Placement</label>
+                            <div className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl px-5 py-4 font-bold text-gray-500 dark:text-gray-400 text-sm">
+                                {metadata.module_id
+                                    ? `After lesson: ${availableModules.find(m => m.id === metadata.module_id)?.title ?? '…'}`
+                                    : 'End of course (final quiz)'}
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

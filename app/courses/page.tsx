@@ -5,16 +5,44 @@ import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
 import { CourseCard } from '@/components/courses/CourseCard';
 import { CourseGridSkeleton } from '@/components/ui/Skeleton';
-import { BookOpen, Search, Filter, X } from 'lucide-react';
+import { BookOpen, Search, Filter } from 'lucide-react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Pagination } from '@/components/ui/Pagination';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ITEMS_PER_PAGE = 9;
-const CACHE_KEY_COURSES = 'kiongozi_courses_cache';
-const CACHE_KEY_CATEGORIES = 'kiongozi_categories_cache';
+const CACHE_KEY_COURSES = 'kiongozi_courses_catalog_v2';
+const CACHE_KEY_CATEGORIES = 'kiongozi_categories_catalog_v2';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function readCache<T>(key: string): T | null {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed?.timestamp || Date.now() - parsed.timestamp >= CACHE_TTL) {
+            return null;
+        }
+
+        return parsed.data as T;
+    } catch (error) {
+        console.warn(`Failed to read cache for ${key}:`, error);
+        return null;
+    }
+}
+
+function writeCache<T>(key: string, data: T) {
+    try {
+        localStorage.setItem(key, JSON.stringify({
+            data,
+            timestamp: Date.now(),
+        }));
+    } catch (error) {
+        console.warn(`Failed to write cache for ${key}:`, error);
+    }
+}
 
 export default function CoursesPage() {
     const { user } = useUser();
@@ -24,93 +52,69 @@ export default function CoursesPage() {
     const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Filter states
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedDifficulty, setSelectedDifficulty] = useState('all');
     const [sortBy, setSortBy] = useState('newest');
     const [currentPage, setCurrentPage] = useState(1);
 
-    // Initial load from cache
-    useEffect(() => {
-        const cachedCourses = localStorage.getItem(CACHE_KEY_COURSES);
-        const cachedCategories = localStorage.getItem(CACHE_KEY_CATEGORIES);
+    const mergeUserEnrollments = (baseCourses: any[], enrollmentRows: any[]) => {
+        const enrollmentMap = new Map(
+            (enrollmentRows || []).map((enrollment) => [enrollment.course_id, [enrollment]])
+        );
 
-        let hasFoundValidCache = false;
+        return baseCourses.map((course) => ({
+            ...course,
+            course_enrollments: enrollmentMap.get(course.id) || [],
+        }));
+    };
 
-        if (cachedCourses) {
-            const { data, timestamp } = JSON.parse(cachedCourses);
-            if (Date.now() - timestamp < CACHE_TTL) {
-                setCourses(data);
-                hasFoundValidCache = true;
-            }
-        }
-
-        if (cachedCategories) {
-            const { data, timestamp } = JSON.parse(cachedCategories);
-            if (Date.now() - timestamp < CACHE_TTL) {
-                setCategories(data);
-            }
-        }
-
-        if (hasFoundValidCache) {
-            setLoading(false);
-            return;
-        }
-
-        fetchData();
-    }, [user]);
-
-    const fetchData = async () => {
+    const fetchData = async ({ skipCatalogFetch = false }: { skipCatalogFetch?: boolean } = {}) => {
         if (!user) return;
 
         try {
-            // Four parallel queries — no sequential waterfalls
-            const [categoriesResult, coursesResult, enrollmentsResult, allEnrollmentsResult] = await Promise.all([
-                supabase.from('module_categories').select('id, name, color').order('name'),
-                // Select only columns used by CourseCard — no nested module join
-                supabase
-                    .from('courses')
-                    .select('id, title, description, thumbnail_url, difficulty_level, estimated_duration_hours, category_id, module_categories(name, color)')
-                    .eq('status', 'published'),
-                supabase.from('course_enrollments').select('id, course_id, progress_percentage, status').eq('user_id', user.id),
-                // Batch count of all enrollments per course (avoids N+1)
-                supabase.from('course_enrollments').select('course_id'),
-            ]);
+            let catalogCourses = readCache<any[]>(CACHE_KEY_COURSES) || [];
+            let categoryRows = readCache<any[]>(CACHE_KEY_CATEGORIES) || [];
 
-            if (coursesResult.error) throw coursesResult.error;
+            if (!skipCatalogFetch) {
+                const [categoriesResult, coursesResult] = await Promise.all([
+                    supabase.from('module_categories').select('id, name, color').order('name'),
+                    supabase
+                        .from('courses')
+                        .select('id, title, description, thumbnail_url, difficulty_level, estimated_duration_hours, category_id, created_at, enrollment_count, module_categories(name, color)')
+                        .eq('status', 'published'),
+                ]);
 
-            setCategories(categoriesResult.data || []);
+                if (categoriesResult.error) throw categoriesResult.error;
+                if (coursesResult.error) throw coursesResult.error;
 
-            const enrollmentMap = new Map(
-                (enrollmentsResult.data || []).map(e => [e.course_id, [e]])
-            );
+                categoryRows = categoriesResult.data || [];
+                catalogCourses = (coursesResult.data || []).map((course) => ({
+                    ...course,
+                    description: course.description || '',
+                    enrollment_count: course.enrollment_count || 0,
+                }));
 
-            // Count enrollments per course from batch result
-            const countMap = new Map<string, number>();
-            (allEnrollmentsResult.data || []).forEach(e => {
-                countMap.set(e.course_id, (countMap.get(e.course_id) || 0) + 1);
-            });
+                setCategories(categoryRows);
+                writeCache(CACHE_KEY_CATEGORIES, categoryRows);
+                writeCache(CACHE_KEY_COURSES, catalogCourses);
+            }
 
-            const coursesWithCounts = (coursesResult.data || []).map(course => ({
-                ...course,
-                course_enrollments: enrollmentMap.get(course.id) || [],
-                enrollment_count: countMap.get(course.id) || 0,
-            }));
+            const courseIds = catalogCourses.map((course) => course.id);
+            let enrollmentRows: any[] = [];
 
-            setCourses(coursesWithCounts);
+            if (courseIds.length > 0) {
+                const { data: userEnrollments, error: userEnrollmentError } = await supabase
+                    .from('course_enrollments')
+                    .select('id, course_id, progress_percentage, status')
+                    .eq('user_id', user.id)
+                    .in('course_id', courseIds);
 
-            // Update cache
-            localStorage.setItem(CACHE_KEY_COURSES, JSON.stringify({
-                data: coursesWithCounts,
-                timestamp: Date.now()
-            }));
+                if (userEnrollmentError) throw userEnrollmentError;
+                enrollmentRows = userEnrollments || [];
+            }
 
-            localStorage.setItem(CACHE_KEY_CATEGORIES, JSON.stringify({
-                data: categoriesResult.data || [],
-                timestamp: Date.now()
-            }));
-
+            setCourses(mergeUserEnrollments(catalogCourses, enrollmentRows));
         } catch (error) {
             console.error('Error fetching courses:', error);
         } finally {
@@ -118,7 +122,24 @@ export default function CoursesPage() {
         }
     };
 
-    // Filter and sort courses
+    useEffect(() => {
+        if (!user) return;
+
+        const cachedCourses = readCache<any[]>(CACHE_KEY_COURSES);
+        const cachedCategories = readCache<any[]>(CACHE_KEY_CATEGORIES);
+
+        if (cachedCategories) {
+            setCategories(cachedCategories);
+        }
+
+        if (cachedCourses) {
+            setCourses(cachedCourses);
+            setLoading(false);
+        }
+
+        fetchData({ skipCatalogFetch: !!cachedCourses && !!cachedCategories });
+    }, [user]);
+
     const filteredCourses = useMemo(() => {
         let filtered = [...courses];
 
@@ -154,7 +175,6 @@ export default function CoursesPage() {
         return filtered;
     }, [courses, searchQuery, selectedCategory, selectedDifficulty, sortBy]);
 
-    // Paginated items
     const paginatedCourses = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
         return filteredCourses.slice(startIndex, startIndex + ITEMS_PER_PAGE);
@@ -162,7 +182,6 @@ export default function CoursesPage() {
 
     const totalPages = Math.ceil(filteredCourses.length / ITEMS_PER_PAGE);
 
-    // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1);
     }, [searchQuery, selectedCategory, selectedDifficulty, sortBy]);
@@ -171,7 +190,6 @@ export default function CoursesPage() {
         <ProtectedRoute allowedRoles={['user', 'instructor', 'admin']}>
             <div className="min-h-screen bg-gray-50">
                 <div className="max-w-7xl mx-auto px-4 py-8">
-                    {/* Header */}
                     <div className="mb-8">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center shadow-lg">
@@ -189,7 +207,6 @@ export default function CoursesPage() {
                     <Breadcrumb items={[{ label: 'Courses' }]} />
 
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                        {/* Sidebar Filters */}
                         <div className="lg:col-span-1">
                             <div className="bg-white rounded-[2rem] shadow-sm border border-orange-100 p-8 sticky top-6">
                                 <h2 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-3">
@@ -199,7 +216,6 @@ export default function CoursesPage() {
                                     Refine Search
                                 </h2>
 
-                                {/* Search */}
                                 <div className="mb-8">
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
                                         Title or Keyword
@@ -216,7 +232,6 @@ export default function CoursesPage() {
                                     </div>
                                 </div>
 
-                                {/* Category Filter */}
                                 <div className="mb-8">
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
                                         Category
@@ -235,7 +250,6 @@ export default function CoursesPage() {
                                     </select>
                                 </div>
 
-                                {/* Difficulty Filter */}
                                 <div className="mb-8">
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
                                         Complexity
@@ -256,7 +270,6 @@ export default function CoursesPage() {
                                     </div>
                                 </div>
 
-                                {/* Sort */}
                                 <div className="mb-8">
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
                                         Display Order
@@ -272,7 +285,6 @@ export default function CoursesPage() {
                                     </select>
                                 </div>
 
-                                {/* Clear Filters */}
                                 {(searchQuery || selectedCategory !== 'all' || selectedDifficulty !== 'all' || sortBy !== 'newest') && (
                                     <button
                                         onClick={() => {
@@ -289,14 +301,11 @@ export default function CoursesPage() {
                             </div>
                         </div>
 
-                        {/* Main Content */}
                         <div className="lg:col-span-3">
-                            {/* Loading State */}
                             {loading && filteredCourses.length === 0 && (
                                 <CourseGridSkeleton count={6} />
                             )}
 
-                            {/* Empty State */}
                             {!loading && filteredCourses.length === 0 && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
@@ -308,7 +317,7 @@ export default function CoursesPage() {
                                     </div>
                                     <h3 className="text-2xl font-black text-gray-900 mb-2">No matching courses</h3>
                                     <p className="text-gray-500 font-medium max-w-sm mx-auto mb-8">
-                                        We couldn't find any courses matching your current filters. Try broadening your search.
+                                        We couldn&apos;t find any courses matching your current filters. Try broadening your search.
                                     </p>
                                     <button
                                         onClick={() => {
@@ -323,7 +332,6 @@ export default function CoursesPage() {
                                 </motion.div>
                             )}
 
-                            {/* Course Grid */}
                             {filteredCourses.length > 0 && (
                                 <>
                                     <div className="mb-6 flex items-center justify-between px-2">

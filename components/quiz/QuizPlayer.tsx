@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     ChevronRight,
@@ -156,21 +156,16 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
     }, [courseId, onComplete, questions, quizId, submitted, userAnswers]);
 
     useEffect(() => {
-        if (timeLeft !== null && timeLeft > 0 && !submitted) {
-            const timer = setInterval(() => {
-                setTimeLeft(prev => (prev !== null ? prev - 1 : null));
-            }, 1000);
-            return () => clearInterval(timer);
-        } else if (timeLeft === 0 && !submitted) {
-            handleSubmit();
-        }
-    }, [timeLeft, submitted, handleSubmit]);
-
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
+        if (timeLeft === null || submitted) return;
+        if (timeLeft === 0) { handleSubmit(); return; }
+        const timer = setInterval(() => {
+            setTimeLeft(prev => (prev !== null ? prev - 1 : null));
+        }, 1000);
+        return () => clearInterval(timer);
+    // Only restart the interval when submitted changes or timeLeft hits 0 —
+    // not on every tick, which was causing the whole page to re-render each second.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [submitted, timeLeft === 0]);
 
     if (loading) {
         return (
@@ -269,12 +264,7 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
                     </div>
                 </div>
 
-                {timeLeft !== null && (
-                    <div className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl font-black transition-colors ${timeLeft < 60 ? 'bg-red-50 text-red-600 dark:bg-red-950/40 animate-pulse' : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>
-                        <Timer className="w-4 h-4" />
-                        <span>{formatTime(timeLeft)}</span>
-                    </div>
-                )}
+                {timeLeft !== null && <QuizTimer seconds={timeLeft} />}
             </div>
 
             {/* Progress Bar */}
@@ -366,3 +356,16 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
         </div>
     );
 }
+
+// Isolated so only the timer badge re-renders every second, not the question cards
+const QuizTimer = memo(function QuizTimer({ seconds }: { seconds: number }) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const display = `${mins}:${secs.toString().padStart(2, '0')}`;
+    return (
+        <div className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl font-black transition-colors ${seconds < 60 ? 'bg-red-50 text-red-600 dark:bg-red-950/40 animate-pulse' : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>
+            <Timer className="w-4 h-4" />
+            <span>{display}</span>
+        </div>
+    );
+});

@@ -24,6 +24,30 @@ async function getRequestUser(request: NextRequest, serviceClient: ReturnType<ty
     return user;
 }
 
+export async function authorizeInstructorCourseAccess(request: NextRequest, courseId: string) {
+    const serviceClient = createQuizServiceClient();
+    const user = await getRequestUser(request, serviceClient);
+
+    if (!user) {
+        return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+    }
+
+    const [{ data: profile }, { data: course, error: courseError }] = await Promise.all([
+        serviceClient.from('profiles').select('role').eq('id', user.id).maybeSingle(),
+        serviceClient.from('courses').select('id, author_id').eq('id', courseId).maybeSingle(),
+    ]);
+
+    if (courseError || !course) {
+        return { error: NextResponse.json({ error: 'Course not found' }, { status: 404 }) };
+    }
+
+    if (profile?.role !== 'admin' && course.author_id !== user.id) {
+        return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+    }
+
+    return { serviceClient, user, profile, course };
+}
+
 export async function authorizeQuizAccess(request: NextRequest, courseId: string, quizId: string) {
     const serviceClient = createQuizServiceClient();
     const user = await getRequestUser(request, serviceClient);

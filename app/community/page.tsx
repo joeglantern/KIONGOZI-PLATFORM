@@ -17,47 +17,42 @@ async function Feed() {
         fallbackKey!
     );
 
-    // Fetch posts with topic info and comment counts
+    // Fetch posts with topic info and comment ids (for count) — limit to 30 most recent
     const { data: posts, error } = await supabase
         .from('social_posts')
-        .select(`
-      *,
-      social_topics (
-        name,
-        slug
-      ),
-      social_comments (
-        count
-      )
-    `)
-        .order('created_at', { ascending: false });
-
-    // Fetch profiles separately to avoid RLS join issues
-    let postsWithProfiles = [];
-    if (posts && posts.length > 0) {
-        const userIds = Array.from(new Set(posts.map(p => p.user_id).filter(Boolean)));
-        let profiles = null;
-
-        if (userIds.length > 0) {
-            const { data } = await supabaseAdmin
-                .from('profiles')
-                .select('id, username, avatar_url')
-                .in('id', userIds as string[]);
-            profiles = data;
-        }
-
-        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
-
-        postsWithProfiles = posts.map(post => ({
-            ...post,
-            profiles: post.user_id ? profileMap.get(post.user_id) : null,
-            comments_count: post.social_comments?.[0]?.count || 0
-        }));
-    }
+        .select(`*, social_topics(name, slug), social_comments(id)`)
+        .order('created_at', { ascending: false })
+        .limit(30);
 
     if (error) {
-        console.error("Error fetching posts:", error);
+        console.error('Error fetching posts:', error.message, error.code, error.details, error.hint);
         return <div className="text-center py-10 text-destructive">Failed to load posts. Please try again later.</div>;
+    }
+
+    // Resolve profiles + liked post IDs in parallel — eliminates per-card like queries
+    let postsWithProfiles: any[] = [];
+    if (posts && posts.length > 0) {
+        const postIds = posts.map((p: any) => p.id);
+        const userIds = Array.from(new Set(posts.map((p: any) => p.user_id).filter(Boolean)));
+
+        const [profilesResult, likesResult] = await Promise.all([
+            userIds.length > 0
+                ? supabaseAdmin.from('profiles').select('id, username, avatar_url').in('id', userIds as string[])
+                : Promise.resolve({ data: [] }),
+            user
+                ? supabase.from('social_likes').select('post_id').eq('user_id', user.id).in('post_id', postIds)
+                : Promise.resolve({ data: [] }),
+        ]);
+
+        const profileMap = new Map((profilesResult.data ?? []).map((p: any) => [p.id, p]));
+        const likedSet = new Set((likesResult.data ?? []).map((l: any) => l.post_id));
+
+        postsWithProfiles = posts.map((post: any) => ({
+            ...post,
+            profiles: post.user_id ? profileMap.get(post.user_id) : null,
+            comments_count: post.social_comments?.length ?? 0,
+            is_liked_by_user: likedSet.has(post.id),
+        }));
     }
 
     if (!posts || posts.length === 0) {

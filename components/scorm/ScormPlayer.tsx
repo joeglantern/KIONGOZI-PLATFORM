@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, CheckCircle2, Clock, Maximize2, RotateCcw } from 
 
 interface ScormPlayerProps {
   packageId: string;
+  preview?: boolean;
 }
 
 type LessonStatus = 'not attempted' | 'incomplete' | 'completed' | 'passed' | 'failed' | 'browsed';
@@ -17,7 +18,7 @@ interface Registration {
   score_raw: number | null;
 }
 
-export default function ScormPlayer({ packageId }: ScormPlayerProps) {
+export default function ScormPlayer({ packageId, preview = false }: ScormPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const cmiRef = useRef<Record<string, string>>({});
   const [registration, setRegistration] = useState<Registration | null>(null);
@@ -38,8 +39,9 @@ export default function ScormPlayer({ packageId }: ScormPlayerProps) {
     return session?.access_token || '';
   }, [supabase]);
 
-  // Commit CMI data to server
+  // Commit CMI data to server (no-op in preview mode)
   const commit = useCallback(async (isFinish = false) => {
+    if (preview) return;
     try {
       const token = await getToken();
       const response = await fetch(`/api/scorm/${packageId}/commit`, {
@@ -58,7 +60,7 @@ export default function ScormPlayer({ packageId }: ScormPlayerProps) {
     } catch (err) {
       console.error('SCORM commit failed:', err);
     }
-  }, [packageId, getToken]);
+  }, [packageId, preview, getToken]);
 
   // Initialize registration and inject window.API
   useEffect(() => {
@@ -68,7 +70,10 @@ export default function ScormPlayer({ packageId }: ScormPlayerProps) {
       try {
         const token = await getToken();
         const res = await fetch(`/api/scorm/${packageId}/init`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(preview && { 'X-SCORM-Preview': '1' }),
+          },
         });
 
         if (!res.ok) {
@@ -222,12 +227,11 @@ export default function ScormPlayer({ packageId }: ScormPlayerProps) {
     };
   }, [entryPoint, commit]);
 
-  // Auto-commit when tab/window unloads
+  // Auto-commit when tab/window unloads (skip in preview)
   useEffect(() => {
+    if (preview) return;
     const handleUnload = () => {
       if (initialized) {
-        // Synchronous beacon for reliability on unload
-        const token = '';
         navigator.sendBeacon(
           `/api/scorm/${packageId}/commit`,
           JSON.stringify({ cmiData: cmiRef.current, isFinish: true })
@@ -236,7 +240,7 @@ export default function ScormPlayer({ packageId }: ScormPlayerProps) {
     };
     window.addEventListener('beforeunload', handleUnload);
     return () => window.removeEventListener('beforeunload', handleUnload);
-  }, [initialized, packageId]);
+  }, [initialized, packageId, preview]);
 
   const statusConfig: Record<LessonStatus, { label: string; color: string; icon: typeof CheckCircle2 }> = {
     'not attempted': { label: 'Not Started', color: 'text-gray-400', icon: Clock },

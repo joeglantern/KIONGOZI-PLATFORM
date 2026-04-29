@@ -87,28 +87,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [fetchProfile, user]);
 
   useEffect(() => {
-    const syncSession = async (session: { user: User } | null) => {
+    // Unblock auth immediately; fetch profile in the background so
+    // redirects and route guards don't wait for a second network call.
+    const syncSession = (session: { user: User } | null) => {
       if (session?.user) {
         setUser(session.user);
-        await fetchProfile(session.user.id);
+        void fetchProfile(session.user.id);
       } else {
         setUser(null);
         setProfile(null);
       }
-
       setLoading(false);
     };
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      void syncSession(session);
+      syncSession(session);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      void syncSession(session);
+      syncSession(session);
     });
 
     return () => subscription.unsubscribe();

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, MessageSquare, Hash, Users, Leaf, Globe, FileText, Calendar, Map, BookOpen, Video } from 'lucide-react';
+import { TrendingUp, MessageSquare, Hash, Users, Leaf, Globe, FileText, Calendar, Map, BookOpen, Video, BarChart2, DollarSign, Clipboard } from 'lucide-react';
 
 export default async function CommunityLayout({
     children,
@@ -88,7 +88,7 @@ export default async function CommunityLayout({
                             </Card>
                         )}
 
-                        {/* Petitions CTA */}
+                        {/* Civic Action CTA */}
                         <Card className="border-civic-clay/30 bg-civic-clay/5 overflow-hidden">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-lg flex items-center gap-2 text-civic-clay">
@@ -97,7 +97,7 @@ export default async function CommunityLayout({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     <Button asChild className="w-full bg-civic-clay hover:bg-civic-clay/90 text-white shadow-sm justify-start">
                                         <Link href="/community/petitions">
                                             <FileText className="mr-2 h-4 w-4" />
@@ -114,6 +114,38 @@ export default async function CommunityLayout({
                                         <Link href="/community/impact">
                                             <Map className="mr-2 h-4 w-4" />
                                             Report Issue
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Youth Civic Tools */}
+                        <Card className="border-civic-green/20 bg-civic-green/5 overflow-hidden">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-lg flex items-center gap-2 text-civic-green-dark">
+                                    <Globe className="h-5 w-5" />
+                                    Youth Civic Tools
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    <Button asChild variant="outline" className="w-full border-civic-green/30 text-civic-green-dark hover:bg-civic-green/10 justify-start">
+                                        <Link href="/community/policy-pulse">
+                                            <BarChart2 className="mr-2 h-4 w-4" />
+                                            Policy Pulse
+                                        </Link>
+                                    </Button>
+                                    <Button asChild variant="outline" className="w-full border-civic-green/30 text-civic-green-dark hover:bg-civic-green/10 justify-start">
+                                        <Link href="/community/funds">
+                                            <DollarSign className="mr-2 h-4 w-4" />
+                                            Fund Tracker
+                                        </Link>
+                                    </Button>
+                                    <Button asChild variant="outline" className="w-full border-civic-green/30 text-civic-green-dark hover:bg-civic-green/10 justify-start">
+                                        <Link href="/community/projects">
+                                            <Clipboard className="mr-2 h-4 w-4" />
+                                            Project Monitor
                                         </Link>
                                     </Button>
                                 </div>

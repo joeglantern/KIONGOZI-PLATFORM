@@ -13,7 +13,8 @@ export default async function EventsPage() {
         .from('social_events')
         .select('*')
         .gte('end_time', new Date().toISOString())
-        .order('start_time', { ascending: true });
+        .order('start_time', { ascending: true })
+        .limit(50);
 
     // Fetch user RSVPs if logged in
     const rsvpMap: Record<string, 'going' | 'interested'> = {};

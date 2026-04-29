@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useUser } from '@/app/contexts/UserContext';
@@ -9,387 +9,454 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
     ArrowLeft,
+    ArrowRight,
     Loader2,
-    Save,
-    UploadCloud,
+    BookOpen,
+    FileText,
+    Video,
+    Headphones,
+    Check,
+    HelpCircle,
+    ChevronDown,
+    ChevronUp,
     Plus,
-    Package
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { MdEditor } from 'md-editor-rt';
-import 'md-editor-rt/lib/style.css';
-import { useTheme } from '@/app/contexts/ThemeContext';
-import { useEffect } from 'react';
+import { useToast } from '@/components/ui/use-toast';
+
+type MediaType = 'text' | 'video' | 'audio';
+
+interface CourseForm {
+    title: string;
+    category_id: string;
+    difficulty_level: string;
+}
+
+interface LessonDraft {
+    title: string;
+    media_type: MediaType;
+    addQuiz: boolean;
+    quizTitle: string;
+}
+
+const MEDIA_OPTIONS: { value: MediaType; label: string; description: string; icon: React.ReactNode }[] = [
+    {
+        value: 'text',
+        label: 'Text / Article',
+        description: 'Written lesson with rich content',
+        icon: <FileText className="w-5 h-5" />,
+    },
+    {
+        value: 'video',
+        label: 'Video',
+        description: 'Upload or link a video file',
+        icon: <Video className="w-5 h-5" />,
+    },
+    {
+        value: 'audio',
+        label: 'Audio / Podcast',
+        description: 'Upload an audio recording',
+        icon: <Headphones className="w-5 h-5" />,
+    },
+];
+
+function StepTrail({ completedLabels, current }: { completedLabels: string[]; current: string }) {
+    return (
+        <div className="flex items-center gap-1.5 mb-8 flex-wrap">
+            {completedLabels.map((label, i) => (
+                <span key={i} className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
+                        <Check className="w-3 h-3" /> {label}
+                    </span>
+                    <span className="text-gray-300 text-xs">›</span>
+                </span>
+            ))}
+            <span className="text-[11px] font-black text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full">
+                {current}
+            </span>
+        </div>
+    );
+}
 
 export default function CreateCoursePage() {
     const { user } = useUser();
     const router = useRouter();
     const supabase = useMemo(() => createClient(), []);
-    const [loading, setLoading] = useState(false);
-    const { theme } = useTheme();
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const { toast } = useToast();
 
-    const [formData, setFormData] = useState({
+    const [step, setStep] = useState<'course-info' | 'lesson'>('course-info');
+    const [courseId, setCourseId] = useState<string | null>(null);
+    const [lessonCount, setLessonCount] = useState(0);
+    const [saving, setSaving] = useState(false);
+    const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+    const lessonTitleRef = useRef<HTMLInputElement>(null);
+
+    const [courseForm, setCourseForm] = useState<CourseForm>({
         title: '',
-        description: '',
-        difficulty_level: 'beginner',
         category_id: '',
-        estimated_duration_hours: 1,
-        thumbnail_url: '',
+        difficulty_level: 'beginner',
     });
 
-    const [uploading, setUploading] = useState(false);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [categories, setCategories] = useState<any[]>([]);
-    const [fetchingCats, setFetchingCats] = useState(true);
+    const [lesson, setLesson] = useState<LessonDraft>({
+        title: '',
+        media_type: 'text',
+        addQuiz: false,
+        quizTitle: '',
+    });
 
     useEffect(() => {
-        fetchCategories();
-    }, []);
+        supabase
+            .from('module_categories')
+            .select('id, name')
+            .order('name')
+            .then(({ data }: { data: { id: string; name: string }[] | null }) => {
+                setCategories(data || []);
+                if (data?.[0]) setCourseForm(f => ({ ...f, category_id: data[0].id }));
+            });
+    }, [supabase]);
 
-    const fetchCategories = async () => {
-        try {
-            setFetchingCats(true);
-            const { data, error } = await supabase
-                .from('module_categories')
-                .select('id, name')
-                .order('name');
-
-            if (error) throw error;
-            setCategories(data || []);
-            if (data && data.length > 0) {
-                setFormData(prev => ({ ...prev, category_id: data[0].id }));
-            }
-        } catch (error) {
-            console.error('Error fetching categories:', error);
-        } finally {
-            setFetchingCats(false);
+    useEffect(() => {
+        if (step === 'lesson') {
+            setTimeout(() => lessonTitleRef.current?.focus(), 50);
         }
-    };
+    }, [step, lessonCount]);
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !user) return;
-
-        // Show local preview
-        const localUrl = URL.createObjectURL(file);
-        setPreviewUrl(localUrl);
-
-        try {
-            setUploading(true);
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random()}.${fileExt}`;
-            const filePath = `course-thumbnails/${fileName}`;
-
-            // Upload to Supabase Storage
-            const { error: uploadError, data } = await supabase.storage
-                .from('courses')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            // Get public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('courses')
-                .getPublicUrl(filePath);
-
-            setFormData(prev => ({ ...prev, thumbnail_url: publicUrl }));
-        } catch (error: any) {
-            console.error('Error uploading file:', error);
-            const message = error?.message || error?.error || 'Unknown error';
-            alert(`Error uploading image: ${message}`);
-            setPreviewUrl(null);
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const handleUploadImg = async (files: File[], callback: (urls: string[]) => void) => {
-        if (!user) return;
-
-        const urls = await Promise.all(
-            files.map(async (file) => {
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${Math.random()}.${fileExt}`;
-                const filePath = `content-media/${fileName}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('courses')
-                    .upload(filePath, file);
-
-                if (uploadError) throw uploadError;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('courses')
-                    .getPublicUrl(filePath);
-
-                return publicUrl;
-            })
-        );
-
-        callback(urls);
-    };
-
-    const handleSubmit = async (e: React.FormEvent | React.MouseEvent) => {
-        e.preventDefault();
-        if (!user) return;
-
-        // Validate required fields
-        if (!formData.title.trim()) {
-            alert('Please enter a course title.');
+    const handleCreateCourse = async () => {
+        if (!courseForm.title.trim()) {
+            toast({ title: 'Course title is required', variant: 'destructive' });
             return;
         }
-        if (!formData.category_id) {
-            alert('Please select a category.');
-            return;
-        }
+        if (!user) return;
 
-        setLoading(true);
         try {
+            setSaving(true);
             const { data, error } = await supabase
                 .from('courses')
-                .insert([
-                    {
-                        title: formData.title.trim(),
-                        description: formData.description,
-                        difficulty_level: formData.difficulty_level,
-                        category_id: formData.category_id,
-                        estimated_duration_hours: formData.estimated_duration_hours,
-                        thumbnail_url: formData.thumbnail_url || null,
-                        author_id: user.id,
-                        status: 'draft'
-                    }
-                ])
-                .select()
+                .insert({
+                    title: courseForm.title.trim(),
+                    category_id: courseForm.category_id || null,
+                    difficulty_level: courseForm.difficulty_level,
+                    author_id: user.id,
+                    status: 'draft',
+                    estimated_duration_hours: 1,
+                })
+                .select('id')
                 .single();
 
             if (error) throw error;
-
-            router.push(`/instructor/courses/${data.id}/edit?tab=scorm`);
-        } catch (error: any) {
-            console.error('Error creating course:', error);
-            const message = error?.message || error?.details || 'Unknown error';
-            alert(`Failed to create course: ${message}`);
+            setCourseId(data.id);
+            setStep('lesson');
+        } catch (err: any) {
+            toast({ title: 'Could not create course', description: err.message, variant: 'destructive' });
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
+    const handleSaveLesson = async (andFinish: boolean) => {
+        if (!lesson.title.trim()) {
+            toast({ title: 'Lesson title is required', variant: 'destructive' });
+            return;
+        }
+        if (!user || !courseId) return;
+
+        try {
+            setSaving(true);
+
+            const { data: mod, error: modErr } = await supabase
+                .from('learning_modules')
+                .insert({
+                    title: lesson.title.trim(),
+                    media_type: lesson.media_type,
+                    author_id: user.id,
+                    status: 'draft',
+                    estimated_duration_minutes: 30,
+                    difficulty_level: courseForm.difficulty_level,
+                })
+                .select('id')
+                .single();
+
+            if (modErr) throw modErr;
+
+            const { error: linkErr } = await supabase
+                .from('course_modules')
+                .insert({
+                    course_id: courseId,
+                    module_id: mod.id,
+                    order_index: lessonCount,
+                    is_required: true,
+                });
+
+            if (linkErr) throw linkErr;
+
+            if (lesson.addQuiz && lesson.quizTitle.trim()) {
+                const { error: quizErr } = await supabase
+                    .from('quizzes')
+                    .insert({
+                        course_id: courseId,
+                        module_id: mod.id,
+                        title: lesson.quizTitle.trim(),
+                        passing_score: 70,
+                    });
+
+                if (quizErr) throw quizErr;
+            }
+
+            if (andFinish) {
+                router.push(`/instructor/courses/${courseId}/edit`);
+                return;
+            }
+
+            setLessonCount(c => c + 1);
+            setLesson({ title: '', media_type: 'text', addQuiz: false, quizTitle: '' });
+            toast({ title: `Lesson ${lessonCount + 1} saved`, description: 'Add another or finish when ready.' });
+        } catch (err: any) {
+            toast({ title: 'Could not save lesson', description: err.message, variant: 'destructive' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSkipToEditor = () => {
+        if (courseId) router.push(`/instructor/courses/${courseId}/edit`);
+    };
+
+    const completedTrail = step === 'lesson'
+        ? [`Course: ${courseForm.title.slice(0, 24)}${courseForm.title.length > 24 ? '…' : ''}`,
+           ...Array.from({ length: lessonCount }, (_, i) => `Lesson ${i + 1}`)]
+        : [];
+
+    const currentTrailLabel = step === 'lesson'
+        ? lessonCount === 0 ? 'Add Lesson 1' : `Add Lesson ${lessonCount + 1}`
+        : 'Course Info';
+
     return (
         <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-            <div className="max-w-4xl mx-auto pb-20">
-                <Link href="/instructor/courses" className="inline-flex items-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mb-6 transition-colors">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Courses
+            <div className="max-w-xl mx-auto">
+                <Link
+                    href="/instructor/courses"
+                    className="inline-flex items-center gap-2 text-gray-400 hover:text-gray-700 dark:hover:text-white mb-8 transition-colors font-bold uppercase tracking-widest text-xs"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    My Courses
                 </Link>
 
-                <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-                    <div className="p-8 md:p-12 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <div>
-                                <h1 className="text-3xl font-black text-gray-900 dark:text-white mb-2">Create New Course</h1>
-                                <p className="text-gray-500 dark:text-gray-400">Design an engaging learning experience for your students.</p>
+                {/* ── Step trail ── */}
+                {step === 'lesson' && (
+                    <StepTrail completedLabels={completedTrail.slice(0, -lessonCount || undefined)} current={currentTrailLabel} />
+                )}
+
+                {/* ════════════════ STEP 1: Course Info ════════════════ */}
+                {step === 'course-info' && (
+                    <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-10 shadow-sm">
+                        <div className="w-14 h-14 bg-orange-50 dark:bg-orange-900/20 rounded-2xl flex items-center justify-center mb-6">
+                            <BookOpen className="w-7 h-7 text-orange-500" />
+                        </div>
+                        <h1 className="text-3xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
+                            Create a new course
+                        </h1>
+                        <p className="text-gray-500 text-sm mb-10">
+                            Start with a name and category. You&apos;ll add lessons in the next step.
+                        </p>
+
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">
+                                    Course Title <span className="text-orange-500">*</span>
+                                </label>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={courseForm.title}
+                                    onChange={e => setCourseForm(f => ({ ...f, title: e.target.value }))}
+                                    onKeyDown={e => e.key === 'Enter' && handleCreateCourse()}
+                                    placeholder="e.g. Introduction to Climate Finance"
+                                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300"
+                                />
                             </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Category</label>
+                                    <select
+                                        value={courseForm.category_id}
+                                        onChange={e => setCourseForm(f => ({ ...f, category_id: e.target.value }))}
+                                        className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold outline-none appearance-none cursor-pointer"
+                                    >
+                                        {categories.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                        {categories.length === 0 && <option value="">Loading…</option>}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Difficulty</label>
+                                    <select
+                                        value={courseForm.difficulty_level}
+                                        onChange={e => setCourseForm(f => ({ ...f, difficulty_level: e.target.value }))}
+                                        className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold outline-none appearance-none cursor-pointer"
+                                    >
+                                        <option value="beginner">Beginner</option>
+                                        <option value="intermediate">Intermediate</option>
+                                        <option value="advanced">Advanced</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-10 flex items-center justify-between">
+                            <Link href="/instructor/courses">
+                                <Button variant="ghost" className="font-bold text-gray-400 hover:text-gray-600">
+                                    Cancel
+                                </Button>
+                            </Link>
                             <Button
-                                onClick={handleSubmit}
-                                disabled={loading || uploading}
-                                className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl px-8 py-7 shadow-lg shadow-orange-500/20 transition-all active:scale-95"
+                                onClick={handleCreateCourse}
+                                disabled={saving || !courseForm.title.trim()}
+                                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white font-bold rounded-2xl px-8 h-12 gap-2 shadow-lg shadow-orange-500/20"
                             >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                        Creating...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="w-5 h-5 mr-2" />
-                                        Save Course
-                                    </>
-                                )}
+                                {saving
+                                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                                    : <><span>Next: Add Lessons</span><ArrowRight className="w-4 h-4" /></>
+                                }
                             </Button>
                         </div>
                     </div>
+                )}
 
-                    <div className="p-8 md:p-12 space-y-10">
-                        {/* Thumbnail Upload */}
-                        <div className="space-y-4">
-                            <label className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Course Thumbnail</label>
-                            <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className="group relative aspect-video md:aspect-[21/9] rounded-[2rem] border-2 border-dashed border-gray-200 dark:border-gray-800 hover:border-orange-500 dark:hover:border-orange-500 bg-gray-50 dark:bg-gray-800/50 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden"
-                            >
-                                {previewUrl ? (
-                                    <>
-                                        <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <div className="bg-white/20 backdrop-blur-md p-4 rounded-full">
-                                                <UploadCloud className="w-8 h-8 text-white" />
-                                            </div>
+                {/* ════════════════ STEP 2+: Add Lesson ════════════════ */}
+                {step === 'lesson' && (
+                    <div className="space-y-4">
+                        <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-8 shadow-sm">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-sm">
+                                    {lessonCount + 1}
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+                                        {lessonCount === 0 ? 'Add your first lesson' : `Add Lesson ${lessonCount + 1}`}
+                                    </h2>
+                                    <p className="text-xs text-gray-400 font-medium mt-0.5">You can always edit the full content in the editor</p>
+                                </div>
+                            </div>
+
+                            {/* Lesson title */}
+                            <div className="space-y-2 mb-6">
+                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">
+                                    Lesson Title <span className="text-orange-500">*</span>
+                                </label>
+                                <input
+                                    ref={lessonTitleRef}
+                                    type="text"
+                                    value={lesson.title}
+                                    onChange={e => setLesson(l => ({ ...l, title: e.target.value }))}
+                                    placeholder="e.g. What is Carbon Pricing?"
+                                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-base font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300"
+                                />
+                            </div>
+
+                            {/* Content type */}
+                            <div className="space-y-2 mb-6">
+                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Content Type</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {MEDIA_OPTIONS.map(opt => (
+                                        <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => setLesson(l => ({ ...l, media_type: opt.value }))}
+                                            className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all text-center ${
+                                                lesson.media_type === opt.value
+                                                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600'
+                                                    : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                            }`}
+                                        >
+                                            <span className={lesson.media_type === opt.value ? 'text-orange-500' : 'text-gray-400'}>
+                                                {opt.icon}
+                                            </span>
+                                            <span className="text-xs font-black leading-tight">{opt.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Optional quiz */}
+                            <div className="border-t border-gray-100 dark:border-gray-800 pt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => setLesson(l => ({ ...l, addQuiz: !l.addQuiz }))}
+                                    className="w-full flex items-center justify-between text-left group"
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${lesson.addQuiz ? 'bg-orange-100 text-orange-500' : 'bg-gray-100 text-gray-400 group-hover:bg-orange-50 group-hover:text-orange-400'}`}>
+                                            <HelpCircle className="w-4 h-4" />
                                         </div>
-                                    </>
-                                ) : (
-                                    <div className="text-center p-8">
-                                        <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                                            {uploading ? <Loader2 className="w-8 h-8 text-orange-500 animate-spin" /> : <Plus className="w-8 h-8 text-gray-400 group-hover:text-orange-500" />}
+                                        <div>
+                                            <p className="text-sm font-black text-gray-700 dark:text-gray-200">Add a quiz after this lesson</p>
+                                            <p className="text-xs text-gray-400">Optional — test comprehension before moving on</p>
                                         </div>
-                                        <p className="text-sm font-bold text-gray-900 dark:text-white">Click to upload thumbnail</p>
-                                        <p className="text-xs text-gray-500 mt-1">PNG, JPG or WebP (Max 5MB)</p>
+                                    </div>
+                                    {lesson.addQuiz
+                                        ? <ChevronUp className="w-4 h-4 text-orange-500" />
+                                        : <ChevronDown className="w-4 h-4 text-gray-300" />
+                                    }
+                                </button>
+
+                                {lesson.addQuiz && (
+                                    <div className="mt-4 space-y-2">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Quiz Title</label>
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={lesson.quizTitle}
+                                            onChange={e => setLesson(l => ({ ...l, quizTitle: e.target.value }))}
+                                            placeholder="e.g. Carbon Pricing Check"
+                                            className="w-full px-5 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300 text-sm"
+                                        />
+                                        <p className="text-xs text-gray-400">You&apos;ll add questions in the full editor after finishing.</p>
                                     </div>
                                 )}
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                    accept="image/*"
-                                />
                             </div>
                         </div>
 
-                        {/* Title */}
-                        <div className="space-y-4">
-                            <label className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Course Title</label>
-                            <input
-                                required
-                                type="text"
-                                value={formData.title}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                placeholder="Enter a catchy title..."
-                                className="w-full px-6 py-5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl text-xl font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all"
-                            />
+                        {/* Action row */}
+                        <div className="flex items-center justify-between gap-3">
+                            <button
+                                type="button"
+                                onClick={handleSkipToEditor}
+                                className="text-xs font-bold text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
+                            >
+                                {lessonCount === 0 ? 'Skip — go straight to editor' : 'Finish — open editor'}
+                            </button>
+
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => handleSaveLesson(false)}
+                                    disabled={saving || !lesson.title.trim()}
+                                    className="font-bold rounded-2xl px-5 h-11 gap-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-40"
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                    Save &amp; Add Another
+                                </Button>
+
+                                <Button
+                                    onClick={() => handleSaveLesson(true)}
+                                    disabled={saving || !lesson.title.trim()}
+                                    className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white font-bold rounded-2xl px-6 h-11 gap-2 shadow-lg shadow-orange-500/20"
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                    Finish
+                                </Button>
+                            </div>
                         </div>
 
-                        {/* Description with MD Editor */}
-                        <div className="space-y-4">
-                            <label className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Description</label>
-
-                            <div className="md-editor-container border border-gray-200 dark:border-gray-700 rounded-[2rem] overflow-hidden shadow-inner">
-                                <MdEditor
-                                    modelValue={formData.description}
-                                    onChange={(val) => setFormData({ ...formData, description: val })}
-                                    theme={theme === 'dark' ? 'dark' : 'light'}
-                                    language="en-US"
-                                    toolbars={[
-                                        'bold',
-                                        'italic',
-                                        'strikeThrough',
-                                        'title',
-                                        'sub',
-                                        'sup',
-                                        'quote',
-                                        'unorderedList',
-                                        'orderedList',
-                                        '-',
-                                        'codeRow',
-                                        'code',
-                                        'link',
-                                        'image',
-                                        'table',
-                                        'mermaid',
-                                        'katex',
-                                        '-',
-                                        'revoke',
-                                        'next',
-                                        'save',
-                                        '=',
-                                        'pageFullscreen',
-                                        'fullscreen',
-                                        'preview',
-                                        'htmlPreview',
-                                        'catalog',
-                                        'github'
-                                    ]}
-                                    onUploadImg={handleUploadImg}
-                                    style={{ height: '500px' }}
-                                    placeholder="Describe your course... Use the toolbar for easy formatting!"
-                                    className="!border-none"
-                                />
-                            </div>
-
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                                <Sparkles className="w-3 h-3" />
-                                Markdown supported (GFM)
+                        {lessonCount > 0 && (
+                            <p className="text-center text-xs text-gray-400">
+                                {lessonCount} lesson{lessonCount === 1 ? '' : 's'} added so far — all saved automatically
                             </p>
-                        </div>
-
-                        {/* SCORM hint */}
-                        <div className="flex items-start gap-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30 rounded-2xl p-5">
-                            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <Package className="w-5 h-5 text-orange-600" />
-                            </div>
-                            <div>
-                                <p className="font-black text-gray-900 dark:text-white text-sm">Have a SCORM package?</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                    Save this course first — you'll land directly on the SCORM upload tab to attach your Articulate, Captivate, or Rise package.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Settings Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-6 border-t border-gray-100 dark:border-gray-800">
-                            <div className="space-y-4">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Difficulty</label>
-                                <select
-                                    value={formData.difficulty_level}
-                                    onChange={(e) => setFormData({ ...formData, difficulty_level: e.target.value })}
-                                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
-                                >
-                                    <option value="beginner">Beginner</option>
-                                    <option value="intermediate">Intermediate</option>
-                                    <option value="advanced">Advanced</option>
-                                </select>
-                            </div>
-
-                            <div className="space-y-4">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Category</label>
-                                <select
-                                    value={formData.category_id}
-                                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
-                                    disabled={fetchingCats}
-                                >
-                                    {categories.map(cat => (
-                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                    ))}
-                                    {categories.length === 0 && <option value="">No categories found</option>}
-                                </select>
-                            </div>
-
-                            <div className="space-y-4">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Est. Duration (Hours)</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="0.5"
-                                    value={formData.estimated_duration_hours}
-                                    onChange={(e) => setFormData({ ...formData, estimated_duration_hours: parseFloat(e.target.value) || 0 })}
-                                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-                                />
-                            </div>
-                        </div>
+                        )}
                     </div>
-                </div>
+                )}
             </div>
         </ProtectedRoute>
     );
-}
-
-// Sparkles icon for the footer note
-function Sparkles({ className }: { className?: string }) {
-    return (
-        <svg
-            className={className}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-        >
-            <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-            />
-        </svg>
-    )
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import NextImage from 'next/image';
@@ -9,9 +10,60 @@ interface MarkdownRendererProps {
     content: string;
 }
 
+function looksLikeHtml(content: string) {
+    return /<\/?[a-z][\s\S]*>/i.test(content);
+}
+
+const proseClassName = [
+    'prose',
+    'prose-slate',
+    'max-w-none',
+    'prose-headings:font-bold',
+    'prose-h1:text-3xl',
+    'prose-h2:text-2xl',
+    'prose-h3:text-xl',
+    'prose-p:text-gray-600',
+    'prose-p:leading-relaxed',
+    'prose-li:text-gray-600',
+    'prose-strong:text-gray-900',
+    'prose-blockquote:border-orange-500',
+    'prose-blockquote:bg-orange-50/50',
+    'prose-code:text-orange-600',
+    'prose-code:bg-orange-50',
+    'prose-code:px-1',
+    'prose-code:rounded',
+    'prose-img:rounded-2xl',
+    'prose-img:border',
+    'prose-img:border-gray-100',
+    'prose-img:shadow-md',
+    'prose-video:rounded-2xl',
+    'prose-video:shadow-md',
+    'prose-table:my-8',
+].join(' ');
+
 export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: MarkdownRendererProps) {
+    const hasHtml = looksLikeHtml(content);
+    const sanitizedHtml = useMemo(() => {
+        if (!hasHtml) {
+            return '';
+        }
+
+        return DOMPurify.sanitize(content, {
+            USE_PROFILES: { html: true },
+        });
+    }, [content, hasHtml]);
+
+    if (hasHtml) {
+        return (
+            <div
+                className={proseClassName}
+                dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+            />
+        );
+    }
+
     return (
-        <div className="prose prose-slate max-w-none prose-headings:font-bold prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-p:text-gray-600 prose-p:leading-relaxed prose-li:text-gray-600 prose-strong:text-gray-900 prose-blockquote:border-orange-500 prose-blockquote:bg-orange-50/50 prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1 prose-code:rounded">
+        <div className={proseClassName}>
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{

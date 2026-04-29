@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
@@ -16,22 +17,51 @@ import {
     ArrowLeft,
     Sparkles,
     MessageSquare,
+    Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { startConversation, getCourseChatRoom, joinChatRoom } from '@/lib/chat';
-import { ChatWindow } from '@/components/chat/ChatWindow';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { BookmarkButton } from '@/components/shared/BookmarkButton';
-import { CourseReviews } from '@/components/courses/CourseReviews';
 import { CourseDetailSkeleton } from '@/components/ui/Skeleton';
 import { xapi } from '@/lib/xapi';
+
+function TabLoader() {
+    return (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-4" />
+            <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
+                Loading tab...
+            </p>
+        </div>
+    );
+}
+
+const ChatWindow = dynamic(
+    () => import('@/components/chat/ChatWindow').then((module) => module.ChatWindow),
+    { ssr: false, loading: () => <TabLoader /> }
+);
+
+const CourseReviews = dynamic(
+    () => import('@/components/courses/CourseReviews').then((module) => module.CourseReviews),
+    { ssr: false, loading: () => <TabLoader /> }
+);
+
+type CourseDetailData = {
+    course: any;
+    enrollment: any;
+    modules: any[];
+    scormPackages: any[];
+    scormRegistrationMap: Map<string, string>;
+};
 
 export default function CourseDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user, profile } = useUser();
     // Stable client — never re-created on re-render
     const supabase = useMemo(() => createClient(), []);
@@ -42,7 +72,7 @@ export default function CourseDetailPage() {
     const [messaging, setMessaging] = useState(false);
     const [activeTab, setActiveTab] = useState<'content' | 'discussion' | 'reviews'>('content');
 
-    const { data: courseData, isLoading: loading } = useQuery({
+    const courseQuery = useQuery<CourseDetailData | null>({
         queryKey: ['course-full-details', courseId, user?.id, profile?.role],
         queryFn: async () => {
             if (!user || !courseId) return null;
@@ -157,6 +187,8 @@ export default function CourseDetailPage() {
         enabled: !!user && !!courseId,
         staleTime: 1000 * 60 * 5, // 5 minutes
     });
+    const courseData = courseQuery.data;
+    const loading = courseQuery.isLoading;
 
     // Chat room query is low-priority — fetched separately so it never blocks course content
     const { data: courseRoomId } = useQuery({
@@ -164,7 +196,7 @@ export default function CourseDetailPage() {
         queryFn: async () => {
             return await getCourseChatRoom(supabase, courseId);
         },
-        enabled: !!user && !!courseId,
+        enabled: !!user && !!courseId && activeTab === 'discussion' && (!!courseData?.enrollment || profile?.role === 'admin' || courseData?.course?.author_id === user?.id),
         staleTime: 1000 * 60 * 10, // 10 minutes — room ID rarely changes
     });
 
@@ -173,16 +205,21 @@ export default function CourseDetailPage() {
     const enrollment = courseData?.enrollment;
     const scormPackages = courseData?.scormPackages || [];
     const scormRegistrationMap = courseData?.scormRegistrationMap || new Map<string, string>();
+    const previewRequested = searchParams.get('preview') === '1';
+    const isPreviewMode = previewRequested && (profile?.role === 'admin' || course?.author_id === user?.id);
+    const canAccessDiscussion = !isPreviewMode && (!!enrollment || profile?.role === 'admin' || course?.author_id === user?.id);
+    const canAccessContent = !!enrollment || isPreviewMode;
     const queryClient = useQueryClient();
 
     const contentItems: CourseContentItem[] = useMemo(() => {
+        const previewSuffix = isPreviewMode ? '?preview=1' : '';
         const moduleItems: CourseContentItem[] = modules.map((m: any) => ({
             id: m.learning_modules.id,
             type: 'module',
             title: m.learning_modules.title,
             description: m.learning_modules.description,
             durationMinutes: m.learning_modules.estimated_duration_minutes,
-            href: `/courses/${courseId}/modules/${m.learning_modules.id}`,
+            href: `/courses/${courseId}/modules/${m.learning_modules.id}${previewSuffix}`,
             isCompleted: m.learning_modules.user_progress?.[0]?.status === 'completed',
             isRequired: !!m.is_required,
         }));
@@ -201,7 +238,7 @@ export default function CourseDetailPage() {
         });
 
         return [...moduleItems, ...scormItems];
-    }, [modules, scormPackages, scormRegistrationMap, courseId]);
+    }, [courseId, isPreviewMode, modules, scormPackages, scormRegistrationMap]);
 
 
     const handleEnroll = async () => {
@@ -270,7 +307,7 @@ export default function CourseDetailPage() {
 
     const handleTabChange = async (tab: 'content' | 'discussion' | 'reviews') => {
         setActiveTab(tab);
-        if (tab === 'discussion' && courseRoomId && user) {
+        if (tab === 'discussion' && courseRoomId && user && canAccessDiscussion) {
             await joinChatRoom(supabase, user.id, courseRoomId);
         }
     };
@@ -315,6 +352,15 @@ export default function CourseDetailPage() {
         <ProtectedRoute allowedRoles={['user', 'instructor', 'admin']}>
             <div className="min-h-screen bg-gray-50">
                 <div className="max-w-5xl mx-auto px-4 py-8">
+                    {isPreviewMode && (
+                        <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+                            <p className="text-xs font-black uppercase tracking-widest text-orange-600 mb-1">Preview Mode</p>
+                            <p className="text-sm text-orange-800">
+                                You’re seeing the learner view for this draft. Enrollment, bookmarks, discussion, progress, and quiz attempts are disabled here.
+                            </p>
+                        </div>
+                    )}
+
                     <Breadcrumb items={[
                         { label: 'Courses', href: '/courses' },
                         { label: course.title }
@@ -338,15 +384,17 @@ export default function CourseDetailPage() {
 
                                 <div className="flex items-center justify-between mb-3">
                                     <h1 className="text-4xl font-bold text-gray-900">{course.title}</h1>
-                                    <BookmarkButton
-                                        itemId={courseId}
-                                        itemType="course"
-                                        metadata={{
-                                            title: course.title,
-                                            link: `/courses/${courseId}`,
-                                            icon: 'course'
-                                        }}
-                                    />
+                                    {!isPreviewMode && (
+                                        <BookmarkButton
+                                            itemId={courseId}
+                                            itemType="course"
+                                            metadata={{
+                                                title: course.title,
+                                                link: `/courses/${courseId}`,
+                                                icon: 'course'
+                                            }}
+                                        />
+                                    )}
                                 </div>
                                 <p className="text-lg text-gray-600 mb-4">{course.description}</p>
 
@@ -365,7 +413,25 @@ export default function CourseDetailPage() {
 
                             {/* Enrollment Card */}
                             <div className="bg-gray-50 rounded-lg p-6 border-2 border-orange-200 min-w-[280px]">
-                                {isEnrolled ? (
+                                {isPreviewMode ? (
+                                    <>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Eye className="w-5 h-5 text-orange-600" />
+                                            <span className="font-semibold text-gray-900">Student Preview</span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mb-4">
+                                            This preview shows draft content without writing learner progress or enrollment data.
+                                        </p>
+                                        <Button
+                                            onClick={handleContinueLearning}
+                                            disabled={contentItems.length === 0}
+                                            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                                        >
+                                            <TrendingUp className="w-4 h-4 mr-2" />
+                                            Preview First Lesson
+                                        </Button>
+                                    </>
+                                ) : isEnrolled ? (
                                     <>
                                         <div className="flex items-center gap-2 mb-3">
                                             <CheckCircle className="w-5 h-5 text-green-600" />
@@ -425,7 +491,12 @@ export default function CourseDetailPage() {
 
                                 {/* Message Instructor Button */}
                                 <div className="mt-4 pt-4 border-t border-orange-100">
-                                    {user?.id === course.author_id ? (
+                                    {isPreviewMode ? (
+                                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 text-center">
+                                            <p className="text-xs font-bold text-orange-700 uppercase tracking-widest mb-1">Preview Boundary</p>
+                                            <p className="text-[10px] text-orange-600 font-medium">Learner messaging and discussion are disabled in preview.</p>
+                                        </div>
+                                    ) : user?.id === course.author_id ? (
                                         <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 text-center">
                                             <p className="text-xs font-bold text-orange-700 uppercase tracking-widest mb-1">Instructor View</p>
                                             <p className="text-[10px] text-orange-600 font-medium whitespace-nowrap overflow-hidden text-ellipsis">You are the author of this course.</p>
@@ -477,7 +548,7 @@ export default function CourseDetailPage() {
                                     : 'bg-gray-50/50 text-gray-400 hover:text-gray-600'
                                     }`}
                             >
-                                {isEnrolled ? 'Community Discord' : 'Discussion Preview'}
+                                {isPreviewMode ? 'Discussion' : isEnrolled ? 'Community Discord' : 'Discussion Preview'}
                             </button>
                             <button
                                 onClick={() => handleTabChange('reviews')}
@@ -501,7 +572,7 @@ export default function CourseDetailPage() {
                                     >
                                         <h2 className="text-2xl font-black text-gray-900 mb-8">Lessons</h2>
                                         {contentItems.length > 0 ? (
-                                            <ModuleList items={contentItems} isEnrolled={isEnrolled} />
+                                            <ModuleList items={contentItems} isAccessible={canAccessContent} />
                                         ) : (
                                             <p className="text-gray-600 text-center py-12 font-bold italic">No lessons available yet</p>
                                         )}
@@ -514,7 +585,17 @@ export default function CourseDetailPage() {
                                         exit={{ opacity: 0, y: -10 }}
                                         className="h-full"
                                     >
-                                        {!isEnrolled ? (
+                                        {isPreviewMode ? (
+                                            <div className="flex flex-col items-center justify-center py-20 text-center">
+                                                <div className="w-20 h-20 bg-orange-50 rounded-3xl flex items-center justify-center text-orange-500 mb-6">
+                                                    <Eye className="w-10 h-10" />
+                                                </div>
+                                                <h3 className="text-2xl font-black text-gray-900 mb-2">Discussion is hidden in preview</h3>
+                                                <p className="text-gray-500 max-w-md font-medium">
+                                                    Preview mode shows course structure and lesson presentation only. Live community participation stays disabled so no learner data is written accidentally.
+                                                </p>
+                                            </div>
+                                        ) : !canAccessDiscussion ? (
                                             <div className="flex flex-col items-center justify-center py-20 text-center">
                                                 <div className="w-20 h-20 bg-orange-50 rounded-3xl flex items-center justify-center text-orange-500 mb-6">
                                                     <Users className="w-10 h-10" />
@@ -553,7 +634,7 @@ export default function CourseDetailPage() {
                                         exit={{ opacity: 0, y: -10 }}
                                     >
                                         <h2 className="text-2xl font-black text-gray-900 mb-6">Course Reviews</h2>
-                                        <CourseReviews courseId={courseId} canReview={isEnrolled} />
+                                        <CourseReviews courseId={courseId} canReview={isEnrolled && !isPreviewMode} />
                                     </motion.div>
                                 ) : null}
                             </AnimatePresence>

@@ -1,10 +1,7 @@
-"use client";
-
-import { usePathname } from 'next/navigation';
+// Server component — receives the decision as a prop from the root layout.
 import { Footer } from './Footer';
 
-export function FooterWrapper() {
-    const pathname = usePathname();
-    if (pathname?.startsWith('/instructor')) return null;
+export function FooterWrapper({ show }: { show: boolean }) {
+    if (!show) return null;
     return <Footer />;
 }

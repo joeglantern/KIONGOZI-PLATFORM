@@ -24,7 +24,7 @@ export async function updateSession(request: NextRequest) {
                         request,
                     });
                     cookiesToSet.forEach(({ name, value, options }) => {
-                        const domain = process.env.NODE_ENV === 'production' ? '.kiongozi.org' : undefined;
+                        const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
                         response.cookies.set(name, value, { ...options, domain });
                     });
                 },
@@ -32,22 +32,11 @@ export async function updateSession(request: NextRequest) {
         }
     );
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith("/login") &&
-        !request.nextUrl.pathname.startsWith("/auth") &&
-        !request.nextUrl.pathname.startsWith("/signup") &&
-        request.nextUrl.pathname !== "/"
-    ) {
-        // no user, potentially respond by redirecting the user to the login page
-        // const url = request.nextUrl.clone()
-        // url.pathname = '/login'
-        // return NextResponse.redirect(url)
-    }
+    // getSession() reads from cookies and refreshes expired tokens locally —
+    // no network call to Supabase, so it never hits the auth rate limit.
+    // getUser() (network call) belongs in individual server components/routes
+    // that need to verify the token server-side.
+    await supabase.auth.getSession();
 
     return response;
 }
