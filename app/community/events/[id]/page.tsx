@@ -89,7 +89,15 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                     </div>
 
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">{event.title}</h1>
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                            <h1 className="text-3xl font-bold tracking-tight text-foreground">{event.title}</h1>
+                            <ShareEventButton
+                                eventId={event.id}
+                                eventTitle={event.title}
+                                isInternalStage={isInternalStage}
+                                iconOnly
+                            />
+                        </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
                             <span>Organized by <span className="font-medium text-foreground">@{creatorProfile?.username || 'anonymous'}</span></span>
                         </div>
