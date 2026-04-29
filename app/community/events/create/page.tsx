@@ -31,7 +31,7 @@ export default function CreateEventPage() {
     const [endTime, setEndTime] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Earliest selectable start time — rounded up to the next minute
+    // Used as the floor for end time only — keeps the end-time picker from showing past slots
     const nowLocal = toDatetimeLocal(new Date());
     const router = useRouter();
     const { toast } = useToast();
@@ -228,7 +228,6 @@ export default function CreateEventPage() {
                                     id="start"
                                     type="datetime-local"
                                     value={startTime}
-                                    min={nowLocal}
                                     onChange={(e) => handleStartTimeChange(e.target.value)}
                                     required
                                 />
