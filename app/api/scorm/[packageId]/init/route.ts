@@ -13,7 +13,33 @@ export async function GET(
       return access.error;
     }
 
-    const { serviceClient, user, pkg } = access;
+    const { serviceClient, user, pkg, isPrivileged } = access;
+
+    // Preview mode: privileged users (author/admin) get a mock registration —
+    // no DB record created, no progress tracked.
+    if (request.headers.get('X-SCORM-Preview') === '1') {
+      if (!isPrivileged) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      return NextResponse.json({
+        registration: {
+          id: 'preview',
+          package_id: packageId,
+          user_id: user.id,
+          course_id: pkg.course_id,
+          lesson_status: 'not attempted',
+          cmi_data: {},
+          score_raw: null,
+          score_min: 0,
+          score_max: 100,
+          total_time: 'PT0S',
+          suspend_data: null,
+          lesson_location: null,
+        },
+        package: pkg,
+        serveBase: `/api/scorm/${packageId}/serve`,
+      });
+    }
 
     // Upsert registration
     const { data: reg } = await serviceClient
@@ -43,7 +69,6 @@ export async function GET(
     return NextResponse.json({
       registration: existing,
       package: pkg,
-      // The URL prefix to use for serving SCORM files
       serveBase: `/api/scorm/${packageId}/serve`,
     });
   } catch (err: any) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,8 @@ interface PostProps {
 
 export default function PostCard({ post, currentUserId }: PostProps) {
     const [likesCount, setLikesCount] = useState(post.likes_count || 0);
-    const [isLiked, setIsLiked] = useState(false);
+    // Seed from server-resolved prop — eliminates the per-card useEffect query
+    const [isLiked, setIsLiked] = useState(post.is_liked_by_user ?? false);
     const [isLiking, setIsLiking] = useState(false);
     const { toast } = useToast();
 
@@ -72,25 +73,6 @@ export default function PostCard({ post, currentUserId }: PostProps) {
             setIsLiking(false);
         }
     };
-
-    // Check if user already liked the post
-    useEffect(() => {
-        if (!currentUserId || !post.id) return;
-
-        const checkLike = async () => {
-            const supabase = createClient();
-            const { data } = await supabase
-                .from('social_likes')
-                .select('user_id')
-                .eq('post_id', post.id)
-                .eq('user_id', currentUserId)
-                .maybeSingle();
-
-            if (data) setIsLiked(true);
-        };
-
-        checkLike();
-    }, [currentUserId, post.id]);
 
     const handleShare = async (e: React.MouseEvent) => {
         e.preventDefault();

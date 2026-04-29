@@ -78,18 +78,14 @@ export function ChatWindow({ roomId, recipientName, recipientRole }: ChatWindowP
             setLoading(true);
             const { data, error } = await supabase
                 .from('chat_messages')
-                .select(`
-                    *,
-                    profiles:sender_id (
-                        username,
-                        role
-                    )
-                `)
+                .select(`*, profiles:sender_id(username, role)`)
                 .eq('room_id', roomId)
-                .order('created_at', { ascending: true });
+                .order('created_at', { ascending: false })
+                .limit(50);
 
             if (error) throw error;
-            setMessages(data || []);
+            // Fetched newest-first for the limit; reverse for display order
+            setMessages((data || []).reverse());
         } catch (error) {
             console.error('Error fetching messages:', error);
         } finally {
@@ -107,8 +103,9 @@ export function ChatWindow({ roomId, recipientName, recipientRole }: ChatWindowP
         try {
             setSending(true);
             // Optimistic update
+            const tempId = `temp-${Date.now()}`;
             const tempMsg: Message = {
-                id: Math.random().toString(),
+                id: tempId,
                 room_id: roomId,
                 sender_id: user.id,
                 content: messageContent,
@@ -129,8 +126,8 @@ export function ChatWindow({ roomId, recipientName, recipientRole }: ChatWindowP
             if (error) throw error;
         } catch (error) {
             console.error('Error sending message:', error);
-            // Rollback optimistic update on error
-            setMessages(prev => prev.filter(m => m.id !== roomId));
+            // Rollback: remove the specific temp message by its tempId
+            setMessages(prev => prev.filter(m => !m.id.startsWith('temp-')));
             setNewMessage(messageContent);
         } finally {
             setSending(false);

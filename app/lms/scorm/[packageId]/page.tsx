@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/app/utils/supabaseClient';
 import { useUser } from '@/app/contexts/UserContext';
@@ -21,6 +21,7 @@ interface ContentItem {
 export default function ScormPlayerPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, profile } = useUser();
   const supabase = useMemo(() => createClient(), []);
   const packageId = params.packageId as string;
@@ -108,6 +109,9 @@ export default function ScormPlayerPage() {
 
   const items = courseData?.items || [];
   const course = courseData?.course;
+  const isPreviewMode =
+    searchParams.get('preview') === '1' &&
+    !!(profile?.role === 'admin' || course?.author_id === user?.id);
   const currentIndex = items.findIndex((item) => item.type === 'scorm' && item.id === packageId);
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < items.length - 1;
@@ -159,7 +163,7 @@ export default function ScormPlayerPage() {
 
         {/* Player */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
-          <ScormPlayer packageId={packageId} />
+          <ScormPlayer packageId={packageId} preview={isPreviewMode} />
         </main>
 
         {/* Navigation Footer */}

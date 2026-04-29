@@ -1,5 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authorizeQuizAccess } from '@/lib/quiz/access';
+import { authorizeQuizAccess, authorizeInstructorCourseAccess } from '@/lib/quiz/access';
+
+interface OptionPayload {
+    id?: string;
+    option_text: string;
+    is_correct: boolean;
+}
+
+interface QuestionPayload {
+    id?: string;
+    question_text: string;
+    question_type: string;
+    points: number;
+    options: OptionPayload[];
+}
+
+interface UpdateQuizBody {
+    metadata: {
+        title: string;
+        description: string;
+        passing_score: number;
+        time_limit_minutes: number;
+        module_id: string | null;
+    };
+    questions: QuestionPayload[];
+}
 
 type AnswerMap = Record<string, string>;
 
@@ -156,5 +181,106 @@ export async function POST(
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message || 'Failed to submit quiz' }, { status: 500 });
+    }
+}
+
+// PUT — atomic update of quiz metadata + questions + options (instructor only)
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: Promise<{ courseId: string; quizId: string }> }
+) {
+    try {
+        const { courseId, quizId } = await params;
+        const access = await authorizeInstructorCourseAccess(request, courseId);
+        if ('error' in access) return access.error;
+
+        const { serviceClient } = access;
+        const body = await request.json() as UpdateQuizBody;
+        const { metadata, questions } = body;
+
+        if (!metadata.title?.trim()) {
+            return NextResponse.json({ error: 'Quiz title is required.' }, { status: 400 });
+        }
+
+        // 1. Update quiz metadata
+        const { error: quizError } = await serviceClient
+            .from('quizzes')
+            .update({
+                module_id: metadata.module_id || null,
+                title: metadata.title.trim(),
+                description: metadata.description || null,
+                passing_score: metadata.passing_score,
+                time_limit_minutes: metadata.time_limit_minutes,
+            })
+            .eq('id', quizId);
+
+        if (quizError) {
+            return NextResponse.json({ error: quizError.message }, { status: 500 });
+        }
+
+        // 2. Get existing question IDs to detect deletions
+        const { data: existingQuestions } = await serviceClient
+            .from('quiz_questions')
+            .select('id')
+            .eq('quiz_id', quizId);
+
+        const existingIds = new Set((existingQuestions ?? []).map((q: any) => q.id));
+        const incomingIds = new Set(questions.filter(q => q.id).map(q => q.id as string));
+        const toDeleteIds = [...existingIds].filter(id => !incomingIds.has(id));
+
+        // 3. Delete removed questions (cascades to options via FK)
+        if (toDeleteIds.length > 0) {
+            await serviceClient.from('quiz_questions').delete().in('id', toDeleteIds);
+        }
+
+        // 4. Upsert questions and their options
+        for (let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+
+            let questionId = q.id;
+
+            if (questionId) {
+                await serviceClient
+                    .from('quiz_questions')
+                    .update({
+                        question_text: q.question_text,
+                        question_type: q.question_type,
+                        points: q.points,
+                        order_index: i,
+                    })
+                    .eq('id', questionId);
+            } else {
+                const { data: newQ, error: newQError } = await serviceClient
+                    .from('quiz_questions')
+                    .insert({
+                        quiz_id: quizId,
+                        question_text: q.question_text,
+                        question_type: q.question_type,
+                        points: q.points,
+                        order_index: i,
+                    })
+                    .select('id')
+                    .single();
+                if (newQError || !newQ) continue;
+                questionId = newQ.id;
+            }
+
+            // Replace options for this question
+            await serviceClient.from('quiz_options').delete().eq('question_id', questionId);
+            const filledOptions = q.options.filter(o => o.option_text.trim());
+            if (filledOptions.length > 0) {
+                await serviceClient.from('quiz_options').insert(
+                    filledOptions.map(o => ({
+                        question_id: questionId,
+                        option_text: o.option_text,
+                        is_correct: o.is_correct,
+                    }))
+                );
+            }
+        }
+
+        return NextResponse.json({ quizId });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message || 'Failed to update quiz' }, { status: 500 });
     }
 }

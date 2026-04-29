@@ -32,7 +32,14 @@ export async function POST(
       return access.error;
     }
 
-    const { serviceClient, user } = access;
+    const { serviceClient, user, isPrivileged } = access;
+
+    // Preview mode: skip all writes
+    if (request.headers.get('X-SCORM-Preview') === '1') {
+      if (!isPrivileged) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ success: true, preview: true });
+    }
+
     const body = await request.json();
     const { cmiData, isFinish = false } = body as {
       cmiData: Record<string, string>;

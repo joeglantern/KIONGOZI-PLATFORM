@@ -58,7 +58,8 @@ export default function InstructorLayout({
     }
 
     return (
-        <div className="flex min-h-screen bg-gray-50/50 dark:bg-gray-950 transition-colors">
+        // This shell covers the root layout's <main pt-16> and <Footer> completely.
+        <div className="fixed inset-0 flex bg-gray-50 dark:bg-gray-950 transition-colors overflow-hidden z-50">
             {/* Desktop Sidebar */}
             <div className="hidden lg:block w-64 fixed inset-y-0">
                 <ErrorBoundary fallbackMessage="Sidebar Error">

@@ -17,17 +17,12 @@ import { QueryProvider } from './providers/QueryProvider';
 import { Navbar } from '@/components/layout/Navbar';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
+import { ClientOnlyWidgets } from '@/components/layout/ClientOnlyWidgets';
 
-// Lazy-load non-critical layout pieces so they don't block initial paint
+// Footer is SSR-safe but non-critical — defer past initial paint
 const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })), {
   ssr: true,
   loading: () => null,
-});
-const OfflineDetector = dynamic(() => import('@/components/ui/OfflineDetector').then(m => ({ default: m.OfflineDetector })), {
-  ssr: false,
-});
-const CookieConsentLoader = dynamic(() => import('@/components/layout/CookieConsentLoader').then(m => ({ default: m.CookieConsentLoader })), {
-  ssr: false,
 });
 
 export const metadata: Metadata = {
@@ -70,7 +65,7 @@ export default function RootLayout({
           <UserProvider>
             <ThemeProvider>
               <CookieConsentProvider>
-                <OfflineDetector />
+                <ClientOnlyWidgets />
                 <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
                   <Navbar />
                   <main className="flex-1 pt-16">
@@ -85,7 +80,6 @@ export default function RootLayout({
                   </Suspense>
                   <Toaster />
                 </div>
-                <CookieConsentLoader />
               </CookieConsentProvider>
             </ThemeProvider>
           </UserProvider>

@@ -16,10 +16,10 @@ export type CourseContentItem = {
 
 interface ModuleListProps {
     items: CourseContentItem[];
-    isEnrolled: boolean;
+    isAccessible: boolean;
 }
 
-export function ModuleList({ items, isEnrolled }: ModuleListProps) {
+export function ModuleList({ items, isAccessible }: ModuleListProps) {
     return (
         <div className="space-y-3">
             {items.map((item, index) => {
@@ -34,7 +34,7 @@ export function ModuleList({ items, isEnrolled }: ModuleListProps) {
                                 <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                                     <CheckCircle className="w-5 h-5 text-green-600" />
                                 </div>
-                            ) : isEnrolled ? (
+                            ) : isAccessible ? (
                                 <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
                                     <span className="text-sm font-bold text-orange-600">{lessonNumber}</span>
                                 </div>
@@ -47,7 +47,7 @@ export function ModuleList({ items, isEnrolled }: ModuleListProps) {
 
                         <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2 mb-1">
-                                <h4 className={`font-semibold ${isEnrolled ? 'text-gray-900' : 'text-gray-500'}`}>
+                                <h4 className={`font-semibold ${isAccessible ? 'text-gray-900' : 'text-gray-500'}`}>
                                     {item.title}
                                 </h4>
                                 {item.isRequired && (
@@ -77,7 +77,7 @@ export function ModuleList({ items, isEnrolled }: ModuleListProps) {
                     </div>
                 );
 
-                if (!isEnrolled) {
+                if (!isAccessible) {
                     return (
                         <div
                             key={`${item.type}:${item.id}`}
