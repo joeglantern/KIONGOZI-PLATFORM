@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -31,8 +31,9 @@ export default function CreateEventPage() {
     const [endTime, setEndTime] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Used as the floor for end time only — keeps the end-time picker from showing past slots
-    const nowLocal = toDatetimeLocal(new Date());
+    // Computed client-side only to avoid SSR/client hydration mismatch (Date.now() differs between server and client)
+    const [nowLocal, setNowLocal] = useState<string | undefined>(undefined);
+    useEffect(() => { setNowLocal(toDatetimeLocal(new Date())); }, []);
     const router = useRouter();
     const { toast } = useToast();
     const supabase = useMemo(() => createClient(), []);
