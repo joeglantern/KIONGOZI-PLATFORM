@@ -1,7 +1,7 @@
 import { createClient } from '@/app/utils/supabase/server';
 import LiveSession from '@/components/social/LiveSession';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Shield } from 'lucide-react';
+import { ArrowLeft, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
@@ -9,42 +9,30 @@ export default async function LiveRoomPage({ params }: { params: Promise<{ id: s
     const supabase = await createClient();
     const { id } = await params;
 
-    // Auth Check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         redirect(`/login?next=/community/events/${id}/live`);
     }
 
-    // Fetch Event
-    const { data: event, error } = await supabase
-        .from('social_events')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+    const [{ data: event, error }, { data: profile }] = await Promise.all([
+        supabase.from('social_events').select('*').eq('id', id).maybeSingle(),
+        supabase.from('profiles').select('full_name, username, email').eq('id', user.id).maybeSingle(),
+    ]);
 
-    if (error || !event) {
-        notFound();
-    }
+    if (error || !event) notFound();
 
-    // Fetch Event Creator Profile separately
-    const { data: creatorProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', event.created_by)
-        .maybeSingle();
-
-    // Fetch Profile
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', user.id)
-        .single();
+    const { data: creatorProfile } = event.created_by
+        ? await supabase.from('profiles').select('full_name, username').eq('id', event.created_by).maybeSingle()
+        : { data: null };
 
     const isHost = event.created_by === user.id;
+    const displayName = profile?.full_name || profile?.username || 'Community Member';
+    const hostName = creatorProfile?.full_name || creatorProfile?.username || 'Community Leader';
 
     return (
         <div className="flex flex-col h-[calc(100vh-4rem)]">
-            <div className="flex items-center justify-between px-6 py-4 bg-background border-b border-border">
+            {/* Top bar */}
+            <div className="flex items-center justify-between px-6 py-3 bg-background border-b border-border shrink-0">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="sm" asChild>
                         <Link href={`/community/events/${id}`}>
@@ -53,28 +41,29 @@ export default async function LiveRoomPage({ params }: { params: Promise<{ id: s
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-lg font-bold flex items-center gap-2">
+                        <h1 className="text-base font-bold flex items-center gap-2">
                             {event.title}
                             <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
                                 Live
                             </span>
                         </h1>
                         <p className="text-xs text-muted-foreground">
-                            Hosted by {creatorProfile?.full_name || 'Community Leader'}
+                            {isHost ? 'You are hosting this session' : `Hosted by ${hostName}`}
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Shield className="h-3 w-3 text-civic-green" />
-                    End-to-End Encrypted
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Lock className="h-3 w-3 text-civic-green" />
+                    Transport encrypted
                 </div>
             </div>
 
-            <div className="flex-1 bg-slate-950 p-4">
+            {/* Jitsi area */}
+            <div className="flex-1 min-h-0 bg-slate-950 p-4">
                 <LiveSession
-                    roomName={event.id} // Using Event ID as secure room name
-                    userName={profile?.full_name || 'Community Member'}
-                    userEmail={profile?.email} // Passed for Gravatar if available
+                    roomName={event.id}
+                    userName={displayName}
+                    userEmail={profile?.email ?? undefined}
                     isHost={isHost}
                 />
             </div>
