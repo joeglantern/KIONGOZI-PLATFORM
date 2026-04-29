@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import EventActions from './EventActions';
 import RecordingManager from '../create/RecordingManager';
+import ShareEventButton from './ShareEventButton';
 import { INTERNAL_LIVE_STAGE, isSafeUrl } from '@/lib/events';
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -198,12 +199,19 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
                             <hr className="border-border" />
 
+                            <ShareEventButton
+                                eventId={event.id}
+                                eventTitle={event.title}
+                                isInternalStage={isInternalStage}
+                            />
+
+                            <hr className="border-border" />
+
                             <div className="space-y-3">
                                 <p className="font-medium text-sm flex items-center gap-2">
                                     <Users className="h-4 w-4" />
                                     Attendees
                                 </p>
-                                {/* We can fetch attendee count/avatars here in future */}
                                 <p className="text-sm text-muted-foreground">
                                     Join others from your community.
                                 </p>
