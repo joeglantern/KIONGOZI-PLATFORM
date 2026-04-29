@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Video, Save, Loader2, Link as LinkIcon } from 'lucide-react';
 import { createClient } from '@/app/utils/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { isSafeUrl } from '@/lib/events';
 
 interface RecordingManagerProps {
     eventId: string;
@@ -21,6 +22,11 @@ export default function RecordingManager({ eventId, initialRecordingUrl }: Recor
     const supabase = useMemo(() => createClient(), []);
 
     const handleSave = async () => {
+        if (recordingUrl && !isSafeUrl(recordingUrl)) {
+            toast({ title: "Invalid URL", description: "Recording link must start with https:// or http://", variant: "destructive" });
+            return;
+        }
+
         setIsSaving(true);
         try {
             const { error } = await supabase

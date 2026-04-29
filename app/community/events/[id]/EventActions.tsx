@@ -21,19 +21,19 @@ export default function EventActions({ event, currentUser, rsvpStatusProp }: Eve
 
     const handleRsvp = async (status: 'going' | 'interested') => {
         if (!currentUser) {
-            toast({
-                title: "Login Required",
-                description: "You must be logged in to RSVP.",
-            });
+            toast({ title: "Login Required", description: "You must be logged in to RSVP." });
             return;
         }
 
         if (isRsvping) return;
+
+        const previousStatus = rsvpStatus;
         setIsRsvping(true);
 
         try {
             if (rsvpStatus === status) {
-                // Toggle off
+                // Toggle off — optimistically clear, roll back on error
+                setRsvpStatus(null);
                 const { error } = await supabase
                     .from('social_event_rsvps')
                     .delete()
@@ -41,14 +41,15 @@ export default function EventActions({ event, currentUser, rsvpStatusProp }: Eve
                     .eq('user_id', currentUser.id);
 
                 if (error) throw error;
-                setRsvpStatus(null);
                 toast({ description: "RSVP removed." });
             } else {
-                // If changing an existing RSVP status, update it. If new, insert it.
+                // Optimistically set, roll back on error
+                setRsvpStatus(status);
+
                 if (rsvpStatus) {
                     const { error } = await supabase
                         .from('social_event_rsvps')
-                        .update({ status: status })
+                        .update({ status })
                         .eq('event_id', event.id)
                         .eq('user_id', currentUser.id);
 
@@ -56,27 +57,19 @@ export default function EventActions({ event, currentUser, rsvpStatusProp }: Eve
                 } else {
                     const { error } = await supabase
                         .from('social_event_rsvps')
-                        .insert({
-                            event_id: event.id,
-                            user_id: currentUser.id,
-                            status: status
-                        });
+                        .insert({ event_id: event.id, user_id: currentUser.id, status });
 
                     if (error) throw error;
                 }
 
-                setRsvpStatus(status);
                 toast({
                     title: status === 'going' ? "You're going!" : "Interest saved.",
                     className: "bg-civic-green text-white border-none"
                 });
             }
         } catch (error: any) {
-            toast({
-                title: "Error",
-                description: "Failed to update RSVP.",
-                variant: "destructive",
-            });
+            setRsvpStatus(previousStatus); // roll back optimistic update
+            toast({ title: "Error", description: "Failed to update RSVP. Please try again.", variant: "destructive" });
         } finally {
             setIsRsvping(false);
         }
@@ -112,7 +105,7 @@ export default function EventActions({ event, currentUser, rsvpStatusProp }: Eve
                 disabled={isRsvping}
             >
                 <Star className={cn("mr-2 h-4 w-4", rsvpStatus === 'interested' && "fill-current text-yellow-500")} />
-                {rsvpStatus === 'interested' ? 'Interested' : 'Interested'}
+                {rsvpStatus === 'interested' ? 'Marked Interested ✓' : 'Mark as Interested'}
             </Button>
         </div>
     );

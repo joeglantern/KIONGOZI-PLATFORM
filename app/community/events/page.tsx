@@ -9,12 +9,16 @@ export default async function EventsPage() {
     const { data: { user } } = await supabase.auth.getUser();
 
     // Fetch upcoming events
-    const { data: events } = await supabase
+    const { data: events, error: eventsError } = await supabase
         .from('social_events')
         .select('*')
         .gte('end_time', new Date().toISOString())
         .order('start_time', { ascending: true })
         .limit(50);
+
+    if (eventsError) {
+        console.error('[EventsPage] Failed to fetch events:', eventsError.message);
+    }
 
     // Fetch user RSVPs if logged in
     const rsvpMap: Record<string, 'going' | 'interested'> = {};
@@ -68,7 +72,15 @@ export default async function EventsPage() {
                     />
                 ))}
 
-                {(!events || events.length === 0) && (
+                {eventsError && (
+                    <div className="col-span-full text-center py-20 bg-red-50 rounded-xl border border-red-100">
+                        <CalendarIcon className="h-12 w-12 text-red-300 mx-auto mb-4" />
+                        <h3 className="text-xl font-medium text-foreground mb-2">Could not load events</h3>
+                        <p className="text-muted-foreground">Please try refreshing the page.</p>
+                    </div>
+                )}
+
+                {!eventsError && (!events || events.length === 0) && (
                     <div className="col-span-full text-center py-20 bg-muted/20 rounded-xl border border-dashed border-border">
                         <CalendarIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
                         <h3 className="text-xl font-medium text-foreground mb-2">No Upcoming Events</h3>
