@@ -16,26 +16,25 @@ export default function ShareEventButton({ eventId, eventTitle, isInternalStage,
     const [copiedEvent, setCopiedEvent] = useState(false);
     const [copiedRoom, setCopiedRoom] = useState(false);
 
-    const eventUrl = `${window.location.origin}/community/events/${eventId}`;
-    const roomUrl = `${window.location.origin}/community/events/${eventId}/live`;
+    // Compute URLs inside handlers only — window is not available during SSR
+    const getEventUrl = () => `${window.location.origin}/community/events/${eventId}`;
+    const getRoomUrl = () => `${window.location.origin}/community/events/${eventId}/live`;
 
     const shareEvent = async () => {
-        // Use native share sheet if available (mobile/modern browsers), fall back to clipboard
+        const url = getEventUrl();
         if (navigator.share) {
             try {
-                await navigator.share({ title: eventTitle, url: eventUrl });
+                await navigator.share({ title: eventTitle, url });
                 return;
-            } catch {
-                // User cancelled or share not supported — fall through to clipboard
-            }
+            } catch { /* cancelled */ }
         }
-        await navigator.clipboard.writeText(eventUrl);
+        await navigator.clipboard.writeText(url);
         setCopiedEvent(true);
         setTimeout(() => setCopiedEvent(false), 2000);
     };
 
     const copyRoom = async () => {
-        await navigator.clipboard.writeText(roomUrl);
+        await navigator.clipboard.writeText(getRoomUrl());
         setCopiedRoom(true);
         setTimeout(() => setCopiedRoom(false), 2000);
     };
@@ -66,26 +65,24 @@ export default function ShareEventButton({ eventId, eventTitle, isInternalStage,
             <Button
                 variant="outline"
                 size="sm"
-                className="w-full justify-between text-xs h-9 font-normal"
+                className="w-full justify-start gap-2 text-xs h-9 font-normal"
                 onClick={shareEvent}
             >
-                <span className="truncate text-muted-foreground">{eventUrl.replace(/^https?:\/\//, '')}</span>
-                {copiedEvent
-                    ? <Check className="h-3.5 w-3.5 text-civic-green shrink-0 ml-2" />
-                    : <Copy className="h-3.5 w-3.5 shrink-0 ml-2 text-muted-foreground" />}
+                <Share2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate text-muted-foreground flex-1">Share / Copy event link</span>
+                {copiedEvent && <Check className="h-3.5 w-3.5 text-civic-green shrink-0" />}
             </Button>
 
             {isInternalStage && (
                 <Button
                     variant="outline"
                     size="sm"
-                    className="w-full justify-between text-xs h-9 font-normal border-red-200 text-red-700"
+                    className="w-full justify-start gap-2 text-xs h-9 font-normal border-red-200 text-red-700"
                     onClick={copyRoom}
                 >
-                    <span className="truncate">Copy live room link</span>
-                    {copiedRoom
-                        ? <Check className="h-3.5 w-3.5 text-civic-green shrink-0 ml-2" />
-                        : <Copy className="h-3.5 w-3.5 shrink-0 ml-2" />}
+                    <Copy className="h-3.5 w-3.5 shrink-0" />
+                    <span className="flex-1">Copy live room link</span>
+                    {copiedRoom && <Check className="h-3.5 w-3.5 text-civic-green shrink-0" />}
                 </Button>
             )}
         </div>
