@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,12 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, ExternalLink, DollarSign, Building2, Loader2, MessageSquare, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, DollarSign, Building2, Loader2, MessageSquare, CheckCircle2, Trash2 } from 'lucide-react';
+import ImageUpload from '@/components/ui/ImageUpload';
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';
 
-function fmt(amount: number | null, currency = 'KES') {
-    if (!amount) return 'N/A';
+function fmt(amount: number | null, currency = 'KES', fallback = 'Not disclosed') {
+    if (amount == null || amount === 0) return fallback;
     return new Intl.NumberFormat('en-KE', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
 }
 
@@ -25,15 +27,34 @@ const STATUS_STYLES: Record<string, string> = {
     suspended: 'bg-red-100 text-red-800',
 };
 
-export default function FundDetailClient({ fund, allocations, disbursements, comments: initialComments, user }: {
-    fund: any; allocations: any[]; disbursements: any[]; comments: any[]; user: any;
+export default function FundDetailClient({ fund, allocations, disbursements, comments: initialComments, user, currentUserProfile }: {
+    fund: any; allocations: any[]; disbursements: any[]; comments: any[]; user: any; currentUserProfile: any;
 }) {
     const [comments, setComments] = useState(initialComments);
     const [newComment, setNewComment] = useState('');
     const [commentType, setCommentType] = useState('comment');
+    const [commentImageUrl, setCommentImageUrl] = useState('');
     const [isPosting, setIsPosting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const { toast } = useToast();
+    const router = useRouter();
     const supabase = useMemo(() => createClient(), []);
+
+    const isOwner = user?.id && fund.created_by === user.id;
+
+    const handleDelete = async () => {
+        if (!window.confirm('Delete this fund? This cannot be undone.')) return;
+        setIsDeleting(true);
+        try {
+            const { error } = await supabase.from('public_funds').delete().eq('id', fund.id);
+            if (error) throw error;
+            toast({ title: 'Fund deleted', className: 'bg-destructive text-white border-none' });
+            router.push('/community/funds');
+        } catch {
+            toast({ title: 'Failed to delete fund', variant: 'destructive' });
+            setIsDeleting(false);
+        }
+    };
 
     const disbursedPct = fund.total_amount > 0
         ? Math.min((fund.amount_disbursed / fund.total_amount) * 100, 100)
@@ -51,11 +72,13 @@ export default function FundDetailClient({ fund, allocations, disbursements, com
                 user_id: user.id,
                 content: newComment.trim(),
                 comment_type: commentType,
-            }).select('*, profiles(full_name, avatar_url)').single();
+                ...(commentImageUrl ? { image_url: commentImageUrl } : {}),
+            }).select('*').single();
 
             if (error) throw error;
-            setComments(prev => [data, ...prev]);
+            setComments(prev => [{ ...data, profiles: currentUserProfile ?? null }, ...prev]);
             setNewComment('');
+            setCommentImageUrl('');
             toast({ title: 'Comment posted', className: 'bg-civic-green text-white border-none' });
         } catch {
             toast({ title: 'Error', description: 'Failed to post comment.', variant: 'destructive' });
@@ -72,9 +95,19 @@ export default function FundDetailClient({ fund, allocations, disbursements, com
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 py-4">
-            <Button variant="ghost" asChild>
-                <Link href="/community/funds"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Fund Tracker</Link>
-            </Button>
+            <div className="flex items-center justify-between gap-4">
+                <Button variant="ghost" asChild>
+                    <Link href="/community/funds"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Fund Tracker</Link>
+                </Button>
+                {isOwner && (
+                    <Button variant="outline" size="sm"
+                        className="border-destructive/40 text-destructive hover:bg-destructive/5"
+                        onClick={handleDelete} disabled={isDeleting}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {isDeleting ? 'Deleting…' : 'Delete Fund'}
+                    </Button>
+                )}
+            </div>
 
             {/* Header */}
             <div className="space-y-3">
@@ -109,19 +142,25 @@ export default function FundDetailClient({ fund, allocations, disbursements, com
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Total</p>
-                            <p className="text-xl font-bold text-civic-green-dark">{fmt(fund.total_amount, fund.currency)}</p>
+                            {fund.total_amount
+                                ? <p className="text-xl font-bold text-civic-green-dark">{fmt(fund.total_amount, fund.currency)}</p>
+                                : <p className="text-sm font-medium text-muted-foreground italic mt-1">Not publicly disclosed</p>}
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Disbursed</p>
-                            <p className="text-xl font-bold text-civic-clay">{fmt(fund.amount_disbursed, fund.currency)}</p>
+                            {fund.amount_disbursed
+                                ? <p className="text-xl font-bold text-civic-clay">{fmt(fund.amount_disbursed, fund.currency)}</p>
+                                : <p className="text-sm font-medium text-muted-foreground italic mt-1">No data yet</p>}
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Remaining</p>
-                            <p className="text-xl font-bold">{fmt((fund.total_amount ?? 0) - (fund.amount_disbursed ?? 0), fund.currency)}</p>
+                            {(fund.total_amount && fund.amount_disbursed != null)
+                                ? <p className="text-xl font-bold">{fmt(fund.total_amount - (fund.amount_disbursed ?? 0), fund.currency)}</p>
+                                : <p className="text-sm font-medium text-muted-foreground italic mt-1">Not calculable</p>}
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Beneficiaries</p>
-                            <p className="text-sm font-semibold mt-1">{fund.target_beneficiaries ?? 'N/A'}</p>
+                            <p className="text-sm font-semibold mt-1">{fund.target_beneficiaries ?? 'Not specified'}</p>
                         </div>
                     </div>
                     {fund.total_amount > 0 && (
@@ -231,6 +270,13 @@ export default function FundDetailClient({ fund, allocations, disbursements, com
                             </Select>
                             <Textarea placeholder="Share your thoughts, ask a question, or raise a concern…"
                                 value={newComment} onChange={e => setNewComment(e.target.value)} className="min-h-[80px]" />
+                            <ImageUpload
+                                onUpload={setCommentImageUrl}
+                                current={commentImageUrl}
+                                folder="kiongozi/funds"
+                                label="Attach evidence photo (optional)"
+                                aspectHint="banner"
+                            />
                             <Button size="sm" className="bg-civic-green hover:bg-civic-green-dark text-white"
                                 onClick={handleComment} disabled={isPosting || !newComment.trim()}>
                                 {isPosting ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Posting…</> : 'Post Comment'}

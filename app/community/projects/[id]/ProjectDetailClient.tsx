@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import {
     ArrowLeft, MapPin, Users, Bell, BellOff, Loader2,
-    ThumbsUp, Plus, Image, Clipboard, Calendar
+    ThumbsUp, Plus, Image, Clipboard, Calendar, Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const MILESTONE_LABELS: Record<string, string> = {
     announced: 'Announced', funded: 'Funded', in_progress: 'In Progress',
@@ -39,12 +40,14 @@ function fmt(n: number | null, currency = 'KES') {
     return new Intl.NumberFormat('en-KE', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
 }
 
-export default function ProjectDetailClient({ project, updates: initialUpdates, media: initialMedia, user, isFollowing: initFollowing }: {
-    project: any; updates: any[]; media: any[]; user: any; isFollowing: boolean;
+export default function ProjectDetailClient({ project, updates: initialUpdates, media: initialMedia, user, isFollowing: initFollowing, currentUserProfile }: {
+    project: any; updates: any[]; media: any[]; user: any; isFollowing: boolean; currentUserProfile: any;
 }) {
     const [updates, setUpdates] = useState(initialUpdates);
     const [media, setMedia] = useState(initialMedia);
     const [following, setFollowing] = useState(initFollowing);
+    const [followerCount, setFollowerCount] = useState(project.follower_count ?? 0);
+    const [updateCount, setUpdateCount] = useState(project.update_count ?? 0);
     const [showUpdateForm, setShowUpdateForm] = useState(false);
     const [updateContent, setUpdateContent] = useState('');
     const [updateType, setUpdateType] = useState('progress');
@@ -57,7 +60,25 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
     const { toast } = useToast();
     const supabase = useMemo(() => createClient(), []);
 
-    const milestoneIndex = MILESTONE_STEPS.indexOf(project.milestone);
+    const isOwner = user?.id && project.created_by === user.id;
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDeleteProject = async () => {
+        if (!window.confirm('Delete this project? This cannot be undone.')) return;
+        setIsDeleting(true);
+        try {
+            const { error } = await supabase.from('public_projects').delete().eq('id', project.id);
+            if (error) throw error;
+            toast({ title: 'Project deleted', className: 'bg-destructive text-white border-none' });
+            router.push('/community/projects');
+        } catch {
+            toast({ title: 'Failed to delete project', variant: 'destructive' });
+            setIsDeleting(false);
+        }
+    };
+
+    const isStalled = project.milestone === 'stalled';
+    const milestoneIndex = isStalled ? -1 : MILESTONE_STEPS.indexOf(project.milestone);
 
     const toggleFollow = async () => {
         if (!user) { toast({ title: 'Login required', variant: 'destructive' }); return; }
@@ -67,9 +88,11 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
                 await supabase.from('project_follows').delete()
                     .eq('project_id', project.id).eq('user_id', user.id);
                 setFollowing(false);
+                setFollowerCount((c: number) => Math.max(0, c - 1));
             } else {
                 await supabase.from('project_follows').insert({ project_id: project.id, user_id: user.id });
                 setFollowing(true);
+                setFollowerCount((c: number) => c + 1);
             }
         } catch {
             toast({ title: 'Error', variant: 'destructive' });
@@ -113,10 +136,12 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
                     new_milestone: newMilestone || null,
                     submitted_by: user.id,
                 })
-                .select('*, profiles(full_name, avatar_url), project_update_upvotes(user_id)')
+                .select('*, project_update_upvotes(user_id)')
                 .single();
 
             if (updateErr) throw updateErr;
+            // Attach current user's profile since submitted_by has no FK to profiles
+            const newUpdateWithProfile = { ...newUpdate, profiles: currentUserProfile ?? null };
 
             if (newMilestone) {
                 await supabase.from('public_projects').update({ milestone: newMilestone }).eq('id', project.id);
@@ -135,7 +160,8 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
                 if (newMedia) setMedia(prev => [newMedia, ...prev]);
             }
 
-            setUpdates(prev => [newUpdate, ...prev]);
+            setUpdates(prev => [newUpdateWithProfile, ...prev]);
+            setUpdateCount((c: number) => c + 1);
             setUpdateContent('');
             setUpdateType('progress');
             setNewMilestone('');
@@ -157,11 +183,21 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
                 <Button variant="ghost" asChild>
                     <Link href="/community/projects"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Link>
                 </Button>
-                <Button variant="outline" size="sm" onClick={toggleFollow} disabled={isTogglingFollow}
-                    className={following ? 'border-civic-green text-civic-green' : 'border-border'}>
-                    {isTogglingFollow ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                        following ? <><BellOff className="mr-2 h-4 w-4" /> Unfollow</> : <><Bell className="mr-2 h-4 w-4" /> Follow</>}
-                </Button>
+                <div className="flex items-center gap-2">
+                    {isOwner && (
+                        <Button variant="outline" size="sm"
+                            className="border-destructive/40 text-destructive hover:bg-destructive/5"
+                            onClick={handleDeleteProject} disabled={isDeleting}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {isDeleting ? 'Deleting…' : 'Delete'}
+                        </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={toggleFollow} disabled={isTogglingFollow}
+                        className={following ? 'border-civic-green text-civic-green' : 'border-border'}>
+                        {isTogglingFollow ? <Loader2 className="h-4 w-4 animate-spin" /> :
+                            following ? <><BellOff className="mr-2 h-4 w-4" /> Unfollow</> : <><Bell className="mr-2 h-4 w-4" /> Follow</>}
+                    </Button>
+                </div>
             </div>
 
             {/* Project header */}
@@ -178,7 +214,7 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
 
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     {project.location_name && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {project.location_name}</span>}
-                    <span className="flex items-center gap-1"><Users className="h-4 w-4" /> {project.follower_count} following</span>
+                    <span className="flex items-center gap-1"><Users className="h-4 w-4" /> {followerCount} following</span>
                     {fmt(project.budget, project.currency) && <span>Budget: <strong>{fmt(project.budget, project.currency)}</strong></span>}
                     {project.start_date && <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Started {format(new Date(project.start_date), 'MMM yyyy')}</span>}
                     {project.expected_end_date && <span>Expected: {format(new Date(project.expected_end_date), 'MMM yyyy')}</span>}
@@ -188,31 +224,43 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
             {/* Milestone tracker */}
             <Card className="border-border/50">
                 <CardContent className="pt-4">
-                    <div className="relative">
-                        <div className="flex items-center justify-between">
-                            {MILESTONE_STEPS.map((ms, i) => {
-                                const isActive = project.milestone === ms;
-                                const isPast = milestoneIndex > i;
-                                return (
-                                    <div key={ms} className="flex flex-col items-center gap-1 flex-1">
-                                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold z-10
-                                            ${isActive ? 'bg-civic-clay border-civic-clay text-white' :
-                                              isPast ? 'bg-civic-green border-civic-green text-white' :
-                                              'bg-background border-border text-muted-foreground'}`}>
-                                            {i + 1}
+                    {isStalled ? (
+                        <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                            <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                                <span className="text-white text-xs font-bold">!</span>
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-red-700">Project Stalled</p>
+                                <p className="text-xs text-red-500">Progress has been halted. Community updates needed.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <div className="flex items-center justify-between">
+                                {MILESTONE_STEPS.map((ms, i) => {
+                                    const isActive = project.milestone === ms;
+                                    const isPast = milestoneIndex > i;
+                                    return (
+                                        <div key={ms} className="flex flex-col items-center gap-1 flex-1">
+                                            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold z-10
+                                                ${isActive ? 'bg-civic-clay border-civic-clay text-white' :
+                                                  isPast ? 'bg-civic-green border-civic-green text-white' :
+                                                  'bg-background border-border text-muted-foreground'}`}>
+                                                {i + 1}
+                                            </div>
+                                            <span className={`text-xs text-center leading-tight max-w-[60px] ${isActive ? 'font-semibold text-civic-clay' : isPast ? 'text-civic-green' : 'text-muted-foreground'}`}>
+                                                {MILESTONE_LABELS[ms]}
+                                            </span>
                                         </div>
-                                        <span className={`text-xs text-center leading-tight max-w-[60px] ${isActive ? 'font-semibold text-civic-clay' : isPast ? 'text-civic-green' : 'text-muted-foreground'}`}>
-                                            {MILESTONE_LABELS[ms]}
-                                        </span>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
+                            <div className="absolute top-4 left-4 right-4 h-0.5 bg-muted -z-10">
+                                <div className="h-full bg-civic-green transition-all duration-500"
+                                    style={{ width: `${Math.max(0, (milestoneIndex / (MILESTONE_STEPS.length - 1)) * 100)}%` }} />
+                            </div>
                         </div>
-                        <div className="absolute top-4 left-4 right-4 h-0.5 bg-muted -z-10">
-                            <div className="h-full bg-civic-green transition-all duration-500"
-                                style={{ width: `${(milestoneIndex / (MILESTONE_STEPS.length - 1)) * 100}%` }} />
-                        </div>
-                    </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -276,8 +324,14 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
                                     value={updateContent} onChange={e => setUpdateContent(e.target.value)} className="min-h-[100px]" />
 
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-medium flex items-center gap-1"><Image className="h-4 w-4" /> Photo URL (optional)</label>
-                                    <Input placeholder="https://example.com/photo.jpg" value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} />
+                                    <label className="text-sm font-medium flex items-center gap-1"><Image className="h-4 w-4" /> Photo Evidence (optional)</label>
+                                    <ImageUpload
+                                        onUpload={setMediaUrl}
+                                        current={mediaUrl}
+                                        folder="kiongozi/projects"
+                                        label="Upload a photo as evidence"
+                                        aspectHint="banner"
+                                    />
                                     {mediaUrl && <Input placeholder="Caption…" value={mediaCaption} onChange={e => setMediaCaption(e.target.value)} />}
                                 </div>
 
@@ -295,7 +349,7 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
 
             {/* Updates timeline */}
             <div>
-                <h2 className="text-xl font-semibold mb-4">Community Updates ({updates.length})</h2>
+                <h2 className="text-xl font-semibold mb-4">Community Updates ({updateCount})</h2>
                 <div className="space-y-4">
                     {updates.map(u => {
                         const hasUpvoted = u.project_update_upvotes?.some((v: any) => v.user_id === user?.id);

@@ -16,19 +16,37 @@ export default async function PetitionsPage() {
         .order('created_at', { ascending: false })
         .limit(50);
 
-    // If user is logged in, check which petitions they've signed
-    let signedPetitionIds = new Set();
-    if (user && petitions?.length) {
-        const { data: signatures } = await supabase
-            .from('social_petition_signatures')
-            .select('petition_id')
-            .eq('user_id', user.id)
-            .in('petition_id', petitions.map(p => p.id));
+    // Fetch real signature counts and user's signed petitions in parallel
+    let signedPetitionIds = new Set<string>();
+    let signatureCountMap = new Map<string, number>();
 
-        if (signatures) {
-            signatures.forEach(s => signedPetitionIds.add(s.petition_id));
-        }
+    if (petitions?.length) {
+        const petitionIds = petitions.map(p => p.id);
+
+        const [allSigsResult, userSigsResult] = await Promise.all([
+            supabase
+                .from('social_petition_signatures')
+                .select('petition_id')
+                .in('petition_id', petitionIds),
+            user
+                ? supabase
+                    .from('social_petition_signatures')
+                    .select('petition_id')
+                    .eq('user_id', user.id)
+                    .in('petition_id', petitionIds)
+                : Promise.resolve({ data: [] }),
+        ]);
+
+        allSigsResult.data?.forEach((s: any) => {
+            signatureCountMap.set(s.petition_id, (signatureCountMap.get(s.petition_id) || 0) + 1);
+        });
+        (userSigsResult as any).data?.forEach((s: any) => signedPetitionIds.add(s.petition_id));
     }
+
+    const petitionsWithCounts = (petitions || []).map(p => ({
+        ...p,
+        current_signatures: signatureCountMap.get(p.id) || 0,
+    }));
 
     return (
         <div className="space-y-8">
@@ -48,7 +66,7 @@ export default async function PetitionsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {petitions?.map((petition) => (
+                {petitionsWithCounts.map((petition) => (
                     <PetitionCard
                         key={petition.id}
                         petition={petition}
@@ -57,7 +75,7 @@ export default async function PetitionsPage() {
                     />
                 ))}
 
-                {(!petitions || petitions.length === 0) && (
+                {petitionsWithCounts.length === 0 && (
                     <div className="col-span-full text-center py-20 bg-muted/20 rounded-xl border border-dashed border-border">
                         <h3 className="text-xl font-medium text-foreground mb-2">No Active Petitions</h3>
                         <p className="text-muted-foreground mb-6">Be the first to mobilize the community for a cause.</p>

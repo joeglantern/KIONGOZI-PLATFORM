@@ -30,7 +30,7 @@ export default async function PollPage({ params }: { params: Promise<{ id: strin
             .select('id')
             .eq('poll_id', poll.id)
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
         hasSubmitted = !!submission;
 

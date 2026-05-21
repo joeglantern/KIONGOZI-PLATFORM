@@ -21,7 +21,7 @@ const SECTOR_COLORS: Record<string, string> = {
 };
 
 function formatCurrency(amount: number | null, currency = 'KES') {
-    if (!amount) return 'N/A';
+    if (!amount) return 'Not recorded';
     return new Intl.NumberFormat('en-KE', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
 }
 

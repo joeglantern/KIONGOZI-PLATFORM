@@ -68,9 +68,16 @@ export default function PolicyPollCard({ poll, hasResponded = false }: PolicyPol
                 {poll.ai_insights && (
                     <div className="mt-3 p-2.5 bg-civic-green/5 rounded-lg border border-civic-green/10">
                         <p className="text-xs text-civic-green-dark font-medium flex items-center gap-1 mb-1">
-                            <BarChart2 className="h-3 w-3" /> AI Insights Available
+                            <BarChart2 className="h-3 w-3" /> Policy Brief Available
                         </p>
-                        <p className="text-xs text-muted-foreground line-clamp-2">{poll.ai_insights.substring(0, 120)}…</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                            {poll.ai_insights
+                                .replace(/^#+\s.+\n/gm, '')  // strip markdown headings
+                                .replace(/\*+/g, '')           // strip bold/italic markers
+                                .replace(/^[-*]\s/gm, '')      // strip list bullets
+                                .trim()
+                                .substring(0, 130)}…
+                        </p>
                     </div>
                 )}
             </CardContent>

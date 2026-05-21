@@ -19,17 +19,20 @@ export default async function FundsPage() {
         .order('created_at', { ascending: false })
         .limit(50);
 
-    const totals = (funds ?? []).reduce(
+    const activeFundsCount = (funds ?? []).filter(f => f.status === 'active' || f.status === 'disbursing').length;
+    const currencies = Array.from(new Set((funds ?? []).map(f => f.currency ?? 'KES').filter(Boolean)));
+    const mixedCurrencies = currencies.length > 1;
+    const primaryCurrency = currencies[0] ?? 'KES';
+    const sameCurrencyFunds = mixedCurrencies
+        ? (funds ?? []).filter(f => (f.currency ?? 'KES') === primaryCurrency)
+        : (funds ?? []);
+    const totals = sameCurrencyFunds.reduce(
         (acc, f) => ({
             totalFunds: acc.totalFunds + (f.total_amount ?? 0),
             totalDisbursed: acc.totalDisbursed + (f.amount_disbursed ?? 0),
-            active: acc.active + (f.status === 'active' || f.status === 'disbursing' ? 1 : 0),
         }),
-        { totalFunds: 0, totalDisbursed: 0, active: 0 }
+        { totalFunds: 0, totalDisbursed: 0 }
     );
-
-    const sectors = Array.from(new Set((funds ?? []).map(f => f.sector).filter(Boolean)));
-    const activeStatuses = ['active', 'disbursing'];
 
     return (
         <div className="space-y-8">
@@ -58,20 +61,25 @@ export default async function FundsPage() {
                 <div className="grid grid-cols-3 gap-4">
                     <Card className="border-civic-earth/10 bg-civic-green/5">
                         <CardContent className="pt-4">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Tracked</p>
-                            <p className="text-2xl font-bold text-civic-green-dark mt-1">{formatCurrency(totals.totalFunds)}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Total Tracked{mixedCurrencies ? ` (${primaryCurrency})` : ''}
+                            </p>
+                            <p className="text-2xl font-bold text-civic-green-dark mt-1">{formatCurrency(totals.totalFunds, primaryCurrency)}</p>
+                            {mixedCurrencies && <p className="text-xs text-muted-foreground mt-0.5">+{currencies.length - 1} other {currencies.length - 1 === 1 ? 'currency' : 'currencies'}</p>}
                         </CardContent>
                     </Card>
                     <Card className="border-civic-earth/10 bg-civic-clay/5">
                         <CardContent className="pt-4">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Disbursed</p>
-                            <p className="text-2xl font-bold text-civic-clay mt-1">{formatCurrency(totals.totalDisbursed)}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Disbursed{mixedCurrencies ? ` (${primaryCurrency})` : ''}
+                            </p>
+                            <p className="text-2xl font-bold text-civic-clay mt-1">{formatCurrency(totals.totalDisbursed, primaryCurrency)}</p>
                         </CardContent>
                     </Card>
                     <Card className="border-civic-earth/10">
                         <CardContent className="pt-4">
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Active Programs</p>
-                            <p className="text-2xl font-bold mt-1">{totals.active}</p>
+                            <p className="text-2xl font-bold mt-1">{activeFundsCount}</p>
                         </CardContent>
                     </Card>
                 </div>

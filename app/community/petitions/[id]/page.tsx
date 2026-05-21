@@ -2,9 +2,9 @@ import { createClient } from '@/app/utils/supabase/server';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle2, Share2, Flag, FileText } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Share2, Flag, FileText, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isPast, format } from 'date-fns';
 import { notFound } from 'next/navigation';
 import PetitionCard from '@/components/social/PetitionCard'; // Reuse logic if possible, but detail view is custom
 
@@ -32,18 +32,25 @@ export default async function PetitionDetailPage({ params }: { params: Promise<{
         notFound();
     }
 
-    // Check if user has signed
+    // Fetch real signature count and check if user has signed in parallel
     let hasSigned = false;
-    if (user) {
-        const { data: signature } = await supabase
+    const [countResult, userSigResult] = await Promise.all([
+        supabase
             .from('social_petition_signatures')
-            .select('id')
-            .eq('petition_id', id)
-            .eq('user_id', user.id)
-            .maybeSingle();
+            .select('*', { count: 'exact', head: true })
+            .eq('petition_id', id),
+        user
+            ? supabase
+                .from('social_petition_signatures')
+                .select('id')
+                .eq('petition_id', id)
+                .eq('user_id', user.id)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+    ]);
 
-        if (signature) hasSigned = true;
-    }
+    petition.current_signatures = countResult.count ?? 0;
+    if ((userSigResult as any).data) hasSigned = true;
 
     const progress = Math.min((petition.current_signatures / (petition.target_signatures || 100)) * 100, 100);
 
@@ -109,6 +116,17 @@ export default async function PetitionDetailPage({ params }: { params: Promise<{
                                     : "Only " + (petition.target_signatures - petition.current_signatures) + " more to reach the next goal!"
                                 }
                             </p>
+
+                            {petition.deadline && (
+                                <div className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${isPast(new Date(petition.deadline)) ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                                    <Clock className="h-4 w-4 shrink-0" />
+                                    <span>
+                                        {isPast(new Date(petition.deadline))
+                                            ? `Deadline passed on ${format(new Date(petition.deadline), 'dd MMM yyyy')}`
+                                            : `Deadline: ${format(new Date(petition.deadline), 'dd MMM yyyy, HH:mm')}`}
+                                    </span>
+                                </div>
+                            )}
 
                             <PetitionActions
                                 petition={petition}
