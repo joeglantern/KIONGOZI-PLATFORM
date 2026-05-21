@@ -9,13 +9,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Calendar } from 'lucide-react';
+import ImageUpload from '@/components/ui/ImageUpload';
 import Link from 'next/link';
 
 export default function CreatePetitionPage() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [targetSignatures, setTargetSignatures] = useState(100);
+    const [targetSignatures, setTargetSignatures] = useState<string>('100');
+    const [deadline, setDeadline] = useState('');
+    const [imageUrl, setImageUrl] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
     const { toast } = useToast();
@@ -51,9 +54,11 @@ export default function CreatePetitionPage() {
                 .insert({
                     title,
                     description,
-                    target_signatures: targetSignatures,
+                    target_signatures: parseInt(targetSignatures) || 100,
                     created_by: user.id,
-                    status: 'active'
+                    status: 'active',
+                    ...(deadline ? { deadline } : {}),
+                    ...(imageUrl ? { image_url: imageUrl } : {}),
                 })
                 .select()
                 .single();
@@ -66,7 +71,7 @@ export default function CreatePetitionPage() {
                 className: "bg-civic-green text-white border-none"
             });
 
-            router.push(`/community/petitions/${data.id}`);
+            router.push('/community/petitions');
         } catch (error: any) {
             console.error('Error creating petition:', error);
             toast({
@@ -97,6 +102,17 @@ export default function CreatePetitionPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <Label>Cover Image <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                            <ImageUpload
+                                onUpload={setImageUrl}
+                                current={imageUrl}
+                                folder="kiongozi/petitions"
+                                label="Upload a cover image for your petition"
+                                aspectHint="banner"
+                            />
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="title">Petition Title</Label>
                             <Input
@@ -129,10 +145,23 @@ export default function CreatePetitionPage() {
                                 min="10"
                                 max="1000000"
                                 value={targetSignatures}
-                                onChange={(e) => setTargetSignatures(parseInt(e.target.value))}
+                                onChange={(e) => setTargetSignatures(e.target.value)}
                                 required
                             />
                             <p className="text-xs text-muted-foreground">Start with a realistic goal. You can increase it later!</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="deadline" className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" /> Petition Deadline <span className="text-muted-foreground text-xs">(optional)</span>
+                            </Label>
+                            <Input
+                                id="deadline"
+                                type="datetime-local"
+                                value={deadline}
+                                onChange={(e) => setDeadline(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">Set a date by which you want to reach your goal.</p>
                         </div>
 
                         <Button

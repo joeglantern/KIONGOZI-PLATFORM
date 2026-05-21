@@ -9,7 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Check, CheckCircle2, ClipboardCopy, Download, Loader2, Printer, RefreshCw, Sparkles, Users } from 'lucide-react';
+import {
+    ArrowLeft, Check, CheckCircle2, ClipboardCopy, Download, Loader2, Printer, RefreshCw,
+    Sparkles, Trash2, Users, FileText, BarChart2, Compass, Zap, Target, ShieldAlert, Megaphone, FlaskConical,
+} from 'lucide-react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -27,6 +30,23 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
     const [answers, setAnswers] = useState<Record<string, any>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const isOwner = user?.id && poll.created_by === user.id;
+
+    const handleDelete = async () => {
+        if (!window.confirm('Delete this poll? This cannot be undone.')) return;
+        setIsDeleting(true);
+        try {
+            const { error } = await supabase.from('policy_polls').delete().eq('id', poll.id);
+            if (error) throw error;
+            toast({ title: 'Poll deleted', className: 'bg-destructive text-white border-none' });
+            router.push('/community/policy-pulse');
+        } catch {
+            toast({ title: 'Failed to delete poll', variant: 'destructive' });
+            setIsDeleting(false);
+        }
+    };
     const [insightsText, setInsightsText] = useState(poll.ai_insights ?? '');
     const [submitted, setSubmitted] = useState(hasSubmitted);
     const [liveQuestions, setLiveQuestions] = useState(questions);
@@ -139,12 +159,20 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
 
     return (
         <div className="max-w-3xl mx-auto space-y-8 py-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between gap-4">
                 <Button variant="ghost" asChild>
                     <Link href="/community/policy-pulse">
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back
                     </Link>
                 </Button>
+                {isOwner && (
+                    <Button variant="outline" size="sm"
+                        className="border-destructive/40 text-destructive hover:bg-destructive/5"
+                        onClick={handleDelete} disabled={isDeleting}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {isDeleting ? 'Deleting…' : 'Delete Poll'}
+                    </Button>
+                )}
             </div>
 
             {/* Poll Header */}
@@ -314,6 +342,30 @@ function ResultsView({ question }: { question: any }) {
     );
 }
 
+const SECTION_ICONS: Record<string, React.ElementType> = {
+    'executive summary':      FileText,
+    'key findings':           BarChart2,
+    'youth sentiment profile': Compass,
+    'surprising signals':     Zap,
+    'policy recommendations': Target,
+    'risks and watchpoints':  ShieldAlert,
+    'youth voice':            Megaphone,
+    'research gaps':          FlaskConical,
+};
+
+function InsightSectionHeading({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { children?: React.ReactNode }) {
+    const text = (typeof children === 'string' ? children : String(children ?? '')).toLowerCase().trim();
+    const Icon = SECTION_ICONS[text] ?? BarChart2;
+    return (
+        <h2 className="flex items-center gap-2 text-base font-bold text-civic-green-dark border-b border-civic-green/10 pb-1 mt-6 mb-3 not-prose" {...props}>
+            <span className="flex items-center justify-center w-6 h-6 rounded-md bg-civic-green/10 shrink-0">
+                <Icon className="w-3.5 h-3.5 text-civic-green-dark" />
+            </span>
+            {children}
+        </h2>
+    );
+}
+
 function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate }: {
     poll: any;
     insightsText: string;
@@ -425,13 +477,20 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate }: {
                     <>
                         {/* Rendered markdown */}
                         <div className="px-6 py-5 prose prose-sm prose-slate max-w-none
-                            prose-headings:text-civic-green-dark prose-headings:font-semibold
-                            prose-h3:text-base prose-h3:mt-5 prose-h3:mb-2
-                            prose-h4:text-sm prose-h4:mt-4 prose-h4:mb-1
+                            prose-headings:font-bold
+                            prose-h3:text-sm prose-h3:mt-4 prose-h3:mb-1.5 prose-h3:text-foreground
+                            prose-h4:text-sm prose-h4:mt-3 prose-h4:mb-1 prose-h4:text-civic-clay
                             prose-strong:text-foreground prose-strong:font-semibold
+                            prose-em:text-muted-foreground prose-em:not-italic prose-em:text-xs
                             prose-ul:my-2 prose-li:my-0.5 prose-li:text-foreground/80
-                            prose-p:text-foreground/80 prose-p:leading-relaxed">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            prose-blockquote:border-l-4 prose-blockquote:border-civic-green/40 prose-blockquote:bg-civic-green/[0.03] prose-blockquote:rounded-r prose-blockquote:py-1 prose-blockquote:text-foreground/70
+                            prose-p:text-foreground/80 prose-p:leading-relaxed prose-p:my-2
+                            prose-hr:border-border/40 prose-hr:my-4
+                            prose-code:text-xs prose-code:bg-muted prose-code:px-1 prose-code:rounded">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{ h2: InsightSectionHeading }}
+                            >
                                 {insightsText}
                             </ReactMarkdown>
                         </div>
@@ -441,7 +500,7 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate }: {
                         {/* Footer: regenerate + meta */}
                         <div className="px-6 py-3 flex items-center justify-between bg-muted/30">
                             <p className="text-xs text-muted-foreground">
-                                Generated by Kiongozi AI · {poll.response_count} {poll.response_count === 1 ? 'response' : 'responses'}
+                                Kiongozi AI Policy Analyst · {poll.response_count} {poll.response_count === 1 ? 'respondent' : 'respondents'}
                             </p>
                             {poll.response_count >= 3 && (
                                 <Button variant="ghost" size="sm"
@@ -459,7 +518,7 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate }: {
                         <Sparkles className="h-8 w-8 text-civic-green/30 mx-auto" />
                         <p className="text-sm text-muted-foreground">
                             {poll.response_count >= 3
-                                ? 'Run AI analysis to generate a policy insights report from these responses.'
+                                ? 'Run AI analysis to generate a full policy brief from these responses.'
                                 : `Needs at least 3 responses to generate insights. Currently ${poll.response_count}.`}
                         </p>
                         {poll.response_count >= 3 && (
@@ -467,7 +526,7 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate }: {
                                 onClick={onGenerate} disabled={isGenerating}>
                                 {isGenerating
                                     ? <><Loader2 className="h-4 w-4 animate-spin" /> Analysing responses…</>
-                                    : <><Sparkles className="h-4 w-4" /> Generate Policy Insights</>}
+                                    : <><Sparkles className="h-4 w-4" /> Generate Policy Brief</>}
                             </Button>
                         )}
                     </div>

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Share2, Copy, FileSignature } from 'lucide-react';
+import { CheckCircle2, Share2, FileSignature, Trash2 } from 'lucide-react';
 import { createClient } from '@/app/utils/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AnimatedToast, ToastAction } from '@/components/gamification/AnimatedToast';
@@ -16,9 +17,27 @@ interface PetitionActionsProps {
 export default function PetitionActions({ petition, currentUser, hasSignedProp }: PetitionActionsProps) {
     const [hasSigned, setHasSigned] = useState(hasSignedProp);
     const [isSigning, setIsSigning] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [actionToast, setActionToast] = useState<ToastAction | null>(null);
     const { toast } = useToast();
+    const router = useRouter();
     const supabase = useMemo(() => createClient(), []);
+
+    const isOwner = currentUser?.id && petition.created_by === currentUser.id;
+
+    const handleDelete = async () => {
+        if (!window.confirm('Delete this petition? This cannot be undone.')) return;
+        setIsDeleting(true);
+        try {
+            const { error } = await supabase.from('social_petitions').delete().eq('id', petition.id);
+            if (error) throw error;
+            toast({ title: 'Petition deleted', className: 'bg-destructive text-white border-none' });
+            router.push('/community/petitions');
+        } catch {
+            toast({ title: 'Failed to delete petition', variant: 'destructive' });
+            setIsDeleting(false);
+        }
+    };
 
     const handleSign = async () => {
         if (!currentUser) {
@@ -118,6 +137,18 @@ export default function PetitionActions({ petition, currentUser, hasSignedProp }
                 <Share2 className="mr-2 h-4 w-4" />
                 Share Petition
             </Button>
+
+            {isOwner && (
+                <Button
+                    variant="outline"
+                    className="w-full border-destructive/40 text-destructive hover:bg-destructive/5"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {isDeleting ? 'Deleting…' : 'Delete Petition'}
+                </Button>
+            )}
 
             <AnimatedToast action={actionToast} onClose={() => setActionToast(null)} />
         </div>

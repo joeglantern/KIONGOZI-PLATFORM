@@ -5,9 +5,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Users, FileText, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Users, FileText, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isPast, format } from 'date-fns';
 import { createClient } from '@/app/utils/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -103,6 +103,14 @@ export default function PetitionCard({ petition, currentUser, hasSignedProp = fa
                     <FileText className="h-3 w-3" />
                     <span>Started {formatDistanceToNow(new Date(petition.created_at), { addSuffix: true })}</span>
                 </div>
+                {petition.deadline && (
+                    <div className={`flex items-center gap-1 text-xs mt-1 ${isPast(new Date(petition.deadline)) ? 'text-destructive' : 'text-amber-600'}`}>
+                        <Clock className="h-3 w-3" />
+                        {isPast(new Date(petition.deadline))
+                            ? `Deadline passed ${formatDistanceToNow(new Date(petition.deadline), { addSuffix: true })}`
+                            : `Deadline: ${format(new Date(petition.deadline), 'dd MMM yyyy')}`}
+                    </div>
+                )}
             </CardHeader>
 
             <CardContent className="flex-1 pb-4">

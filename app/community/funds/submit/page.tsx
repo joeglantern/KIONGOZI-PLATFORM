@@ -55,7 +55,7 @@ export default function SubmitFundPage() {
             if (error) throw error;
 
             toast({ title: 'Fund submitted!', description: 'Thank you for contributing to transparency.', className: 'bg-civic-green text-white border-none' });
-            router.push(`/community/funds/${fund.id}`);
+            router.push('/community/funds');
         } catch (err: any) {
             console.error(err);
             toast({ title: 'Error', description: 'Failed to submit fund.', variant: 'destructive' });

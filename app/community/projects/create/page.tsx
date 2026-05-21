@@ -53,7 +53,7 @@ export default function CreateProjectPage() {
             if (error) throw error;
 
             toast({ title: 'Project added!', description: 'Start submitting updates to track its progress.', className: 'bg-civic-green text-white border-none' });
-            router.push(`/community/projects/${project.id}`);
+            router.push('/community/projects');
         } catch (err: any) {
             console.error(err);
             toast({ title: 'Error', description: 'Failed to add project.', variant: 'destructive' });

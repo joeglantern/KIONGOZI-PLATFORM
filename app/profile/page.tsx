@@ -19,6 +19,7 @@ import {
     Star,
     Award
 } from 'lucide-react';
+import ImageUpload from '@/components/ui/ImageUpload';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -47,6 +48,7 @@ export default function ProfilePage() {
         fetchBadges();
     }, [user, supabase]);
 
+    const [avatarUrl, setAvatarUrl] = useState<string>('');
     const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
@@ -62,6 +64,7 @@ export default function ProfilePage() {
                 username: profile.username || '',
                 bio: profile.bio || ''
             });
+            setAvatarUrl(profile.avatar_url || '');
         }
     }, [profile]);
 
@@ -82,6 +85,7 @@ export default function ProfilePage() {
                     full_name: `${formData.first_name.trim()} ${formData.last_name.trim()}`,
                     username: formData.username.trim() ? formData.username.trim().toLowerCase() : null,
                     bio: formData.bio.trim() || null,
+                    ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', user.id);
@@ -126,18 +130,30 @@ export default function ProfilePage() {
                             <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 rounded-full blur-3xl -mr-32 -mt-32 transition-colors group-hover:bg-orange-500/10" />
 
                             <div className="relative z-10 flex flex-col md:flex-row md:items-center space-y-6 md:space-y-0 md:space-x-8">
-                                <div className="relative">
-                                    <div className="w-32 h-32 bg-orange-100 rounded-[2rem] flex items-center justify-center text-4xl font-black text-orange-600 border-4 border-white shadow-xl ring-2 ring-orange-50">
-                                        {profile?.first_name?.[0] || 'L'}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        disabled
-                                        title="Avatar uploads are not available yet."
-                                        className="absolute -bottom-2 -right-2 p-2.5 bg-white rounded-2xl shadow-lg border border-gray-100 text-gray-300 cursor-not-allowed"
-                                    >
+                                <div className="relative group/avatar">
+                                    {avatarUrl ? (
+                                        <img src={avatarUrl} alt="Avatar"
+                                            className="w-32 h-32 rounded-[2rem] object-cover border-4 border-white shadow-xl ring-2 ring-orange-50" />
+                                    ) : (
+                                        <div className="w-32 h-32 bg-orange-100 rounded-[2rem] flex items-center justify-center text-4xl font-black text-orange-600 border-4 border-white shadow-xl ring-2 ring-orange-50">
+                                            {profile?.first_name?.[0] || 'L'}
+                                        </div>
+                                    )}
+                                    <label className="absolute -bottom-2 -right-2 p-2.5 bg-white rounded-2xl shadow-lg border border-gray-100 text-gray-500 hover:text-orange-600 cursor-pointer transition-colors">
                                         <Camera className="w-5 h-5" />
-                                    </button>
+                                        <input type="file" accept="image/*" className="hidden"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+                                                const fd = new FormData();
+                                                fd.append('file', file);
+                                                fd.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+                                                fd.append('folder', 'kiongozi/avatars');
+                                                const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: fd });
+                                                const data = await res.json();
+                                                if (data.secure_url) setAvatarUrl(data.secure_url);
+                                            }} />
+                                    </label>
                                 </div>
 
                                 <div className="flex-1">

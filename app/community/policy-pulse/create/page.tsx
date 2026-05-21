@@ -124,7 +124,7 @@ export default function CreatePollPage() {
                 description: 'Your poll is now live.',
                 className: 'bg-civic-green text-white border-none',
             });
-            router.push(`/community/policy-pulse/${poll.id}`);
+            router.push('/community/policy-pulse');
         } catch (err: any) {
             console.error(err);
             toast({ title: 'Error', description: 'Failed to create poll.', variant: 'destructive' });
