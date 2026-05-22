@@ -178,7 +178,7 @@ export default async function CommunityLayout({
                         {/* Civic Tools */}
                         <Card className="border-0 shadow-sm bg-white">
                             <CardHeader className="pb-2 pt-5 px-5">
-                                <CardTitle className="text-sm font-bold text-foreground">Civic Tools</CardTitle>
+                                <CardTitle className="text-sm font-bold text-foreground">Social Accountability Tools</CardTitle>
                             </CardHeader>
                             <CardContent className="px-3 pb-3 space-y-1">
                                 {[
