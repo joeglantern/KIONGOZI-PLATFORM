@@ -658,15 +658,21 @@ export default function EditCourseClient({
 
             if (revision.entity_type === 'course') {
                 const snapshot = revision.snapshot as Record<string, any>;
+                const updatePayload: Record<string, any> = {
+                    description: snapshot.description || null,
+                    difficulty_level: snapshot.difficulty_level,
+                    category_id: snapshot.category_id || null,
+                    estimated_duration_hours: snapshot.estimated_duration_hours,
+                    thumbnail_url: snapshot.thumbnail_url || null,
+                };
+                // Only restore course-level media when the snapshot recorded it
+                // (older snapshots predate these fields — don't null them out).
+                if ('slides_url' in snapshot)  updatePayload.slides_url  = snapshot.slides_url  || null;
+                if ('slides_type' in snapshot) updatePayload.slides_type = snapshot.slides_type || null;
+                if ('video_url' in snapshot)   updatePayload.video_url   = snapshot.video_url   || null;
                 const { error } = await supabase
                     .from('courses')
-                    .update({
-                        description: snapshot.description || null,
-                        difficulty_level: snapshot.difficulty_level,
-                        category_id: snapshot.category_id || null,
-                        estimated_duration_hours: snapshot.estimated_duration_hours,
-                        thumbnail_url: snapshot.thumbnail_url || null,
-                    })
+                    .update(updatePayload)
                     .eq('id', courseId);
 
                 if (error) throw error;
