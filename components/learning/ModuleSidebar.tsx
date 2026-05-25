@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Circle, BookOpen, Play, ArrowLeft, X } from 'lucide-react';
+import { CheckCircle, Circle, BookOpen, Play, ArrowLeft, X, FileText } from 'lucide-react';
 import Link from 'next/link';
 
 interface Module {
@@ -20,9 +20,22 @@ interface ModuleSidebarProps {
     currentModuleId: string;
     courseId: string;
     courseTitle: string;
+    slidesUrl?: string | null;
+    videoUrl?: string | null;
+    deliveryMode: 'text' | 'slides' | 'video';
+    onDeliveryModeChange?: (mode: 'text' | 'slides' | 'video') => void;
 }
 
-export function ModuleSidebar({ modules, currentModuleId, courseId, courseTitle }: ModuleSidebarProps) {
+export function ModuleSidebar({
+    modules,
+    currentModuleId,
+    courseId,
+    courseTitle,
+    slidesUrl,
+    videoUrl,
+    deliveryMode,
+    onDeliveryModeChange,
+}: ModuleSidebarProps) {
     const sortedModules = [...modules].sort((a, b) => a.order_index - b.order_index);
     const completedCount = sortedModules.filter((m) => m.learning_modules.user_progress?.[0]?.status === 'completed').length;
     const totalCount = sortedModules.length;
@@ -61,6 +74,67 @@ export function ModuleSidebar({ modules, currentModuleId, courseId, courseTitle 
                         {completedCount}/{totalCount} Lessons
                     </p>
                 </div>
+
+                {/* Format Selector / Learning Path (if slides or video are available) */}
+                {(slidesUrl || videoUrl) && (
+                    <div className="mt-5 pt-4 border-t border-gray-100/50">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                            Delivery Format
+                        </p>
+                        <div className="grid grid-cols-3 gap-1 bg-gray-55 p-1 rounded-xl border border-gray-100/80">
+                            <button
+                                onClick={() => onDeliveryModeChange?.('text')}
+                                className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                                    deliveryMode === 'text'
+                                        ? 'bg-white text-orange-650 shadow-sm border border-gray-100 font-black'
+                                        : 'text-gray-400 hover:text-gray-600 border border-transparent font-medium'
+                                }`}
+                                title="Read Text Lesson"
+                            >
+                                <BookOpen className="w-4 h-4 mb-0.5" />
+                                <span className="text-[9px] uppercase tracking-wider">Text</span>
+                            </button>
+                            {slidesUrl ? (
+                                <button
+                                    onClick={() => onDeliveryModeChange?.('slides')}
+                                    className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                                        deliveryMode === 'slides'
+                                            ? 'bg-white text-orange-650 shadow-sm border border-gray-100 font-black'
+                                            : 'text-gray-400 hover:text-gray-650 border border-transparent font-medium'
+                                    }`}
+                                    title="View Slide Deck"
+                                >
+                                    <FileText className="w-4 h-4 mb-0.5" />
+                                    <span className="text-[9px] uppercase tracking-wider">Slides</span>
+                                </button>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-2 px-1 rounded-lg opacity-30 cursor-not-allowed">
+                                    <FileText className="w-4 h-4 mb-0.5 text-gray-300" />
+                                    <span className="text-[9px] font-medium uppercase tracking-wider text-gray-300">Slides</span>
+                                </div>
+                            )}
+                            {videoUrl ? (
+                                <button
+                                    onClick={() => onDeliveryModeChange?.('video')}
+                                    className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                                        deliveryMode === 'video'
+                                            ? 'bg-white text-orange-650 shadow-sm border border-gray-100 font-black'
+                                            : 'text-gray-450 hover:text-gray-600 border border-transparent font-medium'
+                                    }`}
+                                    title="Watch Video Course"
+                                >
+                                    <Play className="w-4 h-4 mb-0.5" />
+                                    <span className="text-[9px] uppercase tracking-wider">Video</span>
+                                </button>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-2 px-1 rounded-lg opacity-30 cursor-not-allowed">
+                                    <Play className="w-4 h-4 mb-0.5 text-gray-300" />
+                                    <span className="text-[9px] font-medium uppercase tracking-wider text-gray-300">Video</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Module List */}

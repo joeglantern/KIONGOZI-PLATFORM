@@ -19,7 +19,7 @@ export default async function ModuleViewerPage({
     // Profile + course + membership check — all in parallel
     const [{ data: profile }, { data: course }, { data: courseModule }] = await Promise.all([
         supabase.from('profiles').select('role').eq('id', user.id).maybeSingle(),
-        supabase.from('courses').select('id, title, author_id').eq('id', courseId).maybeSingle(),
+        supabase.from('courses').select('id, title, author_id, slides_url, slides_type, video_url').eq('id', courseId).maybeSingle(),
         supabase
             .from('course_modules')
             .select('id')

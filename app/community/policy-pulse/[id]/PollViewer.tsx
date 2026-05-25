@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,20 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
     const [isDeleting, setIsDeleting] = useState(false);
 
     const isOwner = user?.id && poll.created_by === user.id;
+    const isAnonymous = !user;
+
+    // Stable anonymous identifier persisted in localStorage so each browser
+    // session has a unique vote token (no PII, no auth).
+    const anonSessionId = useMemo(() => {
+        if (typeof window === 'undefined') return null;
+        const KEY = 'kiongozi.anon_session_id';
+        let id = window.localStorage.getItem(KEY);
+        if (!id) {
+            id = (crypto?.randomUUID?.() ?? (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+            window.localStorage.setItem(KEY, id);
+        }
+        return id;
+    }, []);
 
     const handleDelete = async () => {
         if (!window.confirm('Delete this poll? This cannot be undone.')) return;
@@ -54,7 +68,15 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
     const { toast } = useToast();
     const supabase = useMemo(() => createClient(), []);
 
-    const showResults = submitted || isClosed;
+    // Show results once the user has submitted, the poll is closed, or this
+    // browser has already voted anonymously (tracked in localStorage).
+    const ANON_VOTED_KEY = `kiongozi.poll_voted.${poll.id}`;
+    const [anonVoted, setAnonVoted] = useState(false);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (window.localStorage.getItem(ANON_VOTED_KEY) === '1') setAnonVoted(true);
+    }, [ANON_VOTED_KEY]);
+    const showResults = submitted || isClosed || (isAnonymous && anonVoted);
 
     const setAnswer = (questionId: string, value: any) => {
         setAnswers(prev => ({ ...prev, [questionId]: value }));
@@ -73,16 +95,16 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
     };
 
     const handleSubmit = async () => {
-        if (!user) {
-            toast({ title: 'Login required', description: 'Sign in to submit your responses.', variant: 'destructive' });
-            return;
-        }
-
         const unanswered = liveQuestions.filter(q => q.required && !answers[q.id]);
         if (unanswered.length > 0) {
             toast({ title: 'Incomplete', description: 'Please answer all required questions.', variant: 'destructive' });
             return;
         }
+
+        // Authenticated users carry their user_id; anonymous users carry anon_session_id only.
+        const identityFields = user
+            ? { user_id: user.id as string, anon_session_id: null as string | null }
+            : { user_id: null as string | null, anon_session_id: anonSessionId };
 
         setIsSubmitting(true);
         try {
@@ -93,19 +115,19 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
                 if (ans === undefined || ans === null || ans === '') return [];
 
                 if (q.question_type === 'single_choice') {
-                    return [{ poll_id: poll.id, question_id: q.id, option_id: ans, user_id: user.id }];
+                    return [{ poll_id: poll.id, question_id: q.id, option_id: ans, ...identityFields }];
                 }
                 if (q.question_type === 'multiple_choice') {
                     const selected = ans as string[];
                     if (!selected.length) return [];
                     return selected.map((optId: string) => ({
-                        poll_id: poll.id, question_id: q.id, option_id: optId, user_id: user.id,
+                        poll_id: poll.id, question_id: q.id, option_id: optId, ...identityFields,
                     }));
                 }
                 if (q.question_type === 'scale') {
-                    return [{ poll_id: poll.id, question_id: q.id, scale_value: ans, user_id: user.id }];
+                    return [{ poll_id: poll.id, question_id: q.id, scale_value: ans, ...identityFields }];
                 }
-                return [{ poll_id: poll.id, question_id: q.id, text_response: ans, user_id: user.id }];
+                return [{ poll_id: poll.id, question_id: q.id, text_response: ans, ...identityFields }];
             });
 
             if (responseRows.length > 0) {
@@ -116,7 +138,7 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
                 }
             }
 
-            const { error: subErr } = await supabase.from('poll_submissions').insert({ poll_id: poll.id, user_id: user.id });
+            const { error: subErr } = await supabase.from('poll_submissions').insert({ poll_id: poll.id, ...identityFields });
             if (subErr && subErr.code !== '23505') {
                 console.error('poll_submissions insert error:', subErr.message, subErr.code, subErr.details, subErr.hint);
                 throw new Error(subErr.message);
@@ -129,6 +151,9 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
                 .eq('poll_id', poll.id)
                 .order('question_order');
             if (freshQuestions) setLiveQuestions(freshQuestions);
+
+            // Remember this browser's submission so we don't show the form again on refresh
+            if (typeof window !== 'undefined') window.localStorage.setItem(ANON_VOTED_KEY, '1');
 
             setSubmitted(true);
             toast({ title: 'Response submitted!', className: 'bg-civic-green text-white border-none' });
@@ -198,6 +223,17 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
                 </div>
             )}
 
+            {/* Anonymous voting notice on open polls */}
+            {isAnonymous && !isClosed && !anonVoted && (
+                <div className="flex items-start gap-3 p-4 bg-civic-green/5 rounded-xl border border-civic-green/20 text-civic-green-dark">
+                    <Megaphone className="h-5 w-5 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                        <p className="font-semibold text-foreground">Vote anonymously</p>
+                        <p className="text-muted-foreground">No account needed — your responses are tied to a private browser token, not to you personally.</p>
+                    </div>
+                </div>
+            )}
+
             {/* Questions */}
             <div className="space-y-6">
                 {liveQuestions.map((q, qi) => (
@@ -229,13 +265,15 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
                 </Button>
             )}
 
-            {/* AI Insights panel */}
-            {showResults && (
+            {/* AI Insights panel —
+                show whenever results are visible OR when we already have insights to display */}
+            {(showResults || insightsText) && (
                 <PolicyInsightsPanel
                     poll={poll}
                     insightsText={insightsText}
                     isGenerating={isGeneratingInsights}
                     onGenerate={generateInsights}
+                    canGenerate={!!user}
                 />
             )}
         </div>
@@ -366,11 +404,12 @@ function InsightSectionHeading({ children, ...props }: React.HTMLAttributes<HTML
     );
 }
 
-function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate }: {
+function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, canGenerate = true }: {
     poll: any;
     insightsText: string;
     isGenerating: boolean;
     onGenerate: () => void;
+    canGenerate?: boolean;
 }) {
     const { toast } = useToast();
     const [copied, setCopied] = useState(false);
@@ -502,7 +541,7 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate }: {
                             <p className="text-xs text-muted-foreground">
                                 Kiongozi AI Policy Analyst · {poll.response_count} {poll.response_count === 1 ? 'respondent' : 'respondents'}
                             </p>
-                            {poll.response_count >= 3 && (
+                            {poll.response_count >= 3 && canGenerate && (
                                 <Button variant="ghost" size="sm"
                                     className="text-civic-green-dark hover:bg-civic-green/10 h-7 gap-1.5 text-xs"
                                     onClick={onGenerate} disabled={isGenerating}>
@@ -518,15 +557,22 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate }: {
                         <Sparkles className="h-8 w-8 text-civic-green/30 mx-auto" />
                         <p className="text-sm text-muted-foreground">
                             {poll.response_count >= 3
-                                ? 'Run AI analysis to generate a full policy brief from these responses.'
+                                ? canGenerate
+                                    ? 'Run AI analysis to generate a full policy brief from these responses.'
+                                    : 'No AI brief yet. Sign in to run the analysis.'
                                 : `Needs at least 3 responses to generate insights. Currently ${poll.response_count}.`}
                         </p>
-                        {poll.response_count >= 3 && (
+                        {poll.response_count >= 3 && canGenerate && (
                             <Button className="bg-civic-green hover:bg-civic-green-dark text-white gap-2"
                                 onClick={onGenerate} disabled={isGenerating}>
                                 {isGenerating
                                     ? <><Loader2 className="h-4 w-4 animate-spin" /> Analysing responses…</>
                                     : <><Sparkles className="h-4 w-4" /> Generate Policy Brief</>}
+                            </Button>
+                        )}
+                        {poll.response_count >= 3 && !canGenerate && (
+                            <Button asChild size="sm" variant="outline" className="border-civic-green/40 text-civic-green-dark">
+                                <Link href={`/login?redirect=/community/policy-pulse/${poll.id}`}>Sign in to generate</Link>
                             </Button>
                         )}
                     </div>

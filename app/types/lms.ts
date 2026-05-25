@@ -50,6 +50,11 @@ export interface Course {
   view_count: number;
   module_count?: number;
   current_enrollments?: number;
+  // Course-level multi-mode delivery (Text via modules, Slides via deck, Video via walkthrough)
+  slides_url?: string;
+  slides_type?: 'pdf' | 'pptx';
+  video_url?: string;
+  thumbnail_url?: string;
   created_at: string;
   updated_at: string;
 }

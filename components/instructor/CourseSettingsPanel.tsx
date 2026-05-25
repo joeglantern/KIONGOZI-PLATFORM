@@ -8,6 +8,7 @@ import { useTheme } from '@/app/contexts/ThemeContext';
 import { useToast } from '@/components/ui/use-toast';
 import { logCourseRevision } from '@/lib/course-authoring';
 import { Loader2, UploadCloud, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import CourseMediaPanel from './CourseMediaPanel';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -17,6 +18,9 @@ export interface CourseForm {
     category_id: string;
     estimated_duration_hours: number;
     thumbnail_url: string;
+    slides_url: string;
+    slides_type: 'pdf' | 'pptx' | '';
+    video_url: string;
 }
 
 interface Props {
@@ -48,6 +52,9 @@ export default function CourseSettingsPanel({
         category_id: initialData?.category_id || '',
         estimated_duration_hours: initialData?.estimated_duration_hours || 1,
         thumbnail_url: initialData?.thumbnail_url || '',
+        slides_url: initialData?.slides_url || '',
+        slides_type: (initialData?.slides_type as 'pdf' | 'pptx' | '') || '',
+        video_url: initialData?.video_url || '',
     });
 
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,18 +66,21 @@ export default function CourseSettingsPanel({
         Promise.all([
             supabase
                 .from('courses')
-                .select('description, difficulty_level, category_id, estimated_duration_hours, thumbnail_url')
+                .select('description, difficulty_level, category_id, estimated_duration_hours, thumbnail_url, slides_url, slides_type, video_url')
                 .eq('id', courseId)
                 .single(),
             supabase.from('module_categories').select('id, name').order('name'),
         ]).then(([{ data: course }, { data: cats }]: [any, any]) => {
             if (course) {
-                const nextForm = {
+                const nextForm: CourseForm = {
                     description: course.description || '',
                     difficulty_level: course.difficulty_level || 'beginner',
                     category_id: course.category_id || '',
                     estimated_duration_hours: course.estimated_duration_hours || 1,
                     thumbnail_url: course.thumbnail_url || '',
+                    slides_url: course.slides_url || '',
+                    slides_type: (course.slides_type as 'pdf' | 'pptx' | '') || '',
+                    video_url: course.video_url || '',
                 };
 
                 setForm(nextForm);
@@ -94,6 +104,9 @@ export default function CourseSettingsPanel({
                     category_id: next.category_id || null,
                     estimated_duration_hours: next.estimated_duration_hours,
                     thumbnail_url: next.thumbnail_url || null,
+                    slides_url: next.slides_url || null,
+                    slides_type: next.slides_type || null,
+                    video_url: next.video_url || null,
                 })
                 .eq('id', courseId);
 
@@ -224,6 +237,16 @@ export default function CourseSettingsPanel({
                             className="hidden"
                         />
                     </div>
+
+                    <CourseMediaPanel
+                        courseId={courseId}
+                        supabase={supabase}
+                        slidesUrl={form.slides_url}
+                        slidesType={form.slides_type}
+                        videoUrl={form.video_url}
+                        onSlidesChange={(url, type) => update({ slides_url: url, slides_type: type })}
+                        onVideoChange={(url) => update({ video_url: url })}
+                    />
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
