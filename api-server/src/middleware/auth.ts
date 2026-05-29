@@ -35,8 +35,8 @@ async function verifySupabaseToken(token: string): Promise<AuthUser | null> {
       const email = (payload as any).email || (payload as any)?.user_metadata?.email;
       const role = (payload as any).role || (payload as any)?.app_metadata?.role;
       if (sub) return { id: sub, email, role };
-    } catch {
-      // fallthrough to SDK verification
+    } catch (err) {
+      console.error('[AUTH] JWKS verification failed:', err);
     }
   }
 
@@ -50,11 +50,13 @@ async function verifySupabaseToken(token: string): Promise<AuthUser | null> {
         const role = (u.app_metadata as any)?.role;
         return { id: u.id, email, role };
       }
-    } catch {
-      // ignore
+      console.error('[AUTH] SDK getUser failed:', error);
+    } catch (err) {
+      console.error('[AUTH] SDK getUser threw:', err);
     }
   }
 
+  console.error('[AUTH] Token rejected. First 20 chars:', token?.substring(0, 20));
   return null;
 }
 
