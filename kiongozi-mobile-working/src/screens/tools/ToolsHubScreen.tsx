@@ -1,112 +1,162 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, StatusBar,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { C, F, shadow } from './theme';
 
 const TOOLS = [
   {
     route: 'YouthVoice',
-    icon: 'mic' as const,
-    iconBg: '#ebf8ff',
-    iconColor: '#2b6cb0',
-    label: 'Youth Voice',
-    description: 'Submit civic challenges and opinions — our AI categorises and analyses your input.',
-    tag: 'AI-Powered',
+    num: '01',
+    accent: C.ochre,
+    accentSoft: C.ochreSoft,
+    name: 'Youth Voice',
+    desc: 'Share what civic life is really like where you are. We group it into themes leaders can act on.',
   },
   {
     route: 'FundTracker',
-    icon: 'stats-chart' as const,
-    iconBg: '#f0fff4',
-    iconColor: '#276749',
-    label: 'Fund Tracker',
-    description: 'Track welfare fund allocations, disbursements, and accountability scores.',
-    tag: 'Transparency',
+    num: '02',
+    accent: C.olive,
+    accentSoft: C.oliveSoft,
+    name: 'Fund Tracker',
+    desc: 'Follow welfare funds from allocation to the ground, with an accountability score for each.',
   },
   {
     route: 'AdvocacyLab',
-    icon: 'document-text' as const,
-    iconBg: '#fff5f5',
-    iconColor: '#c53030',
-    label: 'Advocacy Lab',
-    description: 'View aggregated insights and generate a policy brief from real youth data.',
-    tag: 'Policy',
+    num: '03',
+    accent: C.clay,
+    accentSoft: C.claySoft,
+    name: 'Advocacy Lab',
+    desc: 'See the patterns across every voice and fund, then draft a policy brief in one tap.',
   },
 ];
 
+function useCountUp(target: number, duration = 1100) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let start: number | null = null;
+    let raf: number;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setValue(Math.round(target * eased));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+}
+
+function SnapStat({ target, label, suffix = '' }: { target: number; label: string; suffix?: string }) {
+  const n = useCountUp(target);
+  return (
+    <View style={s.snapCell}>
+      <Text style={s.snapVal}>{n.toLocaleString()}{suffix}</Text>
+      <Text style={s.snapLabel}>{label}</Text>
+    </View>
+  );
+}
+
 export default function ToolsHubScreen() {
   const navigation = useNavigation<any>();
+  const fade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fade, { toValue: 1, duration: 380, useNativeDriver: true }).start();
+  }, []);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Civic Tools</Text>
-          <Text style={styles.subtitle}>
-            Powered by AFOSI — for Kenya's next generation of change-makers.
-          </Text>
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <Animated.ScrollView
+        style={{ opacity: fade }}
+        contentContainerStyle={s.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={s.hero}>
+          <Text style={s.kicker}>AFOSI · CIVIC TOOLS</Text>
+          <Text style={s.head}>Tools that turn youth voice into accountability.</Text>
+          <Text style={s.sub}>Built with and for Kenya's next generation of change-makers.</Text>
         </View>
 
-        <View style={styles.tools}>
-          {TOOLS.map((tool) => (
+        <View style={s.snapshot}>
+          <Text style={s.snapKicker}>THIS MONTH</Text>
+          <SnapStat target={1284} label="voices heard" />
+          <SnapStat target={8} label="funds tracked" />
+          <SnapStat target={71} label="avg. accountability" suffix="%" />
+        </View>
+
+        <View style={s.toolList}>
+          {TOOLS.map((tool, i) => (
             <TouchableOpacity
               key={tool.route}
-              style={styles.card}
+              style={s.tool}
               onPress={() => navigation.navigate(tool.route)}
-              activeOpacity={0.7}
+              activeOpacity={0.82}
               accessibilityRole="button"
-              accessibilityLabel={`Open ${tool.label}`}
+              accessibilityLabel={`Open ${tool.name}`}
             >
-              <View style={styles.cardTop}>
-                <View style={[styles.iconWrap, { backgroundColor: tool.iconBg }]}>
-                  <Ionicons name={tool.icon} size={22} color={tool.iconColor} />
-                </View>
-                <View style={[styles.tagBadge, { backgroundColor: tool.iconBg }]}>
-                  <Text style={[styles.tagText, { color: tool.iconColor }]}>{tool.tag}</Text>
-                </View>
+              <View style={[s.glyph, { backgroundColor: tool.accentSoft }]}>
+                <Text style={[s.glyphNum, { color: tool.accent }]}>{tool.num}</Text>
               </View>
-              <Text style={styles.cardLabel}>{tool.label}</Text>
-              <Text style={styles.cardDesc}>{tool.description}</Text>
-              <View style={styles.cardFooter}>
-                <Text style={[styles.openText, { color: tool.iconColor }]}>Open</Text>
-                <Ionicons name="arrow-forward" size={14} color={tool.iconColor} />
+              <Text style={s.toolNum}>{tool.num}</Text>
+              <Text style={s.toolName}>{tool.name}</Text>
+              <Text style={s.toolDesc}>{tool.desc}</Text>
+              <View style={s.toolRow}>
+                <Text style={[s.open, { color: tool.accent }]}>Open  →</Text>
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.footer}>
-          Data collected is used to inform AFOSI policy recommendations and is never sold.
+        <Text style={s.footNote}>
+          Data you share informs AFOSI policy work. It is never sold.
         </Text>
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f7f9fc' },
-  scroll: { padding: 20, paddingBottom: 40 },
-  header: { marginBottom: 24 },
-  title: { fontSize: 26, fontWeight: '700', color: '#1a202c', letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, color: '#718096', marginTop: 6, lineHeight: 20 },
-  tools: { gap: 14 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.paper },
+  scroll: { paddingBottom: 48 },
+
+  hero: { padding: 20, paddingTop: 18, paddingBottom: 10 },
+  kicker: { fontFamily: F.mono, fontSize: 10.5, letterSpacing: 1.4, color: C.inkFaint, marginBottom: 14 },
+  head: { fontSize: 28, fontWeight: '800', color: C.ink, letterSpacing: -0.6, lineHeight: 33, marginBottom: 12 },
+  sub: { fontSize: 14.5, color: C.inkSoft, lineHeight: 22 },
+
+  snapshot: {
+    marginHorizontal: 20, marginBottom: 6, padding: 18,
+    borderRadius: 22, backgroundColor: C.navy,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+    ...shadow.md,
   },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  iconWrap: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  tagBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  tagText: { fontSize: 11, fontWeight: '600', letterSpacing: 0.3 },
-  cardLabel: { fontSize: 17, fontWeight: '700', color: '#1a202c', marginBottom: 6 },
-  cardDesc: { fontSize: 13, color: '#718096', lineHeight: 19 },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 14 },
-  openText: { fontSize: 13, fontWeight: '600' },
-  footer: { fontSize: 12, color: '#a0aec0', textAlign: 'center', marginTop: 32, lineHeight: 18 },
+  snapKicker: { width: '100%', fontFamily: F.mono, fontSize: 10, letterSpacing: 1.6, color: 'rgba(255,255,255,0.7)', marginBottom: 6 },
+  snapCell: { flex: 1, minWidth: 80 },
+  snapVal: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
+  snapLabel: { fontSize: 10.5, color: 'rgba(255,255,255,0.75)', marginTop: 2, lineHeight: 14 },
+
+  toolList: { paddingHorizontal: 20, paddingTop: 18, gap: 14 },
+  tool: {
+    backgroundColor: C.surface, borderRadius: 22, padding: 18,
+    borderWidth: 1, borderColor: C.line, position: 'relative',
+    overflow: 'hidden', ...shadow.sm,
+  },
+  glyph: {
+    position: 'absolute', right: -8, top: -8,
+    width: 88, height: 88, borderRadius: 100,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  glyphNum: { fontSize: 28, fontWeight: '800', letterSpacing: -1 },
+  toolNum: { fontFamily: F.mono, fontSize: 11, letterSpacing: 1, color: C.inkFaint, marginBottom: 8 },
+  toolName: { fontSize: 20, fontWeight: '800', color: C.ink, letterSpacing: -0.4, marginBottom: 7 },
+  toolDesc: { fontSize: 13.5, color: C.inkSoft, lineHeight: 20, maxWidth: 260 },
+  toolRow: { marginTop: 16 },
+  open: { fontSize: 13.5, fontWeight: '700' },
+
+  footNote: { textAlign: 'center', color: C.inkFaint, fontSize: 12, lineHeight: 18, padding: 24 },
 });

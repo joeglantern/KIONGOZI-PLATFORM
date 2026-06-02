@@ -1,18 +1,16 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, FlatList, TextInput,
-  StyleSheet, ActivityIndicator, Modal, Alert, ScrollView,
+  View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet,
+  ActivityIndicator, Alert, Modal, ScrollView, Animated, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { toolsApi, WelfareFund } from '../../utils/toolsApiClient';
+import { C, F, shadow } from './theme';
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  Disbursed: { bg: '#f0fff4', text: '#276749', label: 'Disbursed' },
-  Pending:   { bg: '#fffbeb', text: '#92400e', label: 'Pending' },
-  Audited:   { bg: '#ebf8ff', text: '#1e4e8c', label: 'Audited' },
-};
+function scoreColor(s: number) {
+  return s >= 80 ? C.pos : s >= 50 ? C.warn : C.neg;
+}
 
 function formatKES(n: number) {
   if (n >= 1_000_000) return `KES ${(n / 1_000_000).toFixed(1)}M`;
@@ -20,154 +18,259 @@ function formatKES(n: number) {
   return `KES ${n}`;
 }
 
-function ScoreBar({ score }: { score: number }) {
-  const color = score >= 80 ? '#38a169' : score >= 50 ? '#d97706' : '#e53e3e';
+const STATUS: Record<string, { label: string; bg: string; text: string }> = {
+  Disbursed: { label: 'Disbursed', bg: C.oliveSoft, text: C.olive },
+  Pending:   { label: 'Pending',   bg: C.ochreSoft, text: C.ochre },
+  Audited:   { label: 'Audited',   bg: C.navy100,   text: C.navy  },
+};
+
+function AnimatedBar({ pct, color, delay = 0, height = 7 }: { pct: number; color: string; delay?: number; height?: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: pct,
+      duration: 800,
+      delay,
+      useNativeDriver: false,
+    }).start();
+  }, [pct]);
   return (
-    <View style={scoreStyles.wrap}>
-      <View style={scoreStyles.track}>
-        <View style={[scoreStyles.fill, { width: `${score}%` as any, backgroundColor: color }]} />
-      </View>
-      <Text style={[scoreStyles.label, { color }]}>{score}</Text>
+    <View style={[bs.track, { height }]}>
+      <Animated.View
+        style={[bs.fill, { height, backgroundColor: color, width: anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}
+      />
     </View>
   );
 }
 
-const scoreStyles = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  track: { flex: 1, height: 6, backgroundColor: '#e2e8f0', borderRadius: 3, overflow: 'hidden' },
-  fill: { height: 6, borderRadius: 3 },
-  label: { fontSize: 12, fontWeight: '700', minWidth: 22, textAlign: 'right' },
+const bs = StyleSheet.create({
+  track: { flex: 1, backgroundColor: C.line, borderRadius: 4, overflow: 'hidden' },
+  fill: { borderRadius: 4 },
 });
 
-interface FlagModalProps {
-  fund: WelfareFund | null;
-  onClose: () => void;
-}
-
-function FlagModal({ fund, onClose }: FlagModalProps) {
-  const [desc, setDesc] = useState('');
-  const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High'>('Medium');
+function FlagSheet({ fund, onClose }: { fund: WelfareFund; onClose: () => void }) {
   const [name, setName] = useState('');
+  const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High'>('Medium');
+  const [desc, setDesc] = useState('');
+  const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  const slide = useRef(new Animated.Value(300)).current;
+
+  useEffect(() => {
+    Animated.timing(slide, { toValue: 0, duration: 360, useNativeDriver: true }).start();
+  }, []);
+
+  const close = () => {
+    Animated.timing(slide, { toValue: 300, duration: 260, useNativeDriver: true }).start(() => onClose());
+  };
 
   const submit = async () => {
-    if (!fund || desc.trim().length < 10) {
-      Alert.alert('Too short', 'Please describe the issue in at least 10 characters.');
-      return;
-    }
+    if (desc.trim().length < 10) { Alert.alert('Too short', 'Describe the issue in at least 10 characters.'); return; }
     setLoading(true);
     try {
       await toolsApi.reportFund({ fund_id: fund.id, reporter_name: name || undefined, description: desc, severity });
-      Alert.alert('Submitted', 'Your report has been submitted. Thank you for keeping funds accountable.');
-      onClose();
+      setDone(true);
     } catch {
       Alert.alert('Error', 'Could not submit. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
+  const SEVS: { key: 'Low' | 'Medium' | 'High'; color: string }[] = [
+    { key: 'Low',    color: C.olive },
+    { key: 'Medium', color: C.warn  },
+    { key: 'High',   color: C.clay  },
+  ];
+
   return (
-    <Modal visible={!!fund} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={flagStyles.safe} edges={['top']}>
-        <View style={flagStyles.header}>
-          <Text style={flagStyles.title}>Flag an Issue</Text>
-          <TouchableOpacity onPress={onClose} accessibilityLabel="Close">
-            <Ionicons name="close" size={22} color="#1a202c" />
-          </TouchableOpacity>
-        </View>
-        <ScrollView contentContainerStyle={flagStyles.body} keyboardShouldPersistTaps="handled">
-          <View style={flagStyles.fundRef}>
-            <Ionicons name="warning-outline" size={14} color="#d97706" />
-            <Text style={flagStyles.fundRefText} numberOfLines={1}>{fund?.fund_name}</Text>
-          </View>
+    <Modal visible transparent animationType="fade" onRequestClose={close}>
+      <Pressable style={fl.scrim} onPress={close}>
+        <Animated.View style={[fl.sheet, { transform: [{ translateY: slide }] }]}>
+          <Pressable onPress={() => {}}>
+            <View style={fl.grip} />
+            {done ? (
+              <View style={fl.doneWrap}>
+                <View style={fl.doneIcon}><Text style={{ fontSize: 22, color: C.olive }}>✓</Text></View>
+                <Text style={fl.doneTitle}>Report received</Text>
+                <Text style={fl.doneSub}>Thank you for keeping funds honest.</Text>
+                <TouchableOpacity style={fl.doneBtn} onPress={close}><Text style={fl.doneBtnTxt}>OK</Text></TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={fl.head}>
+                  <Text style={fl.headTitle}>Flag an issue</Text>
+                  <TouchableOpacity onPress={close} style={fl.closeBtn}><Text style={fl.closeX}>✕</Text></TouchableOpacity>
+                </View>
+                <ScrollView style={fl.body} showsVerticalScrollIndicator={false}>
+                  <View style={fl.fundRef}>
+                    <Text style={fl.fundRefTxt} numberOfLines={1}>{fund.fund_name}</Text>
+                  </View>
 
-          <Text style={flagStyles.label}>Your name (optional)</Text>
-          <TextInput
-            style={flagStyles.input}
-            placeholder="Anonymous"
-            placeholderTextColor="#a0aec0"
-            value={name}
-            onChangeText={setName}
-          />
+                  <Text style={fl.label}>YOUR NAME</Text>
+                  <TextInput style={fl.input} value={name} onChangeText={setName} placeholder="Anonymous (optional)" placeholderTextColor={C.inkFaint} />
 
-          <Text style={flagStyles.label}>Severity</Text>
-          <View style={flagStyles.severityRow}>
-            {(['Low', 'Medium', 'High'] as const).map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={[flagStyles.sevChip, severity === s && flagStyles.sevChipActive]}
-                onPress={() => setSeverity(s)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: severity === s }}
-              >
-                <Text style={[flagStyles.sevText, severity === s && flagStyles.sevTextActive]}>{s}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text style={fl.label}>HOW SERIOUS</Text>
+                  <View style={fl.sevRow}>
+                    {SEVS.map((sv) => (
+                      <TouchableOpacity
+                        key={sv.key}
+                        style={[fl.sev, severity === sv.key && { backgroundColor: sv.color, borderColor: sv.color }]}
+                        onPress={() => setSeverity(sv.key)}
+                      >
+                        <Text style={[fl.sevTxt, severity === sv.key && { color: '#fff' }]}>{sv.key}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
-          <Text style={flagStyles.label}>Describe the issue *</Text>
-          <TextInput
-            style={[flagStyles.input, flagStyles.textArea]}
-            multiline
-            numberOfLines={4}
-            placeholder="Describe what seems anomalous about this fund..."
-            placeholderTextColor="#a0aec0"
-            value={desc}
-            onChangeText={setDesc}
-            maxLength={1000}
-            textAlignVertical="top"
-          />
-          <Text style={flagStyles.charCount}>{desc.length} / 1000</Text>
+                  <Text style={fl.label}>DESCRIBE WHAT LOOKS WRONG</Text>
+                  <TextInput
+                    style={[fl.input, fl.textarea]}
+                    value={desc}
+                    onChangeText={setDesc}
+                    placeholder="Tell us what seems off about this fund."
+                    placeholderTextColor={C.inkFaint}
+                    multiline
+                    maxLength={1000}
+                    textAlignVertical="top"
+                  />
+                  <Text style={fl.charCount}>{desc.length} / 1000</Text>
 
-          <TouchableOpacity
-            style={[flagStyles.submitBtn, (loading || desc.trim().length < 10) && flagStyles.submitDisabled]}
-            onPress={submit}
-            disabled={loading || desc.trim().length < 10}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={flagStyles.submitText}>Submit Report</Text>}
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
+                  <TouchableOpacity
+                    style={[fl.submitBtn, (loading || desc.trim().length < 10) && { opacity: 0.45 }]}
+                    onPress={submit}
+                    disabled={loading || desc.trim().length < 10}
+                  >
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={fl.submitTxt}>Submit report</Text>}
+                  </TouchableOpacity>
+                  <View style={{ height: 40 }} />
+                </ScrollView>
+              </>
+            )}
+          </Pressable>
+        </Animated.View>
+      </Pressable>
     </Modal>
   );
 }
 
-const flagStyles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+const fl = StyleSheet.create({
+  scrim: { flex: 1, backgroundColor: 'rgba(34,28,21,0.5)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: C.surface, borderRadius: 26, borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
+    paddingBottom: 20, maxHeight: '92%', ...shadow.lg,
   },
-  title: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
-  body: { padding: 20, paddingBottom: 60 },
-  fundRef: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fffbeb', padding: 10, borderRadius: 10, marginBottom: 20,
-    borderWidth: 1, borderColor: '#fcd34d',
-  },
-  fundRefText: { fontSize: 13, color: '#92400e', flex: 1 },
-  label: { fontSize: 12, fontWeight: '600', color: '#718096', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.3 },
+  grip: { width: 40, height: 4, borderRadius: 4, backgroundColor: C.lineStrong, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
+  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
+  headTitle: { fontSize: 19, fontWeight: '800', color: C.ink, letterSpacing: -0.3 },
+  closeBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  closeX: { fontSize: 16, color: C.inkSoft },
+  body: { paddingHorizontal: 20 },
+  fundRef: { backgroundColor: C.ochreSoft, padding: 12, borderRadius: 12, marginBottom: 4 },
+  fundRefTxt: { fontSize: 13, fontWeight: '600', color: C.ochre },
+  label: { fontFamily: F.mono, fontSize: 10.5, letterSpacing: 1, color: C.inkFaint, marginTop: 16, marginBottom: 8 },
   input: {
-    backgroundColor: '#f7f9fc', borderWidth: 1, borderColor: '#e2e8f0',
-    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 14, color: '#1a202c', marginBottom: 16,
+    height: 48, paddingHorizontal: 14, borderRadius: 12,
+    backgroundColor: C.surface2, borderWidth: 1, borderColor: C.line,
+    fontSize: 15, color: C.ink,
   },
-  textArea: { minHeight: 100, paddingTop: 12 },
-  charCount: { fontSize: 11, color: '#a0aec0', textAlign: 'right', marginTop: -12, marginBottom: 16 },
-  severityRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  sevChip: {
-    flex: 1, paddingVertical: 9, borderRadius: 10,
-    backgroundColor: '#f7f9fc', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center',
+  textarea: { height: 96, paddingTop: 13, paddingBottom: 13, lineHeight: 22 },
+  charCount: { fontFamily: F.mono, fontSize: 11, color: C.inkFaint, textAlign: 'right', marginTop: 4 },
+  sevRow: { flexDirection: 'row', gap: 9 },
+  sev: {
+    flex: 1, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: C.surface2, borderWidth: 1, borderColor: C.line,
   },
-  sevChipActive: { backgroundColor: '#1a365d', borderColor: '#1a365d' },
-  sevText: { fontSize: 13, fontWeight: '600', color: '#4a5568' },
-  sevTextActive: { color: '#fff' },
-  submitBtn: { backgroundColor: '#e53e3e', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-  submitDisabled: { backgroundColor: '#a0aec0' },
-  submitText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  sevTxt: { fontSize: 13.5, fontWeight: '700', color: C.inkSoft },
+  submitBtn: {
+    height: 52, borderRadius: 14, backgroundColor: C.clay,
+    justifyContent: 'center', alignItems: 'center', marginTop: 20,
+    shadowColor: C.clay, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 5,
+  },
+  submitTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  doneWrap: { alignItems: 'center', padding: 30, gap: 12 },
+  doneIcon: {
+    width: 58, height: 58, borderRadius: 29, backgroundColor: C.oliveSoft,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  doneTitle: { fontSize: 20, fontWeight: '800', color: C.ink },
+  doneSub: { fontSize: 14, color: C.inkSoft, lineHeight: 21, textAlign: 'center', maxWidth: 260 },
+  doneBtn: {
+    marginTop: 8, height: 48, paddingHorizontal: 32, borderRadius: 14,
+    backgroundColor: C.navy, justifyContent: 'center', alignItems: 'center',
+  },
+  doneBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+});
+
+function FundCard({ item, index, onFlag }: { item: WelfareFund; index: number; onFlag: () => void }) {
+  const pct = item.total_allocated > 0 ? (item.disbursed_amount / item.total_allocated) * 100 : 0;
+  const st = STATUS[item.status] ?? STATUS.Pending;
+  return (
+    <View style={fc.card}>
+      <View style={fc.head}>
+        <Text style={fc.name} numberOfLines={2}>{item.fund_name}</Text>
+        <View style={[fc.badge, { backgroundColor: st.bg }]}>
+          <Text style={[fc.badgeTxt, { color: st.text }]}>{st.label}</Text>
+        </View>
+      </View>
+
+      {item.beneficiary_ylo && (
+        <Text style={fc.ylo} numberOfLines={1}>  {item.beneficiary_ylo}</Text>
+      )}
+
+      <View style={fc.amts}>
+        {[
+          { label: 'Allocated', val: formatKES(item.total_allocated) },
+          { label: 'Disbursed', val: formatKES(item.disbursed_amount), green: true },
+          { label: 'Rate',      val: `${pct.toFixed(0)}%` },
+        ].map((a, i) => (
+          <View key={a.label} style={[fc.amt, i > 0 && fc.amtBorder]}>
+            <Text style={fc.amtLabel}>{a.label}</Text>
+            <Text style={[fc.amtVal, a.green && { color: C.olive }]}>{a.val}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={fc.scoreRow}>
+        <Text style={fc.scoreLabel}>Accountability</Text>
+        <AnimatedBar pct={item.accountability_score} color={scoreColor(item.accountability_score)} delay={index * 45 + 120} />
+        <Text style={[fc.scoreVal, { color: scoreColor(item.accountability_score) }]}>{item.accountability_score}</Text>
+      </View>
+
+      <View style={fc.foot}>
+        <AnimatedBar pct={Math.min(pct, 100)} color={C.navy} delay={index * 45 + 160} height={5} />
+        <TouchableOpacity style={fc.flagBtn} onPress={onFlag} accessibilityRole="button" accessibilityLabel={`Flag issue for ${item.fund_name}`}>
+          <Text style={fc.flagTxt}>  Flag</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const fc = StyleSheet.create({
+  card: {
+    backgroundColor: C.surface, borderRadius: 22, padding: 16,
+    borderWidth: 1, borderColor: C.line, ...shadow.sm,
+  },
+  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
+  name: { flex: 1, fontSize: 16, fontWeight: '800', color: C.ink, letterSpacing: -0.2, lineHeight: 21 },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  badgeTxt: { fontSize: 11.5, fontWeight: '700' },
+  ylo: { fontSize: 12, color: C.inkFaint, marginBottom: 12 },
+  amts: {
+    flexDirection: 'row', backgroundColor: C.surface2, borderRadius: 12, padding: 12, marginBottom: 12,
+  },
+  amt: { flex: 1, alignItems: 'center' },
+  amtBorder: { borderLeftWidth: 1, borderLeftColor: C.line },
+  amtLabel: { fontSize: 10, color: C.inkFaint, letterSpacing: 0.3 },
+  amtVal: { fontSize: 14, fontWeight: '700', color: C.ink, marginTop: 3 },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  scoreLabel: { fontSize: 12, color: C.inkSoft, width: 94 },
+  scoreVal: { fontSize: 13, fontWeight: '800', minWidth: 26, textAlign: 'right' },
+  foot: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  flagBtn: {
+    height: 34, paddingHorizontal: 13, borderRadius: 10,
+    backgroundColor: C.claySoft, justifyContent: 'center',
+  },
+  flagTxt: { fontSize: 12.5, fontWeight: '700', color: C.clay },
 });
 
 export default function FundTrackerScreen() {
@@ -175,188 +278,158 @@ export default function FundTrackerScreen() {
   const [funds, setFunds] = useState<WelfareFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [sort, setSort] = useState<'rate' | 'score' | 'amount'>('rate');
   const [flagTarget, setFlagTarget] = useState<WelfareFund | null>(null);
 
   useEffect(() => {
-    toolsApi.getFunds()
-      .then(setFunds)
-      .catch(() => Alert.alert('Error', 'Could not load fund data.'))
-      .finally(() => setLoading(false));
+    toolsApi.getFunds().then(setFunds).catch(() => Alert.alert('Error', 'Could not load fund data.')).finally(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return funds;
-    const q = search.toLowerCase();
-    return funds.filter(
-      (f) =>
-        f.fund_name.toLowerCase().includes(q) ||
-        (f.beneficiary_ylo || '').toLowerCase().includes(q) ||
-        f.status.toLowerCase().includes(q)
+    let r = funds.filter((f) => {
+      const okS = statusFilter === 'All' || f.status === statusFilter;
+      const q = search.trim().toLowerCase();
+      const okQ = !q || f.fund_name.toLowerCase().includes(q) || (f.beneficiary_ylo ?? '').toLowerCase().includes(q);
+      return okS && okQ;
+    });
+    return [...r].sort((a, b) =>
+      sort === 'rate'   ? (b.disbursed_amount / b.total_allocated) - (a.disbursed_amount / a.total_allocated) :
+      sort === 'score'  ? b.accountability_score - a.accountability_score :
+                          Number(b.total_allocated) - Number(a.total_allocated)
     );
-  }, [funds, search]);
+  }, [funds, search, statusFilter, sort]);
 
-  const renderItem = ({ item }: { item: WelfareFund }) => {
-    const st = STATUS_STYLES[item.status] ?? STATUS_STYLES.Pending;
-    const pct = item.total_allocated > 0 ? (item.disbursed_amount / item.total_allocated) * 100 : 0;
+  const totAlloc = funds.reduce((s, f) => s + Number(f.total_allocated), 0);
+  const totDisb  = funds.reduce((s, f) => s + Number(f.disbursed_amount), 0);
+  const avgScore = funds.length ? Math.round(funds.reduce((s, f) => s + f.accountability_score, 0) / funds.length) : 0;
 
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.fundName} numberOfLines={2}>{item.fund_name}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
-            <Text style={[styles.statusText, { color: st.text }]}>{st.label}</Text>
-          </View>
-        </View>
-
-        {item.beneficiary_ylo && (
-          <View style={styles.yloRow}>
-            <Ionicons name="people-outline" size={12} color="#a0aec0" />
-            <Text style={styles.yloText}>{item.beneficiary_ylo}</Text>
-          </View>
-        )}
-
-        <View style={styles.amountsRow}>
-          <View style={styles.amountCol}>
-            <Text style={styles.amountLabel}>Allocated</Text>
-            <Text style={styles.amountValue}>{formatKES(item.total_allocated)}</Text>
-          </View>
-          <View style={styles.amountDivider} />
-          <View style={styles.amountCol}>
-            <Text style={styles.amountLabel}>Disbursed</Text>
-            <Text style={[styles.amountValue, { color: '#276749' }]}>{formatKES(item.disbursed_amount)}</Text>
-          </View>
-          <View style={styles.amountDivider} />
-          <View style={styles.amountCol}>
-            <Text style={styles.amountLabel}>Rate</Text>
-            <Text style={styles.amountValue}>{pct.toFixed(0)}%</Text>
-          </View>
-        </View>
-
-        <View style={styles.scoreRow}>
-          <Text style={styles.scoreLabel}>Accountability</Text>
-          <ScoreBar score={item.accountability_score} />
-        </View>
-
-        <View style={styles.cardFooter}>
-          <View style={styles.disbursementTrack}>
-            <View style={[styles.disbursementFill, { width: `${Math.min(pct, 100)}%` as any }]} />
-          </View>
-          <TouchableOpacity
-            style={styles.flagBtn}
-            onPress={() => setFlagTarget(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`Flag issue for ${item.fund_name}`}
-          >
-            <Ionicons name="flag-outline" size={13} color="#e53e3e" />
-            <Text style={styles.flagText}>Flag</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
+  const FILTERS = ['All', 'Disbursed', 'Pending', 'Audited'];
+  const SORTS: { key: 'rate' | 'score' | 'amount'; label: string }[] = [
+    { key: 'rate', label: 'Disbursement' },
+    { key: 'score', label: 'Accountability' },
+    { key: 'amount', label: 'Amount' },
+  ];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Go back">
-          <Ionicons name="arrow-back" size={22} color="#1a202c" />
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <View style={s.topbar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.iconBtn} accessibilityLabel="Go back">
+          <Text style={s.back}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Fund Tracker</Text>
-        <View style={{ width: 30 }} />
+        <Text style={s.title}>Fund Tracker</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={16} color="#a0aec0" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search funds, YLOs, or status..."
-          placeholderTextColor="#a0aec0"
-          value={search}
-          onChangeText={setSearch}
-          accessibilityLabel="Search funds"
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')} accessibilityLabel="Clear search">
-            <Ionicons name="close-circle" size={16} color="#a0aec0" />
-          </TouchableOpacity>
-        )}
+      <View style={s.toolbar}>
+        <View style={s.searchBox}>
+          <Text style={s.searchIcon}>⌕</Text>
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search funds or groups"
+            placeholderTextColor={C.inkFaint}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')}><Text style={s.clearTxt}>✕</Text></TouchableOpacity>
+          )}
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {FILTERS.map((f) => (
+              <TouchableOpacity key={f} style={[s.chip, statusFilter === f && s.chipOn]} onPress={() => setStatusFilter(f)}>
+                <Text style={[s.chipTxt, statusFilter === f && s.chipOnTxt]}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+            <View style={s.divider} />
+            {SORTS.map((sv) => (
+              <TouchableOpacity key={sv.key} style={[s.chip, sort === sv.key && s.chipOn]} onPress={() => setSort(sv.key)}>
+                <Text style={[s.chipTxt, sort === sv.key && s.chipOnTxt]}>{sv.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#1a365d" style={{ marginTop: 40 }} />
+        <ActivityIndicator color={C.navy} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>
-              {search ? 'No funds match your search.' : 'No fund data available.'}
-            </Text>
+          contentContainerStyle={s.list}
+          ListHeaderComponent={
+            <View style={s.statsRow}>
+              {[
+                { val: formatKES(totAlloc), label: 'Total allocated' },
+                { val: formatKES(totDisb),  label: 'Disbursed', green: true },
+                { val: String(avgScore),    label: 'Avg. score', scoreColor: scoreColor(avgScore) },
+              ].map((st) => (
+                <View key={st.label} style={s.statCard}>
+                  <Text style={[s.statVal, st.green && { color: C.olive }, st.scoreColor && { color: st.scoreColor }]}>{st.val}</Text>
+                  <Text style={s.statLabel}>{st.label}</Text>
+                </View>
+              ))}
+            </View>
           }
-          ListFooterComponent={
-            <Text style={styles.footer}>{filtered.length} fund{filtered.length !== 1 ? 's' : ''} shown</Text>
-          }
+          renderItem={({ item, index }) => (
+            <FundCard item={item} index={index} onFlag={() => setFlagTarget(item)} />
+          )}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          ListEmptyComponent={<Text style={s.empty}>{search ? 'No funds match your search.' : 'No fund data available.'}</Text>}
+          ListFooterComponent={<Text style={s.footer}>{filtered.length} fund{filtered.length !== 1 ? 's' : ''} shown</Text>}
         />
       )}
 
-      <FlagModal fund={flagTarget} onClose={() => setFlagTarget(null)} />
+      {flagTarget && <FlagSheet fund={flagTarget} onClose={() => setFlagTarget(null)} />}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f7f9fc' },
-  header: {
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.paper },
+  topbar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 18, paddingVertical: 12,
+    backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.line,
   },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    marginHorizontal: 16, marginTop: 12, marginBottom: 4, borderRadius: 12,
-    borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, paddingVertical: 10,
+  iconBtn: { width: 40, height: 40, justifyContent: 'center' },
+  back: { fontSize: 20, color: C.ink },
+  title: { fontSize: 17, fontWeight: '800', color: C.ink, letterSpacing: -0.3 },
+
+  toolbar: {
+    backgroundColor: C.surface, paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: C.line,
   },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#1a202c' },
+  searchBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 9,
+    height: 46, paddingHorizontal: 14,
+    backgroundColor: C.paper, borderWidth: 1, borderColor: C.lineStrong, borderRadius: 13,
+  },
+  searchIcon: { fontSize: 18, color: C.inkFaint },
+  searchInput: { flex: 1, fontSize: 15, color: C.ink },
+  clearTxt: { fontSize: 14, color: C.inkFaint },
+  chip: {
+    height: 36, paddingHorizontal: 14, borderRadius: 999,
+    backgroundColor: C.surface, borderWidth: 1, borderColor: C.lineStrong,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  chipOn: { backgroundColor: C.navy, borderColor: C.navy },
+  chipTxt: { fontSize: 13, fontWeight: '600', color: C.inkSoft },
+  chipOnTxt: { color: '#fff' },
+  divider: { width: 1, backgroundColor: C.line, marginVertical: 4 },
+
   list: { padding: 16, paddingBottom: 40 },
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    marginBottom: 12, borderWidth: 1, borderColor: '#e2e8f0',
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  statCard: {
+    flex: 1, backgroundColor: C.surface, borderRadius: 16, padding: 13,
+    borderWidth: 1, borderColor: C.line, ...shadow.sm,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 10 },
-  fundName: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1a202c', lineHeight: 21 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusText: { fontSize: 11, fontWeight: '700' },
-  yloRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
-  yloText: { fontSize: 12, color: '#a0aec0' },
-  amountsRow: {
-    flexDirection: 'row', backgroundColor: '#f7f9fc', borderRadius: 10,
-    padding: 12, marginBottom: 12,
-  },
-  amountCol: { flex: 1, alignItems: 'center' },
-  amountDivider: { width: 1, backgroundColor: '#e2e8f0' },
-  amountLabel: { fontSize: 11, color: '#a0aec0', marginBottom: 4 },
-  amountValue: { fontSize: 13, fontWeight: '700', color: '#1a202c' },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  scoreLabel: { fontSize: 12, color: '#718096', width: 90 },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  disbursementTrack: {
-    flex: 1, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, overflow: 'hidden',
-  },
-  disbursementFill: { height: 4, backgroundColor: '#1a365d', borderRadius: 2 },
-  flagBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
-    backgroundColor: '#fff5f5', borderWidth: 1, borderColor: '#fed7d7',
-  },
-  flagText: { fontSize: 12, color: '#e53e3e', fontWeight: '600' },
-  emptyText: { textAlign: 'center', color: '#a0aec0', fontSize: 14, paddingTop: 40 },
-  footer: { textAlign: 'center', color: '#a0aec0', fontSize: 12, marginTop: 8 },
+  statVal: { fontSize: 16, fontWeight: '800', color: C.ink, letterSpacing: -0.3, marginBottom: 3 },
+  statLabel: { fontSize: 10.5, color: C.inkFaint, lineHeight: 14 },
+
+  empty: { textAlign: 'center', color: C.inkFaint, fontSize: 14, paddingTop: 40 },
+  footer: { textAlign: 'center', color: C.inkFaint, fontSize: 12, fontFamily: F.mono, marginTop: 10, paddingBottom: 10 },
 });

@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Alert, Share,
+  ActivityIndicator, Alert, Share, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { toolsApi, Analytics } from '../../utils/toolsApiClient';
+import { C, F, shadow } from './theme';
 
 function formatKES(n: number) {
   if (n >= 1_000_000) return `KES ${(n / 1_000_000).toFixed(1)}M`;
@@ -14,279 +14,358 @@ function formatKES(n: number) {
   return `KES ${n}`;
 }
 
-const SENTIMENT_COLORS: Record<string, string> = {
-  positive: '#38a169',
-  negative: '#e53e3e',
-  neutral: '#718096',
-  mixed: '#d97706',
+const SENTIMENT_STYLES: Record<string, { color: string; label: string }> = {
+  positive: { color: C.pos,    label: 'Positive' },
+  negative: { color: C.neg,    label: 'Negative' },
+  neutral:  { color: C.inkFaint, label: 'Neutral' },
+  mixed:    { color: C.warn,   label: 'Mixed'    },
 };
 
-const BAR_COLORS = ['#1a365d', '#2b6cb0', '#3182ce', '#4299e1', '#63b3ed', '#90cdf4'];
+const BAR_COLORS = [C.navy, C.ochre, C.olive, C.clay, C.plum];
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function useCountUp(target: number, duration = 1100) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let start: number | null = null;
+    let raf: number;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / duration, 1);
+      setValue(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return value;
+}
+
+function BigStat({ value, suffix = '', label, sub }: { value: number; suffix?: string; label: string; sub?: string }) {
+  const n = useCountUp(value);
   return (
-    <View style={statStyles.card}>
-      <Text style={statStyles.value}>{value}</Text>
-      <Text style={statStyles.label}>{label}</Text>
-      {sub && <Text style={statStyles.sub}>{sub}</Text>}
+    <View style={bs.card}>
+      <Text style={bs.val}>{n.toLocaleString()}{suffix}</Text>
+      <Text style={bs.label}>{label}</Text>
+      {sub && <Text style={bs.sub}>{sub}</Text>}
     </View>
   );
 }
 
-const statStyles = StyleSheet.create({
+const bs = StyleSheet.create({
   card: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center',
+    flex: 1, backgroundColor: C.surface, borderRadius: 22, padding: 15,
+    borderWidth: 1, borderColor: C.line, ...shadow.sm,
   },
-  value: { fontSize: 20, fontWeight: '800', color: '#1a365d', marginBottom: 4 },
-  label: { fontSize: 11, color: '#718096', textAlign: 'center' },
-  sub: { fontSize: 11, color: '#38a169', fontWeight: '600', marginTop: 2 },
+  val: { fontSize: 24, fontWeight: '800', color: C.navy, letterSpacing: -0.5, marginBottom: 3 },
+  label: { fontSize: 11, color: C.inkSoft, lineHeight: 15 },
+  sub: { fontFamily: F.mono, fontSize: 10.5, color: C.olive, marginTop: 4 },
 });
 
-function SectorChart({ data }: { data: { sector: string; count: number }[] }) {
-  const max = Math.max(...data.map((d) => d.count), 1);
+function AnimatedBar({ pct, color, delay = 0 }: { pct: number; color: string; delay?: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, { toValue: pct, duration: 800, delay, useNativeDriver: false }).start();
+  }, [pct]);
   return (
-    <View style={chartStyles.wrap}>
-      {data.slice(0, 6).map((item, i) => (
-        <View key={item.sector} style={chartStyles.row}>
-          <Text style={chartStyles.label} numberOfLines={1}>{item.sector}</Text>
-          <View style={chartStyles.track}>
-            <View
-              style={[
-                chartStyles.bar,
-                { width: `${(item.count / max) * 100}%` as any, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] },
-              ]}
-            />
-          </View>
-          <Text style={chartStyles.count}>{item.count}</Text>
-        </View>
+    <View style={bar.track}>
+      <Animated.View
+        style={[bar.fill, { backgroundColor: color, width: anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}
+      />
+    </View>
+  );
+}
+
+const bar = StyleSheet.create({
+  track: { flex: 1, height: 9, backgroundColor: C.line, borderRadius: 5, overflow: 'hidden' },
+  fill: { height: 9, borderRadius: 5 },
+});
+
+function BriefShimmer() {
+  return (
+    <View style={brief.shimWrap}>
+      <View style={brief.shimLine}>
+        <ActivityIndicator size="small" color={C.ochre} />
+        <Text style={brief.shimTxt}>Drafting from the data</Text>
+      </View>
+      {[88, 95, 70, 82, 60].map((w, i) => (
+        <View key={i} style={[brief.shim, { width: `${w}%` as any }]} />
       ))}
     </View>
   );
 }
 
-const chartStyles = StyleSheet.create({
-  wrap: { gap: 10 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  label: { width: 110, fontSize: 12, color: '#4a5568' },
-  track: { flex: 1, height: 10, backgroundColor: '#e2e8f0', borderRadius: 5, overflow: 'hidden' },
-  bar: { height: 10, borderRadius: 5 },
-  count: { width: 24, fontSize: 12, fontWeight: '700', color: '#1a365d', textAlign: 'right' },
-});
-
-function FundChart({ data }: { data: { name: string; allocated: number; disbursed: number; status: string }[] }) {
-  const total = data.reduce((s, d) => s + d.allocated, 0);
-  const STATUS_COLORS: Record<string, string> = { Disbursed: '#38a169', Pending: '#d97706', Audited: '#3182ce' };
+function BriefBody({ text }: { text: string }) {
+  const lines = text.split('\n').filter((l) => l.trim());
   return (
-    <View style={fundChartStyles.wrap}>
-      {data.slice(0, 5).map((item) => {
-        const pct = total > 0 ? (item.allocated / total) * 100 : 0;
-        return (
-          <View key={item.name} style={fundChartStyles.row}>
-            <View style={[fundChartStyles.dot, { backgroundColor: STATUS_COLORS[item.status] ?? '#718096' }]} />
-            <Text style={fundChartStyles.name} numberOfLines={1}>{item.name}</Text>
-            <Text style={fundChartStyles.pct}>{pct.toFixed(0)}%</Text>
+    <View style={brief.body}>
+      {lines.map((line, i) => {
+        const isH3 = line.match(/^#{1,2}\s/) || /^[A-Z][A-Z\s]+$/.test(line.trim()) && line.trim().length < 40;
+        const isH4 = line.match(/^\d+\.\s/) || line.match(/^[A-Z][A-Z\s]+:/);
+        const isLi = line.match(/^[-•*]\s/);
+        const clean = line.replace(/^#{1,3}\s/, '').replace(/^[-•*]\s/, '').replace(/\*\*(.*?)\*\*/g, '$1');
+        if (isH3) return <Text key={i} style={brief.h3}>{clean}</Text>;
+        if (isH4) return <Text key={i} style={brief.h4}>{clean}</Text>;
+        if (isLi) return (
+          <View key={i} style={brief.li}>
+            <View style={brief.liBullet} />
+            <Text style={brief.liTxt}>{clean}</Text>
           </View>
         );
+        if (line.trim().startsWith('"') || line.trim().startsWith('“')) {
+          return <View key={i} style={brief.quote}><Text style={brief.quoteTxt}>{clean}</Text></View>;
+        }
+        return <Text key={i} style={brief.para}>{clean}</Text>;
       })}
     </View>
   );
 }
 
-const fundChartStyles = StyleSheet.create({
-  wrap: { gap: 10 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  name: { flex: 1, fontSize: 12, color: '#4a5568' },
-  pct: { fontSize: 12, fontWeight: '700', color: '#1a365d', width: 36, textAlign: 'right' },
+const brief = StyleSheet.create({
+  shimWrap: { padding: 18, gap: 12 },
+  shimLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  shimTxt: { fontSize: 13.5, fontWeight: '600', color: C.inkSoft },
+  shim: { height: 10, borderRadius: 5, backgroundColor: C.line },
+  body: { padding: 18, gap: 6 },
+  h3: { fontSize: 19, fontWeight: '800', color: C.ink, letterSpacing: -0.4, marginTop: 4, marginBottom: 2 },
+  h4: { fontSize: 14.5, fontWeight: '700', color: C.navy, marginTop: 14, marginBottom: 6 },
+  para: { fontSize: 14, color: C.inkSoft, lineHeight: 22 },
+  li: { flexDirection: 'row', gap: 10, marginLeft: 4 },
+  liBullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.ochre, marginTop: 8, flexShrink: 0 },
+  liTxt: { flex: 1, fontSize: 14, color: C.inkSoft, lineHeight: 22 },
+  quote: { borderLeftWidth: 3, borderLeftColor: C.clay, paddingLeft: 14, marginVertical: 4 },
+  quoteTxt: { fontSize: 14, color: C.inkSoft, fontStyle: 'italic', lineHeight: 22 },
 });
 
 export default function AdvocacyLabScreen() {
   const navigation = useNavigation<any>();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [brief, setBrief] = useState<string | null>(null);
-  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefText, setBriefText] = useState<string | null>(null);
+  const [phase, setPhase] = useState<'idle' | 'thinking' | 'done'>('idle');
+  const fade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     toolsApi.getAnalytics()
-      .then(setAnalytics)
+      .then((d) => { setAnalytics(d); Animated.timing(fade, { toValue: 1, duration: 400, useNativeDriver: true }).start(); })
       .catch(() => Alert.alert('Error', 'Could not load analytics.'))
       .finally(() => setLoading(false));
   }, []);
 
-  const handleGenerateBrief = async () => {
-    setBriefLoading(true);
+  const handleGenerate = async () => {
+    setPhase('thinking');
     try {
       const res = await toolsApi.generateBrief();
-      setBrief(res.brief);
+      setBriefText(res.brief);
+      setPhase('done');
     } catch {
       Alert.alert('Error', 'Could not generate brief. Ensure the backend is running.');
-    } finally {
-      setBriefLoading(false);
+      setPhase('idle');
     }
   };
 
   const handleShare = async () => {
-    if (!brief) return;
-    try {
-      await Share.share({
-        message: `KIONGOZI POLICY BRIEF\n\n${brief}`,
-        title: 'Kiongozi Policy Brief',
-      });
-    } catch {}
+    if (!briefText) return;
+    try { await Share.share({ message: `KIONGOZI POLICY BRIEF\n\n${briefText}`, title: 'Kiongozi Policy Brief' }); } catch {}
   };
 
+  if (loading || !analytics) {
+    return (
+      <SafeAreaView style={s.safe} edges={['top']}>
+        <View style={s.topbar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={s.iconBtn}><Text style={s.back}>←</Text></TouchableOpacity>
+          <Text style={s.title}>Advocacy Lab</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ActivityIndicator color={C.navy} style={{ marginTop: 60 }} />
+      </SafeAreaView>
+    );
+  }
+
+  const maxSector = Math.max(...analytics.sector_distribution.map((d) => d.count), 1);
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Go back">
-          <Ionicons name="arrow-back" size={22} color="#1a202c" />
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <View style={s.topbar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.iconBtn} accessibilityLabel="Go back">
+          <Text style={s.back}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Advocacy Lab</Text>
-        <View style={{ width: 30 }} />
+        <Text style={s.title}>Advocacy Lab</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {loading || !analytics ? (
-          <ActivityIndicator color="#1a365d" style={{ marginTop: 40 }} />
-        ) : (
-          <>
-            {/* Stats row */}
-            <View style={styles.statsRow}>
-              <StatCard label="Youth Inputs" value={String(analytics.total_inputs)} />
-              <StatCard label="Funds Tracked" value={String(analytics.total_funds)} />
-              <StatCard
-                label="Disbursed"
-                value={`${analytics.disbursement_rate}%`}
-                sub={formatKES(analytics.total_disbursed_kes)}
-              />
+      <Animated.ScrollView style={{ opacity: fade }} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+        <View style={s.statsRow}>
+          <BigStat value={analytics.total_inputs} label="Youth inputs" />
+          <BigStat value={analytics.total_funds} label="Funds tracked" />
+          <BigStat value={analytics.disbursement_rate} suffix="%" label="Disbursed" sub={formatKES(analytics.total_disbursed_kes)} />
+        </View>
+
+        {analytics.sector_distribution.length > 0 && (
+          <View style={s.panel}>
+            <View style={s.panelHead}>
+              <Text style={s.panelTitle}>Issues by sector</Text>
+              <Text style={s.panelSub}>{analytics.total_inputs.toLocaleString()} inputs</Text>
             </View>
-
-            {/* Sector chart */}
-            {analytics.sector_distribution.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Issues by Sector</Text>
-                  <Text style={styles.sectionSub}>{analytics.total_inputs} inputs</Text>
-                </View>
-                <SectorChart data={analytics.sector_distribution} />
-              </View>
-            )}
-
-            {/* Sentiment */}
-            {analytics.sentiment_distribution.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Sentiment Breakdown</Text>
-                <View style={styles.sentimentRow}>
-                  {analytics.sentiment_distribution.map((s) => (
-                    <View key={s.sentiment} style={[styles.sentimentCard, { borderTopColor: SENTIMENT_COLORS[s.sentiment] ?? '#718096' }]}>
-                      <Text style={[styles.sentimentValue, { color: SENTIMENT_COLORS[s.sentiment] ?? '#718096' }]}>{s.count}</Text>
-                      <Text style={styles.sentimentLabel}>{s.sentiment}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Fund distribution */}
-            {analytics.fund_distribution.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Fund Distribution</Text>
-                  <Text style={styles.sectionSub}>{formatKES(analytics.total_allocated_kes)} total</Text>
-                </View>
-                <FundChart data={analytics.fund_distribution} />
-              </View>
-            )}
-
-            {/* Generate brief */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Policy Brief</Text>
-              <Text style={styles.briefSubtitle}>
-                Generate an AI policy recommendation memo based on all collected youth inputs and fund data.
-              </Text>
-              <TouchableOpacity
-                style={[styles.generateBtn, briefLoading && styles.generateBtnDisabled]}
-                onPress={handleGenerateBrief}
-                disabled={briefLoading}
-                accessibilityRole="button"
-                accessibilityLabel="Generate Policy Brief"
-              >
-                {briefLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="sparkles" size={16} color="#fff" />
-                    <Text style={styles.generateBtnText}>Generate Policy Brief</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {brief && (
-                <View style={styles.briefCard}>
-                  <View style={styles.briefCardHeader}>
-                    <Text style={styles.briefCardTitle}>Policy Recommendation Memo</Text>
-                    <TouchableOpacity
-                      onPress={handleShare}
-                      style={styles.shareBtn}
-                      accessibilityRole="button"
-                      accessibilityLabel="Share policy brief"
-                    >
-                      <Ionicons name="share-outline" size={16} color="#2b6cb0" />
-                      <Text style={styles.shareText}>Share</Text>
-                    </TouchableOpacity>
+            <View style={{ gap: 13 }}>
+              {analytics.sector_distribution.slice(0, 6).map((item, i) => (
+                <View key={item.sector} style={{ gap: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <Text style={s.sectorName}>{item.sector}</Text>
+                    <Text style={s.sectorCount}>{item.count}</Text>
                   </View>
-                  <Text style={styles.briefText}>{brief}</Text>
+                  <AnimatedBar pct={(item.count / maxSector) * 100} color={BAR_COLORS[i % BAR_COLORS.length]} delay={i * 70} />
                 </View>
-              )}
+              ))}
             </View>
-          </>
+          </View>
         )}
-      </ScrollView>
+
+        {analytics.sentiment_distribution.length > 0 && (
+          <View style={s.panel}>
+            <Text style={s.panelTitle}>How youth feel</Text>
+            <View style={s.sentiRow}>
+              {analytics.sentiment_distribution.map((item) => {
+                const st = SENTIMENT_STYLES[item.sentiment] ?? { color: C.inkFaint, label: item.sentiment };
+                const total = analytics.sentiment_distribution.reduce((sum, x) => sum + x.count, 0);
+                const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
+                return (
+                  <View key={item.sentiment} style={[s.sentiCard, { borderTopColor: st.color }]}>
+                    <Text style={[s.sentiVal, { color: st.color }]}>{pct}%</Text>
+                    <Text style={s.sentiLabel}>{st.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {analytics.fund_distribution.length > 0 && (
+          <View style={s.panel}>
+            <View style={s.panelHead}>
+              <Text style={s.panelTitle}>Where money goes</Text>
+              <Text style={s.panelSub}>{formatKES(analytics.total_allocated_kes)}</Text>
+            </View>
+            <View style={{ gap: 12 }}>
+              {analytics.fund_distribution.slice(0, 5).map((item, i) => {
+                const pct = analytics.total_allocated_kes > 0 ? Math.round((item.allocated / analytics.total_allocated_kes) * 100) : 0;
+                return (
+                  <View key={item.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[s.distDot, { backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }]} />
+                    <Text style={s.distName} numberOfLines={1}>{item.name}</Text>
+                    <Text style={s.distPct}>{pct}%</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>Policy brief</Text>
+          <Text style={s.briefSub}>Turn the patterns above into a one-page memo leaders can read in two minutes.</Text>
+
+          {phase !== 'done' && (
+            <TouchableOpacity
+              style={[s.genBtn, phase === 'thinking' && { opacity: 0.65 }]}
+              onPress={handleGenerate}
+              disabled={phase === 'thinking'}
+              accessibilityRole="button"
+              accessibilityLabel="Generate policy brief"
+            >
+              {phase === 'thinking'
+                ? <><ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} /><Text style={s.genTxt}>Drafting from the data</Text></>
+                : <Text style={s.genTxt}>Draft the brief</Text>}
+            </TouchableOpacity>
+          )}
+
+          {phase === 'thinking' && (
+            <View style={s.briefCard}>
+              <BriefShimmer />
+            </View>
+          )}
+
+          {phase === 'done' && briefText && (
+            <View style={s.briefCard}>
+              <View style={s.briefCardHead}>
+                <Text style={s.briefCardLabel}>POLICY RECOMMENDATION MEMO</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={s.miniBtn} onPress={handleShare} accessibilityRole="button" accessibilityLabel="Share brief">
+                    <Text style={s.miniBtnTxt}>Share</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.miniBtn} onPress={handleGenerate} accessibilityRole="button" accessibilityLabel="Regenerate brief">
+                    <Text style={s.miniBtnTxt}>Regenerate</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <BriefBody text={briefText} />
+            </View>
+          )}
+        </View>
+
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f7f9fc' },
-  header: {
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.paper },
+  topbar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 18, paddingVertical: 12,
+    backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.line,
   },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
-  scroll: { padding: 16, paddingBottom: 60 },
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  section: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 14,
+  iconBtn: { width: 40, height: 40, justifyContent: 'center' },
+  back: { fontSize: 20, color: C.ink },
+  title: { fontSize: 17, fontWeight: '800', color: C.ink, letterSpacing: -0.3 },
+  scroll: { padding: 16, paddingBottom: 60, gap: 14 },
+
+  statsRow: { flexDirection: 'row', gap: 10 },
+
+  panel: {
+    backgroundColor: C.surface, borderRadius: 22, padding: 17,
+    borderWidth: 1, borderColor: C.line, ...shadow.sm,
   },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1a202c', marginBottom: 12 },
-  sectionSub: { fontSize: 12, color: '#a0aec0' },
-  sentimentRow: { flexDirection: 'row', gap: 10 },
-  sentimentCard: {
-    flex: 1, alignItems: 'center', padding: 12, backgroundColor: '#f7f9fc',
-    borderRadius: 12, borderTopWidth: 3,
+  panelHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16 },
+  panelTitle: { fontSize: 17, fontWeight: '800', color: C.ink, letterSpacing: -0.3, marginBottom: 14 },
+  panelSub: { fontFamily: F.mono, fontSize: 11, color: C.inkFaint },
+
+  sectorName: { fontSize: 13.5, fontWeight: '600', color: C.ink },
+  sectorCount: { fontFamily: F.mono, fontSize: 12, color: C.inkSoft },
+
+  sentiRow: { flexDirection: 'row', gap: 10 },
+  sentiCard: {
+    flex: 1, alignItems: 'center', padding: 14, borderRadius: 14,
+    backgroundColor: C.surface2, borderTopWidth: 3,
   },
-  sentimentValue: { fontSize: 20, fontWeight: '800', marginBottom: 2 },
-  sentimentLabel: { fontSize: 11, color: '#718096' },
-  briefSubtitle: { fontSize: 13, color: '#718096', lineHeight: 19, marginTop: -8, marginBottom: 14 },
-  generateBtn: {
-    backgroundColor: '#1a365d', borderRadius: 12, paddingVertical: 14,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+  sentiVal: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  sentiLabel: { fontSize: 11.5, color: C.inkSoft, marginTop: 3 },
+
+  distDot: { width: 11, height: 11, borderRadius: 3, flexShrink: 0 },
+  distName: { flex: 1, fontSize: 13.5, color: C.ink },
+  distPct: { fontFamily: F.mono, fontWeight: '600', fontSize: 13, color: C.inkSoft },
+
+  briefSub: { fontSize: 13.5, color: C.inkSoft, lineHeight: 20, marginTop: -10, marginBottom: 14 },
+  genBtn: {
+    height: 52, borderRadius: 14, backgroundColor: C.navy,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    shadowColor: C.navy, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 14, elevation: 6,
   },
-  generateBtnDisabled: { backgroundColor: '#a0aec0' },
-  generateBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  genTxt: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: 0.1 },
+
   briefCard: {
-    backgroundColor: '#f7f9fc', borderRadius: 12, padding: 16,
-    marginTop: 16, borderWidth: 1, borderColor: '#e2e8f0',
+    marginTop: 14, borderRadius: 16, borderWidth: 1, borderColor: C.line,
+    backgroundColor: C.surface2, overflow: 'hidden',
   },
-  briefCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  briefCardTitle: { fontSize: 13, fontWeight: '700', color: '#1a202c' },
-  shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  shareText: { fontSize: 13, color: '#2b6cb0', fontWeight: '600' },
-  briefText: { fontSize: 13, color: '#4a5568', lineHeight: 21 },
+  briefCardHead: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 13,
+    borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: C.surface,
+  },
+  briefCardLabel: { fontFamily: F.mono, fontSize: 10.5, letterSpacing: 1, color: C.inkSoft },
+  miniBtn: {
+    height: 32, paddingHorizontal: 11, borderRadius: 9,
+    backgroundColor: C.surface2, borderWidth: 1, borderColor: C.line, justifyContent: 'center',
+  },
+  miniBtnTxt: { fontSize: 12, fontWeight: '700', color: C.navy },
 });
