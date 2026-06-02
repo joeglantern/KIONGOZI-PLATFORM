@@ -1,4 +1,4 @@
-import anthropic
+from openai import OpenAI
 import json
 import os
 from typing import Dict, Any
@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SECTORS = [
     "Green Transition", "Digital Economy", "Social Inclusion",
@@ -29,13 +29,14 @@ Return exactly this JSON structure:
 
 Available sectors (pick 1-3 most relevant): {', '.join(SECTORS)}"""
 
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
         max_tokens=300,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
     )
 
-    return json.loads(message.content[0].text.strip())
+    return json.loads(response.choices[0].message.content)
 
 
 async def generate_policy_brief(inputs_summary: str, funds_summary: str) -> str:
@@ -57,10 +58,10 @@ Format the memo with these exact sections:
 
 Be concise, evidence-based, and actionable. Use formal English. Maximum 600 words."""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
         max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
     )
 
-    return message.content[0].text
+    return response.choices[0].message.content
