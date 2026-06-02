@@ -57,6 +57,16 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "afosi.2025@gmail.com",
+        "ascAppId": "6758945664",
+        "appleTeamId": "365BL78M2N"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "production"
+      }
+    }
   }
 }

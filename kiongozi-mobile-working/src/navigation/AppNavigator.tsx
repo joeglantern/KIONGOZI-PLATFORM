@@ -19,6 +19,10 @@ import DMConversationScreen from '../screens/social/DMConversationScreen';
 import FollowListScreen from '../screens/social/FollowListScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileTabScreen from '../screens/social/ProfileTabScreen';
+import ToolsHubScreen from '../screens/tools/ToolsHubScreen';
+import YouthVoiceScreen from '../screens/tools/YouthVoiceScreen';
+import FundTrackerScreen from '../screens/tools/FundTrackerScreen';
+import AdvocacyLabScreen from '../screens/tools/AdvocacyLabScreen';
 import SettingsScreen from '../screens/social/SettingsScreen';
 import BlockedUsersScreen from '../screens/social/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/social/MutedUsersScreen';
@@ -70,6 +74,18 @@ function NotificationsStackNavigator() {
       <NotificationsStack.Screen name="DMConversation" component={DMConversationScreen} />
       <NotificationsStack.Screen name="DMList" component={DMListScreen} />
     </NotificationsStack.Navigator>
+  );
+}
+
+const ToolsStack = createNativeStackNavigator();
+function ToolsStackNavigator() {
+  return (
+    <ToolsStack.Navigator screenOptions={{ headerShown: false }}>
+      <ToolsStack.Screen name="ToolsHub" component={ToolsHubScreen} />
+      <ToolsStack.Screen name="YouthVoice" component={YouthVoiceScreen} />
+      <ToolsStack.Screen name="FundTracker" component={FundTrackerScreen} />
+      <ToolsStack.Screen name="AdvocacyLab" component={AdvocacyLabScreen} />
+    </ToolsStack.Navigator>
   );
 }
 
@@ -181,6 +197,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
               if (route.name === 'Feed') iconName = focused ? 'home' : 'home-outline';
               else if (route.name === 'Explore') iconName = focused ? 'search' : 'search-outline';
               else if (route.name === 'Notifications') iconName = focused ? 'notifications' : 'notifications-outline';
+              else if (route.name === 'Tools') iconName = focused ? 'construct' : 'construct-outline';
               else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
               return <Ionicons name={iconName} size={size} color={color} />;
             },
@@ -217,6 +234,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
               tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
             }}
           />
+          <Tab.Screen name="Tools" component={ToolsStackNavigator} />
           <Tab.Screen name="Profile" component={ProfileStackNavigator} />
         </Tab.Navigator>
       </NavigationContainer>

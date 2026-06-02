@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kiongozi",
     "slug": "kiongozi-mobile-working",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "AI-powered learning for Kenya's Green Economy & Digital Transformation",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kiongozi.mobile",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice input functionality.",
         "NSSpeechRecognitionUsageDescription": "This app needs access to speech recognition to convert your voice to text.",
@@ -32,7 +32,7 @@
     },
     "android": {
       "package": "com.kiongozi.mobile",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -41,6 +41,8 @@
       "predictiveBackGestureEnabled": false,
       "usesCleartextTraffic": false,
       "permissions": [
+        "RECORD_AUDIO",
+        "INTERNET",
         "RECORD_AUDIO",
         "INTERNET"
       ]
@@ -89,7 +91,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/d41fa2af-cdf7-4c6f-8070-ade8221f15eb"
+      "url": "https://u.expo.dev/740d5736-9f10-4329-b2f5-0ffbb99d5d46"
     }
   }
 }
