@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { toolsApi } from '../../utils/toolsApiClient';
 import { C, F, shadow } from './theme';
 
 const TOOLS = [
@@ -64,9 +65,13 @@ function SnapStat({ target, label, suffix = '' }: { target: number; label: strin
 export default function ToolsHubScreen() {
   const navigation = useNavigation<any>();
   const fade = useRef(new Animated.Value(0)).current;
+  const [stats, setStats] = useState({ inputs: 0, funds: 0, disbursementRate: 0 });
 
   useEffect(() => {
     Animated.timing(fade, { toValue: 1, duration: 380, useNativeDriver: true }).start();
+    toolsApi.getAnalytics()
+      .then((a) => setStats({ inputs: a.total_inputs, funds: a.total_funds, disbursementRate: a.disbursement_rate }))
+      .catch(() => {});
   }, []);
 
   return (
@@ -84,9 +89,9 @@ export default function ToolsHubScreen() {
 
         <View style={s.snapshot}>
           <Text style={s.snapKicker}>THIS MONTH</Text>
-          <SnapStat target={1284} label="voices heard" />
-          <SnapStat target={8} label="funds tracked" />
-          <SnapStat target={71} label="avg. accountability" suffix="%" />
+          <SnapStat target={stats.inputs} label="voices heard" />
+          <SnapStat target={stats.funds} label="funds tracked" />
+          <SnapStat target={stats.disbursementRate} label="disbursed" suffix="%" />
         </View>
 
         <View style={s.toolList}>
