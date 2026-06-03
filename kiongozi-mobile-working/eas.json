@@ -38,6 +38,21 @@
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
+    "production-apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "channel": "production",
+      "cache": {
+        "disabled": true
+      },
+      "node": "22.11.0",
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      }
+    },
     "production": {
       "distribution": "store",
       "android": {
