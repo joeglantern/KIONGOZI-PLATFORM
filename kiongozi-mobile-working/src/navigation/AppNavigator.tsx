@@ -197,7 +197,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
               if (route.name === 'Feed') iconName = focused ? 'home' : 'home-outline';
               else if (route.name === 'Explore') iconName = focused ? 'search' : 'search-outline';
               else if (route.name === 'Notifications') iconName = focused ? 'notifications' : 'notifications-outline';
-              else if (route.name === 'Tools') iconName = focused ? 'construct' : 'construct-outline';
+              else if (route.name === 'Tools') iconName = focused ? 'build' : 'build-outline';
               else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
               return <Ionicons name={iconName} size={size} color={color} />;
             },
