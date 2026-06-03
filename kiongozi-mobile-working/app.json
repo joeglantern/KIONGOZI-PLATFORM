@@ -69,14 +69,14 @@
         "expo-build-properties",
         {
           "android": {
-            "enableProguardInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
+            "enableProguardInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false,
             "useAndroidX": true,
             "enableJetifier": true,
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
             "buildToolsVersion": "35.0.0",
-            "enableMinifyInReleaseBuilds": true
+            "enableMinifyInReleaseBuilds": false
           }
         }
       ]
