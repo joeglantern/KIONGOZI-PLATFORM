@@ -42,8 +42,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease",
-        "withoutCredentials": true
+        "gradleCommand": ":app:assembleRelease"
       },
       "channel": "production",
       "cache": {
