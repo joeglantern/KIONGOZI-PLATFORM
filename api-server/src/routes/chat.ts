@@ -14,6 +14,53 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const TOOLS_API = process.env.TOOLS_API_URL || 'http://156.67.25.84:8001';
+
+// Tool definitions — LLM calls these when user asks about funds, analytics, or civic inputs
+const KIONGOZI_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'get_fund_tracker_data',
+      description: 'Fetch live youth welfare fund data from the Kiongozi platform — allocations, disbursements, accountability scores, and fund status. Use whenever the user asks about funds, money, disbursements, where funds went, or financial accountability.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_advocacy_analytics',
+      description: 'Fetch live analytics on youth civic inputs — total submissions, sector breakdown (Governance, Education, Health, etc.), sentiment distribution, and fund disbursement rates. Use when user asks about civic data, youth voices, what issues are being raised, or advocacy statistics.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_youth_inputs',
+      description: 'Fetch the most recent youth civic submissions from the Policy Pulse tool — what issues young people are raising, their locations, AI-generated categories and summaries. Use when user asks what youth are saying, recent submissions, or specific civic concerns.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+];
+
+async function executeTool(name: string): Promise<string> {
+  try {
+    const routes: Record<string, string> = {
+      get_fund_tracker_data: `${TOOLS_API}/api/v1/funds`,
+      get_advocacy_analytics: `${TOOLS_API}/api/v1/advocacy/analytics`,
+      get_youth_inputs: `${TOOLS_API}/api/v1/inputs`,
+    };
+    const url = routes[name];
+    if (!url) return JSON.stringify({ error: 'Unknown tool' });
+    const res = await fetch(url);
+    const data = await res.json();
+    return JSON.stringify(data);
+  } catch (e: any) {
+    return JSON.stringify({ error: e.message });
+  }
+}
+
 async function ensureProfile(userId: string, email?: string) {
   if (!supabaseServiceClient) throw new Error('Supabase not configured');
   const { data: existing, error: selErr } = await supabaseServiceClient
@@ -645,19 +692,47 @@ Use markdown strategically for clarity and engagement:
       { role: 'user' as const, content: message.trim() }
     ];
 
-    // Generate AI response using OpenAI with optimized parameters
-    const completion = await openai.chat.completions.create({
+    // First call — LLM may request tool data
+    let firstCall = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: messages,
-      max_tokens: 300,         // OPTIMIZED: Ultra-short for maximum speed
-      temperature: 0.3,        // OPTIMIZED: Lower for faster generation
-      top_p: 0.9,             // Slightly reduced for better coherence
-      frequency_penalty: 0.2,  // Increased to reduce repetition
-      presence_penalty: 0.15,  // Increased to encourage topic diversity
-      stream: false,           // Explicit for clarity
+      messages,
+      tools: KIONGOZI_TOOLS,
+      tool_choice: 'auto',
+      max_tokens: 600,
+      temperature: 0.3,
+      top_p: 0.9,
+      frequency_penalty: 0.2,
+      presence_penalty: 0.15,
+      stream: false,
     });
 
-    const aiResponse = completion.choices[0]?.message?.content?.trim();
+    let firstChoice = firstCall.choices[0];
+
+    // If the model called tools, execute them and get the final response
+    if (firstChoice.finish_reason === 'tool_calls' && firstChoice.message.tool_calls) {
+      const toolMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        firstChoice.message,
+        ...await Promise.all(
+          firstChoice.message.tool_calls.map(async (tc) => ({
+            role: 'tool' as const,
+            tool_call_id: tc.id,
+            content: await executeTool(tc.function.name),
+          }))
+        ),
+      ];
+
+      const finalCall = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [...messages, ...toolMessages],
+        max_tokens: 600,
+        temperature: 0.3,
+        top_p: 0.9,
+        stream: false,
+      });
+      firstChoice = finalCall.choices[0];
+    }
+
+    const aiResponse = firstChoice.message?.content?.trim();
 
     if (!aiResponse) {
       return res.status(500).json({
@@ -823,12 +898,39 @@ router.post('/ai-response/stream', authenticateToken, async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    // Create streaming completion
+    // Pre-flight tool call (non-streaming) — resolve any data the LLM needs first
+    let streamMessages = [...openaiMessages];
+    const toolCheck = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: streamMessages,
+      tools: KIONGOZI_TOOLS,
+      tool_choice: 'auto',
+      max_tokens: 200,
+      temperature: 0.3,
+      stream: false,
+    });
+
+    const toolChoice = toolCheck.choices[0];
+    if (toolChoice.finish_reason === 'tool_calls' && toolChoice.message.tool_calls) {
+      const toolMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        toolChoice.message,
+        ...await Promise.all(
+          toolChoice.message.tool_calls.map(async (tc) => ({
+            role: 'tool' as const,
+            tool_call_id: tc.id,
+            content: await executeTool(tc.function.name),
+          }))
+        ),
+      ];
+      streamMessages = [...streamMessages, ...toolMessages];
+    }
+
+    // Now stream the final response (with tool data in context if any)
     const stream = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: openaiMessages,
-      max_tokens: 300,         // OPTIMIZED: Ultra-short for maximum speed
-      temperature: 0.3,        // OPTIMIZED: Lower for faster generation
+      messages: streamMessages,
+      max_tokens: 600,
+      temperature: 0.3,
       top_p: 0.9,
       frequency_penalty: 0.2,
       presence_penalty: 0.15,
