@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "scheme": "kiongozi",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -37,9 +37,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": false,
+      "usesCleartextTraffic": true,
       "permissions": [
         "RECORD_AUDIO",
         "INTERNET",
