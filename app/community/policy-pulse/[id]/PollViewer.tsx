@@ -11,11 +11,13 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import {
     ArrowLeft, Check, CheckCircle2, ClipboardCopy, Download, Loader2, Printer, RefreshCw,
-    Sparkles, Trash2, Users, FileText, BarChart2, Compass, Zap, Target, ShieldAlert, Megaphone, FlaskConical,
+    Sparkles, Trash2, Users, FileText, BarChart2, Compass, Zap, Target, ShieldAlert, Megaphone, FlaskConical, HelpCircle, Info
 } from 'lucide-react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import DeliberationPanel from '@/components/social/DeliberationPanel';
+import PollComments from '@/components/social/PollComments';
 
 interface PollViewerProps {
     poll: any;
@@ -31,12 +33,12 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [insightsText, setInsightsText] = useState(poll.ai_insights ?? '');
+    const [activeBrief, setActiveBrief] = useState<any>(null);
 
     const isOwner = user?.id && poll.created_by === user.id;
     const isAnonymous = !user;
 
-    // Stable anonymous identifier persisted in localStorage so each browser
-    // session has a unique vote token (no PII, no auth).
     const anonSessionId = useMemo(() => {
         if (typeof window === 'undefined') return null;
         const KEY = 'kiongozi.anon_session_id';
@@ -47,6 +49,64 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
         }
         return id;
     }, []);
+
+    const [submitted, setSubmitted] = useState(hasSubmitted);
+    const [liveQuestions, setLiveQuestions] = useState(questions);
+    const router = useRouter();
+    const { toast } = useToast();
+    const supabase = useMemo(() => createClient(), []);
+
+    const ANON_VOTED_KEY = `kiongozi.poll_voted.${poll.id}`;
+    const [anonVoted, setAnonVoted] = useState(false);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (window.localStorage.getItem(ANON_VOTED_KEY) === '1') setAnonVoted(true);
+    }, [ANON_VOTED_KEY]);
+    
+    const showResults = submitted || isClosed || (isAnonymous && anonVoted);
+
+    // Fetch the versioned brief (Published first, then user's draft)
+    const loadBrief = async () => {
+        try {
+            // 1. Fetch published brief
+            const { data: pubData } = await supabase
+                .from('policy_briefs')
+                .select('*')
+                .eq('poll_id', poll.id)
+                .eq('status', 'published')
+                .maybeSingle();
+
+            if (pubData) {
+                setActiveBrief(pubData);
+                setInsightsText(pubData.content);
+                return;
+            }
+
+            // 2. Fetch current user's draft brief
+            if (user) {
+                const { data: draftData } = await supabase
+                    .from('policy_briefs')
+                    .select('*')
+                    .eq('poll_id', poll.id)
+                    .eq('generated_by', user.id)
+                    .eq('status', 'draft')
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (draftData) {
+                    setActiveBrief(draftData);
+                    setInsightsText(draftData.content);
+                }
+            }
+        } catch (err) {
+            console.error('Error loading brief:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (showResults) loadBrief();
+    }, [showResults, user]);
 
     const handleDelete = async () => {
         if (!window.confirm('Delete this poll? This cannot be undone.')) return;
@@ -61,22 +121,6 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
             setIsDeleting(false);
         }
     };
-    const [insightsText, setInsightsText] = useState(poll.ai_insights ?? '');
-    const [submitted, setSubmitted] = useState(hasSubmitted);
-    const [liveQuestions, setLiveQuestions] = useState(questions);
-    const router = useRouter();
-    const { toast } = useToast();
-    const supabase = useMemo(() => createClient(), []);
-
-    // Show results once the user has submitted, the poll is closed, or this
-    // browser has already voted anonymously (tracked in localStorage).
-    const ANON_VOTED_KEY = `kiongozi.poll_voted.${poll.id}`;
-    const [anonVoted, setAnonVoted] = useState(false);
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        if (window.localStorage.getItem(ANON_VOTED_KEY) === '1') setAnonVoted(true);
-    }, [ANON_VOTED_KEY]);
-    const showResults = submitted || isClosed || (isAnonymous && anonVoted);
 
     const setAnswer = (questionId: string, value: any) => {
         setAnswers(prev => ({ ...prev, [questionId]: value }));
@@ -101,15 +145,12 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
             return;
         }
 
-        // Authenticated users carry their user_id; anonymous users carry anon_session_id only.
         const identityFields = user
-            ? { user_id: user.id as string, anon_session_id: null as string | null }
-            : { user_id: null as string | null, anon_session_id: anonSessionId };
+            ? { user_id: user.id as string, anon_session_id: null }
+            : { user_id: null, anon_session_id: anonSessionId };
 
         setIsSubmitting(true);
         try {
-            // Build response rows — skip optional questions with no answer
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const responseRows = (liveQuestions as any[]).flatMap((q: any): Record<string, unknown>[] => {
                 const ans = answers[q.id];
                 if (ans === undefined || ans === null || ans === '') return [];
@@ -121,7 +162,10 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
                     const selected = ans as string[];
                     if (!selected.length) return [];
                     return selected.map((optId: string) => ({
-                        poll_id: poll.id, question_id: q.id, option_id: optId, ...identityFields,
+                        poll_id: poll.id,
+                        question_id: q.id,
+                        option_id: optId,
+                        ...identityFields,
                     }));
                 }
                 if (q.question_type === 'scale') {
@@ -132,19 +176,12 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
 
             if (responseRows.length > 0) {
                 const { error: respErr } = await supabase.from('poll_responses').insert(responseRows);
-                if (respErr) {
-                    console.error('poll_responses insert error:', respErr.message, respErr.code, respErr.details, respErr.hint);
-                    throw new Error(respErr.message);
-                }
+                if (respErr) throw new Error(respErr.message);
             }
 
             const { error: subErr } = await supabase.from('poll_submissions').insert({ poll_id: poll.id, ...identityFields });
-            if (subErr && subErr.code !== '23505') {
-                console.error('poll_submissions insert error:', subErr.message, subErr.code, subErr.details, subErr.hint);
-                throw new Error(subErr.message);
-            }
+            if (subErr && subErr.code !== '23505') throw new Error(subErr.message);
 
-            // Re-fetch questions so ResultsView shows up-to-date vote counts immediately
             const { data: freshQuestions } = await supabase
                 .from('poll_questions')
                 .select('*, poll_options(*)')
@@ -152,7 +189,6 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
                 .order('question_order');
             if (freshQuestions) setLiveQuestions(freshQuestions);
 
-            // Remember this browser's submission so we don't show the form again on refresh
             if (typeof window !== 'undefined') window.localStorage.setItem(ANON_VOTED_KEY, '1');
 
             setSubmitted(true);
@@ -173,6 +209,7 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
             const data = await res.json();
             if (data.insights) {
                 setInsightsText(data.insights);
+                await loadBrief(); // Reload brief version history
                 toast({ title: 'AI Insights Generated', className: 'bg-civic-green text-white border-none' });
             }
         } catch {
@@ -201,17 +238,57 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
             </div>
 
             {/* Poll Header */}
-            <div className="space-y-2">
+            <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                     <Badge className="capitalize bg-civic-green/10 text-civic-green-dark border-civic-green/20">{poll.category}</Badge>
                     {isClosed
                         ? <Badge variant="secondary">Closed</Badge>
                         : <Badge className="bg-civic-clay/10 text-civic-clay border-civic-clay/20">Open</Badge>}
                 </div>
-                <h1 className="text-3xl font-bold text-foreground">{poll.title}</h1>
-                {poll.description && <p className="text-muted-foreground text-lg">{poll.description}</p>}
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Users className="h-4 w-4" /> {poll.response_count} {poll.response_count === 1 ? 'response' : 'responses'}
+                <div>
+                    <h1 className="text-3xl font-bold text-foreground leading-tight">{poll.title}</h1>
+                    {poll.description && <p className="text-muted-foreground text-base mt-2 leading-relaxed">{poll.description}</p>}
+                </div>
+
+                {/* Poll Context Parameters */}
+                {(poll.what_context || poll.why_context || poll.how_context || poll.impact_context) && (
+                    <Card className="border-civic-green/10 bg-civic-green/[0.02] rounded-2xl">
+                        <CardHeader className="pb-2 pt-4 px-5">
+                            <CardTitle className="text-sm font-bold text-civic-green-dark flex items-center gap-2">
+                                <Info className="h-4 w-4" /> About this Policy Issue
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-5 pb-4 space-y-3 text-xs md:text-sm">
+                            {poll.what_context && (
+                                <div>
+                                    <span className="font-bold text-foreground/80 block">What is the proposal?</span>
+                                    <span className="text-muted-foreground">{poll.what_context}</span>
+                                </div>
+                            )}
+                            {poll.why_context && (
+                                <div>
+                                    <span className="font-bold text-foreground/80 block">Why is this being proposed?</span>
+                                    <span className="text-muted-foreground">{poll.why_context}</span>
+                                </div>
+                            )}
+                            {poll.how_context && (
+                                <div>
+                                    <span className="font-bold text-foreground/80 block">How will it be implemented?</span>
+                                    <span className="text-muted-foreground">{poll.how_context}</span>
+                                </div>
+                            )}
+                            {poll.impact_context && (
+                                <div>
+                                    <span className="font-bold text-foreground/80 block">What is the expected impact on youth?</span>
+                                    <span className="text-muted-foreground">{poll.impact_context}</span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Users className="h-4 w-4" /> {poll.response_count} {poll.response_count === 1 ? 'response' : 'responses'} recorded
                 </p>
             </div>
 
@@ -237,14 +314,35 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
             {/* Questions */}
             <div className="space-y-6">
                 {liveQuestions.map((q, qi) => (
-                    <Card key={q.id} className="border-border/50">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base font-semibold text-foreground">
+                    <Card key={q.id} className="border-border/50 rounded-2xl shadow-sm overflow-hidden">
+                        <CardHeader className="pb-3 bg-muted/20 border-b border-border/20">
+                            <CardTitle className="text-base font-semibold text-foreground leading-snug">
                                 {qi + 1}. {q.question_text}
                                 {q.required && <span className="text-destructive ml-1">*</span>}
                             </CardTitle>
+                            
+                            {/* Question Level Explanations / Context */}
+                            {(q.why_important || q.relation_context || q.expected_action) && (
+                                <div className="mt-2.5 p-3 bg-white border rounded-xl space-y-2 text-xs text-muted-foreground">
+                                    {q.why_important && (
+                                        <div>
+                                            <span className="font-bold text-foreground/80">Importance:</span> {q.why_important}
+                                        </div>
+                                    )}
+                                    {q.relation_context && (
+                                        <div>
+                                            <span className="font-bold text-foreground/80">Relevance:</span> {q.relation_context}
+                                        </div>
+                                    )}
+                                    {q.expected_action && (
+                                        <div>
+                                            <span className="font-bold text-foreground/80">Action Outcome:</span> {q.expected_action}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-5">
                             {showResults ? (
                                 <ResultsView question={q} />
                             ) : (
@@ -259,14 +357,13 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
 
             {/* Submit button */}
             {!showResults && (
-                <Button className="w-full bg-civic-green hover:bg-civic-green-dark text-white h-12 text-lg"
+                <Button className="w-full bg-civic-green hover:bg-civic-green-dark text-white h-12 text-lg rounded-xl"
                     onClick={handleSubmit} disabled={isSubmitting}>
                     {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</> : 'Submit My Responses'}
                 </Button>
             )}
 
-            {/* AI Insights panel —
-                show whenever results are visible OR when we already have insights to display */}
+            {/* AI Insights Panel */}
             {(showResults || insightsText) && (
                 <PolicyInsightsPanel
                     poll={poll}
@@ -274,7 +371,16 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
                     isGenerating={isGeneratingInsights}
                     onGenerate={generateInsights}
                     canGenerate={!!user}
+                    activeBrief={activeBrief}
                 />
+            )}
+
+            {/* Deliberation & Threaded Discussions (Visible once results/submissions are loaded) */}
+            {showResults && (
+                <div className="space-y-8 border-t pt-8">
+                    <DeliberationPanel parentType="poll" parentId={poll.id} currentUser={user} />
+                    <PollComments pollId={poll.id} currentUser={user} />
+                </div>
             )}
         </div>
     );
@@ -288,9 +394,9 @@ function QuestionInput({ question, answer, setAnswer, toggleMulti }: {
             <div className="space-y-2">
                 {(question.poll_options ?? []).sort((a: any, b: any) => a.option_order - b.option_order).map((opt: any) => (
                     <label key={opt.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors
                             ${answer === opt.id
-                                ? 'border-civic-green bg-civic-green/5 text-civic-green-dark font-medium'
+                                ? 'border-civic-green bg-civic-green/[0.03] text-civic-green-dark font-semibold'
                                 : 'border-border hover:border-civic-green/30 hover:bg-muted/30'}`}>
                         <input type="radio" name={question.id} value={opt.id}
                             checked={answer === opt.id} onChange={() => setAnswer(opt.id)} className="accent-[#2e7d32]" />
@@ -306,9 +412,9 @@ function QuestionInput({ question, answer, setAnswer, toggleMulti }: {
             <div className="space-y-2">
                 {(question.poll_options ?? []).sort((a: any, b: any) => a.option_order - b.option_order).map((opt: any) => (
                     <label key={opt.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors
                             ${selected.includes(opt.id)
-                                ? 'border-civic-green bg-civic-green/5 text-civic-green-dark font-medium'
+                                ? 'border-civic-green bg-civic-green/[0.03] text-civic-green-dark font-semibold'
                                 : 'border-border hover:border-civic-green/30 hover:bg-muted/30'}`}>
                         <input type="checkbox" value={opt.id}
                             checked={selected.includes(opt.id)} onChange={() => toggleMulti(opt.id)} className="accent-[#2e7d32]" />
@@ -321,15 +427,15 @@ function QuestionInput({ question, answer, setAnswer, toggleMulti }: {
     if (question.question_type === 'scale') {
         return (
             <div className="space-y-3">
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-xs text-muted-foreground font-semibold">
                     <span>Strongly Disagree (1)</span>
                     <span>Strongly Agree (10)</span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                     {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
                         <button key={n} type="button"
-                            className={`w-10 h-10 rounded-lg border text-sm font-medium transition-colors
-                                ${answer === n ? 'bg-civic-green border-civic-green text-white' : 'border-border hover:border-civic-green/50'}`}
+                            className={`w-10 h-10 rounded-xl border text-sm font-semibold transition-all
+                                ${answer === n ? 'bg-civic-green border-civic-green text-white shadow' : 'border-border hover:border-civic-green/50'}`}
                             onClick={() => setAnswer(n)}>
                             {n}
                         </button>
@@ -339,8 +445,8 @@ function QuestionInput({ question, answer, setAnswer, toggleMulti }: {
         );
     }
     return (
-        <Textarea placeholder="Your response…" value={answer ?? ''}
-            onChange={e => setAnswer(e.target.value)} className="min-h-[100px]" />
+        <Textarea placeholder="Explain your reasoning here..." value={answer ?? ''}
+            onChange={e => setAnswer(e.target.value)} className="min-h-[100px] rounded-xl" />
     );
 }
 
@@ -354,11 +460,11 @@ function ResultsView({ question }: { question: any }) {
                     const pct = total > 0 ? Math.round((opt.vote_count / total) * 100) : 0;
                     return (
                         <div key={opt.id} className="space-y-1">
-                            <div className="flex justify-between text-sm">
+                            <div className="flex justify-between text-sm font-medium">
                                 <span>{opt.option_text}</span>
-                                <span className="text-muted-foreground font-medium">{pct}% ({opt.vote_count})</span>
+                                <span className="text-muted-foreground font-semibold">{pct}% ({opt.vote_count})</span>
                             </div>
-                            <Progress value={pct} className="h-2 bg-muted [&>div]:bg-civic-green" />
+                            <Progress value={pct} className="h-2.5 bg-muted rounded-full overflow-hidden [&>div]:bg-civic-green" />
                         </div>
                     );
                 })}
@@ -369,13 +475,13 @@ function ResultsView({ question }: { question: any }) {
     if (question.question_type === 'scale') {
         return (
             <p className="text-sm text-muted-foreground italic">
-                Scale responses are included in the AI analysis above.
+                Scale responses are included in the AI brief analysis below.
             </p>
         );
     }
     return (
         <p className="text-sm text-muted-foreground italic">
-            Written responses are included in the AI analysis above.
+            Written responses are included in the AI brief analysis below.
         </p>
     );
 }
@@ -404,12 +510,13 @@ function InsightSectionHeading({ children, ...props }: React.HTMLAttributes<HTML
     );
 }
 
-function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, canGenerate = true }: {
+function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, canGenerate = true, activeBrief = null }: {
     poll: any;
     insightsText: string;
     isGenerating: boolean;
     onGenerate: () => void;
     canGenerate?: boolean;
+    activeBrief?: any;
 }) {
     const { toast } = useToast();
     const [copied, setCopied] = useState(false);
@@ -456,7 +563,6 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, can
                 <p class="meta">Poll: <strong>${poll.title}</strong> &nbsp;·&nbsp; Category: ${poll.category} &nbsp;·&nbsp; ${poll.response_count} responses &nbsp;·&nbsp; Generated by Kiongozi AI</p>
                 <div id="content"></div>
                 <script>
-                    // Simple markdown to HTML for print
                     const raw = ${JSON.stringify(insightsText)};
                     const html = raw
                         .replace(/#### (.+)/g, '<h4>$1</h4>')
@@ -475,15 +581,16 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, can
     };
 
     return (
-        <Card className="border-civic-green/20 overflow-hidden">
-            {/* Header bar */}
+        <Card className="border-civic-green/20 overflow-hidden rounded-2xl shadow-md">
             <div className="bg-gradient-to-r from-civic-green to-civic-green-dark px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-white">
                     <Sparkles className="h-5 w-5" />
-                    <span className="font-semibold text-base">AI Policy Insights</span>
-                    {insightsText && (
-                        <Badge className="bg-white/20 text-white border-none text-xs ml-1">
-                            {poll.response_count} {poll.response_count === 1 ? 'response' : 'responses'} analysed
+                    <span className="font-semibold text-base">AI Policy Insights Brief</span>
+                    {activeBrief && (
+                        <Badge className={`text-xs ml-2 border-none ${
+                            activeBrief.status === 'published' ? 'bg-green-500/20 text-green-200' : 'bg-orange-500/20 text-orange-200'
+                        }`}>
+                            {activeBrief.status === 'published' ? 'Official / Published' : 'Personal Draft'}
                         </Badge>
                     )}
                 </div>
@@ -514,7 +621,6 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, can
             <CardContent className="p-0">
                 {insightsText ? (
                     <>
-                        {/* Rendered markdown */}
                         <div className="px-6 py-5 prose prose-sm prose-slate max-w-none
                             prose-headings:font-bold
                             prose-h3:text-sm prose-h3:mt-4 prose-h3:mb-1.5 prose-h3:text-foreground
@@ -536,10 +642,9 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, can
 
                         <div className="border-t border-border/50" />
 
-                        {/* Footer: regenerate + meta */}
                         <div className="px-6 py-3 flex items-center justify-between bg-muted/30">
                             <p className="text-xs text-muted-foreground">
-                                Kiongozi AI Policy Analyst · {poll.response_count} {poll.response_count === 1 ? 'respondent' : 'respondents'}
+                                Kiongozi AI Policy Analyst · {poll.response_count} responses analysed
                             </p>
                             {poll.response_count >= 3 && canGenerate && (
                                 <Button variant="ghost" size="sm"
@@ -547,7 +652,7 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, can
                                     onClick={onGenerate} disabled={isGenerating}>
                                     {isGenerating
                                         ? <><Loader2 className="h-3 w-3 animate-spin" /> Regenerating…</>
-                                        : <><RefreshCw className="h-3 w-3" /> Regenerate</>}
+                                        : <><RefreshCw className="h-3 w-3" /> Regenerate Draft</>}
                                 </Button>
                             )}
                         </div>
@@ -568,12 +673,7 @@ function PolicyInsightsPanel({ poll, insightsText, isGenerating, onGenerate, can
                                 {isGenerating
                                     ? <><Loader2 className="h-4 w-4 animate-spin" /> Analysing responses…</>
                                     : <><Sparkles className="h-4 w-4" /> Generate Policy Brief</>}
-                            </Button>
-                        )}
-                        {poll.response_count >= 3 && !canGenerate && (
-                            <Button asChild size="sm" variant="outline" className="border-civic-green/40 text-civic-green-dark">
-                                <Link href={`/login?redirect=/community/policy-pulse/${poll.id}`}>Sign in to generate</Link>
-                            </Button>
+                                </Button>
                         )}
                     </div>
                 )}

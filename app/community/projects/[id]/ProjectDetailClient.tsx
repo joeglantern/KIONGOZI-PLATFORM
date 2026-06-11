@@ -17,6 +17,7 @@ import {
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';
 import ImageUpload from '@/components/ui/ImageUpload';
+import DeliberationPanel from '@/components/social/DeliberationPanel';
 
 const MILESTONE_LABELS: Record<string, string> = {
     announced: 'Announced', funded: 'Funded', in_progress: 'In Progress',
@@ -346,6 +347,9 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
                     )}
                 </div>
             )}
+
+            {/* Deliberation & Consensus Space */}
+            <DeliberationPanel parentType="project" parentId={project.id} currentUser={user} />
 
             {/* Updates timeline */}
             <div>

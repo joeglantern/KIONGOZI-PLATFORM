@@ -9,6 +9,9 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 import { useTheme } from '@/app/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
+import LanguageSwitcher from '@/components/layout/LanguageSwitcher';
+import AccessibilitySwitcher from '@/components/layout/AccessibilitySwitcher';
+import { useLanguage } from '@/app/contexts/LanguageContext';
 import {
     Sparkles,
     Menu,
@@ -28,6 +31,7 @@ import {
 
 export function Navbar() {
     const { user, profile, signOut } = useUser();
+    const { t } = useLanguage();
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
@@ -86,46 +90,46 @@ export function Navbar() {
                             <>
                                 <Link href="/" className={desktopNavClass(isActive('/'))}>
                                     <Home className="w-4 h-4 mr-2" />
-                                    Home
+                                    {t('nav.home')}
                                 </Link>
                                 <Link href="/courses" className={desktopNavClass(isActive('/browse'))}>
                                     <BookOpen className="w-4 h-4 mr-2" />
-                                    Browse Courses
+                                    {t('nav.browse')}
                                 </Link>
                                 <Link href="/community" className={desktopNavClass(isActive('/community'))}>
                                     <Users className="w-4 h-4 mr-2" />
-                                    Community
+                                    {t('nav.community')}
                                 </Link>
                                 <Link href="/impact-map" className={desktopNavClass(isActive('/impact-map'))}>
                                     <MapIcon className="w-4 h-4 mr-2" />
-                                    Impact Map
+                                    {t('nav.impact_map')}
                                 </Link>
                             </>
                         ) : (
                             <>
                                 <Link href="/dashboard" className={desktopNavClass(isActive('/dashboard'))}>
                                     <LayoutDashboard className="w-4 h-4 mr-2" />
-                                    Dashboard
+                                    {t('nav.dashboard')}
                                 </Link>
                                 <Link href="/courses" className={desktopNavClass(isActive('/courses'))}>
                                     <BookOpen className="w-4 h-4 mr-2" />
-                                    Browse
+                                    {t('nav.browse')}
                                 </Link>
                                 <Link href="/my-learning" className={desktopNavClass(isActive('/my-learning'))}>
                                     <GraduationCap className="w-4 h-4 mr-2" />
-                                    My Learning
+                                    {t('nav.my_learning')}
                                 </Link>
                                 <Link href="/community" className={desktopNavClass(isActive('/community'))}>
                                     <Users className="w-4 h-4 mr-2" />
-                                    Community
+                                    {t('nav.community')}
                                 </Link>
                                 <Link href="/impact-map" className={desktopNavClass(isActive('/impact-map'))}>
                                     <MapIcon className="w-4 h-4 mr-2" />
-                                    Impact Map
+                                    {t('nav.impact_map')}
                                 </Link>
                                 {isInstructor && (
                                     <Link href="/instructor/dashboard" className={cn(buttonVariants(), 'bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md')}>
-                                        Instructor Panel
+                                        {t('nav.instructor_panel')}
                                     </Link>
                                 )}
                             </>
@@ -134,6 +138,8 @@ export function Navbar() {
 
                     {/* Right Side Actions */}
                     <div className="hidden md:flex items-center space-x-3">
+                        <LanguageSwitcher />
+                        <AccessibilitySwitcher />
                         {user ? (
                             <>
                                 <NotificationDropdown />
@@ -166,18 +172,18 @@ export function Navbar() {
                                         <div className="py-1">
                                             <Link href="/profile" className="flex w-full items-center space-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
                                                 <User className="w-4 h-4" />
-                                                <span>Profile</span>
+                                                <span>{t('nav.profile')}</span>
                                             </Link>
                                             <Link href="/settings" className="flex w-full items-center space-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
                                                 <Settings className="w-4 h-4" />
-                                                <span>Settings</span>
+                                                <span>{t('nav.settings')}</span>
                                             </Link>
                                             <button
                                                 onClick={signOut}
                                                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
                                             >
                                                 <LogOut className="w-4 h-4" />
-                                                <span>Sign Out</span>
+                                                <span>{t('nav.sign_out')}</span>
                                             </button>
                                         </div>
                                     </div>
@@ -186,10 +192,10 @@ export function Navbar() {
                         ) : (
                             <>
                                 <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'text-gray-700')}>
-                                    Sign In
+                                    {t('nav.sign_in')}
                                 </Link>
                                 <Link href="/signup" className={cn(buttonVariants(), 'bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg')}>
-                                    Get Started
+                                    {t('nav.get_started')}
                                 </Link>
                             </>
                         )}
@@ -209,30 +215,30 @@ export function Navbar() {
 
             {/* Mobile Menu */}
             <div
-                className={`md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg overflow-hidden transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'
+                className={`md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'max-h-[85vh] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'
                     }`}
             >
-                <div className="px-4 py-3 space-y-2">
+                <div className="px-4 pt-3 pb-24 space-y-2">
                     {!user ? (
                         <>
                             <Link href="/" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <Home className="w-4 h-4 mr-2" />
-                                Home
+                                {t('nav.home')}
                             </Link>
                             <Link href="/courses" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <BookOpen className="w-4 h-4 mr-2" />
-                                Browse Courses
+                                {t('nav.browse')}
                             </Link>
                             <Link href="/community" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <Users className="w-4 h-4 mr-2" />
-                                Community
+                                {t('nav.community')}
                             </Link>
                             <div className="pt-3 border-t border-gray-200 space-y-2">
                                 <Link href="/login" onClick={() => setMobileMenuOpen(false)} className={mobileOutlineClass}>
-                                    Sign In
+                                    {t('nav.sign_in')}
                                 </Link>
                                 <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className={cn(buttonVariants(), 'w-full bg-orange-500')}>
-                                    Get Started
+                                    {t('nav.get_started')}
                                 </Link>
                             </div>
                         </>
@@ -240,38 +246,38 @@ export function Navbar() {
                         <>
                             <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <LayoutDashboard className="w-4 h-4 mr-2" />
-                                Dashboard
+                                {t('nav.dashboard')}
                             </Link>
                             <Link href="/courses" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <BookOpen className="w-4 h-4 mr-2" />
-                                Browse
+                                {t('nav.browse')}
                             </Link>
                             <Link href="/my-learning" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <GraduationCap className="w-4 h-4 mr-2" />
-                                My Learning
+                                {t('nav.my_learning')}
                             </Link>
                             <Link href="/community" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <Users className="w-4 h-4 mr-2" />
-                                Community
+                                {t('nav.community')}
                             </Link>
                             <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <MapIcon className="w-4 h-4 mr-2" />
-                                Impact Map
+                                {t('nav.impact_map')}
                             </Link>
                             {isInstructor && (
                                 <Link href="/instructor/dashboard" onClick={() => setMobileMenuOpen(false)} className={cn(buttonVariants(), 'w-full justify-start bg-orange-500 text-white font-bold')}>
                                     <LayoutDashboard className="w-4 h-4 mr-2" />
-                                    Instructor Panel
+                                    {t('nav.instructor_panel')}
                                 </Link>
                             )}
                             <div className="pt-3 border-t border-gray-200 space-y-2">
                                 <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                     <User className="w-4 h-4 mr-2" />
-                                    Profile
+                                    {t('nav.profile')}
                                 </Link>
                                 <Link href="/settings" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                     <Settings className="w-4 h-4 mr-2" />
-                                    Settings
+                                    {t('nav.settings')}
                                 </Link>
                                 <Button
                                     onClick={() => {
@@ -282,11 +288,18 @@ export function Navbar() {
                                     className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                                 >
                                     <LogOut className="w-4 h-4 mr-2" />
-                                    Sign Out
+                                    {t('nav.sign_out')}
                                 </Button>
                             </div>
                         </>
                     )}
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between px-2">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Preferences</span>
+                        <div className="flex items-center gap-2">
+                            <LanguageSwitcher />
+                            <AccessibilitySwitcher />
+                        </div>
+                    </div>
                 </div>
             </div>
         </nav>

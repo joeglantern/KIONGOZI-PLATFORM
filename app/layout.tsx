@@ -12,6 +12,8 @@ const roboto = Roboto({
 import type { Metadata } from 'next';
 import { UserProvider } from './contexts/UserContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
+import { AccessibilityProvider } from './contexts/AccessibilityProvider';
 import { CookieConsentProvider } from './contexts/CookieConsentContext';
 import { QueryProvider } from './providers/QueryProvider';
 import { Navbar } from '@/components/layout/Navbar';
@@ -64,23 +66,27 @@ export default function RootLayout({
         <QueryProvider>
           <UserProvider>
             <ThemeProvider>
-              <CookieConsentProvider>
-                <ClientOnlyWidgets />
-                <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
-                  <Navbar />
-                  <main className="flex-1 pt-16">
-                    <ErrorBoundary>
+              <LanguageProvider>
+                <AccessibilityProvider>
+                  <CookieConsentProvider>
+                    <ClientOnlyWidgets />
+                    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
+                      <Navbar />
+                      <main className="flex-1 pt-16 animate-page-enter">
+                        <ErrorBoundary>
+                          <Suspense fallback={null}>
+                            {children}
+                          </Suspense>
+                        </ErrorBoundary>
+                      </main>
                       <Suspense fallback={null}>
-                        {children}
+                        <Footer />
                       </Suspense>
-                    </ErrorBoundary>
-                  </main>
-                  <Suspense fallback={null}>
-                    <Footer />
-                  </Suspense>
-                  <Toaster />
-                </div>
-              </CookieConsentProvider>
+                      <Toaster />
+                    </div>
+                  </CookieConsentProvider>
+                </AccessibilityProvider>
+              </LanguageProvider>
             </ThemeProvider>
           </UserProvider>
         </QueryProvider>

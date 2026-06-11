@@ -10,19 +10,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, BarChart2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, ArrowLeft, BarChart2, Plus, Trash2, Info } from 'lucide-react';
 import Link from 'next/link';
 
 interface Question {
     text: string;
-    type: 'single_choice' | 'multiple_choice' | 'scale' | 'text';
-    options: string[];
+    type: 'text';
+    whyImportant: string;
+    relationContext: string;
+    expectedAction: string;
 }
 
 const defaultQuestion = (): Question => ({
     text: '',
-    type: 'single_choice',
-    options: ['', ''],
+    type: 'text',
+    whyImportant: '',
+    relationContext: '',
+    expectedAction: '',
 });
 
 export default function CreatePollPage() {
@@ -30,6 +34,10 @@ export default function CreatePollPage() {
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('general');
     const [closesAt, setClosesAt] = useState('');
+    const [whatContext, setWhatContext] = useState('');
+    const [whyContext, setWhyContext] = useState('');
+    const [howContext, setHowContext] = useState('');
+    const [impactContext, setImpactContext] = useState('');
     const [questions, setQuestions] = useState<Question[]>([defaultQuestion()]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
@@ -38,24 +46,6 @@ export default function CreatePollPage() {
 
     const updateQuestion = (qi: number, field: keyof Question, value: any) => {
         setQuestions(prev => prev.map((q, i) => i === qi ? { ...q, [field]: value } : q));
-    };
-
-    const updateOption = (qi: number, oi: number, value: string) => {
-        setQuestions(prev => prev.map((q, i) =>
-            i === qi ? { ...q, options: q.options.map((o, j) => j === oi ? value : o) } : q
-        ));
-    };
-
-    const addOption = (qi: number) => {
-        setQuestions(prev => prev.map((q, i) =>
-            i === qi ? { ...q, options: [...q.options, ''] } : q
-        ));
-    };
-
-    const removeOption = (qi: number, oi: number) => {
-        setQuestions(prev => prev.map((q, i) =>
-            i === qi ? { ...q, options: q.options.filter((_, j) => j !== oi) } : q
-        ));
     };
 
     const addQuestion = () => setQuestions(prev => [...prev, defaultQuestion()]);
@@ -85,6 +75,10 @@ export default function CreatePollPage() {
                     closes_at: closesAt || null,
                     created_by: user.id,
                     status: 'active',
+                    what_context: whatContext.trim() || null,
+                    why_context: whyContext.trim() || null,
+                    how_context: howContext.trim() || null,
+                    impact_context: impactContext.trim() || null,
                 })
                 .select()
                 .single();
@@ -100,28 +94,19 @@ export default function CreatePollPage() {
                         question_text: q.text.trim(),
                         question_type: q.type,
                         question_order: qi,
+                        why_important: q.whyImportant.trim() || null,
+                        relation_context: q.relationContext.trim() || null,
+                        expected_action: q.expectedAction.trim() || null,
                     })
                     .select()
                     .single();
 
                 if (qErr || !question) throw qErr;
-
-                if (q.type === 'single_choice' || q.type === 'multiple_choice') {
-                    const opts = q.options.filter(o => o.trim()).map((o, oi) => ({
-                        question_id: question.id,
-                        option_text: o.trim(),
-                        option_order: oi,
-                    }));
-                    if (opts.length > 0) {
-                        const { error: optsErr } = await supabase.from('poll_options').insert(opts);
-                        if (optsErr) throw optsErr;
-                    }
-                }
             }
 
             toast({
                 title: 'Poll Created',
-                description: 'Your poll is now live.',
+                description: 'Your deliberative poll is now live.',
                 className: 'bg-civic-green text-white border-none',
             });
             router.push('/community/policy-pulse');
@@ -144,54 +129,89 @@ export default function CreatePollPage() {
             <Card className="border-civic-green/20 shadow-lg">
                 <CardHeader>
                     <CardTitle className="text-2xl text-civic-green-dark flex items-center gap-2">
-                        <BarChart2 className="h-6 w-6" /> Create a Policy Poll
+                        <BarChart2 className="h-6 w-6" /> Create a Deliberative Policy Poll
                     </CardTitle>
                     <CardDescription>
-                        Gather youth opinions on issues that matter. Responses will be analyzed with AI to generate policymaker insights.
+                        Gather open-ended, discussion-driven youth viewpoints on critical issues to inform policymakers.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="title">Poll Title</Label>
-                            <Input id="title" placeholder="E.g., Should free TVET training be expanded?" value={title}
-                                onChange={e => setTitle(e.target.value)} maxLength={150} required />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="desc">Description</Label>
-                            <Textarea id="desc" placeholder="Provide context about this policy issue…" value={description}
-                                onChange={e => setDescription(e.target.value)} className="min-h-[100px]" />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Category</Label>
-                                <Select value={category} onValueChange={setCategory}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {['general', 'environment', 'education', 'health', 'economy', 'governance'].map(c => (
-                                            <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="closes">Closes At (optional)</Label>
-                                <Input id="closes" type="datetime-local" value={closesAt}
-                                    onChange={e => setClosesAt(e.target.value)} />
-                            </div>
-                        </div>
-
-                        {/* Questions */}
+                        {/* Core Details */}
                         <div className="space-y-4">
-                            <Label className="text-base font-semibold">Questions</Label>
+                            <div className="space-y-2">
+                                <Label htmlFor="title">Poll Title</Label>
+                                <Input id="title" placeholder="E.g., Should free TVET training be expanded?" value={title}
+                                    onChange={e => setTitle(e.target.value)} maxLength={150} required />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="desc">Description</Label>
+                                <Textarea id="desc" placeholder="Provide general context about this policy issue…" value={description}
+                                    onChange={e => setDescription(e.target.value)} className="min-h-[100px]" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Category</Label>
+                                    <Select value={category} onValueChange={setCategory}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {['general', 'environment', 'education', 'health', 'economy', 'governance'].map(c => (
+                                                <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="closes">Closes At (optional)</Label>
+                                    <Input id="closes" type="datetime-local" value={closesAt}
+                                        onChange={e => setClosesAt(e.target.value)} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Deliberation Framework Parameters */}
+                        <div className="space-y-4 border-t pt-4">
+                            <h3 className="font-bold text-civic-green-dark text-lg flex items-center gap-2">
+                                <Info className="h-5 w-5" /> Deliberative Background Context
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                Answer these core design questions to establish a robust foundation for youth debate.
+                            </p>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="what_context">What? (What is the proposal?)</Label>
+                                    <Textarea id="what_context" placeholder="Define the policy proposal clearly..." value={whatContext}
+                                        onChange={e => setWhatContext(e.target.value)} className="min-h-[80px]" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="why_context">Why? (Why is this being proposed?)</Label>
+                                    <Textarea id="why_context" placeholder="Describe the background and problem statement..." value={whyContext}
+                                        onChange={e => setWhyContext(e.target.value)} className="min-h-[80px]" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="how_context">How? (How will it be implemented?)</Label>
+                                    <Textarea id="how_context" placeholder="Explain execution steps and mechanisms..." value={howContext}
+                                        onChange={e => setHowContext(e.target.value)} className="min-h-[80px]" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="impact_context">Expected Impact? (What is the expected impact on youth?)</Label>
+                                    <Textarea id="impact_context" placeholder="Outline specific consequences, benefits, or risks for youth..." value={impactContext}
+                                        onChange={e => setImpactContext(e.target.value)} className="min-h-[80px]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Questions & Redesigned Question Tool */}
+                        <div className="space-y-4 border-t pt-4">
+                            <Label className="text-base font-bold text-civic-green-dark">Questions & Deliberative Design</Label>
                             {questions.map((q, qi) => (
                                 <Card key={qi} className="border-border/50 bg-muted/20">
                                     <CardContent className="pt-4 space-y-3">
                                         <div className="flex items-start gap-2">
                                             <span className="text-sm font-medium text-muted-foreground mt-2 shrink-0">Q{qi + 1}</span>
-                                            <Input placeholder="Question text" value={q.text}
+                                            <Input placeholder="Enter your open-ended question..." value={q.text}
                                                 onChange={e => updateQuestion(qi, 'text', e.target.value)} />
                                             {questions.length > 1 && (
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => removeQuestion(qi)}
@@ -200,45 +220,26 @@ export default function CreatePollPage() {
                                                 </Button>
                                             )}
                                         </div>
-
-                                        <Select value={q.type} onValueChange={v => updateQuestion(qi, 'type', v)}>
-                                            <SelectTrigger className="w-48">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="single_choice">Single Choice</SelectItem>
-                                                <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                                                <SelectItem value="scale">Scale (1–10)</SelectItem>
-                                                <SelectItem value="text">Open Text</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-
-                                        {(q.type === 'single_choice' || q.type === 'multiple_choice') && (
-                                            <div className="space-y-2 ml-6">
-                                                {q.options.map((opt, oi) => (
-                                                    <div key={oi} className="flex gap-2">
-                                                        <Input placeholder={`Option ${oi + 1}`} value={opt}
-                                                            onChange={e => updateOption(qi, oi, e.target.value)} />
-                                                        {q.options.length > 2 && (
-                                                            <Button type="button" variant="ghost" size="icon"
-                                                                onClick={() => removeOption(qi, oi)} className="shrink-0 text-muted-foreground">
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                                <Button type="button" variant="ghost" size="sm" onClick={() => addOption(qi)}
-                                                    className="text-civic-green">
-                                                    <Plus className="mr-1 h-3 w-3" /> Add Option
-                                                </Button>
+                                        
+                                        {/* Question Tool Enhancements */}
+                                        <div className="pl-9 space-y-3 border-l-2 border-civic-green/20 mt-2">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-semibold text-foreground/80">Why is this question important?</Label>
+                                                <Input className="h-8 text-xs" placeholder="E.g., Helps capture barriers to access..." value={q.whyImportant}
+                                                    onChange={e => updateQuestion(qi, 'whyImportant', e.target.value)} />
                                             </div>
-                                        )}
-                                        {q.type === 'scale' && (
-                                            <p className="text-xs text-muted-foreground ml-6">Respondents will rate from 1 (strongly disagree) to 10 (strongly agree).</p>
-                                        )}
-                                        {q.type === 'text' && (
-                                            <p className="text-xs text-muted-foreground ml-6">Respondents will provide a written answer.</p>
-                                        )}
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-semibold text-foreground/80">How does this relate to governance, accountability, sustainability, or youth participation?</Label>
+                                                <Input className="h-8 text-xs" placeholder="E.g., Highlights youth-led monitoring..." value={q.relationContext}
+                                                    onChange={e => updateQuestion(qi, 'relationContext', e.target.value)} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-semibold text-foreground/80">What action can result from the answers?</Label>
+                                                <Input className="h-8 text-xs" placeholder="E.g., Directly informs the county draft policy..." value={q.expectedAction}
+                                                    onChange={e => updateQuestion(qi, 'expectedAction', e.target.value)} />
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground pl-9">Respondents will provide an open-ended written answer to drive discussion.</p>
                                     </CardContent>
                                 </Card>
                             ))}
