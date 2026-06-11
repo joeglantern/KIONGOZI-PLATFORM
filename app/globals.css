@@ -486,3 +486,23 @@ body {
 .card-interactive {
   @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md;
 }
+
+/* Accessibility settings support */
+:root.text-sm-size {
+  font-size: 14px;
+}
+:root.text-md-size {
+  font-size: 16px;
+}
+:root.text-lg-size {
+  font-size: 18px;
+}
+:root.text-xl-size {
+  font-size: 20px;
+}
+
+:root.low-latency-mode * {
+  animation: none !important;
+  transition: none !important;
+  transition-duration: 0s !important;
+}

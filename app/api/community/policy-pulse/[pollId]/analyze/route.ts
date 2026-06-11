@@ -56,7 +56,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
             );
             sections.push('');
 
-            // Sort by vote count descending for clarity
             const sortedOpts = [...opts].sort((a: any, b: any) => (b.vote_count ?? 0) - (a.vote_count ?? 0));
             for (const opt of sortedOpts) {
                 const count = opt.vote_count ?? 0;
@@ -65,7 +64,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
                 sections.push(`- **"${opt.option_text}"** — ${pct}% (${count} votes) ${bar}`);
             }
 
-            // Surface the dominant response and runner-up
             if (sortedOpts.length >= 2 && totalVotes > 0) {
                 const top = sortedOpts[0];
                 const second = sortedOpts[1];
@@ -74,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
                 sections.push('');
                 sections.push(`> **Dominant:** "${top.option_text}" (${topPct}%) — runner-up "${second.option_text}" (${secPct}%)`);
                 if (Math.abs(top.vote_count - second.vote_count) <= 1 && totalVotes > 2) {
-                    sections.push(`> ⚠️ *Near tie — opinion is highly divided on this question*`);
+                    sections.push(`> ⚠️ *Near tie — opinion is divided*`);
                 }
             }
 
@@ -91,7 +89,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
                 const midPct = ((mid / values.length) * 100).toFixed(0);
                 const highPct = ((high / values.length) * 100).toFixed(0);
 
-                // Distribution histogram
                 const dist: Record<number, number> = {};
                 for (let i = 1; i <= 10; i++) dist[i] = 0;
                 values.forEach(v => { dist[v] = (dist[v] ?? 0) + 1; });
@@ -102,9 +99,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
                 sections.push(`- **Sample size:** ${values.length} responses`);
 
                 if (avg >= 8) sections.push(`> 🟢 *Strong positive sentiment*`);
-                else if (avg >= 6) sections.push(`> 🟡 *Moderate support with reservations*`);
-                else if (avg >= 4) sections.push(`> 🟠 *Divided — significant disagreement*`);
-                else sections.push(`> 🔴 *Low support — strong negative sentiment*`);
+                else if (avg >= 6) sections.push(`> 🟡 *Moderate support*`);
+                else if (avg >= 4) sections.push(`> 🟠 *Divided*`);
+                else sections.push(`> 🔴 *Low support*`);
             }
 
         } else if (q.question_type === 'text') {
@@ -127,6 +124,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
     }
 
     const dataSummary = sections.join('\n');
+
+    const systemPrompt = `You are a senior policy analyst specialising in African youth governance. You produce rigorous, evidence-based policy briefs. You write with authority and precision, citing specific data. You never produce vague or generic output.`;
 
     const prompt = `You are a senior youth policy analyst with deep expertise in East African governance, civic engagement, and youth development. You have just received structured survey data from a youth policy poll run on the Kiongozi civic platform — a platform empowering African youth to engage with public policy.
 
@@ -214,42 +213,59 @@ IMPORTANT GUIDELINES:
 - Keep the entire report between 500–750 words of prose (excluding headers/labels).
 - Do NOT add commentary outside the template structure above.`;
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: 'AI not configured' }, { status: 500 });
-
-    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: 'You are a senior policy analyst specialising in African youth governance. You produce rigorous, evidence-based policy briefs. You write with authority and precision, citing specific data. You never produce vague or generic output.',
-                },
-                { role: 'user', content: prompt },
-            ],
-            max_tokens: 1800,
-            temperature: 0.55,
-        }),
-    });
-
-    if (!aiRes.ok) {
-        const err = await aiRes.text();
-        console.error('OpenAI error:', err);
-        return NextResponse.json({ error: 'AI analysis failed' }, { status: 500 });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+        console.error("Missing ANTHROPIC_API_KEY");
+        return NextResponse.json({ error: 'AI not configured' }, { status: 500 });
     }
 
-    const aiData = await aiRes.json();
-    const insights = aiData.choices?.[0]?.message?.content ?? '';
+    try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 1800,
+                temperature: 0.55,
+                system: systemPrompt,
+                messages: [
+                    { role: 'user', content: prompt }
+                ]
+            })
+        });
 
-    await supabase.from('policy_polls').update({
-        ai_insights: insights,
-        insights_generated_at: new Date().toISOString(),
-    }).eq('id', pollId);
+        if (!response.ok) {
+            const errBody = await response.text();
+            console.error('Anthropic API analysis failure:', errBody);
+            throw new Error(`Anthropic HTTP error: ${response.status}`);
+        }
 
-    return NextResponse.json({ insights });
+        const data = await response.json();
+        const insights = data.content?.[0]?.text ?? '';
+
+        // Store the brief globally in the policy_polls table (for backwards compatibility)
+        await supabase.from('policy_polls').update({
+            ai_insights: insights,
+            insights_generated_at: new Date().toISOString(),
+        }).eq('id', pollId);
+
+        // ALSO log and store as a versioned brief inside policy_briefs table (status: draft)
+        // This makes sure both the generating user gets their own draft, and admins see it!
+        await supabase.from('policy_briefs').insert({
+            poll_id: pollId,
+            title: `AI Brief: ${poll.title} (${new Date().toLocaleDateString()})`,
+            content: insights,
+            generated_by: user.id,
+            status: 'draft'
+        });
+
+        return NextResponse.json({ insights });
+    } catch (err: any) {
+        console.error("AI Analysis error:", err.message);
+        return NextResponse.json({ error: 'AI analysis failed' }, { status: 500 });
+    }
 }

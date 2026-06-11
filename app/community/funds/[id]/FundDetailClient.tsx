@@ -14,6 +14,7 @@ import { ArrowLeft, ExternalLink, DollarSign, Building2, Loader2, MessageSquare,
 import ImageUpload from '@/components/ui/ImageUpload';
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';
+import DeliberationPanel from '@/components/social/DeliberationPanel';
 
 function fmt(amount: number | null, currency = 'KES', fallback = 'Not disclosed') {
     if (amount == null || amount === 0) return fallback;
@@ -247,6 +248,9 @@ export default function FundDetailClient({ fund, allocations, disbursements, com
                     </CardContent>
                 </Card>
             )}
+
+            {/* Deliberation & Consensus Space */}
+            <DeliberationPanel parentType="fund" parentId={fund.id} currentUser={user} />
 
             {/* Comments */}
             <Card className="border-border/50">
