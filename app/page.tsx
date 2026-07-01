@@ -1,193 +1,1143 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { AuthCTA } from '@/components/landing/AuthCTA';
+"use client";
+
+import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { motion, AnimatePresence, useSpring, type MotionStyle } from "framer-motion";
 import {
   ArrowRight,
+  Award,
+  BarChart3,
   BookOpen,
-  Trophy,
-  Users,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Clock3,
+  Code2,
+  Flame,
+  Heart,
+  Leaf,
+  Lightbulb,
+  LockKeyhole,
+  Map,
+  ShieldCheck,
+  Sparkles,
   Target,
-  Briefcase,
-  Code,
-  TreePine,
-} from 'lucide-react';
+  Users,
+  Vote,
+  X,
+  Zap,
+} from "lucide-react";
+import { useUser } from "@/app/contexts/UserContext";
+import { createClient } from "@/app/utils/supabaseClient";
+import { Mwanzo, Zola, Ken, Tumi } from "@/components/landing/Characters";
+import { PENDING_MISSION_KEY } from "@/components/landing/PendingMissionClaim";
+import AnimatedIcon from "@/components/landing/AnimatedIcon";
+import activity from "react-useanimations/lib/activity";
+import LottieScene from "@/components/landing/LottieScene";
+
+const MISSION_KEY = "county-youth-centre";
+
+/* ═══════════════════════════════════════════════════════════════════
+   Decorative SVG Components
+   ═══════════════════════════════════════════════════════════════════ */
+
+function SparkleIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={`fill-current ${className}`}>
+      <path d="M12 0c.28 5.67 4.33 9.72 10 10-.28-5.67-4.33-9.72-10-10zm0 24c-.28-5.67-4.33-9.72-10-10 .28 5.67 4.33 9.72 10 10z" />
+    </svg>
+  );
+}
+
+function StarIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`stroke-current ${className}`}>
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
+  );
+}
+
+function WavyDivider({ topColor = "#f8f4e8", bottomColor = "#ffffff", variant = 1 }: { topColor?: string; bottomColor?: string; variant?: 1 | 2 | 3 }) {
+  const paths: Record<number, string> = {
+    1: "M0,40 C320,80 640,0 960,50 C1280,100 1440,30 1440,30 L1440,120 L0,120 Z",
+    2: "M0,50 C180,90 360,10 720,50 C1080,90 1260,10 1440,40 L1440,120 L0,120 Z",
+    3: "M0,30 C240,90 480,10 720,60 C960,10 1200,90 1440,50 L1440,120 L0,120 Z",
+  };
+  return (
+    <div className="relative w-full overflow-hidden leading-[0]" style={{ backgroundColor: topColor }} aria-hidden="true">
+      <svg viewBox="0 0 1440 120" preserveAspectRatio="none" className="w-full h-[40px] sm:h-[60px] lg:h-[80px] block">
+        <path d={paths[variant]} fill={bottomColor} />
+      </svg>
+    </div>
+  );
+}
+
+function HandDrawnUnderline({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 280 14" preserveAspectRatio="none" className={`block ${className}`}>
+      <path d="M2,9 Q35,3 70,9 T140,8 T210,9 T280,7" stroke="#FF6633" strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.6" />
+      <path d="M8,12 Q45,6 90,11 T180,10 T270,11" stroke="#FF6633" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.35" />
+    </svg>
+  );
+}
+
+function LoopDoodle({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 120 60" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.12">
+      <path d="M10,30 C10,10 30,10 30,30 C30,50 50,50 50,30 C50,10 70,10 70,30 C70,50 90,50 90,30 C90,10 110,10 110,30" />
+    </svg>
+  );
+}
+
+function CrossDoodle({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.08">
+      <path d="M12 2v20M2 12h20" />
+    </svg>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Data
+   ═══════════════════════════════════════════════════════════════════ */
+
+const answers = [
+  {
+    id: "check-budget-records",
+    label: "Check the approved budget, procurement records, and project timeline.",
+    feedback: "Strong move. Evidence gives you the clearest path to ask precise questions and demand accountable action.",
+    correct: true,
+  },
+  {
+    id: "post-accusation",
+    label: "Post an accusation immediately so the story spreads quickly.",
+    feedback: "Attention can help, but an unsupported accusation is easy to dismiss. Gather verifiable evidence first.",
+    correct: false,
+  },
+  {
+    id: "wait-for-update",
+    label: "Wait for the next official update before doing anything.",
+    feedback: "Waiting protects your time, but it gives away your agency. Public records let you investigate now.",
+    correct: false,
+  },
+] as const;
+
+const learningPaths = [
+  {
+    key: "civic",
+    title: "Civic Leadership",
+    outcome: "Spot corruption. Track public budgets. Audit CDF projects.",
+    icon: Vote,
+    bgColor: "bg-[#fff0e6]",
+    accentColor: "#FF6633",
+    guide: <Tumi action="cheer" className="h-20 w-20" />,
+  },
+  {
+    key: "green",
+    title: "Green Economy",
+    outcome: "Track climate action. Earn green XP. Start local eco missions.",
+    icon: Leaf,
+    bgColor: "bg-[#e8f8ef]",
+    accentColor: "#10b981",
+    guide: <Zola action="excited" className="h-20 w-20" />,
+  },
+  {
+    key: "digital",
+    title: "Digital Skills",
+    outcome: "Build civic tech. Map local problems. Code for your community.",
+    icon: Zap,
+    bgColor: "bg-[#e6f3fa]",
+    accentColor: "#0ea5e9",
+    guide: <Ken action="adjust" className="h-20 w-20" />,
+  },
+  {
+    key: "entrepreneurship",
+    title: "Entrepreneurship",
+    outcome: "Pitch community ventures. Fund local ideas. Win county support.",
+    icon: Lightbulb,
+    bgColor: "bg-[#fef9e7]",
+    accentColor: "#f59e0b",
+    guide: <Mwanzo expression="excited" className="h-20 w-20" />,
+  },
+];
+
+const testimonials = [
+  {
+    persona: "Civic Leadership",
+    name: "The Budget Auditor",
+    role: "What you'll be able to do",
+    quote: "Audit a real county budget, spot where the money stopped, and ask your leaders precise, evidence-backed questions.",
+    avatar: <Mwanzo expression="happy" className="h-full w-full" />,
+    tilt: "-rotate-[1.5deg]",
+  },
+  {
+    persona: "Green Economy",
+    name: "The Eco Champion",
+    role: "What you'll be able to do",
+    quote: "Run local eco missions, track climate action in your ward, and earn green XP for real environmental work.",
+    avatar: <Zola action="cheer" className="h-full w-full" />,
+    tilt: "rotate-[1deg]",
+  },
+  {
+    persona: "Digital Skills",
+    name: "The Civic Tech Builder",
+    role: "What you'll be able to do",
+    quote: "Map a local problem, build civic tech for your community, and turn working code into real accountability.",
+    avatar: <Ken action="excited" className="h-full w-full" />,
+    tilt: "-rotate-[0.5deg]",
+  },
+];
+
+const faqItems = [
+  {
+    question: "Is Kiongozi really free?",
+    answer: "Yes! Kiongozi is completely free for all Kenyan youth. We're funded by partners who believe in youth civic empowerment across all 47 counties.",
+  },
+  {
+    question: "How long are the missions?",
+    answer: "Most missions take 3–5 minutes. They're designed for mobile-first, short-burst learning you can do between classes, on a matatu, or during breaks.",
+  },
+  {
+    question: "Do I earn real credentials?",
+    answer: "Absolutely. As you complete learning paths, you earn verified digital credentials you can share on LinkedIn, CVs, and with employers or universities.",
+  },
+  {
+    question: "What counties are active?",
+    answer: "All 47 counties are live! County leagues let you compete and collaborate with youth across Kenya. Join your county's team and start climbing the leaderboard.",
+  },
+  {
+    question: "Can I use Kiongozi on my phone?",
+    answer: "Yes — Kiongozi is built mobile-first. Every mission, quiz, and leaderboard works perfectly on your phone's browser. No app download needed.",
+  },
+];
+
+/* ── Motion system · Playful personality (spring overshoot, ease-out-back) ── */
+const springPop = { type: "spring", stiffness: 320, damping: 17, mass: 0.7 } as const;
+const springSoft = { type: "spring", stiffness: 240, damping: 22, mass: 0.85 } as const;
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 26, scale: 0.96 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: springSoft },
+};
+
+const staggerChildren = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.09,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const faqAnswerOverrides: Record<string, string> = {
+  "How long are the missions?": "Most missions take 3-5 minutes. They're designed for mobile-first, short-burst learning you can do between classes, on a matatu, or during breaks.",
+  "Can I use Kiongozi on my phone?": "Yes. Kiongozi is built mobile-first. Every mission, quiz, and leaderboard works perfectly on your phone's browser. No app download needed.",
+};
+
+const cleanFeatureTitle = (title: string) => title.replace(/^[^A-Za-z0-9]+/, "");
+
+/* ═══════════════════════════════════════════════════════════════════
+   Motion Components (FlowFest-style)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Infinite scrolling banner band — duplicated content loops seamlessly
+   via the existing `marquee` keyframe (0 → -50%). Reduced-motion safe. */
+function MarqueeStrip({
+  items,
+  bg = "bg-brand-primary",
+  text = "text-[#f8f4e8]",
+  accent = "text-brand-orange",
+  rotate = "-rotate-[1.2deg]",
+}: {
+  items: string[];
+  bg?: string;
+  text?: string;
+  accent?: string;
+  rotate?: string;
+}) {
+  return (
+    <div
+      className={`relative z-10 -mx-[3%] w-[106%] overflow-hidden border-y-[3px] border-brand-primary py-3.5 shadow-[0_4px_0_#1b2432] sm:py-4 ${bg} ${rotate}`}
+      aria-hidden="true"
+    >
+      <div className="flex w-max animate-marquee whitespace-nowrap will-change-transform">
+        {[0, 1].map((dup) => (
+          <div key={dup} className="flex items-center">
+            {items.map((item, i) => (
+              <span key={`${dup}-${i}`} className="flex items-center">
+                <span className={`font-syne text-lg font-extrabold uppercase tracking-tight sm:text-2xl ${text}`}>
+                  {item}
+                </span>
+                <StarIcon className={`mx-5 h-4 w-4 shrink-0 sm:mx-8 sm:h-5 sm:w-5 ${accent}`} />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Magnetic CTA — content springs toward the cursor, settles back on leave. */
+function MagneticButton({
+  children,
+  className = "",
+  onClick,
+  strength = 0.3,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  onClick?: () => void;
+  strength?: number;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const x = useSpring(0, { stiffness: 300, damping: 18, mass: 0.6 });
+  const y = useSpring(0, { stiffness: 300, damping: 18, mass: 0.6 });
+
+  const handleMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    x.set((e.clientX - (rect.left + rect.width / 2)) * strength);
+    y.set((e.clientY - (rect.top + rect.height / 2)) * strength);
+  };
+  const reset = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  return (
+    <motion.button
+      ref={ref}
+      onClick={onClick}
+      onMouseMove={handleMove}
+      onMouseLeave={reset}
+      whileTap={{ scale: 0.96 }}
+      style={{ x, y } as MotionStyle}
+      className={className}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+/* Spinning circular sticker badge — disc + curved text rotate, center icon static.
+   The spin uses Tailwind `animate-spin`, which the global reduced-motion rule halts. */
+function SpinningSticker({ className = "" }: { className?: string }) {
+  return (
+    <div className={`pointer-events-none select-none ${className}`} aria-hidden="true">
+      <div className="relative h-full w-full">
+        <svg viewBox="0 0 120 120" className="h-full w-full animate-spin" style={{ animationDuration: "16s" }}>
+          <circle cx="60" cy="60" r="58" fill="#fffdf7" stroke="#1b2432" strokeWidth="2.5" />
+          <defs>
+            <path id="sticker-curve" d="M60,60 m-44,0 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0" />
+          </defs>
+          <text className="fill-brand-primary font-syne" style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "2.5px" }}>
+            <textPath href="#sticker-curve" startOffset="0">
+              FREE FOREVER · BY YOUTH FOR YOUTH ·
+            </textPath>
+          </text>
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="rounded-full border-2 border-brand-primary bg-brand-orange p-2 shadow-[2px_2px_0_#1b2432]">
+            <Zap className="h-5 w-5 fill-current text-white" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Static tilted sticker pills — FlowFest "slapped-on sticker" energy, no motion loop. */
+function StickerRow({ items }: { items: { label: string; bg: string; text?: string; tilt: string }[] }) {
+  return (
+    <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 px-5 py-10 sm:gap-4 sm:py-12">
+      {items.map((s) => (
+        <motion.span
+          key={s.label}
+          whileHover={{ y: -4, rotate: 0, scale: 1.04 }}
+          transition={springPop}
+          className={`inline-flex items-center gap-1.5 rounded-full border-[3px] border-brand-primary px-4 py-2 font-syne text-sm font-extrabold uppercase tracking-tight shadow-[3px_3px_0_#1b2432] sm:text-base ${s.bg} ${s.text ?? "text-brand-primary"} ${s.tilt}`}
+        >
+          <StarIcon className="h-3.5 w-3.5" /> {s.label}
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Main Component
+   ═══════════════════════════════════════════════════════════════════ */
 
 export default function LandingPage() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-32 pb-20 px-4">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-96 h-96 bg-orange-200/30 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl"></div>
-        </div>
+  const { user, refreshProfile } = useUser();
+  const supabase = useMemo(() => createClient(), []);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [reward, setReward] = useState(0);
+  const [claiming, setClaiming] = useState(false);
+  const [selectedPath, setSelectedPath] = useState("civic");
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [fanned, setFanned] = useState(false);
 
-        <div className="relative max-w-7xl mx-auto">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center bg-orange-100 rounded-full px-4 py-2 text-sm font-medium text-orange-700 border border-orange-200 mb-6">
-              Empowering Kenya's Future Leaders
+  const answer = answers.find((item) => item.id === selectedAnswer);
+  const signupHref = `/signup?path=${selectedPath}${selectedAnswer ? `&mission=${MISSION_KEY}&answer=${selectedAnswer}` : ""}`;
+
+  const completeMission = async (answerId: string) => {
+    if (selectedAnswer || claiming) return;
+    setSelectedAnswer(answerId);
+    const chosen = answers.find((item) => item.id === answerId);
+    setReward(chosen?.correct ? 25 : 10);
+
+    if (!user) {
+      window.localStorage.setItem(PENDING_MISSION_KEY, JSON.stringify({
+        mission: MISSION_KEY,
+        answer: answerId,
+      }));
+      return;
+    }
+    setClaiming(true);
+    const { data, error } = await supabase.rpc("claim_intro_mission", {
+      p_mission_key: MISSION_KEY,
+      p_answer: answerId,
+    });
+    if (!error) {
+      setReward(data?.xp_awarded ?? 0);
+      await refreshProfile();
+    }
+    setClaiming(false);
+  };
+
+  return (
+    <div className="overflow-hidden bg-[#f8f4e8] text-brand-primary">
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 1 · HERO
+          ══════════════════════════════════════════════════════════════ */}
+      <section className="relative px-5 pb-16 pt-24 sm:px-8 lg:pb-20 lg:pt-32 bg-[#f8f4e8]">
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(#1b2432_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.04]" />
+
+        {/* Decorative doodles */}
+        <SparkleIcon className="absolute top-12 left-12 w-8 h-8 text-brand-orange/25 animate-pulse hidden md:block" />
+        <StarIcon className="absolute bottom-20 right-16 w-10 h-10 text-brand-blue/25 hidden md:block" />
+        <LoopDoodle className="absolute top-36 right-[18%] w-28 h-14 text-brand-primary hidden lg:block" />
+        <CrossDoodle className="absolute bottom-32 left-[8%] w-8 h-8 text-brand-primary hidden lg:block" />
+
+        <div className="relative mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.05fr_.95fr]">
+          {/* Left: Copy */}
+          <motion.div initial="hidden" animate="visible" variants={fadeUp} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border-2 border-brand-primary bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-[3px_3px_0_#1b2432]">
+              <SparkleIcon className="h-4 w-4 text-brand-orange" />
+              Built for Kenya&apos;s next generation
             </div>
 
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-              Empowering <br />
-              <span className="block text-orange-600">
-                Kenyan Leaders
+            <h1 className="max-w-4xl font-display text-5xl font-black leading-[0.95] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
+              Learn skills. Lead change.{" "}
+              <span className="relative inline-block text-brand-orange">
+                Put your county on the map.
+                <HandDrawnUnderline className="absolute -bottom-2 left-0 w-full h-3" />
               </span>
             </h1>
 
-            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Join the premier platform for civic education, community advocacy, and impactful action across Kenya.
+            <p className="mt-7 max-w-2xl text-lg font-semibold leading-relaxed text-brand-primary/70 sm:text-xl">
+              Master civic, green, digital, and entrepreneurship skills through short missions that build practical confidence and visible impact.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <AuthCTA />
-              <Button asChild variant="outline" className="border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-500 px-8 py-6 text-lg rounded-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
-                <Link href="/browse">
-                  <BookOpen className="w-5 h-5" />
-                  <span>Browse Courses</span>
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="border-2 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-500 px-8 py-6 text-lg rounded-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
-                <Link href="/community">
-                  <Users className="w-5 h-5" />
-                  <span>Join Community</span>
-                </Link>
-              </Button>
+            {/* Social proof badges */}
+            <motion.div className="mt-8 flex flex-wrap gap-3" variants={staggerChildren} initial="hidden" animate="visible">
+              {[
+                { icon: Flame, text: "Build daily streaks", iconClass: "fill-current text-brand-orange" },
+                { icon: Award, text: "47 county leagues", iconClass: "text-emerald-600" },
+                { icon: Zap, text: "Earn real XP", iconClass: "fill-current text-brand-blue" },
+                { icon: Users, text: "Launching across Kenya", iconClass: "text-purple-600" },
+              ].map((badge) => {
+                const BadgeIcon = badge.icon;
+                return (
+                  <motion.div key={badge.text} variants={fadeUp} whileHover={{ y: -3, rotate: -0.6 }} className="landing-badge">
+                    <BadgeIcon className={`h-4 w-4 ${badge.iconClass}`} /> {badge.text}
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+
+            {/* CTAs */}
+            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+              <MagneticButton
+                onClick={() => document.getElementById("first-mission")?.scrollIntoView({ behavior: "smooth" })}
+                className="btn-pill btn-pulse-on-hover inline-flex min-h-14 items-center justify-center gap-3 border-2 border-brand-primary bg-brand-orange px-8 py-4 text-base font-black text-white shadow-[4px_4px_0_#1b2432] group"
+              >
+                <Zap className="h-5 w-5 fill-current group-hover:scale-110 transition-transform" /> Start Mission 1 (3 Mins) <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </MagneticButton>
+              <Link
+                href="/courses"
+                className="btn-pill inline-flex min-h-14 items-center justify-center gap-2 border-2 border-brand-primary bg-white px-8 py-4 text-base font-black shadow-[4px_4px_0_#1b2432]"
+              >
+                Choose your path <ChevronRight className="h-5 w-5" />
+              </Link>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mt-16 max-w-2xl mx-auto">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900 mb-1">20+</div>
-                <div className="text-sm text-gray-600">Expert Courses</div>
+            {/* Quick info */}
+            <div className="mt-8 flex flex-wrap items-center gap-3 text-sm font-bold text-brand-primary/70">
+              <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-brand-orange" /> Built with youth across 47 counties</span>
+              <span className="text-brand-primary/20">|</span>
+              <span className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5 text-brand-orange" /> Mobile-first missions</span>
+              <span className="text-brand-primary/20">|</span>
+              <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Real-action XP</span>
+            </div>
+          </motion.div>
+
+          {/* Right: Stacked Dashboard Cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.65 }}
+            onHoverStart={() => setFanned(true)}
+            onHoverEnd={() => setFanned(false)}
+            className="group relative flex items-center justify-center min-h-[460px] w-full"
+          >
+            <div className="absolute inset-0 bg-brand-blue/10 rounded-[3rem] blur-xl" />
+
+            <SparkleIcon className="absolute top-0 right-4 w-10 h-10 text-brand-orange/40 animate-pulse pointer-events-none" />
+            <StarIcon className="absolute bottom-6 left-2 w-8 h-8 text-[#ff6633]/30 pointer-events-none" />
+
+            {/* Card 1: Badges (behind, fans up-left on hover) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20, x: -24, rotate: 0, scale: 0.96 }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+                x: fanned ? -104 : -24,
+                y: fanned ? -52 : -32,
+                rotate: fanned ? -13 : -3,
+              }}
+              transition={fanned ? springPop : { delay: 0.25, duration: 0.58, ease: [0.16, 1, 0.3, 1] }}
+              style={{ transformOrigin: "bottom center" }}
+              className="absolute w-[82%] sm:w-[75%] rounded-[2.2rem] border-[3px] border-brand-primary bg-amber-50/70 p-5 shadow-[6px_6px_0_#1b2432] z-0 landing-card-shine"
+            >
+              <p className="flex items-center gap-1.5 text-[10px] font-black text-brand-primary/55 uppercase tracking-widest mb-3"><ShieldCheck className="h-3.5 w-3.5" /> Unlocked Achievements</p>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { Icon: ShieldCheck, title: "Auditor" },
+                  { Icon: Leaf, title: "Eco Hero" },
+                  { Icon: Code2, title: "Civic Tech" },
+                  { Icon: Lightbulb, title: "Venture", locked: true },
+                ].map((b, idx) => (
+                  <div key={idx} className={`flex flex-col items-center justify-center p-2 rounded-xl border-2 text-center bg-white ${b.locked ? "border-brand-primary/10 opacity-30" : "border-brand-primary shadow-[2px_2px_0_#1b2432]"}`}>
+                    <b.Icon className="h-5 w-5 text-brand-primary" />
+                    <span className="text-[8px] font-black mt-1 truncate max-w-full">{b.title}</span>
+                  </div>
+                ))}
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900 mb-1">Free</div>
-                <div className="text-sm text-gray-600">To Start</div>
+            </motion.div>
+
+            {/* Card 2: Active Mission (front, fans down-right on hover) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20, x: 0, rotate: 0, scale: 0.96 }}
+              animate={{
+                opacity: 1,
+                scale: fanned ? 1.02 : 1,
+                x: fanned ? 72 : 0,
+                y: fanned ? 6 : 0,
+                rotate: fanned ? 9 : 2,
+              }}
+              transition={fanned ? springPop : { delay: 0.34, duration: 0.62, ease: [0.16, 1, 0.3, 1] }}
+              style={{ transformOrigin: "bottom center" }}
+              className="relative w-[88%] sm:w-[80%] rounded-[2.2rem] border-[3px] border-brand-primary bg-white p-5 shadow-[8px_8px_0_#1b2432] z-10 landing-card-shine"
+            >
+              <div className="flex items-center justify-between border-b-2 border-brand-primary/10 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl border-2 border-brand-primary bg-orange-100 p-1 shrink-0">
+                    <Mwanzo expression="excited" className="h-10 w-10" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black leading-none">Elisha</h3>
+                    <p className="text-[10px] font-bold text-brand-primary/60 mt-1">Level 4: Youth Advocate</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 bg-[#ff6633]/15 text-[#ff6633] px-2 py-0.5 rounded-full text-[10px] font-black">
+                  <Flame className="h-3 w-3 fill-current animate-pulse" /> 7-Day Streak
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900 mb-1">24/7</div>
-                <div className="text-sm text-gray-600">Access</div>
+
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-[10px] font-black mb-1">
+                  <span className="text-brand-primary/50">Level 5 Progress</span>
+                  <span className="text-brand-orange">450/600 XP</span>
+                </div>
+                <div className="h-2.5 w-full bg-brand-primary/10 rounded-full overflow-hidden border border-brand-primary/25">
+                  <div className="h-full bg-emerald-500 rounded-full w-[75%] border-r border-brand-primary/20 animate-pulse" />
+                </div>
+              </div>
+
+              <div className="mt-4 bg-[#fbfaf6] border-2 border-brand-primary/10 rounded-xl p-3 relative overflow-hidden">
+                <div className="absolute top-1.5 left-2 text-[8px] font-black text-brand-primary/30 uppercase tracking-widest">Active Path</div>
+                <div className="mt-3 flex flex-col gap-3 relative">
+                  <div className="absolute top-4 bottom-4 w-0.5 border-l-2 border-dashed border-brand-primary/30 left-[16px] -translate-x-[50%]" />
+                  <div className="flex items-center gap-2 relative z-10">
+                    <div className="h-8 w-8 rounded-full border-2 border-brand-primary bg-emerald-500 text-white flex items-center justify-center font-black text-xs shadow-[1.5px_1.5px_0_#1b2432]"><Check className="h-4 w-4 stroke-[3]" /></div>
+                    <div><p className="text-[11px] font-black text-brand-primary/70">Mission 1: CDF Audit</p><p className="text-[9px] text-emerald-600 font-bold uppercase">Completed</p></div>
+                  </div>
+                  <div className="flex items-center gap-2 relative z-10 justify-between bg-white border-2 border-brand-primary rounded-xl p-1.5 shadow-[2px_2px_0_#1b2432]">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full border-2 border-brand-primary bg-brand-orange text-white flex items-center justify-center font-black text-xs shadow-[1.5px_1.5px_0_#1b2432] animate-pulse"><Target className="h-4 w-4" /></div>
+                      <div><p className="text-[11px] font-black">Mission 2: Budget Audit</p><p className="text-[9px] text-brand-orange font-black uppercase animate-pulse">Active Challenge</p></div>
+                    </div>
+                    <span className="text-[9px] bg-brand-orange text-white font-black px-1.5 py-0.5 rounded-full shadow-[1px_1px_0_#1b2432]">+200 XP</span>
+                  </div>
+                  <div className="flex items-center gap-2 relative z-10 opacity-50">
+                    <div className="h-8 w-8 rounded-full border-2 border-brand-primary bg-gray-200 text-gray-500 flex items-center justify-center font-black text-xs shadow-[1.5px_1.5px_0_#1b2432]"><LockKeyhole className="h-4 w-4" /></div>
+                    <p className="text-[11px] font-black">Mission 3: Public Action</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <div className="absolute top-4 right-[-10px] sm:right-0 bg-brand-blue text-brand-primary text-[10px] font-black px-3 py-1.5 rounded-2xl border-2 border-brand-primary shadow-[3px_3px_0_#1b2432] z-20 rotate-12 flex items-center gap-1.5">
+              By Youth, For Youth! <Heart className="h-3 w-3 fill-current text-brand-primary" />
+            </div>
+
+            <SpinningSticker className="absolute bottom-1 left-[-18px] z-30 h-24 w-24 hidden sm:block" />
+
+            {/* Interactive Rive Mascot & Hero scene */}
+            <LottieScene src="/lottie/wave.json" className="absolute bottom-[-45px] right-[-28px] w-52 h-52 z-30 hidden sm:block" ariaLabel="Welcome mascot waving hello" eager />
+          </motion.div>
+        </div>
+      </section>
+
+      <MarqueeStrip
+        items={["Learn skills", "Lead change", "Put your county on the map", "47 counties live", "By youth, for youth"]}
+      />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 2 · FIRST MISSION (Interactive Cloud Container)
+          ══════════════════════════════════════════════════════════════ */}
+      <section id="first-mission" className="bg-[#fcfbf7] px-5 py-20 sm:px-8 lg:py-24 relative">
+        <CrossDoodle className="absolute top-16 right-20 w-10 h-10 text-brand-primary hidden lg:block" />
+        <SparkleIcon className="absolute bottom-20 left-16 w-6 h-6 text-brand-orange/20 animate-pulse hidden md:block" />
+
+        <div className="mx-auto max-w-6xl">
+          <div className="mx-auto mb-12 max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-brand-orange">
+              <LottieScene src="/lottie/bullseye.json" className="h-5 w-5" ariaLabel="Target" /> Mission 01
+            </span>
+            <h2 className="mt-4 font-display text-4xl font-black sm:text-5xl text-brand-primary">Don&apos;t take our word for it. Try Kiongozi.</h2>
+            <p className="mt-4 text-lg font-semibold text-brand-primary/60">Make one real decision. We&apos;ll show you the skill behind it.</p>
+          </div>
+
+          {/* Cloud-shaped mission container */}
+          <motion.div
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="grid overflow-hidden rounded-[2.5rem] border-[3px] border-brand-primary bg-white shadow-[10px_10px_0_#1b2432] lg:grid-cols-[.85fr_1.15fr] relative landing-card-shine"
+          >
+            {/* Decorative corner sparkle */}
+            <SparkleIcon className="absolute -top-3 -right-3 w-8 h-8 text-brand-orange/50 z-20 hidden sm:block" />
+            <StarIcon className="absolute -bottom-3 -left-3 w-7 h-7 text-brand-blue/40 z-20 hidden sm:block" />
+
+            <div className="relative border-b-[3px] border-brand-primary bg-orange-50/30 p-8 lg:border-b-0 lg:border-r-[3px] lg:p-12 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2"><Map className="h-5 w-5 text-brand-orange" /><span className="text-xs font-black uppercase tracking-[0.18em] text-brand-primary/70">County accountability</span></div>
+                <h3 className="mt-6 font-display text-3xl font-black leading-tight text-brand-primary">A youth centre received KSh 10 million, but construction has stopped.</h3>
+                <p className="mt-5 font-medium leading-relaxed text-brand-primary/70">Community leaders give conflicting explanations. What should you do first?</p>
+              </div>
+              <div className="mt-8 inline-flex items-center gap-2 rounded-2xl border-2 border-brand-primary bg-white px-4 py-2 text-xs font-black text-brand-primary/75 max-w-max shadow-[2px_2px_0_#1b2432]">
+                <Clock3 className="h-4 w-4 text-brand-blue" /> About 3 minutes · Evidence literacy
               </div>
             </div>
+
+            <div className="p-8 sm:p-10 lg:p-12 bg-white">
+              <p className="mb-5 text-xs font-black uppercase tracking-wider text-brand-blue">Choose your first move</p>
+              <div className="space-y-4">
+                {answers.map((item, index) => {
+                  const chosen = selectedAnswer === item.id;
+                  const dimmed = selectedAnswer && !chosen;
+                  return (
+                    <motion.button
+                      key={item.id}
+                      onClick={() => completeMission(item.id)}
+                      disabled={Boolean(selectedAnswer)}
+                      whileHover={!selectedAnswer ? { x: 4, y: -2 } : undefined}
+                      whileTap={!selectedAnswer ? { scale: 0.99 } : undefined}
+                      className={`flex w-full items-start gap-4 rounded-2xl border-2 p-4 text-left transition-colors sm:p-5 ${chosen ? item.correct ? "border-emerald-500 bg-emerald-500/10 text-emerald-800 shadow-[3px_3px_0_#1b2432]" : "border-amber-500 bg-amber-50/20 text-amber-800 shadow-[3px_3px_0_#1b2432]" : dimmed ? "border-brand-primary/5 bg-[#fbfaf6] opacity-35" : "border-brand-primary bg-white hover:bg-slate-50 shadow-[3px_3px_0_#1b2432]"}`}
+                    >
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-black ${chosen ? "bg-brand-primary text-white animate-pulse" : "border-brand-primary text-brand-primary"}`}>{String.fromCharCode(65 + index)}</span>
+                      <span className="pt-0.5 font-bold leading-snug text-brand-primary">{item.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              <AnimatePresence>
+                {answer && (
+                  <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className={`mt-6 rounded-2xl border-2 p-5 ${answer.correct ? "border-emerald-500 bg-emerald-500/5 text-emerald-900" : "border-amber-500 bg-amber-50/10 text-amber-900"}`}>
+                    <div className="flex items-center justify-between gap-4 border-b border-brand-primary/10 pb-3">
+                      <div className="flex items-center gap-2">
+                        {answer.correct ? (
+                          <LottieScene src="/lottie/success.json" className="h-10 w-10 shrink-0" loop={true} ariaLabel="Success" />
+                        ) : (
+                          <Lightbulb className="h-6 w-6 shrink-0 text-amber-500" />
+                        )}
+                        <p className="font-black text-base">{answer.correct ? "Evidence first. Excellent call." : "Useful instinct. Let's strengthen it."}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border-2 border-brand-primary bg-brand-orange px-3.5 py-1 text-xs font-black text-white shadow-[2px_2px_0_#1b2432]">+{reward} XP</span>
+                    </div>
+                    <p className="mt-3 text-sm font-medium leading-relaxed text-brand-primary/75">{answer.feedback}</p>
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                      <Link href={user ? "/dashboard" : signupHref} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-brand-primary bg-brand-orange px-5 py-3 font-black text-white transition-transform hover:-translate-y-0.5 active:translate-y-0 shadow-[3px_3px_0_#1b2432]">
+                        {user ? "Continue your path" : "Keep this progress"} <ArrowRight className="h-4 w-4" />
+                      </Link>
+                      <button onClick={() => { setSelectedAnswer(null); setReward(0); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-brand-primary bg-white px-5 py-3 font-black text-brand-primary hover:bg-slate-50 shadow-[3px_3px_0_#1b2432]"><X className="h-4 w-4" /> Try again</button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      <WavyDivider topColor="#fcfbf7" bottomColor="#f8f4e8" variant={2} />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 3 · LEARNING PATHS ("Flavor Explosion" Style)
+          ══════════════════════════════════════════════════════════════ */}
+      <section className="px-5 py-20 sm:px-8 lg:py-24 bg-[#f8f4e8] relative overflow-hidden">
+        <StarIcon className="absolute top-10 right-20 w-16 h-16 text-brand-primary opacity-[0.03] hidden md:block" />
+        <LoopDoodle className="absolute bottom-14 left-[5%] w-20 h-10 text-brand-primary hidden lg:block" />
+
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-14 text-center max-w-3xl mx-auto">
+            <span className="text-xs font-black uppercase tracking-[0.25em] text-brand-orange">Choose your direction</span>
+            <h2 className="mt-4 font-display text-4xl font-black sm:text-5xl text-brand-primary">One platform. Four ways to lead change.</h2>
+            <p className="mt-4 text-lg font-semibold text-brand-primary/60">Pick the learning path that fits your goals today. You can always explore other paths later.</p>
+          </div>
+
+          <motion.div
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
+            variants={staggerChildren}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-80px" }}
+          >
+            {learningPaths.map((path) => {
+              const Icon = path.icon;
+              const active = selectedPath === path.key;
+
+              return (
+                <motion.button
+                  key={path.key}
+                  onClick={() => setSelectedPath(path.key)}
+                  variants={fadeUp}
+                  whileHover={{ y: -7, rotate: active ? -0.4 : -0.8 }}
+                  whileTap={{ y: -1, scale: 0.985 }}
+                  transition={springPop}
+                  className={`group relative overflow-visible rounded-[2.5rem] border-[3px] border-brand-primary p-6 text-left transition-colors duration-200 flex flex-col justify-between min-h-[360px] landing-card-shine ${active ? path.bgColor : "bg-white hover:bg-slate-50"}`}
+                  style={{ boxShadow: active ? `7px 7px 0 ${path.accentColor}` : "4px 4px 0 #1b2432" }}
+                >
+                  {/* Character peeking from top */}
+                  <div className={`absolute -top-8 right-4 h-16 w-16 transition-all duration-300 ${active ? "scale-110 -top-10" : "scale-90 opacity-70 group-hover:scale-100 group-hover:opacity-100 group-hover:-top-9"}`}>
+                    {path.guide}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="rounded-xl border-2 border-brand-primary p-2.5 bg-white shadow-[2px_2px_0_#1b2432]">
+                        <Icon className="h-6 w-6 text-brand-primary" />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full border-2 border-brand-primary bg-white shadow-[1.5px_1.5px_0_#1b2432]">
+                        {path.title.split(" ")[0]}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-5 text-xl font-black text-brand-primary leading-tight">{path.title}</h3>
+                    <p className="mt-3 text-xs font-semibold leading-relaxed text-brand-primary/70">{path.outcome}</p>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between border-t-2 border-brand-primary/5 pt-4">
+                    <div className="text-xs font-black flex items-center gap-1 text-brand-primary">
+                      <span>{active ? "Selected" : "Choose"}</span>
+                      <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <div className="text-xs font-black text-brand-primary/70 uppercase tracking-wider">
+                      {path.key === "civic" ? "12 missions" : path.key === "green" ? "10 missions" : path.key === "digital" ? "14 missions" : "8 missions"}
+                    </div>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
+
+      <WavyDivider topColor="#f8f4e8" bottomColor="#ffffff" variant={3} />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 4 · FEATURES BENTO
+          ══════════════════════════════════════════════════════════════ */}
+      <section className="bg-white px-5 py-24 sm:px-8 lg:py-28 relative">
+
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center mb-14 max-w-3xl mx-auto">
+            <span className="text-xs font-black uppercase tracking-[0.25em] text-brand-orange">A system, not decoration</span>
+            <h2 className="mt-4 font-display text-4xl font-black sm:text-5xl text-brand-primary">Progress you can see. Skills you can use.</h2>
+            <p className="mt-4 text-lg font-semibold text-brand-primary/60">Every mission, badge, and credential reflects something you actually did.</p>
+          </div>
+
+          <motion.div
+            className="grid gap-7 sm:grid-cols-2 lg:grid-cols-4"
+            variants={staggerChildren}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-80px" }}
+          >
+            {[
+              { icon: BookOpen, title: "Spot corruption.", copy: "Audit public budgets and track CDF funds in under 5 minutes.", stat: "5-min", statLabel: "Budget audits" },
+              { icon: BarChart3, title: "Climb leaderboards.", copy: "Earn XP, grow streaks, and climb your county's weekly ranks.", stat: "47", statLabel: "County leagues" },
+              { icon: Users, title: "Team up.", copy: "Form ward challenge teams and solve local issues together.", stat: "Ward", statLabel: "Challenge teams" },
+              { icon: Award, title: "Win credentials.", copy: "Earn verified digital credentials for real community action.", stat: "Verified", statLabel: "Digital credentials" },
+            ].map((feature, idx) => {
+              const FeatureIcon = feature.icon;
+              return (
+                <motion.div
+                  key={feature.title}
+                  variants={fadeUp}
+                  whileHover={{ y: -5, rotate: idx % 2 === 0 ? -0.35 : 0.35 }}
+                  transition={springPop}
+                  className="rounded-[2.2rem] border-[3px] border-brand-primary bg-white p-7 shadow-[6px_6px_0_#1b2432] flex flex-col justify-between group landing-card-shine"
+                >
+                  <div>
+                    <div className="inline-flex rounded-2xl border-2 border-brand-primary bg-orange-100 p-2.5 shrink-0 mb-5 shadow-[2px_2px_0_#1b2432]">
+                      <FeatureIcon className="h-6 w-6 text-brand-primary" />
+                    </div>
+                    <h3 className="text-xl font-black text-brand-primary">{cleanFeatureTitle(feature.title)}</h3>
+                    <p className="mt-3 text-xs font-semibold leading-relaxed text-brand-primary/70">{feature.copy}</p>
+                  </div>
+                  <div className="mt-6 flex items-end justify-between border-t-2 border-brand-primary/5 pt-4">
+                    <div>
+                      <p className="text-2xl font-black text-brand-orange leading-none">{feature.stat}</p>
+                      <p className="text-xs font-bold text-brand-primary/70 uppercase tracking-wider mt-1">{feature.statLabel}</p>
+                    </div>
+                    <span className="text-[10px] font-black text-brand-primary/30 uppercase tracking-wider">0{idx + 1}</span>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
+
+      <WavyDivider topColor="#ffffff" bottomColor="#fef9f0" variant={1} />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 5 · TESTIMONIALS ("What Youth Are Saying")
+          ══════════════════════════════════════════════════════════════ */}
+      <section className="bg-[#fef9f0] px-5 py-20 sm:px-8 lg:py-24 relative overflow-hidden">
+        <SparkleIcon className="absolute top-10 left-12 w-10 h-10 text-brand-orange/15 animate-pulse hidden md:block" />
+        <StarIcon className="absolute bottom-12 right-16 w-12 h-12 text-brand-blue/15 hidden md:block" />
+        <LoopDoodle className="absolute top-20 right-[10%] w-24 h-12 text-brand-primary hidden lg:block" />
+
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-14 text-center max-w-3xl mx-auto">
+            <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-brand-orange">
+              <LottieScene src="/lottie/heart.json" className="h-5 w-5" ariaLabel="Learning paths" /> What you&apos;ll be able to do
+            </span>
+            <h2 className="mt-4 font-display text-4xl font-black sm:text-5xl text-brand-primary">Four paths. One you.</h2>
+            <p className="mt-4 text-lg font-semibold text-brand-primary/70">Here&apos;s the kind of change you&apos;ll be able to lead in your community — pick the path that fits.</p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            {testimonials.map((t, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -6, rotate: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ ...springPop, delay: idx * 0.1 }}
+                className={`relative rounded-[2.2rem] border-[3px] border-brand-primary bg-white p-7 shadow-[6px_6px_0_#1b2432] flex flex-col justify-between ${t.tilt} landing-card-shine`}
+              >
+                {/* Quote mark decoration */}
+                <div className="absolute -top-3 -left-2 text-4xl font-black text-brand-orange/20 select-none leading-none">&ldquo;</div>
+
+                <div>
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-brand-primary bg-orange-100 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-brand-primary shadow-[2px_2px_0_#1b2432]">
+                      <Sparkles className="h-3 w-3 text-brand-orange" /> {t.persona}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold leading-relaxed text-brand-primary/80">{t.quote}</p>
+                </div>
+
+                <div className="mt-6 flex items-center gap-3 border-t-2 border-brand-primary/5 pt-4">
+                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border-2 border-brand-primary bg-orange-100 p-0.5 shadow-[2px_2px_0_#1b2432]">
+                    {t.avatar}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-brand-primary">{t.name}</p>
+                    <p className="text-xs font-bold text-brand-primary/70">{t.role}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Why Choose Kiongozi?
+      <WavyDivider topColor="#fef9f0" bottomColor="#fcfbf7" variant={2} />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 6 · COUNTY LEAGUES & LIVE ACTION (Bento Layout)
+          ══════════════════════════════════════════════════════════════ */}
+      <section className="bg-[#fcfbf7] px-5 py-20 sm:px-8 lg:py-24 relative">
+        <SparkleIcon className="absolute top-12 left-12 w-12 h-12 opacity-5 pointer-events-none text-brand-primary" />
+        <CrossDoodle className="absolute bottom-16 right-20 w-8 h-8 text-brand-primary hidden lg:block" />
+
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-14 text-center">
+            <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-brand-orange">
+              <AnimatedIcon animation={activity} size={18} strokeColor="#FF6633" /> County Leagues
+            </span>
+            <h2 className="mt-4 font-display text-4xl font-black sm:text-5xl">County Leagues &amp; Live Action</h2>
+            <p className="mt-4 text-lg font-semibold text-brand-primary/70">A preview of how weekly county leagues and live activity will look once your county goes live.</p>
+            <span className="mt-5 inline-flex items-center gap-1.5 rounded-full border-2 border-brand-primary bg-white px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-brand-primary/70 shadow-[2px_2px_0_#1b2432]">
+              <Sparkles className="h-3 w-3 text-brand-orange" /> Sample preview
+            </span>
+          </div>
+
+          <motion.div
+            className="grid gap-8 lg:grid-cols-[1.1fr_.9fr]"
+            variants={staggerChildren}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-80px" }}
+          >
+            {/* Left Bento: Weekly County League */}
+            <motion.div variants={fadeUp} className="rounded-[2.5rem] border-[3px] border-brand-primary bg-white p-6 sm:p-8 shadow-[8px_8px_0_#ff6633] flex flex-col justify-between landing-card-shine">
+              <div>
+                <div className="flex items-center justify-between border-b-2 border-brand-primary/10 pb-4">
+                  <div>
+                    <h3 className="text-xl font-black">Weekly County Leaderboard</h3>
+                    <p className="text-xs text-brand-primary/70 font-bold mt-1">Leagues run weekly once your county is live</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-brand-primary bg-[#ff6633] px-3.5 py-1 text-xs font-black uppercase tracking-wider text-white shadow-[2px_2px_0_#1b2432]">
+                    <AnimatedIcon animation={activity} size={14} strokeColor="#ffffff" /> Sample
+                  </span>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  {[
+                    { rank: 1, county: "Kisumu County", xp: "14,200 XP", streak: "248 active youth", avatar: <Zola action="excited" className="h-full w-full" /> },
+                    { rank: 2, county: "Nairobi County", xp: "12,850 XP", streak: "192 active youth", avatar: <Ken action="adjust" className="h-full w-full" /> },
+                    { rank: 3, county: "Mombasa County", xp: "11,400 XP", streak: "154 active youth", avatar: <Tumi action="cheer" className="h-full w-full" /> },
+                    { rank: 4, county: "Uasin Gishu County", xp: "9,900 XP", streak: "98 active youth", avatar: <Mwanzo expression="excited" className="h-full w-full" /> },
+                    { rank: 5, county: "Kiambu County", xp: "8,500 XP", streak: "84 active youth", avatar: <Zola action="cheer" className="h-full w-full" /> },
+                  ].map((c) => (
+                    <motion.div key={c.rank} whileHover={{ x: 4 }} className="flex items-center gap-4 bg-[#fbfaf6] border-2 border-brand-primary p-3 rounded-2xl shadow-[3px_3px_0_#1b2432] transition-colors hover:bg-white">
+                      <span className={`text-sm font-black w-6 text-center ${c.rank === 1 ? "text-brand-orange text-lg" : c.rank === 2 ? "text-sky-700" : "text-brand-primary/70"}`}>#{c.rank}</span>
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border-2 border-brand-primary bg-orange-100 flex items-center justify-center p-0.5">{c.avatar}</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-black text-sm text-brand-primary truncate">{c.county}</p>
+                        <p className="text-xs text-brand-primary/70 font-bold">{c.streak}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-[#ff6633]">{c.xp}</p>
+                        <p className="text-xs text-emerald-700 font-bold flex items-center gap-0.5 justify-end"><Flame className="h-3 w-3 fill-current text-brand-orange animate-pulse" /> Up 12%</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Right Bento Stack */}
+            <motion.div variants={fadeUp} className="flex flex-col gap-8">
+              {/* Live Activity Feed */}
+              <div className="rounded-[2.5rem] border-[3px] border-brand-primary bg-white p-6 sm:p-8 flex-1 shadow-[8px_8px_0_#1b2432] landing-card-shine">
+                <h3 className="flex items-center gap-2 text-xl font-black border-b-2 border-brand-primary/10 pb-4">
+                  <AnimatedIcon animation={activity} size={22} strokeColor="#FF6633" /> Activity Stream
+                </h3>
+                <div className="mt-6 space-y-4">
+                  {[
+                    { user: "Elisha (Kisumu)", detail: "claimed 'Budget Auditor' badge (+200 XP)", time: "2 mins ago", avatar: <Mwanzo expression="happy" className="h-full w-full" /> },
+                    { user: "Faith (Nairobi)", detail: "started a 5-day study streak", time: "12 mins ago", avatar: <Zola action="cheer" className="h-full w-full" /> },
+                    { user: "Otieno (Mombasa)", detail: "completed county waste map mission", time: "24 mins ago", avatar: <Ken action="adjust" className="h-full w-full" /> },
+                    { user: "Wambui (Nakuru)", detail: "joined Civic Leadership path", time: "1 hour ago", avatar: <Tumi action="cheer" className="h-full w-full" /> },
+                  ].map((feed, idx) => (
+                    <motion.div key={idx} whileHover={{ x: 4 }} className="flex gap-3 text-sm border-b border-brand-primary/5 pb-3 last:border-0 last:pb-0">
+                      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl border-2 border-brand-primary bg-orange-100 p-0.5">{feed.avatar}</div>
+                      <div className="flex-1">
+                        <p className="font-black text-brand-primary text-xs">{feed.user}</p>
+                        <p className="text-brand-primary/70 text-xs mt-0.5 font-semibold leading-relaxed">{feed.detail}</p>
+                      </div>
+                      <span className="text-xs text-brand-primary/70 font-bold shrink-0">{feed.time}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Trending Challenge */}
+              <motion.div whileHover={{ y: -5, rotate: -0.35 }} className="rounded-[2.5rem] border-[3px] border-brand-primary bg-[#fffdf5] p-6 sm:p-8 relative overflow-hidden shadow-[8px_8px_0_#ff6633] flex flex-col justify-between landing-card-shine">
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#ff6633]">
+                    <Sparkles className="h-4 w-4 text-[#ff6633]" /> Trending Civic Mission
+                  </div>
+                  <h4 className="mt-3 text-lg font-black text-brand-primary leading-snug">Track Public Ward Development Funds (CDF)</h4>
+                  <p className="text-xs text-brand-primary/70 mt-2 font-semibold leading-relaxed">Verify the state of CDF projects in your county and earn bonus XP for your work.</p>
+                </div>
+                <button
+                  onClick={() => document.getElementById("first-mission")?.scrollIntoView({ behavior: "smooth" })}
+                  className="mt-6 px-4 py-2 border-2 border-brand-primary text-xs font-black text-brand-primary bg-white hover:-translate-y-0.5 active:translate-y-0 shadow-[2px_2px_0_#1b2432] rounded-xl transition-all self-start"
+                >
+                  Go to Challenge
+                </button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      <WavyDivider topColor="#fcfbf7" bottomColor="#f8f4e8" variant={3} />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 7 · FAQ ACCORDION
+          ══════════════════════════════════════════════════════════════ */}
+      <section className="bg-[#f8f4e8] px-5 py-24 sm:px-8 lg:py-28 relative overflow-hidden">
+
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-14 text-center">
+            <div className="inline-flex items-center gap-3 mb-4">
+              <span className="text-5xl font-black font-display text-brand-orange/20 select-none">FAQ</span>
+            </div>
+            <h2 className="font-display text-4xl font-black sm:text-5xl text-brand-primary">Frequently Asked Questions</h2>
+            <p className="mt-4 text-lg font-semibold text-brand-primary/60">Everything you need to know about Kiongozi.</p>
+          </div>
+
+          <motion.div
+            className="space-y-5"
+            variants={staggerChildren}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-80px" }}
+          >
+            {faqItems.map((item, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <motion.div key={idx} variants={fadeUp} whileHover={{ y: -3 }} className="rounded-[1.5rem] border-[3px] border-brand-primary bg-white shadow-[4px_4px_0_#1b2432] overflow-hidden transition-colors landing-card-shine">
+                  <button
+                    onClick={() => setOpenFaq(isOpen ? null : idx)}
+                    className="w-full flex items-center justify-between gap-4 p-5 sm:p-6 text-left hover:bg-slate-50/50 transition-colors"
+                  >
+                    <span className="text-base font-black text-brand-primary leading-snug">{item.question}</span>
+                    <motion.div
+                      animate={{ rotate: isOpen ? 180 : 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="shrink-0 h-8 w-8 rounded-full border-2 border-brand-primary flex items-center justify-center bg-white shadow-[1.5px_1.5px_0_#1b2432]"
+                    >
+                      <ChevronDown className="h-4 w-4 text-brand-primary" />
+                    </motion.div>
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-5 pb-5 sm:px-6 sm:pb-6 border-t-2 border-brand-primary/10 pt-4">
+                          <p className="text-sm font-semibold leading-relaxed text-brand-primary/70">{faqAnswerOverrides[item.question] ?? item.answer}</p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
+
+      <StickerRow
+        items={[
+          { label: "100% Free", bg: "bg-brand-orange", text: "text-white", tilt: "-rotate-2" },
+          { label: "47 Counties", bg: "bg-brand-blue", tilt: "rotate-2" },
+          { label: "Real Credentials", bg: "bg-white", tilt: "-rotate-1" },
+          { label: "3-Min Missions", bg: "bg-emerald-400", tilt: "rotate-1" },
+          { label: "By Youth, For Youth", bg: "bg-white", tilt: "rotate-2" },
+        ]}
+      />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 8 · FOOTER CTA (Cloud Banner)
+          ══════════════════════════════════════════════════════════════ */}
+      <section className="px-5 py-20 sm:px-8 lg:py-28 bg-[#f8f4e8] relative overflow-hidden">
+        <SparkleIcon className="absolute top-10 left-10 w-12 h-12 text-brand-orange/10 animate-pulse hidden md:block" />
+        <StarIcon className="absolute top-16 right-14 w-10 h-10 text-brand-primary opacity-[0.04] hidden md:block" />
+
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          whileHover={{ y: -5 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="relative mx-auto max-w-5xl rounded-[3rem] border-[3px] border-brand-primary bg-white p-10 text-center shadow-[12px_12px_0_#ff6633] sm:p-16 overflow-hidden landing-card-shine"
+        >
+          {/* Corner decorations */}
+          <SparkleIcon className="absolute top-5 left-5 w-6 h-6 text-brand-orange/20" />
+          <StarIcon className="absolute bottom-5 right-5 w-8 h-8 text-brand-blue/15" />
+          <LoopDoodle className="absolute top-8 right-8 w-20 h-10 text-brand-primary hidden sm:block" />
+          <LottieScene src="/lottie/lights.json" className="pointer-events-none absolute inset-x-0 top-0 h-28 w-full opacity-50" />
+
+          <div className="relative z-10 mx-auto max-w-3xl flex flex-col items-center">
+            <div className="rounded-[1.5rem] border-[3px] border-brand-primary bg-orange-100 p-3 shrink-0 mb-8 w-24 h-24 flex items-center justify-center shadow-[4px_4px_0_#1b2432]">
+              <Zola action="excited" className="h-20 w-20" />
+            </div>
+
+            <h2 className="font-display text-4xl font-black text-brand-primary sm:text-5xl leading-none">
+              Your next mission is{" "}
+              <span className="relative inline-block text-brand-orange">
+                waiting.
+                <HandDrawnUnderline className="absolute -bottom-2 left-0 w-full h-3" />
+              </span>
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Comprehensive learning platform designed specifically for Kenya's green and digital transition
-            </p>
-          </div>
+            <p className="mt-6 text-lg font-semibold text-brand-primary/65 leading-relaxed max-w-xl">Choose your path, build momentum, and turn learning into visible action across your county.</p>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition-all group">
-              <div className="w-14 h-14 bg-orange-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors">
-                <Target className="w-7 h-7 text-orange-600 group-hover:text-white transition-colors" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Leadership Development</h3>
-              <p className="text-gray-600">
-                Build leadership competencies to drive sustainable change in your community
-              </p>
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+              <Link
+                href={user ? "/dashboard" : signupHref}
+                className="btn-pill inline-flex min-h-14 items-center justify-center gap-3 border-2 border-brand-primary bg-brand-orange px-8 py-4 text-base font-black text-white shadow-[4px_4px_0_#1b2432] hover:-translate-y-0.5 active:translate-y-0 transition-transform"
+              >
+                {user ? "Continue learning" : "Create my learning path"} <ArrowRight className="h-5 w-5" />
+              </Link>
+              <button
+                onClick={() => document.getElementById("first-mission")?.scrollIntoView({ behavior: "smooth" })}
+                className="btn-pill inline-flex min-h-14 items-center justify-center gap-2 border-2 border-brand-primary bg-white px-8 py-4 text-base font-black shadow-[4px_4px_0_#1b2432] hover:-translate-y-0.5 active:translate-y-0 transition-transform"
+              >
+                Try a free mission <Zap className="h-5 w-5 text-brand-orange" />
+              </button>
             </div>
 
-            {/* Feature 2 */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition-all group">
-              <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-blue-500 transition-colors">
-                <Briefcase className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Entrepreneurship</h3>
-              <p className="text-gray-600">
-                Learn to identify opportunities and create solutions for real-world challenges
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition-all group">
-              <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-purple-500 transition-colors">
-                <Code className="w-7 h-7 text-purple-600 group-hover:text-white transition-colors" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Digital Literacy</h3>
-              <p className="text-gray-600">
-                Master essential digital tools to thrive in Kenya's tech-driven economy
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition-all group">
-              <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-green-500 transition-colors">
-                <TreePine className="w-7 h-7 text-green-600 group-hover:text-white transition-colors" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Green Innovation</h3>
-              <p className="text-gray-600">
-                Explore sustainable practices through practical, hands-on learning
-              </p>
-            </div>
-
-            {/* Feature 5 */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition-all group">
-              <div className="w-14 h-14 bg-amber-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-amber-500 transition-colors">
-                <Trophy className="w-7 h-7 text-amber-600 group-hover:text-white transition-colors" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Gamified Learning</h3>
-              <p className="text-gray-600">
-                Earn XP, badges, and certificates as you progress through courses
-              </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition-all group">
-              <div className="w-14 h-14 bg-teal-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-teal-500 transition-colors">
-                <Users className="w-7 h-7 text-teal-600 group-hover:text-white transition-colors" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Expert Mentorship</h3>
-              <p className="text-gray-600">
-                Connect with experienced professionals who guide your learning journey
-              </p>
+            {/* Trust signals */}
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-xs font-bold text-brand-primary/70">
+              <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-emerald-600" /> 100% Free</span>
+              <span className="text-brand-primary/20">·</span>
+              <span className="flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-blue" /> 3-min missions</span>
+              <span className="text-brand-primary/20">·</span>
+              <span className="flex items-center gap-1.5"><Award className="h-4 w-4 text-brand-orange" /> Real credentials</span>
+              <span className="text-brand-primary/20">·</span>
+              <span className="flex items-center gap-1.5"><Users className="h-4 w-4 text-purple-600" /> 47 counties</span>
             </div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-orange-600">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
-            Ready to Start Your Journey?
-          </h2>
-          <p className="text-xl text-orange-100 mb-8">
-            Join thousands of learners building skills for Kenya's future
-          </p>
-          <Button asChild className="bg-white text-orange-600 hover:bg-gray-50 px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 mx-auto">
-            <Link href="/signup">
-              <span>Get Started for Free</span>
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-          </Button>
-        </div>
-      </section>
-
-      {/* Legal Links Bar */}
-      <section className="py-6 bg-gray-100 border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-sm text-gray-500">
-          <Link href="/privacy-policy" className="hover:text-orange-600 transition-colors underline">
-            Privacy Policy
-          </Link>
-          <Link href="/terms-of-service" className="hover:text-orange-600 transition-colors underline">
-            Terms of Service
-          </Link>
-          <Link href="/cookie-notice" className="hover:text-orange-600 transition-colors underline">
-            Cookie Notice
-          </Link>
-        </div>
-      </section>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import './globals.css';
 import { Suspense } from 'react';
-import { Roboto } from 'next/font/google';
+import { Roboto, Outfit, Syne, Fraunces } from 'next/font/google';
 import dynamic from 'next/dynamic';
 
 const roboto = Roboto({
@@ -8,6 +8,28 @@ const roboto = Roboto({
   weight: ['400', '500', '700'],
   display: 'swap',
   variable: '--font-roboto',
+});
+
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const syne = Syne({
+  variable: "--font-syne",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "900"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 import type { Metadata } from 'next';
 import { UserProvider } from './contexts/UserContext';
@@ -58,11 +80,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#ea580c" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className={`${roboto.variable} antialiased font-sans`}>
+      <body className={`${roboto.variable} ${outfit.variable} ${syne.variable} ${fraunces.variable} antialiased font-sans`}>
         <QueryProvider>
           <UserProvider>
             <ThemeProvider>

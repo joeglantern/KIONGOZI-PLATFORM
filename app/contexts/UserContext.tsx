@@ -20,8 +20,20 @@ interface UserProfile {
   bio?: string;
   total_badges?: number;
   current_streak?: number;
+  longest_streak?: number;
   max_streak?: number;
+  last_action_date?: string | null;
+  timezone?: string;
+  streak_freezes?: number;
+  last_streak_recovery_at?: string | null;
   last_activity_date?: string;
+  onboarding_goal?: 'career' | 'community' | 'project' | 'credential' | 'explore' | null;
+  learning_interests?: string[];
+  county?: string | null;
+  institution_name?: string | null;
+  daily_goal_minutes?: 5 | 10 | 15 | null;
+  focus_path?: 'civic' | 'green' | 'digital' | 'entrepreneurship' | null;
+  onboarding_completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +63,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const hasDisplayName = Boolean(profile.first_name?.trim() || profile.full_name?.trim());
       const isMissingInfo = !profile.username || !hasDisplayName;
       const isCurrentlyCompleting = pathname === '/complete-profile';
+      const isCurrentlyOnboarding = pathname === '/onboarding';
 
       // Prevent routing loops
       if (isMissingInfo && !isCurrentlyCompleting) {
@@ -58,6 +71,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           ? `?next=${encodeURIComponent(pathname)}`
           : '';
         router.replace(`/complete-profile${nextParam}`);
+      } else if (
+        profile.role === 'user' &&
+        !profile.onboarding_completed_at &&
+        !isCurrentlyCompleting &&
+        !isCurrentlyOnboarding
+      ) {
+        router.replace('/onboarding');
       }
     }
   }, [loading, user, profile, pathname, router]);

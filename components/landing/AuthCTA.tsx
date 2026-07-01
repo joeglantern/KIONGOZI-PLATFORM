@@ -1,7 +1,6 @@
 "use client";
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { useUser } from '@/app/contexts/UserContext';
 import { ArrowRight, LayoutDashboard } from 'lucide-react';
 
@@ -10,22 +9,24 @@ export function AuthCTA() {
 
   if (user) {
     return (
-      <Button asChild className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
-        <Link href="/dashboard">
-          <LayoutDashboard className="w-5 h-5" />
-          <span>Go to Dashboard</span>
-          <ArrowRight className="w-5 h-5" />
-        </Link>
-      </Button>
+      <Link 
+        href="/dashboard" 
+        className="btn-pill bg-brand-orange text-white px-8 py-4 border-2 border-brand-primary hover:bg-brand-orange-hover text-lg w-full sm:w-auto flex items-center justify-center space-x-2 transition-all hover:scale-105"
+      >
+        <LayoutDashboard className="w-5 h-5" />
+        <span>Go to Dashboard</span>
+        <ArrowRight className="w-5 h-5" />
+      </Link>
     );
   }
 
   return (
-    <Button asChild className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2 w-full sm:w-auto">
-      <Link href="/signup">
-        <span>Start Learning Free</span>
-        <ArrowRight className="w-5 h-5" />
-      </Link>
-    </Button>
+    <Link 
+      href="/signup" 
+      className="btn-pill bg-brand-orange text-white px-8 py-4 border-2 border-brand-primary hover:bg-brand-orange-hover text-lg w-full sm:w-auto flex items-center justify-center space-x-2 transition-all hover:scale-105"
+    >
+      <span>Start Learning Free</span>
+      <ArrowRight className="w-5 h-5" />
+    </Link>
   );
 }

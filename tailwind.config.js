@@ -67,12 +67,38 @@ module.exports = {
             DEFAULT: "#D84315", // Burnt Orange
             light: "#FFCCBC",
           }
-        }
+        },
+        // Kiongozi Platform Brand Theme Colors
+        'brand-primary': '#1b2432',
+        'brand-orange': '#FF6633',
+        'brand-orange-hover': '#e85520',
+        'brand-orange-muted': '#d99253',
+        'brand-purple': '#c5b0d9',
+        'brand-blue': '#b3d3e0',
+        'brand-cream': '#f9f7f4',
+        'brand-gray': '#f3f3f3',
+        'surface-paper': '#FDFCF0',
+        'surface-dark': '#111110',
+        'surface-darker': '#0a0a0a',
+        'border-warm': '#e0ddd5',
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // Kiongozi Platform Radii
+        base: '1rem',
+        card: '2rem',
+        pill: '9999px',
+      },
+      boxShadow: {
+        soft: '0 10px 30px -10px rgba(0, 0, 0, 0.05)',
+        float: '0 20px 40px -15px rgba(0, 0, 0, 0.1)',
+      },
+      fontFamily: {
+        sans: ["var(--font-outfit)", "var(--font-roboto)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-fraunces)", "Georgia", "serif"],
+        syne: ["var(--font-syne)", "Arial Black", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
