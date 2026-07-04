@@ -716,7 +716,7 @@ Use markdown strategically for clarity and engagement:
           firstChoice.message.tool_calls.map(async (tc) => ({
             role: 'tool' as const,
             tool_call_id: tc.id,
-            content: await executeTool((tc as OpenAI.Chat.ChatCompletionMessageToolCall).function.name),
+            content: await executeTool((tc as any).function.name),
           }))
         ),
       ];
@@ -918,7 +918,7 @@ router.post('/ai-response/stream', authenticateToken, async (req, res) => {
           toolChoice.message.tool_calls.map(async (tc) => ({
             role: 'tool' as const,
             tool_call_id: tc.id,
-            content: await executeTool((tc as OpenAI.Chat.ChatCompletionMessageToolCall).function.name),
+            content: await executeTool((tc as any).function.name),
           }))
         ),
       ];
