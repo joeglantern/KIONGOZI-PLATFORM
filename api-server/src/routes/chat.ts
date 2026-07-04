@@ -716,7 +716,7 @@ Use markdown strategically for clarity and engagement:
           firstChoice.message.tool_calls.map(async (tc) => ({
             role: 'tool' as const,
             tool_call_id: tc.id,
-            content: await executeTool(tc.function.name),
+            content: await executeTool((tc as OpenAI.Chat.ChatCompletionMessageToolCall).function.name),
           }))
         ),
       ];
@@ -899,7 +899,7 @@ router.post('/ai-response/stream', authenticateToken, async (req, res) => {
     res.setHeader('X-Accel-Buffering', 'no');
 
     // Pre-flight tool call (non-streaming) — resolve any data the LLM needs first
-    let streamMessages = [...openaiMessages];
+    let streamMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [...openaiMessages];
     const toolCheck = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: streamMessages,
@@ -918,7 +918,7 @@ router.post('/ai-response/stream', authenticateToken, async (req, res) => {
           toolChoice.message.tool_calls.map(async (tc) => ({
             role: 'tool' as const,
             tool_call_id: tc.id,
-            content: await executeTool(tc.function.name),
+            content: await executeTool((tc as OpenAI.Chat.ChatCompletionMessageToolCall).function.name),
           }))
         ),
       ];
