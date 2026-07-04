@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from './src/stores/authStore';
 import { useSocialStore } from './src/stores/socialStore';
 import { supabase } from './src/utils/supabaseClient';
@@ -9,7 +10,9 @@ import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
 import { useSupabaseDeepLink } from './src/hooks/useSupabaseDeepLink';
 import AppNavigator from './src/navigation/AppNavigator';
 import LoginScreen from './src/screens/LoginScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   registerForPushNotifications,
   setupNotificationHandlers,
@@ -20,13 +23,18 @@ export default function App() {
   const { loadBlockedAndMuted } = useSocialStore();
   const [isReady, setIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const navRef = useRef<any>(null);
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        await initialize();
+        const [, onboardingDone] = await Promise.all([
+          initialize(),
+          AsyncStorage.getItem('onboarding_done'),
+        ]);
+        setShowOnboarding(onboardingDone !== 'true');
       } catch (error) {
         console.error('App initialization failed:', error);
       } finally {
@@ -78,29 +86,47 @@ export default function App() {
   });
 
   if (showSplash) {
-    return <AnimatedSplashScreen />;
+    return (
+      <SafeAreaProvider>
+        <AnimatedSplashScreen />
+      </SafeAreaProvider>
+    );
   }
 
   if (!isReady || !initialized) {
     return (
-      <GestureHandlerRootView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#1a365d" />
-      </GestureHandlerRootView>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#1a365d" />
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (showOnboarding) {
+    return (
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <OnboardingScreen onDone={() => setShowOnboarding(false)} />
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="auto" />
-      {user ? (
-        <AppNavigator navRef={navRef} />
-      ) : (
-        <LoginScreen onLoginSuccess={() => {}} />
-      )}
-      <ResetPasswordScreen
-        visible={showResetPassword}
-        onDismiss={() => setShowResetPassword(false)}
-      />
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <StatusBar style="auto" />
+        {user ? (
+          <AppNavigator navRef={navRef} />
+        ) : (
+          <LoginScreen onLoginSuccess={() => {}} />
+        )}
+        <ResetPasswordScreen
+          visible={showResetPassword}
+          onDismiss={() => setShowResetPassword(false)}
+        />
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }

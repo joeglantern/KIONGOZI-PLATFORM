@@ -70,3 +70,4 @@ function fallbackTitleGenerator(text: string): string {
   const title = words.join(' ');
   return title.charAt(0).toUpperCase() + title.slice(1);
 }
+

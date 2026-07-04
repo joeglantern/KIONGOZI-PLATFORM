@@ -25,3 +25,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: e?.message || 'Proxy error' }, { status: 500 });
   }
 }
+

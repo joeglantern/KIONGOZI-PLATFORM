@@ -693,7 +693,7 @@ Use markdown strategically for clarity and engagement:
     ];
 
     // First call — LLM may request tool data
-    let firstCall = await openai.chat.completions.create({
+    let completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages,
       tools: KIONGOZI_TOOLS,
@@ -706,7 +706,7 @@ Use markdown strategically for clarity and engagement:
       stream: false,
     });
 
-    let firstChoice = firstCall.choices[0];
+    let firstChoice = completion.choices[0];
 
     // If the model called tools, execute them and get the final response
     if (firstChoice.finish_reason === 'tool_calls' && firstChoice.message.tool_calls) {
@@ -721,7 +721,7 @@ Use markdown strategically for clarity and engagement:
         ),
       ];
 
-      const finalCall = await openai.chat.completions.create({
+      completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [...messages, ...toolMessages],
         max_tokens: 600,
@@ -729,7 +729,7 @@ Use markdown strategically for clarity and engagement:
         top_p: 0.9,
         stream: false,
       });
-      firstChoice = finalCall.choices[0];
+      firstChoice = completion.choices[0];
     }
 
     const aiResponse = firstChoice.message?.content?.trim();

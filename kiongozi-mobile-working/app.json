@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Kiongozi",
+    "name": "Kiongozi Chat",
     "slug": "kiongozi-mobile-working",
     "version": "2.0.0",
-    "description": "AI-powered learning for Kenya's Green Economy & Digital Transformation",
+    "description": "Kenya's civic social network — connect with youth, track public funds, amplify your voice, and chat with an AI guide on governance and the green economy.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.kiongozi.mobile",
+      "bundleIdentifier": "com.kiongozi.chat",
       "buildNumber": "6",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice input functionality.",
@@ -31,7 +31,7 @@
       }
     },
     "android": {
-      "package": "com.kiongozi.mobile",
+      "package": "com.kiongozi.chat",
       "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

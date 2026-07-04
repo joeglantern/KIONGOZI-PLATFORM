@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, NavigationContainerRef, NavigationState } from '@react-navigation/native';
@@ -142,6 +143,8 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const navRef = externalNavRef ?? internalNavRef;
   const { unreadCount, addNotification, fetchNotifications } = useNotificationStore();
   const { user, sessionExpired } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const TAB_BAR_HEIGHT = 52 + insets.bottom;
 
   useEffect(() => {
     if (sessionExpired) {
@@ -189,7 +192,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
           screenOptions={({ route }) => ({
             headerShown: false,
             tabBarShowLabel: false,
-            tabBarStyle: styles.tabBar,
+            tabBarStyle: [styles.tabBar, { height: TAB_BAR_HEIGHT, paddingBottom: insets.bottom }],
             tabBarActiveTintColor: ACTIVE_COLOR,
             tabBarInactiveTintColor: INACTIVE_COLOR,
             tabBarIcon: ({ focused, color, size }) => {
@@ -275,8 +278,6 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: '#fff',
     borderTopColor: '#e2e8f0',
-    height: 60,
-    paddingBottom: 8,
   },
   createButton: {
     backgroundColor: '#1a365d',

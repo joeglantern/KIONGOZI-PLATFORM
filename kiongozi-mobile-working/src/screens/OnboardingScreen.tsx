@@ -1,44 +1,41 @@
-import React, { useRef, useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
   Dimensions,
-  SafeAreaView,
+  FlatList,
+  ViewToken,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-interface Slide {
-  emoji: string;
-  title: string;
-  subtitle: string;
-  bg: string;
-}
+const NAVY = '#1a365d';
+const GRAY = '#718096';
+const LIGHT = '#e2e8f0';
 
-const SLIDES: Slide[] = [
+const SLIDES = [
   {
-    emoji: '🇰🇪',
+    id: '1',
     title: 'Welcome to Kiongozi',
-    subtitle: 'Your civic education companion. Learn, engage, and stay informed.',
-    bg: '#1a365d',
+    subtitle: 'A space where young Kenyans connect, share, and shape conversations that matter.',
+    lottie: require('../../assets/lottie/community.json'),
   },
   {
-    emoji: '📚',
-    title: 'Stay Informed',
-    subtitle:
-      'Access civic education modules, understand your rights, and follow government matters.',
-    bg: '#2b6cb0',
+    id: '2',
+    title: 'Built for Civic Life',
+    subtitle: 'Track public spending, submit your views on policy, and run advocacy campaigns with tools built for real impact.',
+    lottie: require('../../assets/lottie/tools.json'),
   },
   {
-    emoji: '🤝',
-    title: 'Connect & Engage',
-    subtitle:
-      'Follow others, post your thoughts, and chat with the @kiongozi AI assistant.',
-    bg: '#276749',
+    id: '3',
+    title: 'Your Civic Guide',
+    subtitle: 'Get clear answers on the Constitution, governance, and public finance. One tap from anywhere in the app.',
+    lottie: require('../../assets/lottie/chat.json'),
   },
 ];
 
@@ -47,147 +44,176 @@ interface Props {
 }
 
 export default function OnboardingScreen({ onDone }: Props) {
-  const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+  const insets = useSafeAreaInsets();
 
-  const goToSlide = (index: number) => {
-    scrollRef.current?.scrollTo({ x: index * SCREEN_W, animated: true });
-    setActiveIndex(index);
-  };
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems[0]) {
+      setActiveIndex(viewableItems[0].index ?? 0);
+    }
+  }).current;
 
-  const handleScroll = (e: any) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
-    setActiveIndex(index);
-  };
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  const handleDone = async () => {
+  const finish = useCallback(async () => {
     await AsyncStorage.setItem('onboarding_done', 'true');
     onDone();
-  };
+  }, [onDone]);
+
+  const handleNext = useCallback(() => {
+    if (activeIndex < SLIDES.length - 1) {
+      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+    } else {
+      finish();
+    }
+  }, [activeIndex, finish]);
 
   const isLast = activeIndex === SLIDES.length - 1;
 
   return (
-    <View style={styles.root}>
-      <ScrollView
-        ref={scrollRef}
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      {!isLast ? (
+        <TouchableOpacity
+          style={styles.skip}
+          onPress={finish}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.skipText}>Skip</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.skipPlaceholder} />
+      )}
+
+      <FlatList
+        ref={flatListRef}
+        data={SLIDES}
+        keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScroll}
-        scrollEventThrottle={16}
-      >
-        {SLIDES.map((slide, i) => (
-          <View key={i} style={[styles.slide, { backgroundColor: slide.bg }]}>
-            <SafeAreaView style={styles.safeSlide}>
-              {/* Skip button on slides 0 and 1 */}
-              {!isLast && activeIndex === i && (
-                <TouchableOpacity style={styles.skipBtn} onPress={handleDone}>
-                  <Text style={styles.skipText}>Skip</Text>
-                </TouchableOpacity>
-              )}
-
-              <View style={styles.content}>
-                <Text style={styles.emoji}>{slide.emoji}</Text>
-                <Text style={styles.title}>{slide.title}</Text>
-                <Text style={styles.subtitle}>{slide.subtitle}</Text>
-              </View>
-
-              {/* Dots */}
-              <View style={styles.dots}>
-                {SLIDES.map((_, di) => (
-                  <View
-                    key={di}
-                    style={[styles.dot, di === i && styles.dotActive]}
-                  />
-                ))}
-              </View>
-
-              {/* Bottom CTA */}
-              <View style={styles.bottomArea}>
-                {i === SLIDES.length - 1 ? (
-                  <TouchableOpacity style={styles.getStartedBtn} onPress={handleDone}>
-                    <Text style={styles.getStartedText}>Get Started</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.nextBtn}
-                    onPress={() => goToSlide(i + 1)}
-                  >
-                    <Text style={styles.nextText}>Next →</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </SafeAreaView>
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        renderItem={({ item }) => (
+          <View style={styles.slide}>
+            <View style={styles.animContainer}>
+              <LottieView
+                source={item.lottie}
+                autoPlay
+                loop
+                style={styles.anim}
+              />
+            </View>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.subtitle}>{item.subtitle}</Text>
           </View>
-        ))}
-      </ScrollView>
+        )}
+      />
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 28 }]}>
+        <View style={styles.dots}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]}
+            />
+          ))}
+        </View>
+
+        <TouchableOpacity style={styles.btn} onPress={handleNext} activeOpacity={0.82}>
+          <Text style={styles.btnText}>{isLast ? 'Get Started' : 'Continue'}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  slide: { width: SCREEN_W, flex: 1 },
-  safeSlide: { flex: 1 },
-  skipBtn: {
-    alignSelf: 'flex-end',
-    padding: 16,
-    marginTop: 8,
-    marginRight: 8,
-  },
-  skipText: { color: 'rgba(255,255,255,0.75)', fontSize: 15 },
-  content: {
+  root: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  skip: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  skipPlaceholder: {
+    height: 44,
+  },
+  skipText: {
+    fontSize: 15,
+    color: GRAY,
+    fontWeight: '500',
+  },
+  slide: {
+    width,
     alignItems: 'center',
     paddingHorizontal: 32,
   },
-  emoji: { fontSize: 72, marginBottom: 24 },
+  animContainer: {
+    width: width * 0.72,
+    height: height * 0.38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  anim: {
+    width: '100%',
+    height: '100%',
+  },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
+    fontSize: 27,
+    fontWeight: '700',
+    color: NAVY,
     textAlign: 'center',
-    marginBottom: 16,
+    marginTop: 32,
+    letterSpacing: -0.3,
+    lineHeight: 35,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.85)',
+    color: '#4a5568',
     textAlign: 'center',
-    lineHeight: 24,
+    marginTop: 14,
+    lineHeight: 26,
+    fontWeight: '400',
+  },
+  footer: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
   },
   dots: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 28,
   },
   dot: {
-    width: 8,
-    height: 8,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.35)',
   },
-  dotActive: { backgroundColor: '#fff', width: 20 },
-  bottomArea: {
-    paddingHorizontal: 32,
-    paddingBottom: 40,
+  dotActive: {
+    width: 24,
+    backgroundColor: NAVY,
   },
-  nextBtn: {
-    alignSelf: 'flex-end',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.6)',
+  dotInactive: {
+    width: 7,
+    backgroundColor: LIGHT,
   },
-  nextText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  getStartedBtn: {
-    backgroundColor: '#fff',
-    borderRadius: 28,
-    paddingVertical: 16,
+  btn: {
+    backgroundColor: NAVY,
+    width: width - 48,
+    height: 54,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  getStartedText: { color: '#1a365d', fontSize: 18, fontWeight: '800' },
+  btnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
 });

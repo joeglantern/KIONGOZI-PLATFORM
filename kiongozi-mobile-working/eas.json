@@ -71,7 +71,11 @@
       },
       "node": "22.11.0",
       "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+        "EXPO_PUBLIC_API_URL": "https://api.kiongozi.org",
+        "EXPO_PUBLIC_TOOLS_API_URL": "http://156.67.25.84:8001",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://jdncfyagppohtksogzkx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkbmNmeWFncHBvaHRrc29nemt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2ODg3NzgsImV4cCI6MjA3MDI2NDc3OH0.mQwRTAu2UYwsF_cmlIQLVVVuCTDMHjsBrxWdWPMQMFQ"
       }
     }
   },
@@ -84,7 +88,7 @@
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "production"
+        "track": "internal"
       }
     }
   }
