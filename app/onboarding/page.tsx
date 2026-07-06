@@ -100,11 +100,21 @@ function OnboardingContent() {
   }, [profile, router]);
 
   useEffect(() => {
-    void supabase.from("learning_paths").select("id, slug, title, description, outcome, icon_name, accent_color, category_name, sort_order").eq("is_published", true).order("sort_order").then(({ data, error: pathError }) => {
-      if (pathError) setError("We could not load the learning paths. Please refresh and try again.");
-      setPaths((data as LearningPath[] | null) ?? []);
+    const fetchPaths = async () => {
+      const { data, error: pathError } = await supabase
+        .from("learning_paths")
+        .select("id, slug, title, description, outcome, icon_name, accent_color, category_name, sort_order")
+        .eq("is_published", true)
+        .order("sort_order");
+
+      if (pathError) {
+        setError("We could not load the learning paths. Please refresh and try again.");
+      } else {
+        setPaths((data ?? []) as LearningPath[]);
+      }
       setLoadingPaths(false);
-    });
+    };
+    void fetchPaths();
   }, [supabase]);
 
   const chooseGoal = (nextGoal: Goal) => {

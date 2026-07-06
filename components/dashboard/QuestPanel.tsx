@@ -6,20 +6,22 @@ import { Award, BookOpen, Check, Flame, Loader2, MessageCircle, RotateCcw, Spark
 import { createClient } from "@/app/utils/supabase/client";
 import { useUser } from "@/app/contexts/UserContext";
 
+interface QuestTemplate {
+  title: string;
+  description: string;
+  quest_type: "daily" | "weekly" | "path" | "community";
+  target_count: number;
+  xp_reward: number;
+  estimated_minutes: number;
+  icon_name: string;
+}
+
 interface QuestRow {
   id: string;
   progress_count: number;
   status: "active" | "completed" | "expired";
   expires_at: string | null;
-  quest_templates: {
-    title: string;
-    description: string;
-    quest_type: "daily" | "weekly" | "path" | "community";
-    target_count: number;
-    xp_reward: number;
-    estimated_minutes: number;
-    icon_name: string;
-  } | null;
+  quest_templates: QuestTemplate | null;
 }
 
 interface DailyActivity {
@@ -55,8 +57,8 @@ export function QuestPanel() {
       supabase.from("daily_learning_activity").select("minutes_earned, goal_minutes, goal_completed_at").eq("user_id", user.id).eq("activity_date", today).maybeSingle(),
     ]);
     if (questResult.error) setError("Quests could not be loaded right now.");
-    setQuests((questResult.data as unknown as QuestRow[] | null) ?? []);
-    setActivity(activityResult.data as DailyActivity | null);
+    setQuests((questResult.data ?? []) as QuestRow[]);
+    setActivity((activityResult.data ?? null) as DailyActivity | null);
     setLoading(false);
   }, [profile?.timezone, supabase, user]);
 

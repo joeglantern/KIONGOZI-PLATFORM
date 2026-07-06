@@ -27,6 +27,20 @@ import type { LearningPathRecord, SkillProgressRecord } from '@/components/dashb
 import { NextActionCard } from '@/components/dashboard/NextActionCard';
 import { QuestPanel } from '@/components/dashboard/QuestPanel';
 
+interface CourseEnrollment {
+    id: string;
+    progress_percentage: number;
+    last_accessed_at: string;
+    status: string;
+    courses: { id: string; title: string; description: string; difficulty_level: string; category_id: string } | null;
+    updated_at: string;
+}
+
+interface UserBadge {
+    earned_at: string;
+    badges: { id: string; name: string; icon: string; description: string } | null;
+}
+
 // Lazy-load heavy chart & widget components
 const LeaderboardWidget = dynamic(() => import('@/components/dashboard/LeaderboardWidget').then(m => ({ default: m.LeaderboardWidget })), {
     loading: () => <div className="bg-white rounded-3xl border border-gray-100 p-5"><Skeleton className="h-48 w-full" /></div>,
@@ -42,8 +56,8 @@ export default function DashboardPage() {
     const { user, profile } = useUser();
     const supabase = useMemo(() => createClient(), []);
 
-    const [enrollments, setEnrollments] = useState<any[]>([]);
-    const [badges, setBadges] = useState<any[]>([]);
+    const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
+    const [badges, setBadges] = useState<UserBadge[]>([]);
     const [learningPath, setLearningPath] = useState<LearningPathRecord | null>(null);
     const [skillProgress, setSkillProgress] = useState<SkillProgressRecord[]>([]);
     const [loading, setLoading] = useState(true);
