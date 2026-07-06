@@ -2,24 +2,23 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence, useSpring, type MotionStyle } from "framer-motion";
 import {
   ArrowRight,
   Award,
   BarChart3,
   BookOpen,
-  Check,
   ChevronDown,
   ChevronRight,
   Clock3,
-  Code2,
   Flame,
-  Heart,
   Leaf,
   Lightbulb,
-  LockKeyhole,
   Map,
+  PlayCircle,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Target,
   Users,
@@ -28,12 +27,13 @@ import {
   Zap,
 } from "lucide-react";
 import { useUser } from "@/app/contexts/UserContext";
-import { createClient } from "@/app/utils/supabaseClient";
+import { createClient } from "@/app/utils/supabase/client";
 import { Mwanzo, Zola, Ken, Tumi } from "@/components/landing/Characters";
 import { PENDING_MISSION_KEY } from "@/components/landing/PendingMissionClaim";
 import AnimatedIcon from "@/components/landing/AnimatedIcon";
 import activity from "react-useanimations/lib/activity";
 import LottieScene from "@/components/landing/LottieScene";
+import HeroPhoneMockup from "@/components/landing/HeroPhoneMockup";
 
 const MISSION_KEY = "county-youth-centre";
 
@@ -379,7 +379,6 @@ export default function LandingPage() {
   const [claiming, setClaiming] = useState(false);
   const [selectedPath, setSelectedPath] = useState("civic");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [fanned, setFanned] = useState(false);
 
   const answer = answers.find((item) => item.id === selectedAnswer);
   const signupHref = `/signup?path=${selectedPath}${selectedAnswer ? `&mission=${MISSION_KEY}&answer=${selectedAnswer}` : ""}`;
@@ -415,193 +414,182 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════════════════════════════
           SECTION 1 · HERO
           ══════════════════════════════════════════════════════════════ */}
-      <section className="relative px-5 pb-16 pt-24 sm:px-8 lg:pb-20 lg:pt-32 bg-[#f8f4e8]">
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[radial-gradient(#1b2432_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.04]" />
+      <section className="relative isolate overflow-hidden bg-[#fff8ef] px-4 pb-6 pt-6 sm:px-6 lg:px-8">
+        <Image
+          src="/hero/kenya-map-bg.png"
+          alt=""
+          width={1122}
+          height={1402}
+          aria-hidden="true"
+          className="pointer-events-none absolute right-[-18%] top-0 hidden h-full w-[68%] object-cover opacity-85 lg:block"
+        />
 
-        {/* Decorative doodles */}
-        <SparkleIcon className="absolute top-12 left-12 w-8 h-8 text-brand-orange/25 animate-pulse hidden md:block" />
-        <StarIcon className="absolute bottom-20 right-16 w-10 h-10 text-brand-blue/25 hidden md:block" />
-        <LoopDoodle className="absolute top-36 right-[18%] w-28 h-14 text-brand-primary hidden lg:block" />
-        <CrossDoodle className="absolute bottom-32 left-[8%] w-8 h-8 text-brand-primary hidden lg:block" />
-
-        <div className="relative mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.05fr_.95fr]">
-          {/* Left: Copy */}
-          <motion.div initial="hidden" animate="visible" variants={fadeUp} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border-2 border-brand-primary bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-[3px_3px_0_#1b2432]">
-              <SparkleIcon className="h-4 w-4 text-brand-orange" />
-              Built for Kenya&apos;s next generation
-            </div>
-
-            <h1 className="max-w-4xl font-display text-5xl font-black leading-[0.95] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
-              Learn skills. Lead change.{" "}
-              <span className="relative inline-block text-brand-orange">
-                Put your county on the map.
-                <HandDrawnUnderline className="absolute -bottom-2 left-0 w-full h-3" />
-              </span>
-            </h1>
-
-            <p className="mt-7 max-w-2xl text-lg font-semibold leading-relaxed text-brand-primary/70 sm:text-xl">
-              Master civic, green, digital, and entrepreneurship skills through short missions that build practical confidence and visible impact.
-            </p>
-
-            {/* Social proof badges */}
-            <motion.div className="mt-8 flex flex-wrap gap-3" variants={staggerChildren} initial="hidden" animate="visible">
-              {[
-                { icon: Flame, text: "Build daily streaks", iconClass: "fill-current text-brand-orange" },
-                { icon: Award, text: "47 county leagues", iconClass: "text-emerald-600" },
-                { icon: Zap, text: "Earn real XP", iconClass: "fill-current text-brand-blue" },
-                { icon: Users, text: "Launching across Kenya", iconClass: "text-purple-600" },
-              ].map((badge) => {
-                const BadgeIcon = badge.icon;
-                return (
-                  <motion.div key={badge.text} variants={fadeUp} whileHover={{ y: -3, rotate: -0.6 }} className="landing-badge">
-                    <BadgeIcon className={`h-4 w-4 ${badge.iconClass}`} /> {badge.text}
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-
-            {/* CTAs */}
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-              <MagneticButton
-                onClick={() => document.getElementById("first-mission")?.scrollIntoView({ behavior: "smooth" })}
-                className="btn-pill btn-pulse-on-hover inline-flex min-h-14 items-center justify-center gap-3 border-2 border-brand-primary bg-brand-orange px-8 py-4 text-base font-black text-white shadow-[4px_4px_0_#1b2432] group"
-              >
-                <Zap className="h-5 w-5 fill-current group-hover:scale-110 transition-transform" /> Start Mission 1 (3 Mins) <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </MagneticButton>
-              <Link
-                href="/courses"
-                className="btn-pill inline-flex min-h-14 items-center justify-center gap-2 border-2 border-brand-primary bg-white px-8 py-4 text-base font-black shadow-[4px_4px_0_#1b2432]"
-              >
-                Choose your path <ChevronRight className="h-5 w-5" />
-              </Link>
-            </div>
-
-            {/* Quick info */}
-            <div className="mt-8 flex flex-wrap items-center gap-3 text-sm font-bold text-brand-primary/70">
-              <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-brand-orange" /> Built with youth across 47 counties</span>
-              <span className="text-brand-primary/20">|</span>
-              <span className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5 text-brand-orange" /> Mobile-first missions</span>
-              <span className="text-brand-primary/20">|</span>
-              <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Real-action XP</span>
-            </div>
-          </motion.div>
-
-          {/* Right: Stacked Dashboard Cards */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.65 }}
-            onHoverStart={() => setFanned(true)}
-            onHoverEnd={() => setFanned(false)}
-            className="group relative flex items-center justify-center min-h-[460px] w-full"
-          >
-            <div className="absolute inset-0 bg-brand-blue/10 rounded-[3rem] blur-xl" />
-
-            <SparkleIcon className="absolute top-0 right-4 w-10 h-10 text-brand-orange/40 animate-pulse pointer-events-none" />
-            <StarIcon className="absolute bottom-6 left-2 w-8 h-8 text-[#ff6633]/30 pointer-events-none" />
-
-            {/* Card 1: Badges (behind, fans up-left on hover) */}
+        <div className="relative mx-auto max-w-[1520px]">
+          <div className="grid items-center gap-6 lg:min-h-[650px] lg:grid-cols-[0.94fr_1.06fr]">
             <motion.div
-              initial={{ opacity: 0, y: 20, x: -24, rotate: 0, scale: 0.96 }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                x: fanned ? -104 : -24,
-                y: fanned ? -52 : -32,
-                rotate: fanned ? -13 : -3,
-              }}
-              transition={fanned ? springPop : { delay: 0.25, duration: 0.58, ease: [0.16, 1, 0.3, 1] }}
-              style={{ transformOrigin: "bottom center" }}
-              className="absolute w-[82%] sm:w-[75%] rounded-[2.2rem] border-[3px] border-brand-primary bg-amber-50/70 p-5 shadow-[6px_6px_0_#1b2432] z-0 landing-card-shine"
+              initial="hidden"
+              animate="visible"
+              variants={staggerChildren}
+              className="relative z-20 max-w-[690px] py-6 lg:py-8"
             >
-              <p className="flex items-center gap-1.5 text-[10px] font-black text-brand-primary/55 uppercase tracking-widest mb-3"><ShieldCheck className="h-3.5 w-3.5" /> Unlocked Achievements</p>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { Icon: ShieldCheck, title: "Auditor" },
-                  { Icon: Leaf, title: "Eco Hero" },
-                  { Icon: Code2, title: "Civic Tech" },
-                  { Icon: Lightbulb, title: "Venture", locked: true },
-                ].map((b, idx) => (
-                  <div key={idx} className={`flex flex-col items-center justify-center p-2 rounded-xl border-2 text-center bg-white ${b.locked ? "border-brand-primary/10 opacity-30" : "border-brand-primary shadow-[2px_2px_0_#1b2432]"}`}>
-                    <b.Icon className="h-5 w-5 text-brand-primary" />
-                    <span className="text-[8px] font-black mt-1 truncate max-w-full">{b.title}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+              <motion.div
+                variants={fadeUp}
+                className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-700/15 bg-white/75 px-4 py-2 text-xs font-black uppercase text-emerald-700 shadow-[0_10px_30px_rgba(27,36,50,0.06)] backdrop-blur"
+              >
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Youth powered. Community driven.
+              </motion.div>
 
-            {/* Card 2: Active Mission (front, fans down-right on hover) */}
-            <motion.div
-              initial={{ opacity: 0, y: 20, x: 0, rotate: 0, scale: 0.96 }}
-              animate={{
-                opacity: 1,
-                scale: fanned ? 1.02 : 1,
-                x: fanned ? 72 : 0,
-                y: fanned ? 6 : 0,
-                rotate: fanned ? 9 : 2,
-              }}
-              transition={fanned ? springPop : { delay: 0.34, duration: 0.62, ease: [0.16, 1, 0.3, 1] }}
-              style={{ transformOrigin: "bottom center" }}
-              className="relative w-[88%] sm:w-[80%] rounded-[2.2rem] border-[3px] border-brand-primary bg-white p-5 shadow-[8px_8px_0_#1b2432] z-10 landing-card-shine"
-            >
-              <div className="flex items-center justify-between border-b-2 border-brand-primary/10 pb-3">
+              <motion.h1
+                variants={fadeUp}
+                className="max-w-3xl font-display text-5xl font-black leading-[0.94] text-brand-primary sm:text-6xl lg:text-6xl xl:text-7xl"
+              >
+                Learn skills.
+                <br />
+                Lead change.
+                <br />
+                <span className="relative inline-block pt-2 font-display italic text-brand-orange">
+                  Put your county on the map.
+                  <HandDrawnUnderline className="absolute -bottom-2 left-0 h-3 w-full" />
+                </span>
+              </motion.h1>
+
+              <motion.p
+                variants={fadeUp}
+                className="mt-6 max-w-xl text-base font-semibold leading-relaxed text-brand-primary/68 sm:text-lg"
+              >
+                Master civic, green, digital, and entrepreneurship skills through short missions that build confidence and create real impact.
+              </motion.p>
+
+              <motion.div variants={fadeUp} className="mt-7 flex flex-col gap-4 sm:flex-row">
+                <Link
+                  href={user ? "/dashboard" : signupHref}
+                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl bg-brand-orange px-7 py-4 text-base font-black text-white shadow-[0_18px_35px_rgba(255,102,51,0.28)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  <Zap className="h-5 w-5 fill-current" />
+                  {user ? "Continue Learning" : "Start Your First Mission"}
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+                <button
+                  onClick={() => document.getElementById("first-mission")?.scrollIntoView({ behavior: "smooth" })}
+                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl border border-brand-primary/10 bg-white px-7 py-4 text-base font-black text-brand-primary shadow-[0_15px_35px_rgba(27,36,50,0.08)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  See How It Works
+                  <PlayCircle className="h-5 w-5" />
+                </button>
+              </motion.div>
+
+              <motion.div
+                variants={fadeUp}
+                className="mt-6 hidden flex-wrap items-center gap-x-6 gap-y-4 text-sm font-bold text-brand-primary/70 sm:flex"
+              >
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl border-2 border-brand-primary bg-orange-100 p-1 shrink-0">
-                    <Mwanzo expression="excited" className="h-10 w-10" />
+                  <div className="flex -space-x-2">
+                    {["N", "K", "A", "M"].map((initial, index) => (
+                      <span
+                        key={initial}
+                        className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-xs font-black text-white shadow-sm ${
+                          ["bg-brand-orange", "bg-emerald-600", "bg-brand-primary", "bg-[#b45cff]"][index]
+                        }`}
+                      >
+                        {initial}
+                      </span>
+                    ))}
                   </div>
-                  <div>
-                    <h3 className="text-base font-black leading-none">Elisha</h3>
-                    <p className="text-[10px] font-bold text-brand-primary/60 mt-1">Level 4: Youth Advocate</p>
-                  </div>
+                  <span>Loved by young change makers</span>
                 </div>
-                <div className="flex items-center gap-1 bg-[#ff6633]/15 text-[#ff6633] px-2 py-0.5 rounded-full text-[10px] font-black">
-                  <Flame className="h-3 w-3 fill-current animate-pulse" /> 7-Day Streak
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-[10px] font-black mb-1">
-                  <span className="text-brand-primary/50">Level 5 Progress</span>
-                  <span className="text-brand-orange">450/600 XP</span>
-                </div>
-                <div className="h-2.5 w-full bg-brand-primary/10 rounded-full overflow-hidden border border-brand-primary/25">
-                  <div className="h-full bg-emerald-500 rounded-full w-[75%] border-r border-brand-primary/20 animate-pulse" />
-                </div>
-              </div>
-
-              <div className="mt-4 bg-[#fbfaf6] border-2 border-brand-primary/10 rounded-xl p-3 relative overflow-hidden">
-                <div className="absolute top-1.5 left-2 text-[8px] font-black text-brand-primary/30 uppercase tracking-widest">Active Path</div>
-                <div className="mt-3 flex flex-col gap-3 relative">
-                  <div className="absolute top-4 bottom-4 w-0.5 border-l-2 border-dashed border-brand-primary/30 left-[16px] -translate-x-[50%]" />
-                  <div className="flex items-center gap-2 relative z-10">
-                    <div className="h-8 w-8 rounded-full border-2 border-brand-primary bg-emerald-500 text-white flex items-center justify-center font-black text-xs shadow-[1.5px_1.5px_0_#1b2432]"><Check className="h-4 w-4 stroke-[3]" /></div>
-                    <div><p className="text-[11px] font-black text-brand-primary/70">Mission 1: CDF Audit</p><p className="text-[9px] text-emerald-600 font-bold uppercase">Completed</p></div>
-                  </div>
-                  <div className="flex items-center gap-2 relative z-10 justify-between bg-white border-2 border-brand-primary rounded-xl p-1.5 shadow-[2px_2px_0_#1b2432]">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full border-2 border-brand-primary bg-brand-orange text-white flex items-center justify-center font-black text-xs shadow-[1.5px_1.5px_0_#1b2432] animate-pulse"><Target className="h-4 w-4" /></div>
-                      <div><p className="text-[11px] font-black">Mission 2: Budget Audit</p><p className="text-[9px] text-brand-orange font-black uppercase animate-pulse">Active Challenge</p></div>
-                    </div>
-                    <span className="text-[9px] bg-brand-orange text-white font-black px-1.5 py-0.5 rounded-full shadow-[1px_1px_0_#1b2432]">+200 XP</span>
-                  </div>
-                  <div className="flex items-center gap-2 relative z-10 opacity-50">
-                    <div className="h-8 w-8 rounded-full border-2 border-brand-primary bg-gray-200 text-gray-500 flex items-center justify-center font-black text-xs shadow-[1.5px_1.5px_0_#1b2432]"><LockKeyhole className="h-4 w-4" /></div>
-                    <p className="text-[11px] font-black">Mission 3: Public Action</p>
-                  </div>
-                </div>
-              </div>
+                <span className="flex items-center gap-1.5"><Award className="h-4 w-4 text-emerald-600" /> 47 County Leagues</span>
+                <span className="flex items-center gap-1.5"><Zap className="h-4 w-4 fill-current text-brand-orange" /> 500K+ Missions Completed</span>
+                <span className="flex items-center gap-1.5"><Flame className="h-4 w-4 fill-current text-brand-orange" /> 7-Day Streaks</span>
+              </motion.div>
             </motion.div>
 
-            <div className="absolute top-4 right-[-10px] sm:right-0 bg-brand-blue text-brand-primary text-[10px] font-black px-3 py-1.5 rounded-2xl border-2 border-brand-primary shadow-[3px_3px_0_#1b2432] z-20 rotate-12 flex items-center gap-1.5">
-              By Youth, For Youth! <Heart className="h-3 w-3 fill-current text-brand-primary" />
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 min-h-[510px] w-full overflow-visible sm:min-h-[590px] lg:min-h-[650px]"
+            >
+              <Image
+                src="/hero/kenya-map-bg.png"
+                alt=""
+                fill
+                aria-hidden="true"
+                sizes="(min-width: 1024px) 60vw, 100vw"
+                className="pointer-events-none object-cover object-right opacity-70 lg:hidden"
+              />
 
-            <SpinningSticker className="absolute bottom-1 left-[-18px] z-30 h-24 w-24 hidden sm:block" />
+              <Image
+                src="/hero/mission-cards.png"
+                alt=""
+                width={769}
+                height={1202}
+                priority
+                aria-hidden="true"
+                className="pointer-events-none absolute left-0 top-8 z-20 h-[240px] w-auto rotate-[-4deg] object-contain drop-shadow-[0_22px_30px_rgba(27,36,50,0.14)] sm:left-[4%] sm:top-10 sm:h-[320px] lg:left-[4%] lg:top-[8%] lg:h-[340px]"
+              />
 
-            {/* Interactive Rive Mascot & Hero scene */}
-            <LottieScene src="/lottie/wave.json" className="absolute bottom-[-45px] right-[-28px] w-52 h-52 z-30 hidden sm:block" ariaLabel="Welcome mascot waving hello" eager />
+              <HeroPhoneMockup className="absolute left-[42%] top-4 z-30 w-[245px] -translate-x-1/2 rotate-[3deg] sm:w-[300px] lg:left-[48%] lg:top-[1%] lg:w-[338px]" />
+
+              <div className="absolute right-0 top-[28%] z-50 hidden w-[238px] rounded-3xl border border-white/70 bg-white p-5 shadow-[0_24px_60px_rgba(27,36,50,0.14)] md:block lg:right-[3%]">
+                <p className="mb-4 text-sm font-black text-brand-primary">Achievements</p>
+                <div className="flex items-center gap-3">
+                  {[
+                    { Icon: Leaf, bg: "bg-lime-100", text: "text-emerald-700" },
+                    { Icon: Users, bg: "bg-orange-100", text: "text-brand-orange" },
+                    { Icon: Lightbulb, bg: "bg-slate-900", text: "text-brand-blue" },
+                  ].map(({ Icon, bg, text }, index) => (
+                    <span key={index} className={`flex h-14 w-14 items-center justify-center rounded-2xl ${bg} ${text} shadow-sm`}>
+                      <Icon className="h-7 w-7" />
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-center text-xs font-bold text-brand-primary/60">+12 more</p>
+              </div>
+
+              <Image
+                src="/hero/youth-cutout.png"
+                alt=""
+                width={751}
+                height={1359}
+                priority
+                aria-hidden="true"
+                className="pointer-events-none absolute bottom-[-10px] right-[-22%] z-40 h-[310px] w-auto object-contain drop-shadow-[0_24px_30px_rgba(27,36,50,0.15)] sm:right-[-7%] sm:h-[380px] lg:bottom-[-22px] lg:right-[-6%] lg:h-[380px] xl:right-[-1%]"
+              />
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerChildren}
+            className="relative z-20 grid gap-3 pb-3 sm:grid-cols-2 lg:grid-cols-5"
+          >
+            {[
+              { Icon: Target, title: "Short Missions.", copy: "Real Impact.", detail: "Make change in your community, one step at a time.", tint: "bg-emerald-50 text-emerald-700" },
+              { Icon: Award, title: "Compete.", copy: "Climb. Lead.", detail: "Climb county leagues and showcase your impact.", tint: "bg-orange-50 text-brand-orange" },
+              { Icon: Zap, title: "Earn XP.", copy: "Unlock More.", detail: "Complete missions, build skills, and level up.", tint: "bg-indigo-50 text-indigo-600" },
+              { Icon: Smartphone, title: "Built for Youth.", copy: "Mobile First.", detail: "Designed for youth, anywhere.", tint: "bg-emerald-50 text-emerald-700" },
+              { Icon: Users, title: "Youth Built.", copy: "Youth Driven.", detail: "A platform shaped by young leaders.", tint: "bg-violet-50 text-violet-700" },
+            ].map(({ Icon, title, copy, detail, tint }) => (
+              <motion.div
+                key={title}
+                variants={fadeUp}
+                className="flex min-h-[106px] items-center gap-4 rounded-2xl border border-brand-primary/10 bg-white/82 p-4 shadow-[0_16px_45px_rgba(27,36,50,0.08)] backdrop-blur"
+              >
+                <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${tint}`}>
+                  <Icon className="h-7 w-7" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black leading-tight text-brand-primary">
+                    {title}
+                    <br />
+                    <span className="text-emerald-700">{copy}</span>
+                  </h2>
+                  <p className="mt-2 text-xs font-medium leading-relaxed text-brand-primary/60">{detail}</p>
+                </div>
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </section>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import { Trophy, Medal, Crown, Loader2, User } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -21,85 +21,52 @@ export function LeaderboardWidget() {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [currentUserEntry, setCurrentUserEntry] = useState<LeaderboardEntry | null>(null);
     const [loading, setLoading] = useState(true);
+    const [scope, setScope] = useState<'all' | 'weekly'>('all');
 
     const fetchLeaderboard = async () => {
         if (!user) return;
         try {
             setLoading(true);
 
-            // 1. Fetch Top 10 (buffer for scrolling)
-            const { data: topUsers, error: topError } = await supabase
-                .from('profiles')
-                .select('id, email, username, total_xp, level')
-                .order('total_xp', { ascending: false })
-                .limit(10);
+            // Server-side leaderboard: returns only safe display fields (no emails)
+            // and computes ranks in the database.
+            const [{ data: topUsers, error: topError }, { data: myRank, error: rankError }] = await Promise.all([
+                supabase.rpc('get_leaderboard', { p_scope: scope, p_limit: 10 }),
+                supabase.rpc('get_my_leaderboard_rank', { p_scope: scope }),
+            ]);
 
             if (topError) {
                 console.error('Leaderboard Top Users Error:', topError);
                 throw topError;
             }
-
-            // 2. Fetch User's XP first to avoid nested await failure
-            const { data: userData, error: userError } = await supabase
-                .from('profiles')
-                .select('total_xp')
-                .eq('id', user.id)
-                .single();
-
-            if (userError) {
-                console.error('Leaderboard User XP Error:', userError);
-                // Don't throw here, just assume 0 XP if failed, to show leaderboard at least
-            }
-
-            const userXp = userData?.total_xp || 0;
-
-            // 3. Count how many users have strictly more XP than current user
-            const { count: rankCount, error: rankError } = await supabase
-                .from('profiles')
-                .select('id', { count: 'exact', head: true })
-                .gt('total_xp', userXp);
-
             if (rankError) {
-                console.error('Leaderboard Rank Count Error:', rankError);
-                throw rankError;
+                console.error('Leaderboard Rank Error:', rankError);
             }
 
-            const userRank = (rankCount || 0) + 1;
+            const mappedLeaderboard: LeaderboardEntry[] = (topUsers || []).map((d: any) => ({
+                user_id: d.user_id,
+                display_name: (d.display_name || '').trim() || 'Learner',
+                total_xp: d.total_xp || 0,
+                level: d.level || 1,
+                rank: d.rank,
+                is_current_user: d.user_id === user.id,
+            }));
+            setLeaderboard(mappedLeaderboard);
 
-            if (topUsers) {
-                const mappedLeaderboard = topUsers.map((d: any, i: number) => ({
-                    user_id: d.id,
-                    display_name: (d.username || '').trim() || (d.email || '').split('@')[0] || 'Learner',
-                    total_xp: d.total_xp || 0,
-                    level: d.level || 1,
-                    rank: i + 1,
-                    is_current_user: d.id === user.id
-                }));
-                setLeaderboard(mappedLeaderboard);
-
-                // Determine if user is in the top list
-                const userInTop = mappedLeaderboard.find(u => u.user_id === user.id);
-                if (!userInTop) {
-                    // Fetch user details for the pinned bottom row
-                    const { data: fullUserData } = await supabase
-                        .from('profiles')
-                        .select('id, email, username, total_xp, level')
-                        .eq('id', user.id)
-                        .single();
-
-                    if (fullUserData) {
-                        setCurrentUserEntry({
-                            user_id: fullUserData.id,
-                            display_name: (fullUserData.username || '').trim() || (fullUserData.email || '').split('@')[0] || 'Learner',
-                            total_xp: fullUserData.total_xp || 0,
-                            level: fullUserData.level || 1,
-                            rank: userRank,
-                            is_current_user: true
-                        });
-                    }
-                } else {
-                    setCurrentUserEntry(null); // User is already in the list
-                }
+            // Pin the user's own row only if they're outside the top list.
+            const userInTop = mappedLeaderboard.some(u => u.user_id === user.id);
+            const mine = Array.isArray(myRank) ? myRank[0] : myRank;
+            if (!userInTop && mine) {
+                setCurrentUserEntry({
+                    user_id: user.id,
+                    display_name: 'You',
+                    total_xp: mine.total_xp || 0,
+                    level: mine.level || 1,
+                    rank: mine.rank || 0,
+                    is_current_user: true,
+                });
+            } else {
+                setCurrentUserEntry(null);
             }
         } catch (err: any) {
             console.error('Leaderboard fetch error object:', JSON.stringify(err, null, 2));
@@ -111,7 +78,8 @@ export function LeaderboardWidget() {
 
     useEffect(() => {
         fetchLeaderboard();
-    }, [user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, scope]);
 
     if (loading) {
         return (
@@ -136,8 +104,21 @@ export function LeaderboardWidget() {
                     </div>
                     <h2 className="text-lg font-bold text-gray-900 tracking-tight">Leaderboard</h2>
                 </div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-1 rounded-full">
-                    Top Learners
+                <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-full" role="tablist" aria-label="Leaderboard time range">
+                    {(['all', 'weekly'] as const).map((s) => (
+                        <button
+                            key={s}
+                            type="button"
+                            role="tab"
+                            aria-selected={scope === s}
+                            onClick={() => setScope(s)}
+                            className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full transition-colors ${
+                                scope === s ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                        >
+                            {s === 'all' ? 'All time' : 'This week'}
+                        </button>
+                    ))}
                 </div>
             </div>
 

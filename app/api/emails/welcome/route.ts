@@ -1,20 +1,38 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import WelcomeEmail from '@/app/emails/WelcomeEmail';
+import { createClient } from '@/app/utils/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 // This would typically be stored in your .env
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { email, firstName } = body;
+        // Require an authenticated session — closes the anonymous mass-mail hole.
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-        if (!email) {
+        // A few welcome emails per user per hour is plenty.
+        const limit = rateLimit(`welcome:${user.id}`, 3, 60 * 60 * 1000);
+        if (!limit.success) {
             return NextResponse.json(
-                { error: 'Email is required' },
-                { status: 400 }
+                { error: 'Too many requests' },
+                { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
             );
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const { firstName } = body ?? {};
+
+        // Only ever send to the authenticated user's own address — the recipient
+        // is never taken from the request body.
+        const email = user.email;
+        if (!email) {
+            return NextResponse.json({ error: 'No email on account' }, { status: 400 });
         }
 
         const data = await resend.emails.send({
@@ -26,6 +44,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json({ error }, { status: 500 });
+        console.error('Welcome email error:', error);
+        return NextResponse.json({ error: 'Failed to send welcome email' }, { status: 500 });
     }
 }

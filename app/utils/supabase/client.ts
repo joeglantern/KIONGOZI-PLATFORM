@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { getCookieDomain } from './cookie-domain';
 
 export function createClient() {
     return createBrowserClient(
@@ -6,7 +7,7 @@ export function createClient() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
             cookieOptions: {
-                domain: process.env.NODE_ENV === 'production' ? '.kiongozi.org' : undefined,
+                domain: getCookieDomain(),
                 path: '/',
             }
         }

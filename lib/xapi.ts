@@ -3,7 +3,7 @@
  * Emits statements for module, quiz, and course lifecycle events.
  */
 
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 
 // Standard xAPI verb IRIs
 const VERBS = {

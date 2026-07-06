@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import { ModuleList, type CourseContentItem } from '@/components/courses/ModuleList';
 import {

@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
 import { Loader2, AlertCircle, CheckCircle, Sparkles, Lock } from 'lucide-react';

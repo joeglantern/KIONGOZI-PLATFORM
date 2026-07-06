@@ -70,17 +70,16 @@ export default function PetitionActions({ petition, currentUser, hasSignedProp }
             } else {
                 setHasSigned(true);
 
-                // Award Gamification XP for Civic Action (50 XP for petition)
-                await supabase.rpc('award_civic_action', {
-                    user_uuid: currentUser.id,
-                    xp_amount: 50
+                const { data: reward, error: xpError } = await supabase.rpc('claim_petition_signature', {
+                    p_petition_id: petition.id
                 });
+                if (xpError) console.error('XP award failed:', xpError.message);
 
                 // Trigger the beautiful animated toast
                 setActionToast({
                     id: Date.now().toString(),
                     message: "Petition Signed!",
-                    xpAwarded: 50,
+                    xpAwarded: reward?.xp_awarded ?? 0,
                     icon: <FileSignature className="w-6 h-6" />
                 });
             }

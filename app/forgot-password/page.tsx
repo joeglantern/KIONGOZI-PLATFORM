@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Mail, Loader2, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
 

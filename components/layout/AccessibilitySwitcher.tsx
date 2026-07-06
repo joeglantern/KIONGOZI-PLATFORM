@@ -53,6 +53,7 @@ export default function AccessibilitySwitcher() {
                 onClick={() => setIsOpen(!isOpen)}
                 className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 title="Accessibility options"
+                aria-label="Accessibility options"
                 aria-expanded={isOpen}
                 aria-haspopup="true"
             >
@@ -83,6 +84,8 @@ export default function AccessibilitySwitcher() {
                                                 : 'text-foreground hover:bg-muted'
                                         }`}
                                         title={s.desc}
+                                        aria-label={s.desc}
+                                        aria-pressed={fontSize === s.code}
                                     >
                                         {s.label}
                                     </button>
@@ -97,6 +100,9 @@ export default function AccessibilitySwitcher() {
                             </span>
                             <button
                                 onClick={() => setHighContrast(!highContrast)}
+                                role="switch"
+                                aria-checked={highContrast}
+                                aria-label="Toggle high contrast"
                                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                                     highContrast ? 'bg-civic-green' : 'bg-gray-200'
                                 }`}
@@ -119,6 +125,9 @@ export default function AccessibilitySwitcher() {
                             </div>
                             <button
                                 onClick={() => setLowLatency(!lowLatency)}
+                                role="switch"
+                                aria-checked={lowLatency}
+                                aria-label="Toggle low latency mode"
                                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                                     lowLatency ? 'bg-civic-green' : 'bg-gray-200'
                                 }`}

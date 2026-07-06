@@ -169,15 +169,16 @@ export default function AdminDashboardPage() {
     const handlePollSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            if (editingId) {
-                const { error } = await supabase.from('policy_polls').update(pollForm).eq('id', editingId);
-                if (error) throw error;
-                showToast('Poll updated successfully');
-            } else {
-                const { error } = await supabase.from('policy_polls').insert(pollForm);
-                if (error) throw error;
-                showToast('Poll created successfully');
-            }
+            // Route writes through the server API: it verifies admin role, sets
+            // created_by, and validates input server-side (no trusting the client).
+            const res = await fetch('/api/admin/polls', {
+                method: editingId ? 'PATCH' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editingId ? { ...pollForm, id: editingId } : pollForm),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Request failed');
+            showToast(editingId ? 'Poll updated successfully' : 'Poll created successfully');
             setEditingId(null);
             setPollForm({
                 title: '',
@@ -214,8 +215,13 @@ export default function AdminDashboardPage() {
     const handleDeletePoll = async (id: string) => {
         if (!confirm('Are you sure you want to delete this poll? All questions and comments will be lost.')) return;
         try {
-            const { error } = await supabase.from('policy_polls').delete().eq('id', id);
-            if (error) throw error;
+            const res = await fetch('/api/admin/polls', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Delete failed');
             showToast('Poll deleted');
             fetchData();
         } catch (err: any) {
@@ -227,31 +233,24 @@ export default function AdminDashboardPage() {
     const handleQuestionSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            // 1. Insert Question
-            const { data: qData, error: qErr } = await supabase.from('poll_questions').insert({
-                poll_id: activePollForQuestion,
-                question_text: questionForm.question_text,
-                question_type: questionForm.question_type,
-                question_order: Number(questionForm.question_order),
-                why_important: questionForm.why_important,
-                relation_context: questionForm.relation_context,
-                expected_action: questionForm.expected_action
-            }).select().single();
-
-            if (qErr) throw qErr;
-
-            // 2. Insert Options if applicable
-            if (['single_choice', 'multiple_choice'].includes(questionForm.question_type) && questionForm.options.trim()) {
-                const optionTexts = questionForm.options.split(',').map(o => o.trim()).filter(Boolean);
-                const optionsToInsert = optionTexts.map((text, idx) => ({
-                    question_id: qData.id,
-                    option_text: text,
-                    option_order: idx
-                }));
-
-                const { error: optErr } = await supabase.from('poll_options').insert(optionsToInsert);
-                if (optErr) throw optErr;
-            }
+            // Atomic server insert: question + options roll back together, and
+            // admin role + poll ownership are enforced server-side.
+            const res = await fetch('/api/admin/poll-questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    poll_id: activePollForQuestion,
+                    question_text: questionForm.question_text,
+                    question_type: questionForm.question_type,
+                    question_order: Number(questionForm.question_order),
+                    why_important: questionForm.why_important,
+                    relation_context: questionForm.relation_context,
+                    expected_action: questionForm.expected_action,
+                    options: questionForm.options,
+                }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Failed to add question');
 
             showToast('Question added successfully');
             setShowQuestionForm(false);
@@ -290,15 +289,14 @@ export default function AdminDashboardPage() {
     const handlePolicySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            if (editingId) {
-                const { error } = await supabase.from('policies').update(policyForm).eq('id', editingId);
-                if (error) throw error;
-                showToast('Policy updated');
-            } else {
-                const { error } = await supabase.from('policies').insert(policyForm);
-                if (error) throw error;
-                showToast('Policy created');
-            }
+            const res = await fetch('/api/admin/policies', {
+                method: editingId ? 'PATCH' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editingId ? { ...policyForm, id: editingId } : policyForm),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Request failed');
+            showToast(editingId ? 'Policy updated' : 'Policy created');
             setEditingId(null);
             setPolicyForm({
                 title: '',
@@ -333,8 +331,13 @@ export default function AdminDashboardPage() {
     const handleDeletePolicy = async (id: string) => {
         if (!confirm('Are you sure you want to delete this policy?')) return;
         try {
-            const { error } = await supabase.from('policies').delete().eq('id', id);
-            if (error) throw error;
+            const res = await fetch('/api/admin/policies', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Delete failed');
             showToast('Policy deleted');
             fetchData();
         } catch (err: any) {
@@ -346,15 +349,14 @@ export default function AdminDashboardPage() {
     const handleResourceSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            if (editingId) {
-                const { error } = await supabase.from('social_law_resources').update(resourceForm).eq('id', editingId);
-                if (error) throw error;
-                showToast('Resource updated');
-            } else {
-                const { error } = await supabase.from('social_law_resources').insert(resourceForm);
-                if (error) throw error;
-                showToast('Resource added to library');
-            }
+            const res = await fetch('/api/admin/resources', {
+                method: editingId ? 'PATCH' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editingId ? { ...resourceForm, id: editingId } : resourceForm),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Request failed');
+            showToast(editingId ? 'Resource updated' : 'Resource added to library');
             setEditingId(null);
             setResourceForm({
                 title: '',
@@ -397,8 +399,13 @@ export default function AdminDashboardPage() {
     const handleDeleteResource = async (id: string) => {
         if (!confirm('Are you sure you want to delete this library resource?')) return;
         try {
-            const { error } = await supabase.from('social_law_resources').delete().eq('id', id);
-            if (error) throw error;
+            const res = await fetch('/api/admin/resources', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Delete failed');
             showToast('Resource deleted');
             fetchData();
         } catch (err: any) {
@@ -407,16 +414,21 @@ export default function AdminDashboardPage() {
     };
 
     // 4. AI Brief Moderation
+    const patchBrief = async (payload: Record<string, unknown>, successMsg: string) => {
+        const res = await fetch('/api/admin/briefs', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Request failed');
+        showToast(successMsg);
+        fetchData();
+    };
+
     const handleApproveBrief = async (brief: any) => {
         try {
-            // Update status to approved
-            const { error: bErr } = await supabase.from('policy_briefs').update({
-                status: 'approved'
-            }).eq('id', brief.id);
-
-            if (bErr) throw bErr;
-            showToast('Brief marked as Approved!');
-            fetchData();
+            await patchBrief({ id: brief.id, action: 'approve' }, 'Brief marked as Approved!');
         } catch (err: any) {
             showToast(err.message, 'error');
         }
@@ -424,23 +436,8 @@ export default function AdminDashboardPage() {
 
     const handlePublishBrief = async (brief: any) => {
         try {
-            // Update status to published
-            const { error: bErr } = await supabase.from('policy_briefs').update({
-                status: 'published'
-            }).eq('id', brief.id);
-
-            if (bErr) throw bErr;
-
-            // Also push this content to the main policy_polls table's ai_insights field for standard views
-            const { error: pErr } = await supabase.from('policy_polls').update({
-                ai_insights: brief.content,
-                insights_generated_at: new Date().toISOString()
-            }).eq('id', brief.poll_id);
-
-            if (pErr) throw pErr;
-
-            showToast('Brief published successfully to the Policy Pulse details!');
-            fetchData();
+            // The server reads the brief's content + poll_id; we only send the action.
+            await patchBrief({ id: brief.id, action: 'publish' }, 'Brief published successfully to the Policy Pulse details!');
         } catch (err: any) {
             showToast(err.message, 'error');
         }
@@ -449,15 +446,11 @@ export default function AdminDashboardPage() {
     const handleSaveBriefContent = async () => {
         if (!editingBrief) return;
         try {
-            const { error } = await supabase.from('policy_briefs').update({
-                title: editingBrief.title,
-                content: editingBrief.content
-            }).eq('id', editingBrief.id);
-
-            if (error) throw error;
-            showToast('Brief content saved');
+            await patchBrief(
+                { id: editingBrief.id, action: 'save', title: editingBrief.title, content: editingBrief.content },
+                'Brief content saved'
+            );
             setEditingBrief(null);
-            fetchData();
         } catch (err: any) {
             showToast(err.message, 'error');
         }
@@ -467,8 +460,13 @@ export default function AdminDashboardPage() {
     const handleDeleteComment = async (id: string) => {
         if (!confirm('Are you sure you want to delete this comment?')) return;
         try {
-            const { error } = await supabase.from('poll_comments').delete().eq('id', id);
-            if (error) throw error;
+            const res = await fetch('/api/admin/comments', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Delete failed');
             showToast('Comment deleted');
             fetchData();
         } catch (err: any) {

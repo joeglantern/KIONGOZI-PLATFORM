@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle2, User as UserIcon } from 'lucide-react';
@@ -55,6 +55,11 @@ function CompleteProfileContent() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const next = getSafeNext(searchParams.get('next'));
+    const roleDestination = profile?.role === 'admin'
+        ? '/admin/dashboard'
+        : profile?.role === 'instructor'
+            ? '/instructor/dashboard'
+            : '/onboarding';
 
     useEffect(() => {
         if (!authLoading) {
@@ -74,11 +79,11 @@ function CompleteProfileContent() {
                 const hasDisplayName = Boolean(profile.first_name?.trim() || profile.full_name?.trim());
 
                 if (profile.username && hasDisplayName) {
-                    router.replace(next ?? '/dashboard');
+                    router.replace(next ?? roleDestination);
                 }
             }
         }
-    }, [user, profile, authLoading, next, router]);
+    }, [user, profile, authLoading, next, roleDestination, router]);
 
     // Check username availability with debouncing
     useEffect(() => {
@@ -173,7 +178,7 @@ function CompleteProfileContent() {
             });
 
             await refreshProfile();
-            router.replace(next ?? '/dashboard');
+            router.replace(next ?? roleDestination);
 
         } catch (err: any) {
             console.error('Submission error:', err);

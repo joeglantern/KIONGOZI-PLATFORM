@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import type { User } from '@supabase/supabase-js';
 
 interface UserProfile {

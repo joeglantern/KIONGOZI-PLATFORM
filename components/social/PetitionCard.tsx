@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
+import { BouncyThermometer } from './BouncyThermometer';
 import { Badge } from '@/components/ui/badge';
 import { Users, FileText, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import Link from 'next/link';
@@ -119,11 +119,11 @@ export default function PetitionCard({ petition, currentUser, hasSignedProp = fa
                 </p>
 
                 <div className="space-y-2 mt-auto">
-                    <div className="flex justify-between text-xs font-medium">
-                        <span className="text-civic-green-dark">{signatureCount} signatures</span>
-                        <span className="text-muted-foreground">Goal: {petition.target_signatures}</span>
+                    <div className="flex justify-between text-xs font-bold text-brand-primary mb-1">
+                        <span>{signatureCount} signatures</span>
+                        <span className="text-brand-primary/50">Goal: {petition.target_signatures}</span>
                     </div>
-                    <Progress value={progress} className="h-2 bg-civic-earth/10 [&>div]:bg-civic-green" />
+                    <BouncyThermometer value={progress} />
                 </div>
             </CardContent>
 

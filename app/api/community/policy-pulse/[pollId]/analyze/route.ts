@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/app/utils/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
+
+// Return a freshly-cached brief instead of re-calling the model if the last
+// analysis for this poll is younger than this.
+const CACHE_TTL_MS = 30_000;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ pollId: string }> }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Guard the expensive Sonnet call against rapid repeats.
+    const limit = rateLimit(`poll-analyze:${user.id}`, 5, 60 * 1000);
+    if (!limit.success) {
+        return NextResponse.json(
+            { error: 'Too many requests' },
+            { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+        );
+    }
 
     const { pollId } = await params;
 
@@ -22,6 +36,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
 
     if (!poll || !questions || !responses) {
         return NextResponse.json({ error: 'No data' }, { status: 400 });
+    }
+
+    // Short-TTL cache: if a brief was generated moments ago, reuse it rather
+    // than paying for another model call on a rapid re-request.
+    if (poll.ai_insights && poll.insights_generated_at) {
+        const age = Date.now() - new Date(poll.insights_generated_at).getTime();
+        if (age >= 0 && age < CACHE_TTL_MS) {
+            return NextResponse.json({ insights: poll.ai_insights, cached: true });
+        }
     }
 
     const totalRespondents = submissionsResult.data?.length ?? poll.response_count ?? 0;

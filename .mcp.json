@@ -6,6 +6,10 @@
       "headers": {
         "Authorization": "Bearer PLJ4gQdaOjZTZBtYaFCFKuPNrTqJhHb6MCrm28xesKMdxooq1y1Z92jwAt2vrT86NnLRBhL3g9z6CyQRskrMU9fBtY0"
       }
+    },
+    "rive": {
+      "type": "http",
+      "url": "http://127.0.0.1:9791/mcp"
     }
   }
 }

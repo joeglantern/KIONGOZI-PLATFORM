@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import { Star, Send, Loader2, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { Loader2, AlertCircle, CheckCircle2, Clock, Maximize2, RotateCcw } from 'lucide-react';
 
 interface ScormPlayerProps {

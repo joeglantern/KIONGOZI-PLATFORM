@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useUser } from '@/app/contexts/UserContext';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
 export function InstructorSidebar() {

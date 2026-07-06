@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import { MarkdownRenderer } from '@/components/learning/MarkdownRenderer';
 import { ModuleSidebar } from '@/components/learning/ModuleSidebar';
@@ -45,6 +45,51 @@ import { XPCelebration } from '@/components/gamification/XPCelebration';
 import { fireModuleConfetti, fireCourseConfetti } from '@/lib/confetti';
 import { useKeyboardNav } from '@/hooks/useKeyboardNav';
 import { AccessibilityMenu } from '@/components/learning/AccessibilityMenu';
+import { getQuestionsForModule, type ScenarioQuestion } from '@/lib/scenario-questions';
+
+type SlideType =
+  | { type: 'content'; markdown: string }
+  | { type: 'checkpoint'; question: ScenarioQuestion }
+  | { type: 'summary' };
+
+const parseSlides = (markdown: string | null): string[] => {
+    if (!markdown) return [];
+    let rawSlides = markdown.split(/\n\s*---\s*\n/);
+    if (rawSlides.length <= 1) {
+        const paragraphs = markdown.split(/\n\s*\n/);
+        const chunked: string[] = [];
+        let currentChunk = "";
+        for (const p of paragraphs) {
+            if (!p.trim()) continue;
+            if (currentChunk && (currentChunk.length + p.length > 600 || p.startsWith('#') || p.startsWith('##'))) {
+                chunked.push(currentChunk.trim());
+                currentChunk = p;
+            } else {
+                currentChunk = currentChunk ? `${currentChunk}\n\n${p}` : p;
+            }
+        }
+        if (currentChunk) {
+            chunked.push(currentChunk.trim());
+        }
+        rawSlides = chunked;
+    }
+    return rawSlides.map(s => s.trim()).filter(Boolean);
+};
+
+const slideVariants = {
+    enter: (dir: number) => ({
+        x: dir > 0 ? 300 : -300,
+        opacity: 0,
+    }),
+    center: {
+        x: 0,
+        opacity: 1,
+    },
+    exit: (dir: number) => ({
+        x: dir < 0 ? 300 : -300,
+        opacity: 0,
+    }),
+};
 
 interface ProgressRow {
     module_id: string;
@@ -141,6 +186,89 @@ export default function ModuleViewerClient({
     const [isSlidesExpanded, setIsSlidesExpanded] = useState(false);
     const [isVideoExpanded, setIsVideoExpanded] = useState(false);
     const [isSlidesLoading, setIsSlidesLoading] = useState(true);
+
+    const [slideIndexState, setSlideIndexState] = useState([0, 0]); // [slideIndex, direction]
+    const currentSlideIndex = slideIndexState[0];
+    const direction = slideIndexState[1];
+
+    const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
+    const [hasAnsweredCorrectly, setHasAnsweredCorrectly] = useState(false);
+    const [answersHistory, setAnswersHistory] = useState<Record<string, { selectedIndex: number; isCorrect: boolean }>>({});
+
+    const slides: SlideType[] = useMemo(() => {
+        const rawSlides = parseSlides(moduleData.content);
+        const result: SlideType[] = [];
+        const questions = getQuestionsForModule(moduleId, course.title, moduleData.title);
+        
+        let questionIndex = 0;
+        rawSlides.forEach((content, index) => {
+            result.push({ type: 'content', markdown: content });
+            
+            // Insert question after every 3 content slides if we have questions
+            if ((index + 1) % 3 === 0 && questionIndex < questions.length) {
+                result.push({ type: 'checkpoint', question: questions[questionIndex] });
+                questionIndex++;
+            }
+        });
+        
+        // Append remaining questions
+        if (result.length > 0 && questionIndex < questions.length) {
+            if (result.length > 1) {
+                result.splice(result.length - 1, 0, { type: 'checkpoint', question: questions[questionIndex] });
+            } else {
+                result.push({ type: 'checkpoint', question: questions[questionIndex] });
+            }
+        } else if (result.length > 0 && questions.length === 0) {
+            // Fallback: at least one checkpoint question
+            const fallbackQuestion = getQuestionsForModule(moduleId, course.title, moduleData.title)[0];
+            if (result.length > 1) {
+                result.splice(result.length - 1, 0, { type: 'checkpoint', question: fallbackQuestion });
+            } else {
+                result.push({ type: 'checkpoint', question: fallbackQuestion });
+            }
+        }
+        
+        result.push({ type: 'summary' });
+        return result;
+    }, [moduleData.content, moduleId, course.title, moduleData.title]);
+
+    const totalSlides = slides.length;
+    const currentSlide = slides[currentSlideIndex];
+
+    const handleSelectOption = useCallback((idx: number, option: any) => {
+        setSelectedOptionId(idx);
+        if (currentSlide?.type === 'checkpoint') {
+            const qId = currentSlide.question.id;
+            const isCorrect = option.isCorrect;
+            
+            setAnswersHistory(prev => ({
+                ...prev,
+                [qId]: { selectedIndex: idx, isCorrect }
+            }));
+            
+            if (isCorrect) {
+                setHasAnsweredCorrectly(true);
+            } else {
+                setHasAnsweredCorrectly(false);
+            }
+        }
+    }, [currentSlide]);
+
+    useEffect(() => {
+        if (currentSlide && currentSlide.type === 'checkpoint') {
+            const history = answersHistory[currentSlide.question.id];
+            if (history) {
+                setSelectedOptionId(history.selectedIndex);
+                setHasAnsweredCorrectly(history.isCorrect);
+            } else {
+                setSelectedOptionId(null);
+                setHasAnsweredCorrectly(false);
+            }
+        } else {
+            setSelectedOptionId(null);
+            setHasAnsweredCorrectly(false);
+        }
+    }, [currentSlideIndex, currentSlide, answersHistory]);
 
     useEffect(() => {
         setIsSlidesLoading(true);
@@ -267,11 +395,14 @@ export default function ModuleViewerClient({
                 xapi.moduleCompleted(userId, userEmail, moduleId, moduleData.title, courseId);
             }
 
-            const { error: gamificationError } = await supabase.rpc('award_lms_action', {
-                user_uuid: userId,
-                xp_amount: XP_PER_MODULE,
+            // Secure reward economy: the server awards a fixed amount once per
+            // module (idempotent) and validates the completed user_progress row
+            // we just upserted. Never pass a client-chosen XP amount.
+            const { data: claim, error: gamificationError } = await supabase.rpc('claim_module_completion', {
+                p_module_id: moduleId,
             });
             if (gamificationError) console.error('Gamification RPC error:', gamificationError);
+            const xpAwarded = Number((claim as any)?.xp_awarded ?? 0);
 
             // Update local progress state — no re-fetch needed
             setProgress(prev => [
@@ -280,7 +411,7 @@ export default function ModuleViewerClient({
             ]);
 
             await refreshProfile();
-            setEarnedXp(XP_PER_MODULE);
+            setEarnedXp(xpAwarded);
             setShowCelebration(true);
             fireModuleConfetti();
 
@@ -337,13 +468,20 @@ export default function ModuleViewerClient({
                 xapi.courseCompleted(userId, userEmail, courseId, course.title);
             }
 
-            // Award total XP (number of modules * XP_PER_MODULE)
-            const totalXp = moduleIds.length * XP_PER_MODULE;
-            const { error: gamificationError } = await supabase.rpc('award_lms_action', {
-                user_uuid: userId,
-                xp_amount: totalXp,
-            });
-            if (gamificationError) console.error('Gamification RPC error:', gamificationError);
+            // Claim module-completion XP per module through the secure RPC.
+            // award_once is idempotent, so modules already claimed award nothing
+            // and there is no client-supplied XP amount to tamper with.
+            let awardedTotal = 0;
+            for (const mId of moduleIds) {
+                const { data: claim, error: claimError } = await supabase.rpc('claim_module_completion', {
+                    p_module_id: mId,
+                });
+                if (claimError) {
+                    console.error('Gamification RPC error:', claimError);
+                    continue;
+                }
+                awardedTotal += Number((claim as any)?.xp_awarded ?? 0);
+            }
 
             // Update local progress state
             setProgress(prev => {
@@ -360,7 +498,7 @@ export default function ModuleViewerClient({
             });
 
             await refreshProfile();
-            setEarnedXp(totalXp);
+            setEarnedXp(awardedTotal);
             setShowCelebration(true);
             fireModuleConfetti();
             setTimeout(() => fireCourseConfetti(), 500);
@@ -381,7 +519,7 @@ export default function ModuleViewerClient({
         } finally {
             setCompleting(false);
         }
-    }, [completing, course, courseId, isPreviewMode, refreshProfile, supabase, userId, userEmail, allModules]);
+    }, [completing, course, courseId, isPreviewMode, refreshProfile, supabase, userId, userEmail]);
 
     // Auto-save notes
     const initialNotesRef = useRef<string | null>(null);
@@ -414,13 +552,90 @@ export default function ModuleViewerClient({
         return () => clearTimeout(timer);
     }, [notes, userId, moduleId, courseId, isPreviewMode, supabase]);
 
+    const handleNextClick = useCallback(async () => {
+        if (deliveryMode === 'text') {
+            if (currentSlideIndex < totalSlides - 1) {
+                const cur = slides[currentSlideIndex];
+                if (cur?.type === 'checkpoint' && !hasAnsweredCorrectly) {
+                    return;
+                }
+                setSlideIndexState(([idx]) => [idx + 1, 1]);
+            } else {
+                if (isCompleted) {
+                    if (hasNext) {
+                        navigateToModule('next');
+                    } else {
+                        router.push(`/courses/${courseId}`);
+                    }
+                } else if (isPreviewMode) {
+                    router.push(`/courses/${courseId}${isPreviewMode ? '?preview=1' : ''}`);
+                } else {
+                    await handleMarkComplete();
+                }
+            }
+        } else {
+            navigateToModule('next');
+        }
+    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, hasNext, navigateToModule, handleMarkComplete, router, courseId, isPreviewMode, slides]);
+
+    const handlePrevClick = useCallback(() => {
+        if (deliveryMode === 'text') {
+            if (currentSlideIndex > 0) {
+                setSlideIndexState(([idx]) => [idx - 1, -1]);
+            } else {
+                navigateToModule('prev');
+            }
+        } else {
+            navigateToModule('prev');
+        }
+    }, [deliveryMode, currentSlideIndex, navigateToModule]);
+
+    const nextButtonLabel = useMemo(() => {
+        if (deliveryMode === 'text') {
+            if (currentSlideIndex === totalSlides - 1) {
+                if (isCompleted) {
+                    return hasNext ? "Next Lesson" : "Back to Course";
+                }
+                return isPreviewMode ? "Back to Course" : "Finish & Claim XP";
+            }
+            const cur = slides[currentSlideIndex];
+            if (cur?.type === 'checkpoint' && !hasAnsweredCorrectly) {
+                return "Answer to Continue";
+            }
+            return "Next Slide";
+        }
+        return "Next";
+    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, isPreviewMode, hasNext, slides]);
+
+    const isNextDisabled = useMemo(() => {
+        if (deliveryMode === 'text') {
+            const cur = slides[currentSlideIndex];
+            if (cur?.type === 'checkpoint') {
+                return !hasAnsweredCorrectly;
+            }
+            if (cur?.type === 'summary') {
+                if (completing) return true;
+                return false;
+            }
+            return false;
+        }
+        return !hasNext;
+    }, [deliveryMode, slides, currentSlideIndex, hasAnsweredCorrectly, completing, hasNext]);
+
+    const isPrevDisabled = useMemo(() => {
+        if (deliveryMode === 'text') {
+            return currentSlideIndex === 0 && !hasPrev;
+        }
+        return !hasPrev;
+    }, [deliveryMode, currentSlideIndex, hasPrev]);
+
     useKeyboardNav({
-        onPrev: () => navigateToModule('prev'),
-        onNext: () => navigateToModule('next'),
+        onPrev: handlePrevClick,
+        onNext: handleNextClick,
         onComplete: handleMarkComplete,
-        hasPrev,
-        hasNext,
-        canComplete: !isPreviewMode && !isCompleted && !completing,
+        hasPrev: !isPrevDisabled,
+        hasNext: !isNextDisabled,
+        canComplete: !isPreviewMode && !isCompleted && !completing && (deliveryMode === 'text' ? currentSlideIndex === totalSlides - 1 : true),
     });
 
     return (
@@ -652,168 +867,262 @@ export default function ModuleViewerClient({
                                 </div>
                             )}
 
-                            <AnimatePresence mode="wait">
-                                {deliveryMode === 'text' ? (
-                                    <motion.div
-                                        key="text-mode"
-                                        initial={{ opacity: 0, y: 15 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -15 }}
-                                        transition={{ duration: 0.2 }}
-                                    >
-                                        {/* Media */}
-                                        {moduleData.media_type === 'video' && moduleData.media_url && (
-                                            <div className="mb-10 rounded-2xl overflow-hidden aspect-video bg-black relative shadow-2xl border border-gray-800">
-                                                <video src={moduleData.media_url} controls className="w-full h-full object-contain" />
+                            <AnimatePresence mode="wait">                                {deliveryMode === 'text' ? (
+                                    <div className="space-y-6">
+                                        {/* Progress Bar inside the player */}
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-6">
+                                            <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-gray-400 mb-2">
+                                                <span>Progress in Lesson</span>
+                                                <span>Slide {currentSlideIndex + 1} of {totalSlides}</span>
                                             </div>
-                                        )}
-                                        {moduleData.media_type === 'audio' && moduleData.media_url && (
-                                            <div className="mb-10 p-8 rounded-3xl bg-orange-500 shadow-xl border border-orange-400">
-                                                <div className="flex flex-col items-center gap-6">
-                                                    <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white shadow-inner">
-                                                        <Music className="w-10 h-10 animate-pulse" />
-                                                    </div>
-                                                    <div className="text-center">
-                                                        <h3 className="text-xl font-black text-white mb-2">{moduleData.title}</h3>
-                                                        <p className="text-orange-100 text-sm font-medium">Listening Session</p>
-                                                    </div>
-                                                    <audio src={moduleData.media_url} controls className="w-full max-w-md filter invert brightness-200" />
-                                                </div>
+                                            <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="bg-orange-500 h-full rounded-full transition-all duration-500 ease-out" 
+                                                    style={{ width: `${((currentSlideIndex + 1) / totalSlides) * 100}%` }}
+                                                />
                                             </div>
-                                        )}
-                                        {moduleData.media_type === 'text' && (
-                                            <div className="mb-10 rounded-2xl overflow-hidden aspect-video bg-gray-100 relative border border-gray-200 shadow-sm">
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-                                                    <div className="w-16 h-16 rounded-3xl bg-white shadow-xl flex items-center justify-center text-orange-500">
-                                                        <BookOpen className="w-8 h-8" />
-                                                    </div>
-                                                    <h3 className="mt-4 text-xl font-bold text-gray-900">{moduleData.title}</h3>
-                                                    <p className="mt-1 text-sm text-gray-500 font-medium max-w-sm">
-                                                        {moduleData.description ?? 'In this lesson, we explore the core concepts and practical applications.'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Content */}
-                                        <div className="bg-white rounded-3xl p-8 sm:p-12 shadow-sm border border-gray-100 mb-8">
-                                            <MarkdownRenderer
-                                                content={moduleData.content ?? '# No Content Available\n\nThere is no content added to this module yet.'}
-                                            />
                                         </div>
 
-                                        {/* Transcription */}
-                                        {moduleData.transcription && (
-                                            <div className="mb-12 bg-gray-50 rounded-3xl p-8 border border-gray-200">
-                                                <div className="flex items-center gap-3 mb-6">
-                                                    <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
-                                                        <MessageCircle className="w-5 h-5" />
-                                                    </div>
-                                                    <h3 className="text-xl font-black text-gray-900">Transcription</h3>
-                                                </div>
-                                                <div className="prose prose-slate max-w-none">
-                                                    <MarkdownRenderer content={moduleData.transcription} />
-                                                </div>
-                                            </div>
-                                        )}
+                                        {/* Slide viewport */}
+                                        <div className="relative overflow-hidden min-h-[300px]">
+                                            <AnimatePresence mode="wait" custom={direction}>
+                                                {currentSlide?.type === 'content' ? (
+                                                    <motion.div
+                                                        key={`content-${currentSlideIndex}`}
+                                                        custom={direction}
+                                                        variants={slideVariants}
+                                                        initial="enter"
+                                                        animate="center"
+                                                        exit="exit"
+                                                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                                        className="space-y-6"
+                                                    >
+                                                        {/* Media on the first slide only */}
+                                                        {currentSlideIndex === 0 && (
+                                                            <>
+                                                                {moduleData.media_type === 'video' && moduleData.media_url && (
+                                                                    <div className="mb-6 rounded-2xl overflow-hidden aspect-video bg-black relative shadow-lg border border-gray-205">
+                                                                        <video src={moduleData.media_url} controls className="w-full h-full object-contain" />
+                                                                    </div>
+                                                                )}
+                                                                {moduleData.media_type === 'audio' && moduleData.media_url && (
+                                                                    <div className="mb-6 p-6 rounded-2xl bg-orange-500 shadow-md border border-orange-400 text-white flex flex-col items-center gap-4">
+                                                                        <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white shadow-inner">
+                                                                            <Music className="w-8 h-8 animate-pulse" />
+                                                                        </div>
+                                                                        <div className="text-center">
+                                                                            <h4 className="font-bold text-white mb-1">{moduleData.title}</h4>
+                                                                            <p className="text-orange-100 text-xs">Audio Session</p>
+                                                                        </div>
+                                                                        <audio src={moduleData.media_url} controls className="w-full max-w-md filter invert brightness-200" />
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                        <div className="bg-white rounded-3xl p-8 sm:p-12 shadow-sm border border-gray-100">
+                                                            <MarkdownRenderer content={currentSlide.markdown} />
+                                                        </div>
+                                                    </motion.div>
+                                                ) : currentSlide?.type === 'checkpoint' ? (
+                                                    <motion.div
+                                                        key={`checkpoint-${currentSlideIndex}`}
+                                                        custom={direction}
+                                                        variants={slideVariants}
+                                                        initial="enter"
+                                                        animate="center"
+                                                        exit="exit"
+                                                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                                        className="bg-white rounded-3xl p-8 sm:p-10 shadow-sm border border-gray-100 space-y-6"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
+                                                                <Sparkles className="w-5 h-5 animate-pulse" />
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-[10px] font-black uppercase tracking-wider bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                                                                    Active Recall
+                                                                </span>
+                                                                <h3 className="text-lg font-bold text-gray-900 mt-1">Scenario Checkpoint</h3>
+                                                            </div>
+                                                        </div>
 
-                                        {/* Completion reward */}
-                                        {isCompleted && (
-                                            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left mb-12">
-                                                <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
-                                                    <Award className="w-6 h-6" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h4 className="font-bold text-orange-900">Lesson Mastery Unlocked!</h4>
-                                                    <p className="text-sm text-orange-850/70">You've successfully completed this lesson. Keep going to earn your course certificate.</p>
-                                                </div>
-                                                <Button
-                                                    onClick={() => navigateToModule('next')}
-                                                    disabled={!hasNext}
-                                                    className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold"
-                                                >
-                                                    Next Lesson
-                                                </Button>
-                                            </div>
-                                        )}
+                                                        <div className="space-y-2">
+                                                            <h4 className="text-base font-black text-gray-900 leading-snug">
+                                                                {currentSlide.question.question}
+                                                            </h4>
+                                                            <p className="text-xs text-gray-500">
+                                                                {currentSlide.question.description}
+                                                            </p>
+                                                        </div>
 
-                                        {/* Notes */}
-                                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 mb-12">
-                                            <div className="flex items-center justify-between mb-6">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600">
-                                                        <StickyNote className="w-5 h-5" />
-                                                    </div>
-                                                    <h3 className="text-xl font-bold text-gray-900">Personal Notes</h3>
-                                                </div>
-                                                {isSavingNotes ? (
-                                                    <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
-                                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                                        <span className="uppercase tracking-widest">Saving...</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center gap-2 text-xs font-bold text-green-500">
-                                                        <Save className="w-3 h-3" />
-                                                        <span className="uppercase tracking-widest">Saved</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <textarea
-                                                value={notes}
-                                                onChange={(e) => setNotes(e.target.value)}
-                                                disabled={isPreviewMode}
-                                                placeholder={
-                                                    isPreviewMode
-                                                        ? 'Preview mode does not save personal notes.'
-                                                        : 'Type your notes here... Your insights, questions, or key takeaways. They are saved automatically for your future reference.'
-                                                }
-                                                className="w-full h-48 p-6 rounded-2xl bg-gray-50 border-gray-100 focus:border-orange-500 focus:ring-orange-500 transition-all resize-none font-medium placeholder:text-gray-300 disabled:opacity-60"
-                                            />
+                                                        <div className="grid grid-cols-1 gap-3">
+                                                            {currentSlide.question.options.map((option, idx) => {
+                                                                const isSelected = selectedOptionId === idx;
+                                                                const hasAnswered = answersHistory[currentSlide.question.id] !== undefined;
+                                                                
+                                                                let cardStyle = "border-gray-200 hover:border-orange-500 hover:bg-orange-50/5";
+                                                                if (isSelected) {
+                                                                    if (option.isCorrect) {
+                                                                        cardStyle = "border-green-500 bg-green-50/30 ring-2 ring-green-500";
+                                                                    } else {
+                                                                        cardStyle = "border-red-500 bg-red-50/30 ring-2 ring-red-500";
+                                                                    }
+                                                                }
+
+                                                                return (
+                                                                    <button
+                                                                        key={idx}
+                                                                        onClick={() => handleSelectOption(idx, option)}
+                                                                        className={`w-full text-left p-4 sm:p-5 rounded-2xl border-2 transition-all flex items-start gap-4 ${cardStyle}`}
+                                                                    >
+                                                                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 font-bold transition-all ${
+                                                                            isSelected
+                                                                                ? option.isCorrect
+                                                                                    ? "border-green-500 bg-green-500 text-white"
+                                                                                    : "border-red-500 bg-red-500 text-white"
+                                                                                : "border-gray-300 text-gray-500"
+                                                                        }`}>
+                                                                            {String.fromCharCode(65 + idx)}
+                                                                        </div>
+                                                                        <div className="flex-1 text-sm font-medium text-gray-800 pt-0.5">
+                                                                            {option.text}
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {selectedOptionId !== null && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: 10 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                className={`p-5 rounded-2xl border transition-all duration-350 ${
+                                                                    currentSlide.question.options[selectedOptionId].isCorrect
+                                                                        ? "bg-green-50 border-green-200 text-green-950"
+                                                                        : "bg-red-50 border-red-200 text-red-950"
+                                                                }`}
+                                                            >
+                                                                <div className="flex gap-3">
+                                                                    <div className="mt-0.5">
+                                                                        {currentSlide.question.options[selectedOptionId].isCorrect ? (
+                                                                            <CheckCircle className="w-5 h-5 text-green-600" />
+                                                                        ) : (
+                                                                            <AlertCircle className="w-5 h-5 text-red-600" />
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className="font-bold text-sm">
+                                                                            {currentSlide.question.options[selectedOptionId].isCorrect
+                                                                                ? "Awesome Job! You got it."
+                                                                                : "Review Recommendation"}
+                                                                        </h4>
+                                                                        <p className="text-xs mt-1 text-gray-700 leading-relaxed">
+                                                                            {currentSlide.question.options[selectedOptionId].feedback}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </motion.div>
+                                                        )}
+                                                    </motion.div>
+                                                ) : currentSlide?.type === 'summary' ? (
+                                                    <motion.div
+                                                        key="summary-slide"
+                                                        custom={direction}
+                                                        variants={slideVariants}
+                                                        initial="enter"
+                                                        animate="center"
+                                                        exit="exit"
+                                                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                                        className="space-y-6"
+                                                    >
+                                                        <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-sm border border-gray-100 text-center space-y-6">
+                                                            <div className="w-20 h-20 bg-orange-500 rounded-3xl flex items-center justify-center mx-auto shadow-lg shadow-orange-500/20 rotate-3">
+                                                                <Award className="w-10 h-10 text-white" />
+                                                            </div>
+                                                            
+                                                            <div className="space-y-2">
+                                                                <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                                                                    Lesson Completed!
+                                                                </h3>
+                                                                <p className="text-gray-500 text-sm max-w-md mx-auto">
+                                                                    You've successfully completed the learning material and passed the active recall checkpoints.
+                                                                </p>
+                                                            </div>
+
+                                                            {!isCompleted ? (
+                                                                <div className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 border border-orange-100 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest animate-bounce">
+                                                                    <Zap className="w-4 h-4" />
+                                                                    <span>+100 XP SECURED</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="inline-flex items-center gap-2 bg-green-50 border border-green-100 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-green-700">
+                                                                    <CheckCircle className="w-4 h-4" />
+                                                                    <span>Lesson Mastered</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Notes */}
+                                                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600">
+                                                                        <StickyNote className="w-4 h-4" />
+                                                                    </div>
+                                                                    <h3 className="text-lg font-bold text-gray-900">Personal Lesson Notes</h3>
+                                                                </div>
+                                                                {isSavingNotes ? (
+                                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400">
+                                                                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                                                        <span className="uppercase tracking-wider">Saving...</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-500">
+                                                                        <Save className="w-2.5 h-2.5" />
+                                                                        <span className="uppercase tracking-wider">Saved</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <textarea
+                                                                value={notes}
+                                                                onChange={(e) => setNotes(e.target.value)}
+                                                                disabled={isPreviewMode}
+                                                                placeholder={
+                                                                    isPreviewMode
+                                                                        ? 'Preview mode does not save personal notes.'
+                                                                        : 'Type your notes here... Your insights, questions, or key takeaways. They are saved automatically for your future reference.'
+                                                                }
+                                                                className="w-full h-32 p-4 rounded-xl bg-gray-55 border-gray-100 focus:border-orange-500 focus:ring-orange-500 transition-all resize-none font-medium text-sm placeholder:text-gray-300 disabled:opacity-60"
+                                                            />
+                                                        </div>
+
+                                                        {/* Quiz CTA */}
+                                                        {quiz && (
+                                                            <div className="bg-gray-900 rounded-3xl p-8 text-center shadow-xl relative overflow-hidden">
+                                                                <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 blur-[80px] -mr-24 -mt-24" />
+                                                                <h3 className="text-xl font-black text-white mb-2 tracking-tight">Ready for a challenge?</h3>
+                                                                <p className="text-gray-400 text-sm mb-6 max-w-sm mx-auto">
+                                                                    Test your understanding of <span className="text-white font-bold">{moduleData.title}</span> and earn extra XP!
+                                                                </p>
+                                                                {isPreviewMode ? (
+                                                                    <div className="inline-flex items-center justify-center rounded-xl border border-orange-400/30 bg-white/5 px-6 py-3 text-xs font-bold uppercase tracking-wider text-orange-200">
+                                                                        Quiz attempts are disabled in preview
+                                                                    </div>
+                                                                ) : (
+                                                                    <Link href={`/courses/${courseId}/quiz/${quiz.id}`}>
+                                                                        <Button className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-5 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-orange-500/20 active:scale-95 transition-all group">
+                                                                            Start Quiz
+                                                                            <ChevronRight className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
+                                                                        </Button>
+                                                                    </Link>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </motion.div>
+                                                ) : null}
+                                            </AnimatePresence>
                                         </div>
-
-                                        {/* Quiz CTA */}
-                                        {quiz && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 20 }}
-                                                whileInView={{ opacity: 1, y: 0 }}
-                                                viewport={{ once: true }}
-                                                className="bg-gray-900 rounded-[2.5rem] p-10 md:p-12 text-center shadow-2xl relative overflow-hidden mb-12"
-                                            >
-                                                <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 blur-[100px] -mr-32 -mt-32" />
-                                                <div className="absolute bottom-0 left-0 w-64 h-64 bg-orange-500/10 blur-[100px] -ml-32 -mb-32" />
-                                                <div className="w-20 h-20 bg-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-orange-500/20 rotate-3">
-                                                    <Award className="w-10 h-10 text-white" />
-                                                </div>
-                                                <h3 className="text-3xl font-black text-white mb-4 tracking-tight">Ready for a challenge?</h3>
-                                                <p className="text-gray-400 text-lg mb-10 max-w-md mx-auto">
-                                                    Test your understanding of <span className="text-white font-bold">{moduleData.title}</span> and earn extra XP!
-                                                </p>
-                                                {isPreviewMode ? (
-                                                    <div className="inline-flex items-center justify-center rounded-2xl border border-orange-400/30 bg-white/5 px-8 py-5 text-sm font-bold uppercase tracking-widest text-orange-200">
-                                                        Quiz attempts are disabled in preview
-                                                    </div>
-                                                ) : (
-                                                    <Link href={`/courses/${courseId}/quiz/${quiz.id}`}>
-                                                        <Button className="bg-orange-500 hover:bg-orange-600 text-white px-12 py-8 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-orange-500/20 active:scale-95 transition-all group">
-                                                            Start Quiz
-                                                            <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                                                        </Button>
-                                                    </Link>
-                                                )}
-                                                <div className="flex items-center justify-center gap-6 mt-10 text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                                    <div className="flex items-center gap-2">
-                                                        <Clock className="w-4 h-4" />
-                                                        <span>Dynamic Questions</span>
-                                                    </div>
-                                                    <div className="w-1.5 h-1.5 bg-gray-700 rounded-full" />
-                                                    <div className="flex items-center gap-2">
-                                                        <Zap className="w-4 h-4" />
-                                                        <span>50 XP Reward</span>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </motion.div>
+                                    </div>
                                 ) : deliveryMode === 'slides' ? (
                                     <motion.div
                                         key="slides-mode"
@@ -1032,22 +1341,26 @@ export default function ModuleViewerClient({
                     <footer className="bg-white border-t border-gray-100 p-4 shrink-0">
                         <div className="max-w-4xl mx-auto flex items-center justify-between">
                             <button
-                                onClick={() => navigateToModule('prev')}
-                                disabled={!hasPrev}
+                                onClick={handlePrevClick}
+                                disabled={isPrevDisabled}
                                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-gray-500 hover:text-gray-900 border border-transparent hover:border-gray-100 hover:bg-gray-50 transition-all font-bold disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                                 <ChevronLeft className="w-5 h-5" />
                                 <span>Previous</span>
                             </button>
                             <div className="hidden sm:block text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                {currentIndex + 1} / {allModules.length}
+                                {deliveryMode === 'text' ? (
+                                    <span>Slide {currentSlideIndex + 1} of {totalSlides}</span>
+                                ) : (
+                                    <span>{currentIndex + 1} / {allModules.length}</span>
+                                )}
                             </div>
                             <button
-                                onClick={() => navigateToModule('next')}
-                                disabled={!hasNext}
-                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white transition-all font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                                onClick={handleNextClick}
+                                disabled={isNextDisabled}
+                                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white transition-all font-bold disabled:opacity-30 disabled:cursor-not-allowed animate-pulse"
                             >
-                                <span>Next</span>
+                                <span>{nextButtonLabel}</span>
                                 <ChevronRight className="w-5 h-5" />
                             </button>
                         </div>

@@ -8,9 +8,17 @@ function getSafeNext(next: string | null | undefined) {
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; path?: string; goal?: string; mission?: string; answer?: string }>;
 }) {
   const resolved = await searchParams;
   const next = getSafeNext(resolved.next);
-  return <SignupContent next={next} />;
+  return (
+    <SignupContent 
+      next={next} 
+      path={resolved.path || null} 
+      goal={resolved.goal || null} 
+      mission={resolved.mission || null}
+      answer={resolved.answer || null}
+    />
+  );
 }

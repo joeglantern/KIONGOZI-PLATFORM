@@ -37,3 +37,13 @@ next-env.d.ts
 /scripts/schema-report.json
 /scratch/
 
+# test logs and temporary files
+.playwright-cli/
+*.err.log
+*.out.log
+lottiefiles-creator-mcp.err.log
+lottiefiles-creator-mcp.out.log
+DATABASE_AUDIT_REPORT.md
+PLATFORM_DB_AUDIT_COMBINED.md
+output/
+

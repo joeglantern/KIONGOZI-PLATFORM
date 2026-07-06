@@ -45,6 +45,13 @@ interface Option {
     is_correct: boolean;
 }
 
+interface QuestionResult {
+    question_id: string;
+    selected_option_id: string | null;
+    correct_option_id: string | null;
+    is_correct: boolean;
+}
+
 export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerProps) {
     const [loading, setLoading] = useState(true);
     const [quiz, setQuiz] = useState<QuizData | null>(null);
@@ -56,6 +63,7 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
     const [score, setScore] = useState(0);
     const [passed, setPassed] = useState(false);
     const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
+    const [results, setResults] = useState<QuestionResult[]>([]);
 
     const fetchQuizData = useCallback(async () => {
         try {
@@ -138,6 +146,7 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
             setScore(finalScore);
             setPassed(didPass);
             setSubmissionMessage(payload?.message || null);
+            setResults(Array.isArray(payload?.results) ? payload.results : []);
 
             if (didPass) {
                 confetti({
@@ -187,6 +196,8 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
     }
 
     if (submitted) {
+        const resultMap = new Map(results.map(r => [r.question_id, r]));
+        const incorrectCount = results.filter(r => !r.is_correct).length;
         return (
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -222,6 +233,66 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
                         </p>
                     </div>
                 </div>
+
+                {/* Per-question review */}
+                {results.length > 0 && (
+                    <div className="text-left max-w-2xl mx-auto mb-10">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Review your answers</h3>
+                            {incorrectCount > 0 && (
+                                <span className="text-[11px] font-bold text-red-500">{incorrectCount} to revisit</span>
+                            )}
+                        </div>
+                        <div className="space-y-4">
+                            {questions.map((q, idx) => {
+                                const r = resultMap.get(q.id);
+                                const isCorrect = r?.is_correct ?? false;
+                                return (
+                                    <div
+                                        key={q.id}
+                                        className={`rounded-2xl border-2 p-5 ${isCorrect
+                                            ? 'border-green-100 dark:border-green-900/40 bg-green-50/40 dark:bg-green-900/10'
+                                            : 'border-red-100 dark:border-red-900/40 bg-red-50/40 dark:bg-red-900/10'}`}
+                                    >
+                                        <div className="flex items-start gap-3 mb-3">
+                                            {isCorrect
+                                                ? <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" aria-hidden="true" />
+                                                : <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />}
+                                            <p className="font-bold text-gray-900 dark:text-white text-sm">
+                                                <span className="text-gray-400 mr-1">{idx + 1}.</span>{q.question_text}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1.5 pl-8">
+                                            {q.options.map((opt) => {
+                                                const isSelected = r?.selected_option_id === opt.id;
+                                                const isAnswer = r?.correct_option_id === opt.id;
+                                                return (
+                                                    <div
+                                                        key={opt.id}
+                                                        className={`flex items-center gap-2 text-sm rounded-lg px-3 py-1.5 ${isAnswer
+                                                            ? 'text-green-800 dark:text-green-300 font-bold bg-green-100/60 dark:bg-green-900/20'
+                                                            : isSelected
+                                                                ? 'text-red-700 dark:text-red-300 line-through'
+                                                                : 'text-gray-500 dark:text-gray-400'}`}
+                                                    >
+                                                        <span>{opt.option_text}</span>
+                                                        {isAnswer && <span className="text-[10px] uppercase font-black tracking-wider text-green-600">Correct</span>}
+                                                        {isSelected && !isAnswer && <span className="text-[10px] uppercase font-black tracking-wider text-red-500">Your answer</span>}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {!passed && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-6 text-center">
+                                Revisit the highlighted lessons for the questions you missed, then retake the quiz when you&apos;re ready.
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     {!passed && (

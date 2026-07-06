@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 640" role="img" aria-labelledby="title desc">
+  <title id="title">Zetu Zetu character</title>
+  <desc id="desc">A friendly stick character with a white smiling head, green body, raised arms, and Zetu Zetu text.</desc>
+  <defs>
+    <linearGradient id="body-green" x1="150" y1="210" x2="350" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#55f43b" />
+      <stop offset="1" stop-color="#39db2e" />
+    </linearGradient>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#0d2411" flood-opacity="0.14" />
+    </filter>
+  </defs>
+
+  <g fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="258" cy="594" rx="108" ry="19" fill="#c8d3c5" opacity="0.7" stroke="none" />
+
+    <path d="M168 272 C128 318 104 328 72 301" stroke="#050505" stroke-width="8" />
+    <path d="M344 272 C385 318 413 324 451 292" stroke="#050505" stroke-width="8" />
+    <circle cx="67" cy="292" r="27" fill="#fff" stroke="#050505" stroke-width="8" />
+    <circle cx="456" cy="282" r="27" fill="#fff" stroke="#050505" stroke-width="8" />
+
+    <path d="M214 441 C207 501 212 542 226 579" stroke="#050505" stroke-width="8" />
+    <path d="M298 441 C291 506 302 545 330 580" stroke="#050505" stroke-width="8" />
+    <ellipse cx="219" cy="586" rx="32" ry="17" fill="#252525" stroke="#050505" stroke-width="8" transform="rotate(-14 219 586)" />
+    <ellipse cx="337" cy="586" rx="32" ry="17" fill="#252525" stroke="#050505" stroke-width="8" transform="rotate(-9 337 586)" />
+
+    <path
+      d="M239 199 C307 213 341 272 322 347 C303 424 249 474 192 455 C136 436 126 362 154 293 C178 232 204 192 239 199 Z"
+      fill="url(#body-green)"
+      stroke="#050505"
+      stroke-width="8"
+      filter="url(#soft-shadow)"
+    />
+    <path d="M182 299 C168 344 166 386 184 420" stroke="#2bbf2a" stroke-width="7" opacity="0.45" />
+
+    <g fill="#173f19" stroke="none" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-size="35" font-weight="800" transform="rotate(3 250 331)">
+      <text x="169" y="341">Zetu Zetu</text>
+    </g>
+
+    <circle cx="263" cy="140" r="79" fill="#fff" stroke="#050505" stroke-width="8" />
+    <circle cx="230" cy="130" r="10" fill="#050505" stroke="none" />
+    <circle cx="296" cy="130" r="10" fill="#050505" stroke="none" />
+    <path d="M229 167 C246 192 285 195 317 164" stroke="#050505" stroke-width="7" />
+  </g>
+</svg>

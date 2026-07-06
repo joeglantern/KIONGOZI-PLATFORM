@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getCookieDomain } from "./cookie-domain";
 
 export async function createClient() {
     const cookieStore = await cookies();
@@ -15,7 +16,7 @@ export async function createClient() {
                 setAll(cookiesToSet) {
                     try {
                         cookiesToSet.forEach(({ name, value, options }) => {
-                            const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
+                            const domain = getCookieDomain();
                             cookieStore.set(name, value, { ...options, domain });
                         });
                     } catch {

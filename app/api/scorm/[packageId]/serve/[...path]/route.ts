@@ -25,13 +25,38 @@ const CONTENT_TYPES: Record<string, string> = {
   swf: 'application/x-shockwave-flash',
 };
 
+// Sandboxes served SCORM documents: content stays same-origin (so it can reach
+// window.parent.API) but cannot exfiltrate to, or pull scripts from, other
+// origins. Inline/eval are permitted because legacy SCORM packages rely on them.
+const SCORM_CSP = [
+  "default-src 'self' data: blob:",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "media-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "frame-ancestors 'self'",
+  "base-uri 'none'",
+  "form-action 'self'",
+].join('; ');
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ packageId: string; path: string[] }> }
 ) {
   try {
     const { packageId, path } = await params;
+
+    // Reject path-traversal before touching storage.
+    if (path.some((seg) => seg === '..' || seg.includes('\\') || /^[a-zA-Z]:/.test(seg))) {
+      return new NextResponse('Invalid path', { status: 400 });
+    }
     const filePath = path.join('/');
+    if (filePath.startsWith('/')) {
+      return new NextResponse('Invalid path', { status: 400 });
+    }
+
     const access = await authorizeScormPackageAccess(request, packageId);
     if ('error' in access) {
       return access.error;
@@ -64,8 +89,10 @@ export async function GET(
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'private, no-store',
-        // Allow SCORM content to run in same-origin iframe
+        // Allow SCORM content to run in a same-origin iframe, but sandbox it.
         'X-Frame-Options': 'SAMEORIGIN',
+        'Content-Security-Policy': SCORM_CSP,
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (err: any) {

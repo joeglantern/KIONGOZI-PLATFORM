@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import { CourseCard } from '@/components/courses/CourseCard';
 import { CourseGridSkeleton } from '@/components/ui/Skeleton';
@@ -10,6 +10,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Pagination } from '@/components/ui/Pagination';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Mwanzo } from '@/components/landing/Characters';
 
 const ITEMS_PER_PAGE = 9;
 const CACHE_KEY_COURSES = 'kiongozi_courses_catalog_v2';
@@ -205,6 +206,22 @@ export default function CoursesPage() {
                     </div>
 
                     <Breadcrumb items={[{ label: 'Courses' }]} />
+
+                    {/* Mascot Guidance Widget */}
+                    <div className="bg-white rounded-[2rem] border-2 border-brand-primary p-6 mt-6 mb-8 flex flex-col md:flex-row items-center gap-6 shadow-soft relative overflow-hidden">
+                        <div className="shrink-0 flex items-center justify-center bg-brand-cream border-2 border-brand-primary rounded-2xl p-2">
+                            <Mwanzo expression="excited" className="w-20 h-20" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="relative bg-brand-cream border-2 border-brand-primary p-4 rounded-2xl shadow-sm mb-2">
+                                <div className="absolute left-4 top-[-10px] w-0 h-0 border-r-[10px] border-r-transparent border-b-[10px] border-b-brand-primary border-l-[10px] border-l-transparent"></div>
+                                <p className="text-xs sm:text-sm font-bold text-brand-primary leading-relaxed">
+                                    "Jambo! I'm Mwanzo, your Courses Quest guide. Learning is the foundation of leadership! Select a course track below to build critical civic & green transition skills, test your knowledge in pop quizzes, and earn official verified certificates! 🌱"
+                                </p>
+                            </div>
+                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider ml-2">Tip: Keep your study flame active by completing at least one module lesson daily!</p>
+                        </div>
+                    </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                         <div className="lg:col-span-1">

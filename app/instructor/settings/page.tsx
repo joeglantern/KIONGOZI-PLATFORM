@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { AuthIdentityManager } from '@/components/settings/AuthIdentityManager';
 import {
     Settings,

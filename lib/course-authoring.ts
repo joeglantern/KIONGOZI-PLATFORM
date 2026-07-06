@@ -191,44 +191,44 @@ export function buildCourseReadiness(params: {
         });
     }
 
-    for (const module of modules) {
-        if (!module.title?.trim()) {
+    for (const mod of modules) {
+        if (!mod.title?.trim()) {
             issues.push({
-                id: `module-title-${module.courseModuleId}`,
+                id: `module-title-${mod.courseModuleId}`,
                 level: 'blocking',
                 label: 'A lesson is missing a title',
                 description: 'Give each lesson a descriptive title before publishing.',
-                target: { type: 'module', id: module.courseModuleId },
+                target: { type: 'module', id: mod.courseModuleId },
             });
         }
 
-        if (module.media_type === 'text' && !hasMeaningfulRichText(module.content)) {
+        if (mod.media_type === 'text' && !hasMeaningfulRichText(mod.content)) {
             issues.push({
-                id: `module-content-${module.courseModuleId}`,
+                id: `module-content-${mod.courseModuleId}`,
                 level: 'blocking',
-                label: `${module.title || 'A lesson'} has no body content`,
+                label: `${mod.title || 'A lesson'} has no body content`,
                 description: 'Text lessons need lesson content before learners can use them.',
-                target: { type: 'module', id: module.courseModuleId },
+                target: { type: 'module', id: mod.courseModuleId },
             });
         }
 
-        if (module.media_type && module.media_type !== 'text' && !module.media_url) {
+        if (mod.media_type && mod.media_type !== 'text' && !mod.media_url) {
             issues.push({
-                id: `module-media-${module.courseModuleId}`,
+                id: `module-media-${mod.courseModuleId}`,
                 level: 'blocking',
-                label: `${module.title || 'A lesson'} is missing its media file`,
+                label: `${mod.title || 'A lesson'} is missing its media file`,
                 description: 'Video and audio lessons need an uploaded media file before publishing.',
-                target: { type: 'module', id: module.courseModuleId },
+                target: { type: 'module', id: mod.courseModuleId },
             });
         }
 
-        if (!module.description?.trim()) {
+        if (!mod.description?.trim()) {
             issues.push({
-                id: `module-description-${module.courseModuleId}`,
+                id: `module-description-${mod.courseModuleId}`,
                 level: 'warning',
-                label: `${module.title || 'A lesson'} has no short description`,
+                label: `${mod.title || 'A lesson'} has no short description`,
                 description: 'Add a short description to improve the course outline and learner context.',
-                target: { type: 'module', id: module.courseModuleId },
+                target: { type: 'module', id: mod.courseModuleId },
             });
         }
     }

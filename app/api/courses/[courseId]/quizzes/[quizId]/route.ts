@@ -114,13 +114,29 @@ export async function POST(
         let totalPoints = 0;
         let earnedPoints = 0;
 
+        // Per-question breakdown returned to the client for review. Correct
+        // answers are only ever revealed here, after the attempt is submitted.
+        const results: {
+            question_id: string;
+            selected_option_id: string | null;
+            correct_option_id: string | null;
+            is_correct: boolean;
+        }[] = [];
+
         questions.forEach((question: any) => {
             totalPoints += question.points;
-            const selectedOptionId = answers[question.id];
+            const selectedOptionId = answers[question.id] ?? null;
             const correctOption = (question.quiz_options || []).find((option: any) => option.is_correct);
-            if (correctOption && selectedOptionId === correctOption.id) {
+            const isCorrect = !!correctOption && selectedOptionId === correctOption.id;
+            if (isCorrect) {
                 earnedPoints += question.points;
             }
+            results.push({
+                question_id: question.id,
+                selected_option_id: selectedOptionId,
+                correct_option_id: correctOption?.id ?? null,
+                is_correct: isCorrect,
+            });
         });
 
         const finalScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
@@ -178,6 +194,7 @@ export async function POST(
             passed,
             xpAwarded,
             message,
+            results,
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message || 'Failed to submit quiz' }, { status: 500 });

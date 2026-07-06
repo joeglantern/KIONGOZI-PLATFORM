@@ -7,6 +7,21 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const BUCKET = 'courses';
 
+// Guardrails against memory exhaustion and zip bombs.
+const MAX_ARCHIVE_BYTES = 300 * 1024 * 1024;            // compressed upload
+const MAX_ENTRIES = 3000;                               // files inside the zip
+const MAX_TOTAL_UNCOMPRESSED_BYTES = 500 * 1024 * 1024; // decompressed total
+
+// Reject zip-slip / path-traversal entries: absolute paths, drive letters, or
+// any '..' segment that would escape the package's storage folder.
+function isUnsafeEntryPath(relativePath: string): boolean {
+  if (!relativePath) return true;
+  const norm = relativePath.replace(/\\/g, '/');
+  if (norm.startsWith('/')) return true;        // absolute
+  if (/^[a-zA-Z]:/.test(norm)) return true;     // windows drive
+  return norm.split('/').some((seg) => seg === '..');
+}
+
 function getServiceClient() {
   return createClient(SUPABASE_URL, SERVICE_KEY);
 }
@@ -71,6 +86,12 @@ export async function POST(request: NextRequest) {
     if (!file.name.endsWith('.zip')) {
       return NextResponse.json({ error: 'File must be a .zip archive' }, { status: 400 });
     }
+    if (typeof file.size === 'number' && file.size > MAX_ARCHIVE_BYTES) {
+      return NextResponse.json(
+        { error: `Archive exceeds the ${Math.round(MAX_ARCHIVE_BYTES / (1024 * 1024))}MB limit` },
+        { status: 413 }
+      );
+    }
 
     // Load ZIP
     const arrayBuffer = await file.arrayBuffer();
@@ -99,39 +120,60 @@ export async function POST(request: NextRequest) {
     const packageId = crypto.randomUUID();
     const storagePath = `scorm/${packageId}`;
 
-    // Read all file contents from ZIP first (in-memory, no network)
     const zipFiles = Object.values(zip.files).filter((f) => !f.dir);
-    const filePayloads = await Promise.all(
-      zipFiles.map(async (entry) => {
+    if (zipFiles.length > MAX_ENTRIES) {
+      return NextResponse.json(
+        { error: `Archive has too many files (max ${MAX_ENTRIES})` },
+        { status: 413 }
+      );
+    }
+
+    // Read and upload in batches so we never hold the whole archive in memory,
+    // validating each entry's path and tracking cumulative decompressed size.
+    const BATCH_SIZE = 8;
+    const uploadErrors: string[] = [];
+    let totalUncompressed = 0;
+
+    for (let i = 0; i < zipFiles.length; i += BATCH_SIZE) {
+      const batch = zipFiles.slice(i, i + BATCH_SIZE);
+      const payloads: { storagePath: string; content: Buffer; contentType: string; name: string }[] = [];
+
+      for (const entry of batch) {
+        const relativePath = rootPrefix ? entry.name.slice(rootPrefix.length) : entry.name;
+        if (isUnsafeEntryPath(relativePath)) {
+          return NextResponse.json(
+            { error: `Unsafe path in archive: ${entry.name}` },
+            { status: 400 }
+          );
+        }
+
         const buf = await entry.async('nodebuffer'); // Node.js Buffer — most reliable
-        const relativePath = rootPrefix
-          ? entry.name.slice(rootPrefix.length)
-          : entry.name;
-        return {
+        totalUncompressed += buf.length;
+        if (totalUncompressed > MAX_TOTAL_UNCOMPRESSED_BYTES) {
+          return NextResponse.json(
+            { error: 'Archive contents exceed the decompressed size limit' },
+            { status: 413 }
+          );
+        }
+
+        payloads.push({
           storagePath: `${storagePath}/${relativePath}`,
           content: buf,
           contentType: getContentType(entry.name),
           name: entry.name,
-        };
-      })
-    );
+        });
+      }
 
-    // Upload in batches of 8 via direct REST API
-    const BATCH_SIZE = 8;
-    const uploadErrors: string[] = [];
-
-    for (let i = 0; i < filePayloads.length; i += BATCH_SIZE) {
-      const batch = filePayloads.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(
-        batch.map((f) => uploadFile(f.storagePath, f.content, f.contentType))
+        payloads.map((f) => uploadFile(f.storagePath, f.content, f.contentType))
       );
       results.forEach((err, idx) => {
-        if (err) uploadErrors.push(`${batch[idx].name}: ${err}`);
+        if (err) uploadErrors.push(`${payloads[idx].name}: ${err}`);
       });
     }
 
     // Abort if majority failed — avoids creating a broken package record
-    if (uploadErrors.length > filePayloads.length / 2) {
+    if (uploadErrors.length > zipFiles.length / 2) {
       console.error('SCORM upload failed:', uploadErrors.slice(0, 5));
       return NextResponse.json(
         { error: `Storage upload failed: ${uploadErrors[0]}` },

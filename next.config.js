@@ -11,7 +11,8 @@ const withSerwist = (nextConfig) => {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    ignoreDuringBuilds: true,
+    // Lint is enforced during builds. Errors fail the build; warnings do not.
+    ignoreDuringBuilds: false,
   },
   reactStrictMode: true,
   compress: true,

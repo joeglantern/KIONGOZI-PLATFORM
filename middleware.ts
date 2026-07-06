@@ -8,6 +8,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
     matcher: [
         '/dashboard/:path*',
+        '/admin/:path*',
         '/courses/:path*',
         '/my-learning/:path*',
         '/instructor/:path*',
@@ -15,6 +16,8 @@ export const config = {
         '/settings/:path*',
         '/messages/:path*',
         '/complete-profile/:path*',
+        '/onboarding/:path*',
+        '/missions/:path*',
         '/lms/:path*',
         '/bookmarks/:path*',
         '/impact-map/:path*',

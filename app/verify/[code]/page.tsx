@@ -118,7 +118,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
                                 <div className="pt-4 border-t border-gray-200">
                                     <div className="text-[10px] font-black text-green-600 uppercase tracking-widest flex items-center">
                                         <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-                                        Blockchain Verified Permanent
+                                        Securely Verified
                                     </div>
                                 </div>
                             </div>

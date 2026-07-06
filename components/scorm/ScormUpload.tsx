@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
   UploadCloud, FileArchive, CheckCircle2, AlertCircle,

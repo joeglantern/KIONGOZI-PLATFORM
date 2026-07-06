@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import { Button, buttonVariants } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
@@ -22,14 +22,18 @@ function getPostSignupPath(
   if (next) return next;
   if (role === 'admin') return '/admin/dashboard';
   if (role === 'instructor') return '/instructor/dashboard';
-  return '/dashboard';
+  return '/onboarding';
 }
 
 interface SignupContentProps {
   next: string | null;
+  path?: string | null;
+  goal?: string | null;
+  mission?: string | null;
+  answer?: string | null;
 }
 
-export default function SignupContent({ next }: SignupContentProps) {
+export default function SignupContent({ next, path, goal, mission, answer }: SignupContentProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const { user, profile, loading: authLoading } = useUser();
@@ -85,7 +89,60 @@ export default function SignupContent({ next }: SignupContentProps) {
 
       if (signUpError) throw signUpError;
 
-      if (data.session) {
+      if (data.session && data.user) {
+        try {
+          const user_id = data.user.id;
+          
+          // Claim only the mission the database can validate. URL values never set XP.
+          if (mission && answer) {
+            const { error: missionError } = await supabase.rpc('claim_intro_mission', {
+              p_mission_key: mission,
+              p_answer: answer,
+            });
+            if (missionError) console.error('Failed to preserve intro mission:', missionError);
+          }
+
+          // Auto-enroll in the first course of the chosen path.
+          let categorySearch = '';
+          if (path === 'civic') categorySearch = 'Civic Participation';
+          if (path === 'green') categorySearch = 'Green Economy Fundamentals';
+          if (path === 'digital') categorySearch = 'Digital Skills';
+          if (path === 'entrepreneurship') categorySearch = 'Digital Entrepreneurship';
+
+          if (categorySearch) {
+            const { data: categoryData } = await supabase
+              .from('module_categories')
+              .select('id')
+              .eq('name', categorySearch)
+              .single();
+
+            if (categoryData) {
+              const { data: courseData } = await supabase
+                .from('courses')
+                .select('id')
+                // Deterministic: always the earliest course in the category.
+                .order('created_at', { ascending: true })
+                .limit(1)
+                .single();
+
+              if (courseData) {
+                await supabase
+                  .from('course_enrollments')
+                  .insert({
+                    user_id: user_id,
+                    course_id: courseData.id,
+                    status: 'active',
+                    progress_percentage: 0,
+                    enrolled_at: new Date().toISOString(),
+                    last_accessed_at: new Date().toISOString()
+                  });
+              }
+            }
+          }
+        } catch (dbErr) {
+          console.error('Failed to apply onboarding rewards:', dbErr);
+        }
+
         router.push(getPostSignupPath(next));
         router.refresh();
         return;

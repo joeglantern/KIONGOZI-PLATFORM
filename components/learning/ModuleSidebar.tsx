@@ -142,14 +142,14 @@ export function ModuleSidebar({
                 {/* In this simplified version, we treat all modules as a single list for the sidebar */}
                 <div className="space-y-1">
                     {sortedModules.map((courseModule, index) => {
-                        const module = courseModule.learning_modules;
-                        const isCompleted = module.user_progress?.[0]?.status === 'completed';
-                        const isActive = module.id === currentModuleId;
+                        const learningModule = courseModule.learning_modules;
+                        const isCompleted = learningModule.user_progress?.[0]?.status === 'completed';
+                        const isActive = learningModule.id === currentModuleId;
 
                         return (
                             <Link
-                                key={module.id}
-                                href={`/courses/${courseId}/modules/${module.id}`}
+                                key={learningModule.id}
+                                href={`/courses/${courseId}/modules/${learningModule.id}`}
                                 className={`w-full group px-4 py-3 rounded-xl text-left border transition-all duration-200 flex items-center space-x-3 ${isActive
                                     ? 'bg-orange-50 border-orange-100 shadow-sm'
                                     : 'bg-transparent border-transparent hover:bg-gray-50'
@@ -174,7 +174,7 @@ export function ModuleSidebar({
                                 <div className="flex-1 min-w-0">
                                     <p className={`text-sm font-medium truncate ${isActive ? 'text-orange-700' : 'text-gray-700'
                                         }`}>
-                                        {module.title}
+                                        {learningModule.title}
                                     </p>
                                     <p className="text-[11px] text-gray-400 font-medium">
                                         Lesson {index + 1}

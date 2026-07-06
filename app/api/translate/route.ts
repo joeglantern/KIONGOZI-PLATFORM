@@ -1,11 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/app/utils/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
+
+const MAX_TEXT_LENGTH = 5000;
 
 export async function POST(req: NextRequest) {
     try {
+        // Require auth — the endpoint spends money on every call.
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const limit = rateLimit(`translate:${user.id}`, 30, 60 * 1000);
+        if (!limit.success) {
+            return NextResponse.json(
+                { error: 'Too many requests' },
+                { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+            );
+        }
+
         const { text, targetLanguage } = await req.json();
 
         if (!text || !text.trim()) {
             return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+        }
+        if (typeof text !== 'string' || text.length > MAX_TEXT_LENGTH) {
+            return NextResponse.json({ error: 'Text too long' }, { status: 413 });
         }
 
         const apiKey = process.env.ANTHROPIC_API_KEY;

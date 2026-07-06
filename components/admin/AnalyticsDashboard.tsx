@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     BarChart, Bar, AreaChart, Area
@@ -49,7 +49,7 @@ export function AnalyticsDashboard() {
                     const [users, petitions, courses] = await Promise.all([
                         supabase.from('profiles').select('id', { count: 'exact', head: true }),
                         supabase.from('social_petitions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-                        supabase.from('lms_user_progress').select('id', { count: 'exact', head: true })
+                        supabase.from('course_enrollments').select('id', { count: 'exact', head: true })
                     ]);
 
                     setMetrics({

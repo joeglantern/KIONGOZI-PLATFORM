@@ -6,6 +6,7 @@ import { Plus, MapPin, TreePine, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AddImpactDialog } from "@/components/map/AddImpactDialog";
 import { useState } from "react";
+import { Zola } from "@/components/landing/Characters";
 
 export default function ImpactMapPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -62,8 +63,14 @@ export default function ImpactMapPage() {
                         </div>
                     </div>
 
-                    <div className="bg-orange-50 p-6 rounded-2xl border border-orange-100 italic text-sm text-orange-800">
-                        "Every point on this map represents a leader taking action for a greener, more civic Kenya."
+                    <div className="bg-white rounded-[2rem] border-2 border-brand-primary p-6 shadow-soft flex flex-col items-center gap-4 text-center">
+                        <div className="bg-brand-cream border-2 border-brand-primary rounded-2xl p-1.5">
+                            <Zola action="cheer" className="w-20 h-20" />
+                        </div>
+                        <div className="relative bg-brand-cream border-2 border-brand-primary p-3.5 rounded-2xl shadow-sm text-xs font-bold text-left text-brand-primary">
+                            <div className="absolute left-[50%] translate-x-[-50%] top-[-10px] w-0 h-0 border-r-[10px] border-r-transparent border-b-[10px] border-b-brand-primary border-l-[10px] border-l-transparent"></div>
+                            "Hello! I'm Zola, your Impact Map guide. Every point on this map represents a leader taking action for a greener, more civic Kenya. Tap 'Report New Impact' to share your project with the community! 🌿"
+                        </div>
                     </div>
                 </div>
             </div>

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/app/utils/supabaseClient';
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import ScormPlayer from '@/components/scorm/ScormPlayer';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';

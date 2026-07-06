@@ -24,7 +24,9 @@ export function ProtectedRoute({
     useEffect(() => {
         // If auth finished and there's no user, redirect to login
         if (!loading && !user) {
-            router.push(redirectTo);
+            const currentPath = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
+            const nextUrl = currentPath ? `${redirectTo}?next=${encodeURIComponent(currentPath)}` : redirectTo;
+            router.push(nextUrl);
         }
     }, [loading, user, router, redirectTo]);
 
