@@ -11,7 +11,6 @@ import {
     Search,
     Trash2,
     ExternalLink,
-    Inbox,
     Zap
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
@@ -19,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookmarksSkeleton } from '@/components/ui/Skeleton';
+import { MascotEmptyState } from '@/components/mascots/LottieMascots';
 
 interface SavedItem {
     id: string;
@@ -138,8 +138,8 @@ export default function BookmarksPage() {
                         <BookmarksSkeleton />
                     ) : filteredBookmarks.length === 0 ? (
                         <div className="bg-white rounded-[3rem] p-20 text-center border-2 border-dashed border-gray-100">
-                            <div className="w-24 h-24 bg-orange-50 rounded-[2rem] flex items-center justify-center text-orange-200 mx-auto mb-6">
-                                <Inbox className="w-12 h-12" />
+                            <div className="mx-auto mb-4 flex items-center justify-center">
+                                <MascotEmptyState className="w-36 h-36" />
                             </div>
                             <h3 className="text-2xl font-black text-gray-900 mb-2">No bookmarks found</h3>
                             <p className="text-gray-500 max-w-sm mx-auto font-medium">

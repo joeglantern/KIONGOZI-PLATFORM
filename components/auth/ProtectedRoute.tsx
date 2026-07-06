@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/contexts/UserContext';
-import { Loader2 } from 'lucide-react';
+import { MascotLoader } from '@/components/mascots/LottieMascots';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -47,10 +47,7 @@ export function ProtectedRoute({
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="w-12 h-12 text-orange-500 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600">Loading...</p>
-                </div>
+                <MascotLoader className="w-28 h-28" label="Loading…" />
             </div>
         );
     }

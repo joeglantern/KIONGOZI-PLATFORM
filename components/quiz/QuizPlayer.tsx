@@ -8,13 +8,13 @@ import {
     CheckCircle2,
     XCircle,
     Timer,
-    Trophy,
     RefreshCw,
     Loader2,
     AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import { MascotCelebration } from '@/components/mascots/LottieMascots';
 
 interface QuizPlayerProps {
     quizId: string;
@@ -208,9 +208,15 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
                     <div className="absolute top-0 left-0 w-full h-2 bg-orange-500 animate-pulse" />
                 )}
 
-                <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg ${passed ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400'}`}>
-                    {passed ? <Trophy className="w-12 h-12" /> : <XCircle className="w-12 h-12" />}
-                </div>
+                {passed ? (
+                    <div className="mx-auto mb-6 flex items-center justify-center">
+                        <MascotCelebration className="w-40 h-40" />
+                    </div>
+                ) : (
+                    <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400">
+                        <XCircle className="w-12 h-12" />
+                    </div>
+                )}
 
                 <h2 className="text-4xl font-black text-gray-900 dark:text-white mb-4">
                     {passed ? "Congratulations!" : "Keep learning!"}

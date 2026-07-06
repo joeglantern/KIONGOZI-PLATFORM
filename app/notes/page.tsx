@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { NotesSkeleton } from '@/components/ui/Skeleton';
+import { MascotEmptyState } from '@/components/mascots/LottieMascots';
 
 interface NoteEntry {
     id: string;
@@ -189,8 +190,8 @@ export default function NotesPage() {
                             <NotesSkeleton />
                         ) : groupedNotes.length === 0 ? (
                             <div className="bg-white rounded-[3rem] p-20 text-center border shadow-sm border-gray-100">
-                                <div className="w-20 h-20 bg-orange-50 rounded-3xl flex items-center justify-center text-orange-300 mx-auto mb-6">
-                                    <StickyNote className="w-10 h-10" />
+                                <div className="mx-auto mb-4 flex items-center justify-center">
+                                    <MascotEmptyState className="w-36 h-36" />
                                 </div>
                                 <h3 className="text-2xl font-black text-gray-900 mb-2">No notes found</h3>
                                 <p className="text-gray-500 max-w-sm mx-auto font-medium">

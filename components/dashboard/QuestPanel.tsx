@@ -57,7 +57,12 @@ export function QuestPanel() {
       supabase.from("daily_learning_activity").select("minutes_earned, goal_minutes, goal_completed_at").eq("user_id", user.id).eq("activity_date", today).maybeSingle(),
     ]);
     if (questResult.error) setError("Quests could not be loaded right now.");
-    setQuests((questResult.data ?? []) as QuestRow[]);
+    // Normalize joined relation: Supabase types to-one joins as arrays,
+    // runtime returns a single object.
+    setQuests((questResult.data ?? []).map((q: any) => ({
+      ...q,
+      quest_templates: Array.isArray(q.quest_templates) ? (q.quest_templates[0] ?? null) : q.quest_templates,
+    })) as QuestRow[]);
     setActivity((activityResult.data ?? null) as DailyActivity | null);
     setLoading(false);
   }, [profile?.timezone, supabase, user]);

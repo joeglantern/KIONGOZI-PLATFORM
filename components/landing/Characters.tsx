@@ -1,51 +1,99 @@
 "use client";
 
 import React from 'react';
-import { Mwanzo as ModernMwanzo } from '../characters/Mwanzo';
-import { Zola as ModernZola } from '../characters/Zola';
-import { Ken as ModernKen } from '../characters/Ken';
-import { Tumi as ModernTumi } from '../characters/Tumi';
-import { TreasureChest as ModernTreasureChest } from '../characters/TreasureChest';
-import { CharacterState } from '../characters/CharacterRig';
+import LottieScene from './LottieScene';
 
-// --- Mwanzo (The Sprout Guide) ---
-export function Mwanzo({ expression = 'happy', className = '' }: { expression?: 'happy' | 'excited' | 'wave' | 'thinking'; className?: string }) {
-  let state: CharacterState = 'idle';
-  if (expression === 'happy') state = 'happy';
-  if (expression === 'excited' || expression === 'wave') state = 'excited';
-  if (expression === 'thinking') state = 'thinking';
+/**
+ * Mascot system — dotLottie edition.
+ *
+ * The four named guides (Mwanzo, Zola, Ken, Tumi) and the onboarding reward
+ * (TreasureChest) now render licensed Lottie animations instead of the old
+ * hand-built SVG rigs. Component names and prop signatures are preserved so
+ * every existing call site keeps working unchanged; the `expression`/`action`
+ * props are accepted for backward compatibility but no longer drive discrete
+ * emotional states (the Lottie loops continuously).
+ *
+ * Mapping (theme-matched):
+ *   Mwanzo  → student            (learning / courses guide)
+ *   Zola    → walk cycling shoes (green economy / sustainable mobility)
+ *   Ken     → county sheriff     (civic accountability / governance)
+ *   Tumi    → chatting           (community / youth voice)
+ *   Treasure→ dino dance         (celebration / reward)
+ */
 
-  return <ModernMwanzo state={state} className={className} />;
+interface MascotProps {
+  className?: string;
+  /** Load immediately instead of waiting for the viewport (above-the-fold use). */
+  eager?: boolean;
 }
 
-// --- Zola (The Climate Defender) ---
-export function Zola({ action = 'idle', className = '' }: { action?: 'idle' | 'cheer' | 'thinking' | 'excited'; className?: string }) {
-  let state: CharacterState = 'idle';
-  if (action === 'cheer' || action === 'excited') state = 'excited';
-  if (action === 'thinking') state = 'thinking';
-
-  return <ModernZola state={state} className={className} />;
+// --- Mwanzo (Learning Guide) ---
+export function Mwanzo({
+  className = '',
+  eager,
+}: MascotProps & { expression?: 'happy' | 'excited' | 'wave' | 'thinking' }) {
+  return (
+    <LottieScene
+      src="/lottie/student.lottie"
+      className={className}
+      eager={eager}
+      ariaLabel="Mwanzo, the Kiongozi learning guide"
+    />
+  );
 }
 
-// --- Ken (The Civic Innovator) ---
-export function Ken({ action = 'idle', className = '' }: { action?: 'idle' | 'adjust' | 'thinking' | 'excited'; className?: string }) {
-  let state: CharacterState = 'idle';
-  if (action === 'excited') state = 'excited';
-  if (action === 'thinking' || action === 'adjust') state = 'thinking';
-
-  return <ModernKen state={state} className={className} />;
+// --- Zola (Green Economy Guide) ---
+export function Zola({
+  className = '',
+  eager,
+}: MascotProps & { action?: 'idle' | 'cheer' | 'thinking' | 'excited' }) {
+  return (
+    <LottieScene
+      src="/lottie/walk-cycling-shoes.lottie"
+      className={className}
+      eager={eager}
+      ariaLabel="Zola, the Kiongozi green economy guide"
+    />
+  );
 }
 
-// --- Tumi (The Community Organizer) ---
-export function Tumi({ action = 'idle', className = '' }: { action?: 'idle' | 'spin' | 'cheer'; className?: string }) {
-  let state: CharacterState = 'idle';
-  if (action === 'cheer') state = 'excited';
-  if (action === 'spin') state = 'celebrating'; // Map spin to the new celebrating state
+// --- Ken (Civic Accountability Guide) ---
+export function Ken({
+  className = '',
+  eager,
+}: MascotProps & { action?: 'idle' | 'adjust' | 'thinking' | 'excited' }) {
+  return (
+    <LottieScene
+      src="/lottie/county-sheriff.lottie"
+      className={className}
+      eager={eager}
+      ariaLabel="Ken, the Kiongozi civic accountability guide"
+    />
+  );
+}
 
-  return <ModernTumi state={state} className={className} />;
+// --- Tumi (Community Guide) ---
+export function Tumi({
+  className = '',
+  eager,
+}: MascotProps & { action?: 'idle' | 'spin' | 'cheer' }) {
+  return (
+    <LottieScene
+      src="/lottie/chatting.lottie"
+      className={className}
+      eager={eager}
+      ariaLabel="Tumi, the Kiongozi community guide"
+    />
+  );
 }
 
 // --- Treasure Chest (Onboarding Reward) ---
-export function TreasureChest({ isOpen = false, className = '' }: { isOpen: boolean; className?: string }) {
-  return <ModernTreasureChest isOpen={isOpen} className={className} />;
+export function TreasureChest({ className = '' }: MascotProps & { isOpen?: boolean }) {
+  return (
+    <LottieScene
+      src="/lottie/dino-dance.lottie"
+      className={className}
+      ariaLabel="Reward unlocked"
+    />
+  );
 }

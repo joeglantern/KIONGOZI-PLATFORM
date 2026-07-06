@@ -27,12 +27,21 @@ import type { LearningPathRecord, SkillProgressRecord } from '@/components/dashb
 import { NextActionCard } from '@/components/dashboard/NextActionCard';
 import { QuestPanel } from '@/components/dashboard/QuestPanel';
 
+// Post-processed shapes: `courses` is normalized to a single object (Supabase
+// infers joined relations as arrays) and enriched with its category.
 interface CourseEnrollment {
     id: string;
     progress_percentage: number;
     last_accessed_at: string;
     status: string;
-    courses: { id: string; title: string; description: string; difficulty_level: string; category_id: string } | null;
+    courses: {
+        id: string;
+        title: string;
+        description: string;
+        difficulty_level: string;
+        category_id: string;
+        module_categories: { id: string; name: string; color: string } | null;
+    };
     updated_at: string;
 }
 
@@ -158,17 +167,21 @@ export default function DashboardPage() {
                         ...en,
                         courses: {
                             ...courseData,
-                            module_categories: courseData?.category_id ? categoryMap.get(courseData.category_id) : null
+                            module_categories: courseData?.category_id ? categoryMap.get(courseData.category_id) ?? null : null
                         }
-                    };
+                    } as CourseEnrollment;
                 })
-                .filter(en => en !== null);
+                .filter((en): en is CourseEnrollment => en !== null);
 
             setEnrollments(processedEnrollments);
 
-            // Use parallel-fetched badge data
+            // Use parallel-fetched badge data (normalize joined relation: Supabase
+            // types to-one joins as arrays, runtime returns a single object)
             if (badgeResult.error) console.error('Badge fetch error:', badgeResult.error);
-            setBadges(badgeResult.data || []);
+            setBadges((badgeResult.data || []).map((b: any) => ({
+                earned_at: b.earned_at,
+                badges: Array.isArray(b.badges) ? (b.badges[0] ?? null) : b.badges,
+            })));
             if (pathResult.error) console.error('Learning path fetch error:', pathResult.error);
             setLearningPath((pathResult.data as LearningPathRecord | null) ?? null);
             if (skillProgressResult.error) console.error('Skill progress fetch error:', skillProgressResult.error);
