@@ -432,14 +432,6 @@ export default function LandingPage() {
               variants={staggerChildren}
               className="relative z-20 max-w-[690px] py-6 lg:py-8"
             >
-              <motion.div
-                variants={fadeUp}
-                className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-700/15 bg-white/75 px-4 py-2 text-xs font-black uppercase text-emerald-700 shadow-[0_10px_30px_rgba(27,36,50,0.06)] backdrop-blur"
-              >
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                Youth powered. Community driven.
-              </motion.div>
-
               <motion.h1
                 variants={fadeUp}
                 className="max-w-3xl font-display text-5xl font-black leading-[0.94] text-brand-primary sm:text-6xl lg:text-6xl xl:text-7xl"
@@ -531,7 +523,7 @@ export default function LandingPage() {
 
               <HeroPhoneMockup className="absolute left-[42%] top-4 z-30 w-[245px] -translate-x-1/2 rotate-[3deg] sm:w-[300px] lg:left-[48%] lg:top-[1%] lg:w-[338px]" />
 
-              <div className="absolute right-0 top-[28%] z-50 hidden w-[238px] rounded-3xl border border-white/70 bg-white p-5 shadow-[0_24px_60px_rgba(27,36,50,0.14)] md:block lg:right-[3%]">
+              <div className="absolute right-0 top-[2%] z-50 hidden w-[238px] rounded-3xl border border-white/70 bg-white p-5 shadow-[0_24px_60px_rgba(27,36,50,0.14)] md:block lg:right-[3%]">
                 <p className="mb-4 text-sm font-black text-brand-primary">Achievements</p>
                 <div className="flex items-center gap-3">
                   {[

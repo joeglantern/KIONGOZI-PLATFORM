@@ -72,17 +72,17 @@ export function Navbar() {
         >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
-                    {/* Logo */}
-                    <Link href="/" className="flex items-center space-x-2 group">
+                    {/* Logo — the image is the full Kiongozi wordmark, so no
+                        separate text label (that caused a duplicate "Kiongozi"). */}
+                    <Link href="/" className="flex items-center group" aria-label="Kiongozi home">
                         <Image
                             src="/logo.png"
-                            alt="Kiongozi Logo"
-                            width={40}
-                            height={40}
-                            className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
+                            alt="Kiongozi"
+                            width={592}
+                            height={421}
+                            className="h-12 w-[68px] object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
                             priority
                         />
-                        <span className="text-xl font-bold text-gray-900 dark:text-white">Kiongozi</span>
                     </Link>
 
                     {/* Desktop Navigation */}

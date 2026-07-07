@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
+import { useUser } from '@/app/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,8 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import {
     ArrowLeft, Check, CheckCircle2, ClipboardCopy, Download, Loader2, Printer, RefreshCw,
-    Sparkles, Trash2, Users, FileText, BarChart2, Compass, Zap, Target, ShieldAlert, Megaphone, FlaskConical, HelpCircle, Info
+    Sparkles, Trash2, Users, FileText, BarChart2, Compass, Zap, Target, ShieldAlert, Megaphone, FlaskConical, HelpCircle, Info,
+    Layers, AlertTriangle, MapPin, Landmark, Building2, Scale
 } from 'lucide-react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
@@ -36,6 +38,7 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
     const [insightsText, setInsightsText] = useState(poll.ai_insights ?? '');
     const [activeBrief, setActiveBrief] = useState<any>(null);
 
+    const { profile } = useUser();
     const isOwner = user?.id && poll.created_by === user.id;
     const isAnonymous = !user;
 
@@ -145,9 +148,12 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
             return;
         }
 
+        // County is sourced from the respondent's profile (captured at
+        // onboarding) so the AI brief can report regional differences.
+        // Anonymous respondents have no profile, so this stays null for them.
         const identityFields = user
-            ? { user_id: user.id as string, anon_session_id: null }
-            : { user_id: null, anon_session_id: anonSessionId };
+            ? { user_id: user.id as string, anon_session_id: null, county: profile?.county ?? null }
+            : { user_id: null, anon_session_id: anonSessionId, county: null };
 
         setIsSubmitting(true);
         try {
@@ -487,14 +493,21 @@ function ResultsView({ question }: { question: any }) {
 }
 
 const SECTION_ICONS: Record<string, React.ElementType> = {
-    'executive summary':      FileText,
-    'key findings':           BarChart2,
-    'youth sentiment profile': Compass,
-    'surprising signals':     Zap,
-    'policy recommendations': Target,
-    'risks and watchpoints':  ShieldAlert,
-    'youth voice':            Megaphone,
-    'research gaps':          FlaskConical,
+    'executive summary':                        FileText,
+    'key findings':                             BarChart2,
+    'emerging themes':                          Layers,
+    'frequently mentioned barriers':            AlertTriangle,
+    'youth sentiment profile':                  Compass,
+    'surprising signals':                       Zap,
+    'regional differences':                     MapPin,
+    'suggested actions for parliament':         Landmark,
+    'suggested actions for county governments': Building2,
+    'suggested legislative & policy amendments': Scale,
+    'policy recommendations':                   Target,
+    'risks and watchpoints':                    ShieldAlert,
+    'curated youth voices':                     Megaphone,
+    'youth voice':                               Megaphone,
+    'research gaps':                             FlaskConical,
 };
 
 function InsightSectionHeading({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { children?: React.ReactNode }) {

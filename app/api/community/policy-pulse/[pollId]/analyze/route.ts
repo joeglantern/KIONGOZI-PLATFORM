@@ -146,6 +146,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
         sections.push('');
     }
 
+    // Regional (county) distribution — county is sourced from the respondent's
+    // profile at submission time, so anonymous respondents (no profile) are
+    // excluded from this breakdown.
+    const respondentKey = (r: any) => r.user_id ?? r.anon_session_id ?? r.id;
+    const countyMap = new Map<string, Set<string>>();
+    for (const r of responses) {
+        if (!r.county) continue;
+        if (!countyMap.has(r.county)) countyMap.set(r.county, new Set());
+        countyMap.get(r.county)!.add(respondentKey(r));
+    }
+    const countyBreakdown = [...countyMap.entries()]
+        .map(([county, keys]) => ({ county, count: keys.size }))
+        .sort((a, b) => b.count - a.count);
+
+    if (countyBreakdown.length > 0) {
+        sections.push('## Regional Distribution');
+        sections.push(`*(${countyBreakdown.length} ${countyBreakdown.length === 1 ? 'county' : 'counties'} represented; anonymous respondents without a profile are excluded from this breakdown)*`);
+        sections.push('');
+        countyBreakdown.forEach(({ county, count }) => sections.push(`- **${county}:** ${count} ${count === 1 ? 'respondent' : 'respondents'}`));
+        sections.push('');
+    }
+
     const dataSummary = sections.join('\n');
 
     const systemPrompt = `You are a senior policy analyst specialising in African youth governance. You produce rigorous, evidence-based policy briefs. You write with authority and precision, citing specific data. You never produce vague or generic output.`;
@@ -181,6 +203,18 @@ For each major finding, write a bold headline followed by 1–2 sentences of ana
 
 ---
 
+## Emerging Themes
+
+Read every open-ended (text) response above and cluster them into named themes (e.g. "Access to Startup Capital", "Skills Gap", "Distrust of Application Process"). For each theme, give a short label, the approximate share of respondents who raised it, and 1 sentence of what respondents are actually saying. If there are no open-ended responses, write: *"No open-ended responses were collected — themes could not be extracted from closed-ended data alone."* and stop this section there.
+
+---
+
+## Frequently Mentioned Barriers
+
+From the open-ended responses only, list the specific obstacles, blockers, or frustrations that came up repeatedly (e.g. collateral requirements, bureaucratic delays, lack of information). Rank by how often they appear. If there are no open-ended responses, write: *"No open-ended responses were collected — barriers could not be extracted from closed-ended data alone."* and stop this section there.
+
+---
+
 ## Youth Sentiment Profile
 
 Rate overall youth sentiment on a spectrum and explain it. Use one of: *Strongly Supportive / Cautiously Optimistic / Divided / Sceptical / Deeply Concerned / Opposed*. Then write 2–3 sentences explaining what's driving the dominant emotion.
@@ -197,12 +231,27 @@ What did the data reveal that is *unexpected*, *counter-intuitive*, or *particul
 
 ---
 
-## Policy Recommendations
+## Regional Differences
 
-Give 3–4 specific, actionable recommendations. Label each by urgency:
+If a "Regional Distribution" data section appears above with 2 or more counties represented, compare how sentiment, themes, or barriers differ across those counties — name the counties explicitly. If only one county (or zero) is represented, write: *"Insufficient regional data — responses came from too few distinct counties to compare."* and stop this section there.
 
-**[Quick Win | Medium-term | Structural Reform]** — *Title*
-One or two sentences: what specifically should be done, and why the data justifies it.
+---
+
+## Suggested Actions for Parliament
+
+Give 2–3 specific, actionable recommendations aimed at the National Parliament (legislation, national budget lines, national programme design). Each as: **Title** — one or two sentences on what should be done and why the data justifies it.
+
+---
+
+## Suggested Actions for County Governments
+
+Give 2–3 specific, actionable recommendations aimed at County Governments (devolved budget allocation, local implementation, county-level oversight). Each as: **Title** — one or two sentences on what should be done and why the data justifies it.
+
+---
+
+## Suggested Legislative & Policy Amendments
+
+Look at the poll's "What / Why / How / Expected Impact" context above. If it names a specific bill, act, or policy instrument (e.g. "Finance Bill 2026"), propose 1–3 concrete textual or implementation amendments to it, justified by the response data. If no specific legislative instrument is named in the poll context, write: *"No specific legislative instrument was named for this poll — recommendations above apply to general policy design."* and stop this section there.
 
 ---
 
@@ -212,9 +261,9 @@ What should policymakers be cautious about? Are there gaps in the data, risks of
 
 ---
 
-## Youth Voice
+## Curated Youth Voices
 
-If there were open-text responses, quote or paraphrase the most revealing 2–3 statements. Frame them as representative voices. If no open-text responses, skip this section.
+Select the 3–5 most revealing open-text responses and group them under the theme they best represent (from "Emerging Themes" above). Quote them verbatim, attributed only as "[Theme name]". If no open-text responses, skip this section entirely (do not include the heading).
 
 ---
 
@@ -233,7 +282,7 @@ IMPORTANT GUIDELINES:
 - Cite actual percentages and numbers from the data wherever possible.
 - Acknowledge limitations if sample size is small (under 20 respondents).
 - If the data shows a divided community, say so explicitly — don't paper over it.
-- Keep the entire report between 500–750 words of prose (excluding headers/labels).
+- Keep the entire report between 650–950 words of prose (excluding headers/labels).
 - Do NOT add commentary outside the template structure above.`;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;

@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, BarChart2, Plus, Trash2, Info } from 'lucide-react';
+import { Loader2, ArrowLeft, BarChart2, Plus, Trash2, Info, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface Question {
@@ -28,6 +28,57 @@ const defaultQuestion = (): Question => ({
     relationContext: '',
     expectedAction: '',
 });
+
+// The fixed "Youth Policy Pulse" template — 5 themed questions anchored to
+// the Finance Bill 2026 / green & digital transition agenda. Loaded on demand
+// via the "Use Youth Policy Pulse Template" button rather than hardcoded as
+// the only option, so custom deliberative polls remain fully supported.
+const YOUTH_POLICY_PULSE_TEMPLATE = {
+    title: 'Youth Policy Pulse: Green Finance, Digital Inclusion & the Finance Bill 2026',
+    description: "An AI-powered policy conversation gathering youth experiences and recommendations on green finance, digital inclusion, and green jobs — to inform Parliament and County Governments ahead of Finance Bill 2026 implementation.",
+    category: 'economy',
+    whatContext: 'A structured dialogue asking young Kenyans about barriers to green finance, the impact of digital transformation, and skills gaps in the green economy — feeding directly into an AI-generated, advocacy-ready policy brief for Finance Bill 2026.',
+    whyContext: 'Finance Bill 2026 and current national/county investments determine how green funds, innovation grants, and digital business opportunities reach young people. Closed-ended polls cannot capture the lived experience needed to shape that implementation.',
+    howContext: 'Youth submit open-ended written answers to five themed questions. AI clusters responses into emerging themes, frequently mentioned barriers, and regional differences, then generates recommendations for Parliament and County Governments.',
+    impactContext: 'Findings become an advocacy-ready policy brief that can be shared directly with Parliament and County Governments to improve youth access to green funds, innovation grants, and digital business opportunities.',
+    questions: [
+        {
+            text: 'If you wanted to start or grow a green business today (such as recycling, clean energy, climate-smart agriculture or waste management), what is the biggest obstacle preventing you from accessing funding?',
+            type: 'text' as const,
+            whyImportant: 'Surfaces the real barriers to green finance that closed-ended funding polls miss.',
+            relationContext: 'Directly informs green finance access under Finance Bill 2026.',
+            expectedAction: 'Feeds the "Frequently Mentioned Barriers" and Parliament/County recommendation sections of the AI brief.',
+        },
+        {
+            text: "In what ways has Kenya's digital transformation created opportunities or barriers for young people in employment, entrepreneurship or innovation? Share your personal experience.",
+            type: 'text' as const,
+            whyImportant: 'Captures lived experience of digital inclusion, not just adoption statistics.',
+            relationContext: 'Relates to youth participation in the digital economy and digital business opportunities.',
+            expectedAction: 'Informs digital inclusion recommendations in the policy brief.',
+        },
+        {
+            text: "What skills, training or support do you believe young people need most to participate in Kenya's growing green economy?",
+            type: 'text' as const,
+            whyImportant: 'Identifies the skills gap blocking youth participation in green jobs.',
+            relationContext: 'Relates to sustainability and the green jobs transition.',
+            expectedAction: 'Directly shapes training and support recommendations for County Governments.',
+        },
+        {
+            text: 'Looking at the Finance Bill 2026 and current government investments, what changes would you recommend to ensure more young people can access green funds, innovation grants and digital business opportunities?',
+            type: 'text' as const,
+            whyImportant: 'Gathers direct recommendations for the Finance Bill 2026 implementation itself.',
+            relationContext: 'Relates to governance and accountability of public investment.',
+            expectedAction: 'Feeds the "Suggested Legislative & Policy Amendments" section of the AI brief.',
+        },
+        {
+            text: 'If you had the opportunity to advise Parliament or your County Government on one policy that would improve youth inclusion in the green and digital transition, what would you recommend and why?',
+            type: 'text' as const,
+            whyImportant: 'Puts youth directly in the advisory seat rather than only responding to pre-set options.',
+            relationContext: 'Relates to youth participation in governance and policy design.',
+            expectedAction: 'Directly informs the "Suggested Actions for Parliament" and "for County Governments" sections.',
+        },
+    ],
+};
 
 export default function CreatePollPage() {
     const [title, setTitle] = useState('');
@@ -50,6 +101,19 @@ export default function CreatePollPage() {
 
     const addQuestion = () => setQuestions(prev => [...prev, defaultQuestion()]);
     const removeQuestion = (qi: number) => setQuestions(prev => prev.filter((_, i) => i !== qi));
+
+    const loadYouthPolicyPulseTemplate = () => {
+        const t = YOUTH_POLICY_PULSE_TEMPLATE;
+        setTitle(t.title);
+        setDescription(t.description);
+        setCategory(t.category);
+        setWhatContext(t.whatContext);
+        setWhyContext(t.whyContext);
+        setHowContext(t.howContext);
+        setImpactContext(t.impactContext);
+        setQuestions(t.questions.map(q => ({ ...q })));
+        toast({ title: 'Template loaded', description: 'Youth Policy Pulse questions and context are ready to review and publish.' });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -136,6 +200,10 @@ export default function CreatePollPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <Button type="button" variant="outline" onClick={loadYouthPolicyPulseTemplate}
+                        className="w-full mb-6 border-civic-green/30 text-civic-green-dark bg-civic-green/5 hover:bg-civic-green/10">
+                        <Sparkles className="mr-2 h-4 w-4" /> Use Youth Policy Pulse Template (Green Finance, Digital Inclusion &amp; Finance Bill 2026)
+                    </Button>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Core Details */}
                         <div className="space-y-4">
