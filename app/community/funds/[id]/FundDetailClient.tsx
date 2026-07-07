@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
+import { useUser } from '@/app/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +11,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, ExternalLink, DollarSign, Building2, Loader2, MessageSquare, CheckCircle2, Trash2 } from 'lucide-react';
+import {
+    ArrowLeft, ExternalLink, DollarSign, Building2, Loader2, MessageSquare, CheckCircle2, Trash2,
+    ShieldCheck, Sparkles, RefreshCw, MapPin,
+} from 'lucide-react';
 import ImageUpload from '@/components/ui/ImageUpload';
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';
 import DeliberationPanel from '@/components/social/DeliberationPanel';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 function fmt(amount: number | null, currency = 'KES', fallback = 'Not disclosed') {
     if (amount == null || amount === 0) return fallback;
@@ -28,8 +34,12 @@ const STATUS_STYLES: Record<string, string> = {
     suspended: 'bg-red-100 text-red-800',
 };
 
-export default function FundDetailClient({ fund, allocations, disbursements, comments: initialComments, user, currentUserProfile }: {
+export default function FundDetailClient({
+    fund, allocations, disbursements, comments: initialComments, user, currentUserProfile,
+    accountabilityQuestions, accountabilityResponses: initialAccResponses, activeBrief: initialActiveBrief,
+}: {
     fund: any; allocations: any[]; disbursements: any[]; comments: any[]; user: any; currentUserProfile: any;
+    accountabilityQuestions: any[]; accountabilityResponses: any[]; activeBrief: any;
 }) {
     const [comments, setComments] = useState(initialComments);
     const [newComment, setNewComment] = useState('');
@@ -40,6 +50,14 @@ export default function FundDetailClient({ fund, allocations, disbursements, com
     const { toast } = useToast();
     const router = useRouter();
     const supabase = useMemo(() => createClient(), []);
+    const { profile } = useUser();
+
+    const [accResponses, setAccResponses] = useState(initialAccResponses);
+    const [answers, setAnswers] = useState<Record<string, { text: string; imageUrl: string }>>({});
+    const [submittingQuestionId, setSubmittingQuestionId] = useState<string | null>(null);
+    const [activeBrief, setActiveBrief] = useState<any>(initialActiveBrief);
+    const [briefText, setBriefText] = useState<string>(initialActiveBrief?.content ?? '');
+    const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
 
     const isOwner = user?.id && fund.created_by === user.id;
 
@@ -92,6 +110,55 @@ export default function FundDetailClient({ fund, allocations, disbursements, com
         comment: 'bg-gray-100 text-gray-700',
         concern: 'bg-red-100 text-red-700',
         feedback: 'bg-blue-100 text-blue-700',
+    };
+
+    const setAnswer = (questionId: string, field: 'text' | 'imageUrl', value: string) => {
+        setAnswers(prev => ({ ...prev, [questionId]: { text: prev[questionId]?.text ?? '', imageUrl: prev[questionId]?.imageUrl ?? '', [field]: value } }));
+    };
+
+    const submitAccountabilityResponse = async (questionId: string) => {
+        if (!user) { toast({ title: 'Login required', variant: 'destructive' }); return; }
+        const answer = answers[questionId];
+        if (!answer?.text?.trim()) return;
+
+        setSubmittingQuestionId(questionId);
+        try {
+            const { data, error } = await supabase.from('fund_accountability_responses').insert({
+                fund_id: fund.id,
+                question_id: questionId,
+                user_id: user.id,
+                county: profile?.county ?? null,
+                response_text: answer.text.trim(),
+                evidence_image_url: answer.imageUrl || null,
+            }).select('*').single();
+
+            if (error) throw error;
+            setAccResponses(prev => [{ ...data, profiles: currentUserProfile ?? null }, ...prev]);
+            setAnswers(prev => ({ ...prev, [questionId]: { text: '', imageUrl: '' } }));
+            toast({ title: 'Response submitted', className: 'bg-civic-green text-white border-none' });
+        } catch {
+            toast({ title: 'Error', description: 'Failed to submit your response.', variant: 'destructive' });
+        } finally {
+            setSubmittingQuestionId(null);
+        }
+    };
+
+    const generateAccountabilityBrief = async () => {
+        setIsGeneratingBrief(true);
+        try {
+            const res = await fetch(`/api/community/funds/${fund.id}/analyze`, { method: 'POST' });
+            const data = await res.json();
+            if (data.insights) {
+                setBriefText(data.insights);
+                toast({ title: 'Accountability Brief Generated', className: 'bg-civic-green text-white border-none' });
+            } else {
+                toast({ title: 'Error', description: data.error ?? 'Failed to generate brief.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Failed to generate brief', variant: 'destructive' });
+        } finally {
+            setIsGeneratingBrief(false);
+        }
     };
 
     return (
@@ -245,6 +312,147 @@ export default function FundDetailClient({ fund, allocations, disbursements, com
                                 </div>
                             ))}
                         </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Citizen Accountability Questions */}
+            <Card className="border-civic-green/20">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <ShieldCheck className="h-5 w-5 text-civic-green" /> Citizen Accountability
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                        Help investigate whether this fund is actually reaching young people. Answers feed the AI accountability brief below.
+                    </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {accountabilityQuestions.map((q, qi) => {
+                        const qResponses = accResponses.filter(r => r.question_id === q.id);
+                        const answer = answers[q.id] ?? { text: '', imageUrl: '' };
+                        return (
+                            <div key={q.id} className="space-y-3 border-b border-border/40 pb-6 last:border-0 last:pb-0">
+                                <p className="text-sm font-semibold text-foreground">
+                                    {qi + 1}. {q.question_text}
+                                </p>
+
+                                {user ? (
+                                    <div className="space-y-2 p-3 bg-muted/20 rounded-xl border border-border/50">
+                                        <Textarea
+                                            placeholder="Share your experience or evidence…"
+                                            value={answer.text}
+                                            onChange={e => setAnswer(q.id, 'text', e.target.value)}
+                                            className="min-h-[70px] bg-white"
+                                        />
+                                        <ImageUpload
+                                            onUpload={url => setAnswer(q.id, 'imageUrl', url)}
+                                            current={answer.imageUrl}
+                                            folder="kiongozi/funds/accountability"
+                                            label="Attach evidence photo (optional)"
+                                            aspectHint="banner"
+                                        />
+                                        <Button size="sm" className="bg-civic-green hover:bg-civic-green-dark text-white"
+                                            onClick={() => submitAccountabilityResponse(q.id)}
+                                            disabled={submittingQuestionId === q.id || !answer.text.trim()}>
+                                            {submittingQuestionId === q.id
+                                                ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Submitting…</>
+                                                : 'Submit Response'}
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground p-3 bg-muted/20 rounded-lg">
+                                        <Link href="/login" className="text-civic-green hover:underline">Sign in</Link> to respond.
+                                    </p>
+                                )}
+
+                                {qResponses.length > 0 && (
+                                    <div className="space-y-2 pl-1">
+                                        {qResponses.map(r => (
+                                            <div key={r.id} className="flex gap-2 items-start text-sm">
+                                                <div className="w-6 h-6 rounded-full bg-civic-green/20 flex items-center justify-center shrink-0 text-xs font-bold text-civic-green-dark mt-0.5">
+                                                    {r.profiles?.full_name?.[0]?.toUpperCase() ?? '?'}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mb-0.5">
+                                                        <span className="font-medium text-foreground">{r.profiles?.full_name ?? 'Anonymous'}</span>
+                                                        {r.county && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" /> {r.county}</span>}
+                                                        <span>{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span>
+                                                    </div>
+                                                    <p className="text-foreground/80">{r.response_text}</p>
+                                                    {r.evidence_image_url && (
+                                                        <a href={r.evidence_image_url} target="_blank" rel="noopener noreferrer"
+                                                            className="text-xs text-civic-green hover:underline">View evidence photo</a>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </CardContent>
+            </Card>
+
+            {/* AI Accountability Brief */}
+            {(accResponses.length >= 3 || briefText) && (
+                <Card className="border-civic-green/20 overflow-hidden rounded-2xl shadow-md">
+                    <div className="bg-gradient-to-r from-civic-green to-civic-green-dark px-6 py-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-white">
+                            <Sparkles className="h-5 w-5" />
+                            <span className="font-semibold text-base">AI Accountability Brief</span>
+                            {activeBrief && (
+                                <Badge className={`text-xs ml-2 border-none ${activeBrief.status === 'published' ? 'bg-green-500/20 text-green-200' : 'bg-orange-500/20 text-orange-200'}`}>
+                                    {activeBrief.status === 'published' ? 'Official / Published' : 'Personal Draft'}
+                                </Badge>
+                            )}
+                        </div>
+                    </div>
+                    <CardContent className="p-0">
+                        {briefText ? (
+                            <>
+                                <div className="px-6 py-5 prose prose-sm prose-slate max-w-none
+                                    prose-headings:font-bold prose-h2:text-sm prose-h2:mt-4 prose-h2:mb-1.5 prose-h2:text-civic-green-dark
+                                    prose-strong:text-foreground prose-strong:font-semibold
+                                    prose-em:text-muted-foreground prose-em:not-italic prose-em:text-xs
+                                    prose-ul:my-2 prose-li:my-0.5 prose-li:text-foreground/80
+                                    prose-p:text-foreground/80 prose-p:leading-relaxed prose-p:my-2
+                                    prose-hr:border-border/40 prose-hr:my-4">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{briefText}</ReactMarkdown>
+                                </div>
+                                <div className="border-t border-border/50" />
+                                <div className="px-6 py-3 flex items-center justify-between bg-muted/30">
+                                    <p className="text-xs text-muted-foreground">
+                                        Kiongozi AI Accountability Analyst · {accResponses.length} responses analysed
+                                    </p>
+                                    {accResponses.length >= 3 && user && (
+                                        <Button variant="ghost" size="sm" className="text-civic-green-dark hover:bg-civic-green/10 h-7 gap-1.5 text-xs"
+                                            onClick={generateAccountabilityBrief} disabled={isGeneratingBrief}>
+                                            {isGeneratingBrief
+                                                ? <><Loader2 className="h-3 w-3 animate-spin" /> Regenerating…</>
+                                                : <><RefreshCw className="h-3 w-3" /> Regenerate Draft</>}
+                                        </Button>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="px-6 py-8 text-center space-y-3">
+                                <Sparkles className="h-8 w-8 text-civic-green/30 mx-auto" />
+                                <p className="text-sm text-muted-foreground">
+                                    {user
+                                        ? 'Run AI analysis to generate an accountability brief from these citizen responses.'
+                                        : 'No AI brief yet. Sign in to run the analysis.'}
+                                </p>
+                                {user && (
+                                    <Button className="bg-civic-green hover:bg-civic-green-dark text-white gap-2"
+                                        onClick={generateAccountabilityBrief} disabled={isGeneratingBrief}>
+                                        {isGeneratingBrief
+                                            ? <><Loader2 className="h-4 w-4 animate-spin" /> Analysing responses…</>
+                                            : <><Sparkles className="h-4 w-4" /> Generate Accountability Brief</>}
+                                    </Button>
+                                )}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}
