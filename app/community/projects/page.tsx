@@ -1,8 +1,17 @@
+import type { ElementType } from 'react';
 import { createClient } from '@/app/utils/supabase/server';
 import ProjectCard from '@/components/social/ProjectCard';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Clipboard } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlusCircle, Clipboard, Leaf, Laptop, BriefcaseBusiness, Wallet, ArrowRight, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+
+const PROGRAMME_ICONS: Record<string, ElementType> = {
+    leaf: Leaf,
+    laptop: Laptop,
+    'briefcase-business': BriefcaseBusiness,
+    wallet: Wallet,
+};
 
 const MILESTONE_LABELS: Record<string, string> = {
     announced: 'Announced',
@@ -21,6 +30,8 @@ export default async function ProjectsPage({
     const { milestone, type } = await searchParams;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
+    const { data: programmes } = await supabase.from('civic_programmes').select('*').order('sort_order');
 
     let query = supabase.from('public_projects').select('*').order('created_at', { ascending: false }).limit(50);
 
@@ -57,6 +68,48 @@ export default async function ProjectsPage({
                         </Link>
                     </Button>
                 )}
+            </div>
+
+            {/* National Green & Digital Transition Programmes */}
+            {programmes && programmes.length > 0 && (
+                <div className="space-y-3">
+                    <h2 className="text-lg font-bold text-civic-green-dark flex items-center gap-2">
+                        <ShieldCheck className="h-5 w-5" /> National Programmes to Monitor
+                    </h2>
+                    <p className="text-sm text-muted-foreground -mt-2">
+                        Answer fixed monitoring questions on Kenya's flagship green and digital transition programmes — your responses feed an AI accountability brief for each.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {programmes.map(p => {
+                            const Icon = PROGRAMME_ICONS[p.icon_name] ?? Clipboard;
+                            return (
+                                <Link key={p.id} href={`/community/projects/programmes/${p.slug}`}>
+                                    <Card className="h-full border-civic-green/20 hover:border-civic-green/50 hover:shadow-md transition-all group">
+                                        <CardHeader className="pb-2">
+                                            <div className="w-10 h-10 rounded-xl bg-civic-green/10 flex items-center justify-center text-civic-green-dark mb-1">
+                                                <Icon className="h-5 w-5" />
+                                            </div>
+                                            <CardTitle className="text-sm leading-snug group-hover:text-civic-green-dark transition-colors">
+                                                {p.name}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-0">
+                                            <p className="text-xs text-muted-foreground line-clamp-3">{p.overview}</p>
+                                            <span className="inline-flex items-center gap-1 text-xs font-medium text-civic-green mt-2 group-hover:gap-1.5 transition-all">
+                                                Monitor this programme <ArrowRight className="h-3 w-3" />
+                                            </span>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            <div className="border-t border-civic-earth/10 pt-6 space-y-2">
+                <h2 className="text-lg font-bold text-foreground">Community-Submitted Projects</h2>
+                <p className="text-sm text-muted-foreground">Track any other publicly funded project in your area.</p>
             </div>
 
             {/* Milestone filter pills */}
