@@ -29,6 +29,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useUser } from "@/app/contexts/UserContext";
 import { createClient } from "@/app/utils/supabase/client";
 import { Mwanzo } from "@/components/landing/Characters";
+import { KENYA_COUNTIES } from "@/lib/kenya-counties";
 
 type Goal = "career" | "community" | "project" | "credential" | "explore";
 type PathSlug = "civic" | "green" | "digital" | "entrepreneurship";
@@ -58,14 +59,7 @@ const interests = [
   "Public speaking", "Community organizing", "Career readiness", "Project building",
 ];
 
-const counties = [
-  "Baringo", "Bomet", "Bungoma", "Busia", "Elgeyo-Marakwet", "Embu", "Garissa", "Homa Bay",
-  "Isiolo", "Kajiado", "Kakamega", "Kericho", "Kiambu", "Kilifi", "Kirinyaga", "Kisii", "Kisumu",
-  "Kitui", "Kwale", "Laikipia", "Lamu", "Machakos", "Makueni", "Mandera", "Marsabit", "Meru",
-  "Migori", "Mombasa", "Murang'a", "Nairobi", "Nakuru", "Nandi", "Narok", "Nyamira", "Nyandarua",
-  "Nyeri", "Samburu", "Siaya", "Taita-Taveta", "Tana River", "Tharaka-Nithi", "Trans Nzoia",
-  "Turkana", "Uasin Gishu", "Vihiga", "Wajir", "West Pokot", "Outside Kenya",
-];
+const counties = KENYA_COUNTIES;
 
 const pathIcons = { civic: Vote, green: Leaf, digital: Zap, entrepreneurship: Lightbulb };
 
