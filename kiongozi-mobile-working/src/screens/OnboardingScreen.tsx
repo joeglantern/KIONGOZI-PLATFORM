@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,9 @@ import {
   Dimensions,
   FlatList,
   ViewToken,
+  Image,
+  Animated,
 } from 'react-native';
-import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -23,21 +24,71 @@ const SLIDES = [
     id: '1',
     title: 'Welcome to Kiongozi',
     subtitle: 'A space where young Kenyans connect, share, and shape conversations that matter.',
-    lottie: require('../../assets/lottie/community.json'),
+    image: require('../../assets/onboarding/slide1.png'),
   },
   {
     id: '2',
     title: 'Built for Civic Life',
     subtitle: 'Track public spending, submit your views on policy, and run advocacy campaigns with tools built for real impact.',
-    lottie: require('../../assets/lottie/tools.json'),
+    image: require('../../assets/onboarding/slide2.png'),
   },
   {
     id: '3',
     title: 'Your Civic Guide',
     subtitle: 'Get clear answers on the Constitution, governance, and public finance. One tap from anywhere in the app.',
-    lottie: require('../../assets/lottie/chat.json'),
+    image: require('../../assets/onboarding/slide3.png'),
   },
 ];
+
+interface SlideItemProps {
+  item: typeof SLIDES[0];
+  isActive: boolean;
+}
+
+function SlideItem({ item, isActive }: SlideItemProps) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.92)).current;
+
+  useEffect(() => {
+    if (isActive) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 420,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 60,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.92);
+    }
+  }, [isActive]);
+
+  return (
+    <View style={styles.slide}>
+      <Animated.View
+        style={[
+          styles.imageWrapper,
+          { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+        ]}
+      >
+        <Image
+          source={item.image}
+          style={styles.image}
+          resizeMode="contain"
+        />
+      </Animated.View>
+      <Text style={styles.title}>{item.title}</Text>
+      <Text style={styles.subtitle}>{item.subtitle}</Text>
+    </View>
+  );
+}
 
 interface Props {
   onDone: () => void;
@@ -94,19 +145,8 @@ export default function OnboardingScreen({ onDone }: Props) {
         showsHorizontalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            <View style={styles.animContainer}>
-              <LottieView
-                source={item.lottie}
-                autoPlay
-                loop
-                style={styles.anim}
-              />
-            </View>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>{item.subtitle}</Text>
-          </View>
+        renderItem={({ item, index }) => (
+          <SlideItem item={item} isActive={index === activeIndex} />
         )}
       />
 
@@ -149,35 +189,38 @@ const styles = StyleSheet.create({
   slide: {
     width,
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
-  animContainer: {
-    width: width * 0.72,
-    height: height * 0.38,
+  imageWrapper: {
+    width: width - 32,
+    height: height * 0.42,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
-  anim: {
+  image: {
     width: '100%',
     height: '100%',
   },
   title: {
-    fontSize: 27,
+    fontSize: 26,
     fontWeight: '700',
     color: NAVY,
     textAlign: 'center',
-    marginTop: 32,
+    marginTop: 28,
     letterSpacing: -0.3,
-    lineHeight: 35,
+    lineHeight: 34,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15.5,
     color: '#4a5568',
     textAlign: 'center',
-    marginTop: 14,
-    lineHeight: 26,
+    marginTop: 12,
+    lineHeight: 25,
     fontWeight: '400',
+    paddingHorizontal: 8,
   },
   footer: {
     alignItems: 'center',
@@ -188,7 +231,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   dot: {
     height: 7,
