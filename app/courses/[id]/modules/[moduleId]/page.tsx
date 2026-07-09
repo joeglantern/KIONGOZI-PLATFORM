@@ -72,11 +72,25 @@ export default async function ModuleViewerPage({
         supabase
             .from('quizzes')
             .select('id, title, passing_score')
+            .eq('course_id', courseId)
             .eq('module_id', moduleId)
             .maybeSingle(),
     ]);
 
     if (!moduleData) redirect(`/courses/${courseId}`);
+
+    let quizAttempt = null;
+    if (quiz?.id && !isPreviewMode) {
+        const { data } = await supabase
+            .from('quiz_attempts')
+            .select('score, passed, completed_at')
+            .eq('quiz_id', quiz.id)
+            .eq('user_id', user.id)
+            .order('completed_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        quizAttempt = data;
+    }
 
     // Fetch sidebar module titles
     const moduleIds = (courseModuleLinks ?? []).map((l: any) => l.module_id).filter(Boolean);
@@ -114,6 +128,7 @@ export default async function ModuleViewerPage({
             allModules={allModules as any[]}
             initialProgress={progressRows ?? []}
             quiz={quiz}
+            quizAttempt={quizAttempt}
             isPrivileged={isPrivileged}
             isPreviewMode={isPreviewMode}
             courseId={courseId}

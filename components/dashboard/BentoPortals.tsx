@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Mwanzo, Zola, Ken, Tumi } from '@/components/landing/Characters';
+import { Zola, Tumi } from '@/components/landing/Characters';
+import { MascotCelebration, MascotJourney } from '@/components/mascots/LottieMascots';
 import { ArrowRight, BookOpen, Users, Map, Trophy } from 'lucide-react';
 
 export function BentoPortals() {
@@ -14,7 +15,7 @@ export function BentoPortals() {
       desc: "Learn civic, climate, & developer skills. Claim certificates!",
       href: "/courses",
       icon: BookOpen,
-      mascot: <Mwanzo expression="excited" className="w-28 h-28" />,
+      mascot: <MascotJourney className="w-28 h-28" />,
       color: "bg-brand-cream border-brand-primary/30",
       accent: "text-brand-orange bg-brand-orange/10",
       hoverBg: "hover:bg-amber-50/50"
@@ -36,7 +37,7 @@ export function BentoPortals() {
       desc: "Track public funds and municipal projects in your region.",
       href: "/impact-map",
       icon: Map,
-      mascot: <Zola action="cheer" className="w-28 h-28" />,
+      mascot: <Zola action="thinking" className="w-28 h-28" />,
       color: "bg-blue-50/20 border-blue-300/60",
       accent: "text-brand-primary bg-blue-100/60",
       hoverBg: "hover:bg-blue-50/50"
@@ -47,7 +48,7 @@ export function BentoPortals() {
       desc: "Climb the local county ranks and collect starting medals.",
       href: "/profile",
       icon: Trophy,
-      mascot: <Ken action="adjust" className="w-28 h-28" />,
+      mascot: <MascotCelebration className="w-28 h-28" />,
       color: "bg-purple-50/20 border-purple-300/60",
       accent: "text-purple-600 bg-purple-100/60",
       hoverBg: "hover:bg-purple-50/50"

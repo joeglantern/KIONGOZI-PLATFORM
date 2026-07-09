@@ -13,6 +13,7 @@ import {
     Award, BarChart2, CheckCircle2, ChevronDown, ChevronUp, Loader2, 
     MessageSquare, Plus, Send, ShieldAlert, Sparkles, TrendingUp, Users 
 } from 'lucide-react';
+import { getProfileDisplayName, getProfileInitials } from '@/lib/social/profile-display';
 
 interface DeliberationPanelProps {
     parentType: 'poll' | 'post' | 'fund' | 'project' | 'petition' | 'course' | 'policy';
@@ -44,7 +45,7 @@ export default function DeliberationPanel({ parentType, parentId, currentUser }:
                 .from('deliberation_recommendations')
                 .select(`
                     *,
-                    profiles(username, avatar_url)
+                    profiles(username, full_name, avatar_url)
                 `)
                 .eq('parent_type', parentType)
                 .eq('parent_id', parentId)
@@ -179,7 +180,7 @@ export default function DeliberationPanel({ parentType, parentId, currentUser }:
                 })
                 .select(`
                     *,
-                    profiles(username, avatar_url)
+                    profiles(username, full_name, avatar_url)
                 `)
                 .single();
 
@@ -370,10 +371,10 @@ export default function DeliberationPanel({ parentType, parentId, currentUser }:
                                         <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted-foreground pt-1 border-t border-border/30">
                                             <div className="flex items-center gap-1.5">
                                                 <div className="w-5 h-5 rounded-full bg-civic-green/10 flex items-center justify-center font-bold text-civic-green text-[10px]">
-                                                    {rec.profiles?.username?.[0]?.toUpperCase() ?? 'Y'}
+                                                    {getProfileInitials(rec.profiles, 'Y')}
                                                 </div>
                                                 <span className="font-semibold text-foreground/80">
-                                                    @{rec.profiles?.username ?? 'youth_leader'}
+                                                    {getProfileDisplayName(rec.profiles, 'Youth leader')}
                                                 </span>
                                             </div>
                                             <span>

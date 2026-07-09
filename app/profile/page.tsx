@@ -365,7 +365,7 @@ export default function ProfilePage() {
 
                                 <div className="bg-white rounded-[2rem] border-2 border-brand-primary p-6 shadow-soft flex flex-col items-center gap-4 text-center">
                                     <div className="bg-brand-cream border-2 border-brand-primary rounded-2xl p-1.5">
-                                        <Ken action="adjust" className="w-20 h-20" />
+                                        <Ken action="excited" className="w-20 h-20" />
                                     </div>
                                     <div className="relative bg-brand-cream border-2 border-brand-primary p-3.5 rounded-2xl shadow-sm text-xs font-bold text-left text-brand-primary">
                                         <div className="absolute left-[50%] translate-x-[-50%] top-[-10px] w-0 h-0 border-r-[10px] border-r-transparent border-b-[10px] border-b-brand-primary border-l-[10px] border-l-transparent"></div>

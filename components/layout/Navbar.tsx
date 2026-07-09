@@ -35,10 +35,12 @@ export function Navbar() {
     const { t } = useLanguage();
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const { theme, toggleTheme } = useTheme();
 
     const ticking = useRef(false);
+    const userMenuRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         const handleScroll = () => {
             if (!ticking.current) {
@@ -53,24 +55,65 @@ export function Navbar() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const isActive = (path: string) => pathname === path;
+    useEffect(() => {
+        setMobileMenuOpen(false);
+        setUserMenuOpen(false);
+    }, [pathname]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setMobileMenuOpen(false);
+                setUserMenuOpen(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    useEffect(() => {
+        if (!userMenuOpen) return;
+
+        const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+            if (!userMenuRef.current?.contains(event.target as Node)) {
+                setUserMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('touchstart', handlePointerDown, { passive: true });
+        return () => {
+            document.removeEventListener('mousedown', handlePointerDown);
+            document.removeEventListener('touchstart', handlePointerDown);
+        };
+    }, [userMenuOpen]);
+
+    const isActive = (path: string) =>
+        path === '/' ? pathname === '/' : Boolean(pathname === path || pathname?.startsWith(`${path}/`));
     const isInstructor = profile?.role === 'instructor' || profile?.role === 'admin';
     const desktopNavClass = (active: boolean) =>
-        cn(buttonVariants({ variant: 'ghost' }), active ? 'bg-orange-50 text-orange-600' : 'text-gray-700');
-    const mobileNavClass = cn(buttonVariants({ variant: 'ghost' }), 'w-full justify-start');
-    const mobileOutlineClass = cn(buttonVariants({ variant: 'outline' }), 'w-full');
+        cn(
+            buttonVariants({ variant: 'ghost' }),
+            'rounded-xl px-3 text-sm font-black',
+            active
+                ? 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
+                : 'text-gray-700 hover:bg-orange-50/70 hover:text-orange-700 dark:text-gray-200 dark:hover:bg-gray-800'
+        );
+    const mobileNavClass = cn(buttonVariants({ variant: 'ghost' }), 'w-full justify-start gap-2');
+    const mobileOutlineClass = cn(buttonVariants({ variant: 'outline' }), 'w-full justify-center');
 
     // Hide root navbar on instructor pages (they have their own navbar)
     if (pathname?.startsWith('/instructor')) return null;
 
     return (
-        <nav
+        <header
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
                 ? 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-md'
                 : 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm'
                 }`}
         >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav aria-label="Primary navigation" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo — the image is the full Kiongozi wordmark, so no
                         separate text label (that caused a duplicate "Kiongozi"). */}
@@ -86,14 +129,10 @@ export function Navbar() {
                     </Link>
 
                     {/* Desktop Navigation */}
-                    <div className="hidden md:flex items-center space-x-1">
+                    <div className="hidden xl:flex items-center space-x-1">
                         {!user ? (
                             <>
-                                <Link href="/" className={desktopNavClass(isActive('/'))}>
-                                    <Home className="w-4 h-4 mr-2" />
-                                    {t('nav.home')}
-                                </Link>
-                                <Link href="/courses" className={desktopNavClass(isActive('/browse'))}>
+                                <Link href="/courses" className={desktopNavClass(isActive('/courses'))}>
                                     <BookOpen className="w-4 h-4 mr-2" />
                                     {t('nav.browse')}
                                 </Link>
@@ -108,10 +147,6 @@ export function Navbar() {
                             </>
                         ) : (
                             <>
-                                <Link href="/" className={desktopNavClass(isActive('/'))}>
-                                    <Home className="w-4 h-4 mr-2" />
-                                    {t('nav.home')}
-                                </Link>
                                 <Link href="/dashboard" className={desktopNavClass(isActive('/dashboard'))}>
                                     <LayoutDashboard className="w-4 h-4 mr-2" />
                                     {t('nav.dashboard')}
@@ -142,7 +177,7 @@ export function Navbar() {
                     </div>
 
                     {/* Right Side Actions */}
-                    <div className="hidden md:flex items-center space-x-3">
+                    <div className="hidden xl:flex items-center space-x-3">
                         <LanguageSwitcher />
                         <AccessibilitySwitcher />
                         {user ? (
@@ -176,11 +211,14 @@ export function Navbar() {
                                 >
                                     {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                                 </button>
-                                <div className="relative group">
+                                <div className="relative" ref={userMenuRef}>
                                     <Button
                                         variant="ghost"
-                                        className="flex items-center space-x-2 text-gray-700"
+                                        className="flex items-center space-x-2 text-gray-700 dark:text-gray-200"
+                                        onClick={() => setUserMenuOpen((open) => !open)}
                                         aria-haspopup="menu"
+                                        aria-expanded={userMenuOpen}
+                                        aria-controls="user-menu"
                                         aria-label="User menu"
                                     >
                                         <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
@@ -188,10 +226,16 @@ export function Navbar() {
                                         </div>
                                     </Button>
 
-                                    {/* Dropdown Menu — revealed on hover or keyboard focus */}
+                                    {/* Dropdown Menu */}
                                     <div
+                                        id="user-menu"
                                         role="menu"
-                                        className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200"
+                                        className={cn(
+                                            "absolute right-0 mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-lg transition-all duration-200 dark:border-gray-800 dark:bg-gray-900",
+                                            userMenuOpen
+                                                ? "visible translate-y-0 opacity-100"
+                                                : "invisible pointer-events-none -translate-y-1 opacity-0"
+                                        )}
                                     >
                                         <div className="p-3 border-b border-gray-200">
                                             <p className="text-sm font-medium text-gray-900 truncate">
@@ -200,17 +244,21 @@ export function Navbar() {
                                             <p className="text-xs text-gray-500 capitalize">{profile?.role || 'user'}</p>
                                         </div>
                                         <div className="py-1">
-                                            <Link href="/profile" className="flex w-full items-center space-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                                            <Link href="/profile" role="menuitem" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center space-x-2 px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
                                                 <User className="w-4 h-4" />
                                                 <span>{t('nav.profile')}</span>
                                             </Link>
-                                            <Link href="/settings" className="flex w-full items-center space-x-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                                            <Link href="/settings" role="menuitem" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center space-x-2 px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
                                                 <Settings className="w-4 h-4" />
                                                 <span>{t('nav.settings')}</span>
                                             </Link>
                                             <button
-                                                onClick={signOut}
-                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                                                role="menuitem"
+                                                onClick={() => {
+                                                    setUserMenuOpen(false);
+                                                    signOut();
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center space-x-2 dark:hover:bg-red-950/30"
                                             >
                                                 <LogOut className="w-4 h-4" />
                                                 <span>{t('nav.sign_out')}</span>
@@ -221,7 +269,7 @@ export function Navbar() {
                             </>
                         ) : (
                             <>
-                                <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'text-gray-700')}>
+                                <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'text-gray-700 dark:text-gray-200')}>
                                     {t('nav.sign_in')}
                                 </Link>
                                 <Link href="/signup" className={cn(buttonVariants(), 'bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg')}>
@@ -234,18 +282,22 @@ export function Navbar() {
                     {/* Mobile Menu Button */}
                     <button
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 active:scale-90 transition-all duration-150 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-                        aria-label="Toggle Navigation Menu"
+                        className="xl:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 active:scale-90 transition-all duration-150 focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-gray-200 dark:hover:bg-gray-800"
+                        aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
                         aria-expanded={mobileMenuOpen}
+                        aria-controls="mobile-navigation"
                     >
                         {mobileMenuOpen ? <X className="w-6 h-6" aria-hidden="true" /> : <Menu className="w-6 h-6" aria-hidden="true" />}
                     </button>
                 </div>
-            </div>
+            </nav>
 
             {/* Mobile Menu */}
             <div
-                className={`md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'max-h-[85vh] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'
+                id="mobile-navigation"
+                role="navigation"
+                aria-label="Mobile navigation"
+                className={`xl:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'max-h-[85vh] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'
                     }`}
             >
                 <div className="px-4 pt-3 pb-24 space-y-2">
@@ -262,6 +314,10 @@ export function Navbar() {
                             <Link href="/community" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <Users className="w-4 h-4 mr-2" />
                                 {t('nav.community')}
+                            </Link>
+                            <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
+                                <MapIcon className="w-4 h-4 mr-2" />
+                                {t('nav.impact_map')}
                             </Link>
                             <div className="pt-3 border-t border-gray-200 space-y-2">
                                 <Link href="/login" onClick={() => setMobileMenuOpen(false)} className={mobileOutlineClass}>
@@ -343,12 +399,19 @@ export function Navbar() {
                     <div className="pt-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between px-2">
                         <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Preferences</span>
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={toggleTheme}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+                                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                            >
+                                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                            </button>
                             <LanguageSwitcher />
                             <AccessibilitySwitcher />
                         </div>
                     </div>
                 </div>
             </div>
-        </nav>
+        </header>
     );
 }

@@ -19,6 +19,7 @@ import { MascotCelebration } from '@/components/mascots/LottieMascots';
 interface QuizPlayerProps {
     quizId: string;
     courseId: string;
+    returnHref?: string;
     onComplete?: (score: number, passed: boolean) => void;
 }
 
@@ -52,7 +53,7 @@ interface QuestionResult {
     is_correct: boolean;
 }
 
-export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerProps) {
+export default function QuizPlayer({ quizId, courseId, returnHref, onComplete }: QuizPlayerProps) {
     const [loading, setLoading] = useState(true);
     const [quiz, setQuiz] = useState<QuizData | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
@@ -312,7 +313,13 @@ export default function QuizPlayer({ quizId, courseId, onComplete }: QuizPlayerP
                     )}
                     <Button
                         variant="outline"
-                        onClick={() => window.history.back()}
+                        onClick={() => {
+                            if (returnHref) {
+                                window.location.assign(returnHref);
+                                return;
+                            }
+                            window.history.back();
+                        }}
                         className="border-2 border-gray-200 dark:border-gray-700 px-10 py-7 rounded-2xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all"
                     >
                         Back to Lesson

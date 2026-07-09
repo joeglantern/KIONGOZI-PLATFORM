@@ -41,7 +41,7 @@ export default function HeroPhoneMockup({ className = "" }: HeroPhoneMockupProps
 
             <div className="mt-7 flex items-start justify-between gap-4">
               <div>
-                <p className="text-[20px] font-black leading-tight">Hi, Elisha!</p>
+                <p className="text-[20px] font-black leading-tight">Halo halo</p>
                 <p className="mt-1.5 text-xs font-semibold text-white/82">Level 5 - Youth Advocate</p>
               </div>
               <div className="relative mt-1">

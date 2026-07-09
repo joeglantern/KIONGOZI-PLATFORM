@@ -21,7 +21,11 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
         .select(`
       *,
       profiles:user_id (
-        username
+        username,
+        full_name,
+        first_name,
+        last_name,
+        avatar_url
       ),
       social_topics (
         name,

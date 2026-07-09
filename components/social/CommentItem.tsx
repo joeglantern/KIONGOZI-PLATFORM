@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, CornerDownRight, Reply, Send, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { getProfileDisplayName, getProfileInitials } from '@/lib/social/profile-display';
 
 interface CommentItemProps {
     comment: any;
@@ -18,6 +19,8 @@ export function CommentItem({ comment, replies, currentUser, onReply, depth = 0 
     const [isReplying, setIsReplying] = useState(false);
     const [replyContent, setReplyContent] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const authorName = getProfileDisplayName(comment.profiles, comment.anonymous_name || 'Anonymous');
+    const authorInitials = getProfileInitials(comment.profiles, comment.anonymous_name || 'AN');
 
     const handleReplySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,9 +42,9 @@ export function CommentItem({ comment, replies, currentUser, onReply, depth = 0 
         <div className={`group ${depth > 0 ? 'mt-3' : 'mt-4'}`}>
             <div className="flex gap-3">
                 <Avatar className="h-8 w-8 h-8 w-8 ring-2 ring-background">
-                    <AvatarImage src={comment.profiles?.avatar_url || ''} />
+                    <AvatarImage src={comment.profiles?.avatar_url || ''} alt={authorName} />
                     <AvatarFallback className="bg-civic-green-light text-white">
-                        {(comment.profiles?.username || comment.anonymous_name || 'AN').slice(0, 2).toUpperCase()}
+                        {authorInitials}
                     </AvatarFallback>
                 </Avatar>
 
@@ -49,7 +52,7 @@ export function CommentItem({ comment, replies, currentUser, onReply, depth = 0 
                     <div className="bg-muted/30 p-3 rounded-lg rounded-tl-none border border-border/50">
                         <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-semibold text-sm text-foreground">
-                                @{comment.profiles?.username || comment.anonymous_name || 'anonymous'}
+                                {authorName}
                             </span>
                             <span className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
@@ -77,7 +80,7 @@ export function CommentItem({ comment, replies, currentUser, onReply, depth = 0 
                             <div className="flex-1">
                                 <form onSubmit={handleReplySubmit}>
                                     <Textarea
-                                        placeholder={`Reply to @${comment.profiles?.username || 'anonymous'}...`}
+                                        placeholder={`Reply to ${authorName}`}
                                         value={replyContent}
                                         onChange={(e) => setReplyContent(e.target.value)}
                                         className="min-h-[60px] text-sm bg-background"

@@ -97,6 +97,12 @@ interface ProgressRow {
     notes: string | null;
 }
 
+interface QuizAttemptSummary {
+    score: number | null;
+    passed: boolean;
+    completed_at: string | null;
+}
+
 interface ModuleViewerClientProps {
     userId: string;
     userEmail: string;
@@ -133,6 +139,7 @@ interface ModuleViewerClientProps {
     }>;
     initialProgress: ProgressRow[];
     quiz: { id: string; title: string; passing_score: number } | null;
+    quizAttempt: QuizAttemptSummary | null;
     isPrivileged: boolean;
     isPreviewMode: boolean;
     courseId: string;
@@ -148,6 +155,7 @@ export default function ModuleViewerClient({
     allModules,
     initialProgress,
     quiz,
+    quizAttempt,
     isPrivileged,
     isPreviewMode,
     courseId,
@@ -159,6 +167,8 @@ export default function ModuleViewerClient({
 
     const [progress, setProgress] = useState<ProgressRow[]>(initialProgress);
     const [completing, setCompleting] = useState(false);
+    const [completionNotice, setCompletionNotice] = useState<string | null>(null);
+    const [quizAttemptState, setQuizAttemptState] = useState<QuizAttemptSummary | null>(quizAttempt);
     const [deliveryMode, setDeliveryMode] = useState<'text' | 'slides' | 'video'>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem(`deliveryMode_${courseId}`);
@@ -304,6 +314,56 @@ export default function ModuleViewerClient({
     const { speak, stop, isSpeaking, supported } = useTextToSpeech();
 
     const isCompleted = progress.find(p => p.module_id === moduleId)?.status === 'completed';
+    const quizPassed = !quiz || quizAttemptState?.passed === true;
+    const requiresQuizPass = !!quiz && !quizPassed;
+    const isOnSummarySlide = deliveryMode === 'text' && currentSlide?.type === 'summary';
+    const canMarkCurrentModuleComplete =
+        !isPreviewMode &&
+        !isCompleted &&
+        !completing &&
+        !requiresQuizPass &&
+        (deliveryMode !== 'text' || isOnSummarySlide);
+
+    useEffect(() => {
+        setQuizAttemptState(quizAttempt);
+    }, [quizAttempt]);
+
+    useEffect(() => {
+        if (!quiz?.id || isPreviewMode) return;
+
+        let isMounted = true;
+        const refreshQuizAttempt = async () => {
+            const { data } = await supabase
+                .from('quiz_attempts')
+                .select('score, passed, completed_at')
+                .eq('quiz_id', quiz.id)
+                .eq('user_id', userId)
+                .order('completed_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (isMounted && data) {
+                setQuizAttemptState(data as QuizAttemptSummary);
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (!document.hidden) void refreshQuizAttempt();
+        };
+
+        window.addEventListener('focus', refreshQuizAttempt);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            isMounted = false;
+            window.removeEventListener('focus', refreshQuizAttempt);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isPreviewMode, quiz?.id, supabase, userId]);
+
+    useEffect(() => {
+        if (quizPassed) setCompletionNotice(null);
+    }, [quizPassed]);
 
     // Enrich allModules with progress for sidebar
     const allModulesWithProgress = useMemo(() => {
@@ -334,21 +394,47 @@ export default function ModuleViewerClient({
 
     const updateCourseProgress = useCallback(async (): Promise<boolean> => {
         try {
-            const { data: courseModules } = await supabase
-                .from('course_modules')
-                .select('module_id')
-                .eq('course_id', courseId);
-            if (!courseModules) return false;
+            const [{ data: courseModules }, { data: scormPackages }] = await Promise.all([
+                supabase
+                    .from('course_modules')
+                    .select('module_id')
+                    .eq('course_id', courseId),
+                supabase
+                    .from('scorm_packages')
+                    .select('id')
+                    .eq('course_id', courseId)
+                    .eq('status', 'active'),
+            ]);
 
-            const { data: completedModules } = await supabase
-                .from('user_progress')
-                .select('module_id')
-                .eq('user_id', userId)
-                .eq('status', 'completed')
-                .in('module_id', courseModules.map(m => m.module_id));
+            const moduleIds = (courseModules ?? []).map((m: any) => m.module_id).filter(Boolean);
+            const scormIds = (scormPackages ?? []).map((pkg: any) => pkg.id).filter(Boolean);
 
-            const total = courseModules.length;
-            const completed = completedModules?.length ?? 0;
+            let completedModuleCount = 0;
+            if (moduleIds.length > 0) {
+                const { data: completedModules } = await supabase
+                    .from('user_progress')
+                    .select('module_id')
+                    .eq('user_id', userId)
+                    .eq('status', 'completed')
+                    .in('module_id', moduleIds);
+
+                completedModuleCount = new Set((completedModules ?? []).map((m: any) => m.module_id)).size;
+            }
+
+            let completedScormCount = 0;
+            if (scormIds.length > 0) {
+                const { data: completedScorm } = await supabase
+                    .from('scorm_registrations')
+                    .select('package_id')
+                    .eq('user_id', userId)
+                    .in('package_id', scormIds)
+                    .in('lesson_status', ['completed', 'passed']);
+
+                completedScormCount = new Set((completedScorm ?? []).map((registration: any) => registration.package_id)).size;
+            }
+
+            const total = moduleIds.length + scormIds.length;
+            const completed = completedModuleCount + completedScormCount;
             const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
             await supabase
@@ -372,8 +458,17 @@ export default function ModuleViewerClient({
 
     const handleMarkComplete = useCallback(async () => {
         if (!moduleData || isCompleted || isPreviewMode || completing) return;
+        if (requiresQuizPass) {
+            setCompletionNotice(`Pass "${quiz?.title ?? 'the quiz'}" before completing this lesson.`);
+            return;
+        }
+        if (deliveryMode === 'text' && !isOnSummarySlide) {
+            setCompletionNotice('Reach the lesson summary before marking this lesson complete.');
+            return;
+        }
         try {
             setCompleting(true);
+            setCompletionNotice(null);
             setNewBadges([]);
             setEarnedXp(0);
 
@@ -422,104 +517,7 @@ export default function ModuleViewerClient({
         } finally {
             setCompleting(false);
         }
-    }, [completing, courseId, isCompleted, isPreviewMode, moduleData, moduleId, notes, refreshProfile, supabase, updateCourseProgress, userId, userEmail]);
-
-    const isCourseFullyCompleted = useMemo(() => {
-        if (allModules.length === 0) return false;
-        return allModules.every(m => progress.some(p => p.module_id === m.learning_modules.id && p.status === 'completed'));
-    }, [allModules, progress]);
-
-    const handleCompleteCourse = useCallback(async () => {
-        if (isPreviewMode || completing) return;
-        try {
-            setCompleting(true);
-            setNewBadges([]);
-            setEarnedXp(0);
-
-            // Fetch all course module IDs
-            const { data: courseModules } = await supabase
-                .from('course_modules')
-                .select('module_id')
-                .eq('course_id', courseId);
-
-            if (!courseModules || courseModules.length === 0) return;
-
-            const moduleIds = courseModules.map(m => m.module_id);
-
-            // Upsert progress rows for all modules
-            const upsertRows = moduleIds.map(mId => ({
-                user_id: userId,
-                module_id: mId,
-                course_id: courseId,
-                status: 'completed',
-                progress_percentage: 100,
-                completed_at: new Date().toISOString(),
-                xp_earned: XP_PER_MODULE,
-            }));
-
-            const { error: upsertError } = await supabase
-                .from('user_progress')
-                .upsert(upsertRows, { onConflict: 'user_id, module_id' });
-
-            if (upsertError) throw upsertError;
-
-            // Emit xAPI completion event for the course
-            if (userEmail && course) {
-                xapi.courseCompleted(userId, userEmail, courseId, course.title);
-            }
-
-            // Claim module-completion XP per module through the secure RPC.
-            // award_once is idempotent, so modules already claimed award nothing
-            // and there is no client-supplied XP amount to tamper with.
-            let awardedTotal = 0;
-            for (const mId of moduleIds) {
-                const { data: claim, error: claimError } = await supabase.rpc('claim_module_completion', {
-                    p_module_id: mId,
-                });
-                if (claimError) {
-                    console.error('Gamification RPC error:', claimError);
-                    continue;
-                }
-                awardedTotal += Number((claim as any)?.xp_awarded ?? 0);
-            }
-
-            // Update local progress state
-            setProgress(prev => {
-                const next = [...prev];
-                moduleIds.forEach(mId => {
-                    if (!next.some(p => p.module_id === mId)) {
-                        next.push({ module_id: mId, status: 'completed', notes: null });
-                    } else {
-                        const idx = next.findIndex(p => p.module_id === mId);
-                        next[idx] = { ...next[idx], status: 'completed' };
-                    }
-                });
-                return next;
-            });
-
-            await refreshProfile();
-            setEarnedXp(awardedTotal);
-            setShowCelebration(true);
-            fireModuleConfetti();
-            setTimeout(() => fireCourseConfetti(), 500);
-
-            // Force recalculate enrollment progress to 100%
-            await supabase
-                .from('course_enrollments')
-                .update({
-                    progress_percentage: 100,
-                    status: 'completed',
-                    last_accessed_at: new Date().toISOString(),
-                })
-                .eq('user_id', userId)
-                .eq('course_id', courseId);
-
-        } catch (error: any) {
-            console.error('Error completing course:', error);
-        } finally {
-            setCompleting(false);
-        }
-    }, [completing, course, courseId, isPreviewMode, refreshProfile, supabase, userId, userEmail]);
+    }, [completing, courseId, deliveryMode, isCompleted, isOnSummarySlide, isPreviewMode, moduleData, moduleId, notes, quiz?.title, refreshProfile, requiresQuizPass, supabase, updateCourseProgress, userId, userEmail]);
 
     // Auto-save notes
     const initialNotesRef = useRef<string | null>(null);
@@ -569,6 +567,8 @@ export default function ModuleViewerClient({
                     }
                 } else if (isPreviewMode) {
                     router.push(`/courses/${courseId}${isPreviewMode ? '?preview=1' : ''}`);
+                } else if (requiresQuizPass) {
+                    setCompletionNotice(`Pass "${quiz?.title ?? 'the quiz'}" before completing this lesson.`);
                 } else {
                     await handleMarkComplete();
                 }
@@ -576,7 +576,7 @@ export default function ModuleViewerClient({
         } else {
             navigateToModule('next');
         }
-    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, hasNext, navigateToModule, handleMarkComplete, router, courseId, isPreviewMode, slides]);
+    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, hasNext, navigateToModule, handleMarkComplete, router, courseId, isPreviewMode, requiresQuizPass, quiz?.title, slides]);
 
     const handlePrevClick = useCallback(() => {
         if (deliveryMode === 'text') {
@@ -596,6 +596,7 @@ export default function ModuleViewerClient({
                 if (isCompleted) {
                     return hasNext ? "Next Lesson" : "Back to Course";
                 }
+                if (requiresQuizPass) return "Pass Quiz First";
                 return isPreviewMode ? "Back to Course" : "Finish & Claim XP";
             }
             const cur = slides[currentSlideIndex];
@@ -605,7 +606,7 @@ export default function ModuleViewerClient({
             return "Next Slide";
         }
         return "Next";
-    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, isPreviewMode, hasNext, slides]);
+    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, isPreviewMode, hasNext, requiresQuizPass, slides]);
 
     const isNextDisabled = useMemo(() => {
         if (deliveryMode === 'text') {
@@ -615,12 +616,12 @@ export default function ModuleViewerClient({
             }
             if (cur?.type === 'summary') {
                 if (completing) return true;
-                return false;
+                return !isCompleted && requiresQuizPass;
             }
             return false;
         }
         return !hasNext;
-    }, [deliveryMode, slides, currentSlideIndex, hasAnsweredCorrectly, completing, hasNext]);
+    }, [deliveryMode, slides, currentSlideIndex, hasAnsweredCorrectly, completing, hasNext, isCompleted, requiresQuizPass]);
 
     const isPrevDisabled = useMemo(() => {
         if (deliveryMode === 'text') {
@@ -635,7 +636,7 @@ export default function ModuleViewerClient({
         onComplete: handleMarkComplete,
         hasPrev: !isPrevDisabled,
         hasNext: !isNextDisabled,
-        canComplete: !isPreviewMode && !isCompleted && !completing && (deliveryMode === 'text' ? currentSlideIndex === totalSlides - 1 : true),
+        canComplete: canMarkCurrentModuleComplete,
     });
 
     return (
@@ -782,11 +783,11 @@ export default function ModuleViewerClient({
                                 )}
                                 <button
                                     onClick={handleMarkComplete}
-                                    disabled={isPreviewMode || isCompleted || completing}
+                                    disabled={!canMarkCurrentModuleComplete}
                                     className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                                         isCompleted
                                             ? 'bg-green-50 text-green-600 border border-green-100 cursor-default'
-                                            : isPreviewMode
+                                            : !canMarkCurrentModuleComplete
                                                 ? 'bg-gray-100 text-gray-500 border border-gray-200 cursor-default'
                                                 : 'bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow-md'
                                     }`}
@@ -800,6 +801,10 @@ export default function ModuleViewerClient({
                                             <CheckCircle className="w-4 h-4" />
                                             <span>Completed</span>
                                         </div>
+                                    ) : requiresQuizPass ? (
+                                        <span>Pass Quiz First</span>
+                                    ) : deliveryMode === 'text' && !isOnSummarySlide ? (
+                                        <span>Reach Summary</span>
                                     ) : (
                                         <span>Mark Complete</span>
                                     )}
@@ -818,7 +823,14 @@ export default function ModuleViewerClient({
                                         Learner progress, notes, bookmarks, and quiz attempts are disabled while you preview this lesson.
                                     </p>
                                 </div>
-                            )}                            {/* Learning Mode Switcher */}
+                            )}
+                            {completionNotice && (
+                                <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+                                    <p className="text-xs font-black uppercase tracking-widest text-amber-700 mb-1">Completion requirement</p>
+                                    <p className="text-sm font-semibold text-amber-900">{completionNotice}</p>
+                                </div>
+                            )}
+                            {/* Learning Mode Switcher */}
                             {(course.slides_url || course.video_url) && (
                                 <div className="mb-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-2xl p-1.5 border border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
                                     <div className="flex items-center gap-2 pl-3 py-1">
@@ -1042,14 +1054,21 @@ export default function ModuleViewerClient({
                                                             
                                                             <div className="space-y-2">
                                                                 <h3 className="text-2xl font-black text-gray-900 tracking-tight">
-                                                                    Lesson Completed!
+                                                                    Lesson Summary
                                                                 </h3>
                                                                 <p className="text-gray-500 text-sm max-w-md mx-auto">
-                                                                    You've successfully completed the learning material and passed the active recall checkpoints.
+                                                                    {requiresQuizPass
+                                                                        ? `You've reached the end of the learning material. Pass "${quiz?.title}" to claim completion for this lesson.`
+                                                                        : "You've successfully completed the learning material and passed the active recall checkpoints."}
                                                                 </p>
                                                             </div>
 
-                                                            {!isCompleted ? (
+                                                            {!isCompleted && requiresQuizPass ? (
+                                                                <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-700 border border-amber-100 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest">
+                                                                    <AlertCircle className="w-4 h-4" />
+                                                                    <span>Quiz Required</span>
+                                                                </div>
+                                                            ) : !isCompleted ? (
                                                                 <div className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 border border-orange-100 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest animate-bounce">
                                                                     <Zap className="w-4 h-4" />
                                                                     <span>+100 XP SECURED</span>
@@ -1100,18 +1119,22 @@ export default function ModuleViewerClient({
                                                         {quiz && (
                                                             <div className="bg-gray-900 rounded-3xl p-8 text-center shadow-xl relative overflow-hidden">
                                                                 <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 blur-[80px] -mr-24 -mt-24" />
-                                                                <h3 className="text-xl font-black text-white mb-2 tracking-tight">Ready for a challenge?</h3>
+                                                                <h3 className="text-xl font-black text-white mb-2 tracking-tight">
+                                                                    {quizPassed ? "Assessment passed" : "Assessment required"}
+                                                                </h3>
                                                                 <p className="text-gray-400 text-sm mb-6 max-w-sm mx-auto">
-                                                                    Test your understanding of <span className="text-white font-bold">{moduleData.title}</span> and earn extra XP!
+                                                                    {quizPassed
+                                                                        ? `You scored ${quizAttemptState?.score ?? 0}% and can now complete this lesson.`
+                                                                        : `Pass "${quiz.title}" to complete ${moduleData.title} and earn assessment XP.`}
                                                                 </p>
                                                                 {isPreviewMode ? (
                                                                     <div className="inline-flex items-center justify-center rounded-xl border border-orange-400/30 bg-white/5 px-6 py-3 text-xs font-bold uppercase tracking-wider text-orange-200">
                                                                         Quiz attempts are disabled in preview
                                                                     </div>
                                                                 ) : (
-                                                                    <Link href={`/courses/${courseId}/quiz/${quiz.id}`}>
+                                                                    <Link href={`/courses/${courseId}/quiz/${quiz.id}?returnTo=${encodeURIComponent(`/courses/${courseId}/modules/${moduleId}`)}`}>
                                                                         <Button className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-5 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-orange-500/20 active:scale-95 transition-all group">
-                                                                            Start Quiz
+                                                                            {quizPassed ? "Review Quiz" : "Start Quiz"}
                                                                             <ChevronRight className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
                                                                         </Button>
                                                                     </Link>
@@ -1197,38 +1220,43 @@ export default function ModuleViewerClient({
                                                         <Award className="w-3.5 h-3.5" />
                                                         Alternative Learning path
                                                     </div>
-                                                    <h3 className="text-2xl font-black tracking-tight">Complete Course via Slides</h3>
+                                                    <h3 className="text-2xl font-black tracking-tight">Complete This Lesson via Slides</h3>
                                                     <p className="text-orange-100 text-sm max-w-md">
-                                                        If you have read the slides and grasped the concepts, you can finish the course directly without reading the lessons one by one.
+                                                        When you have finished the slide deck, mark this lesson complete. Course completion still depends on every required item.
                                                     </p>
                                                 </div>
                                                 <button
-                                                    onClick={handleCompleteCourse}
-                                                    disabled={isPreviewMode || isCourseFullyCompleted || completing}
+                                                    onClick={handleMarkComplete}
+                                                    disabled={!canMarkCurrentModuleComplete}
                                                     className={`w-full md:w-auto px-8 py-5 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-lg flex items-center justify-center gap-2 ${
-                                                        isCourseFullyCompleted
+                                                        isCompleted
                                                             ? 'bg-white/20 text-white backdrop-blur-md cursor-default shadow-none border border-white/20'
-                                                            : isPreviewMode
+                                                            : !canMarkCurrentModuleComplete
                                                                 ? 'bg-white/10 text-white/50 backdrop-blur-md cursor-default border border-white/10 shadow-none'
                                                                 : 'bg-white text-orange-600 hover:bg-orange-50 hover:scale-[1.02] active:scale-95'
                                                     }`}
                                                 >
                                                     {completing ? (
                                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : isCourseFullyCompleted ? (
+                                                    ) : isCompleted ? (
                                                         <>
                                                             <CheckCircle className="w-4 h-4" />
-                                                            <span>Course Completed</span>
+                                                            <span>Lesson Completed</span>
                                                         </>
                                                     ) : isPreviewMode ? (
                                                         <>
                                                             <Eye className="w-4 h-4" />
                                                             <span>Disabled in Preview</span>
                                                         </>
+                                                    ) : requiresQuizPass ? (
+                                                        <>
+                                                            <AlertCircle className="w-4 h-4" />
+                                                            <span>Pass Quiz First</span>
+                                                        </>
                                                     ) : (
                                                         <>
                                                             <CheckCircle className="w-4 h-4" />
-                                                            <span>Complete Course</span>
+                                                            <span>Mark Lesson Complete</span>
                                                         </>
                                                     )}
                                                 </button>
@@ -1294,38 +1322,43 @@ export default function ModuleViewerClient({
                                                         <Award className="w-3.5 h-3.5" />
                                                         Alternative Learning path
                                                     </div>
-                                                    <h3 className="text-2xl font-black tracking-tight">Complete Course via Video</h3>
+                                                    <h3 className="text-2xl font-black tracking-tight">Complete This Lesson via Video</h3>
                                                     <p className="text-orange-100 text-sm max-w-md">
-                                                        If you have finished watching the video course, you can complete the course directly and get credit for all lessons.
+                                                        When you have finished the video, mark this lesson complete. Course completion still depends on every required item.
                                                     </p>
                                                 </div>
                                                 <button
-                                                    onClick={handleCompleteCourse}
-                                                    disabled={isPreviewMode || isCourseFullyCompleted || completing}
+                                                    onClick={handleMarkComplete}
+                                                    disabled={!canMarkCurrentModuleComplete}
                                                     className={`w-full md:w-auto px-8 py-5 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-lg flex items-center justify-center gap-2 ${
-                                                        isCourseFullyCompleted
+                                                        isCompleted
                                                             ? 'bg-white/20 text-white backdrop-blur-md cursor-default shadow-none border border-white/20'
-                                                            : isPreviewMode
+                                                            : !canMarkCurrentModuleComplete
                                                                 ? 'bg-white/10 text-white/50 backdrop-blur-md cursor-default border border-white/10 shadow-none'
                                                                 : 'bg-white text-orange-600 hover:bg-orange-50 hover:scale-[1.02] active:scale-95'
                                                     }`}
                                                 >
                                                     {completing ? (
                                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : isCourseFullyCompleted ? (
+                                                    ) : isCompleted ? (
                                                         <>
                                                             <CheckCircle className="w-4 h-4" />
-                                                            <span>Course Completed</span>
+                                                            <span>Lesson Completed</span>
                                                         </>
                                                     ) : isPreviewMode ? (
                                                         <>
                                                             <Eye className="w-4 h-4" />
                                                             <span>Disabled in Preview</span>
                                                         </>
+                                                    ) : requiresQuizPass ? (
+                                                        <>
+                                                            <AlertCircle className="w-4 h-4" />
+                                                            <span>Pass Quiz First</span>
+                                                        </>
                                                     ) : (
                                                         <>
                                                             <CheckCircle className="w-4 h-4" />
-                                                            <span>Complete Course</span>
+                                                            <span>Mark Lesson Complete</span>
                                                         </>
                                                     )}
                                                 </button>

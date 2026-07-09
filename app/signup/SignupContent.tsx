@@ -10,6 +10,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
 import { UserPlus, Mail, Loader2, AlertCircle, CheckCircle, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { findStartingCourseIdForPath } from '@/lib/learning/starting-course';
 
 function getPostSignupPath(
   next: string | null,
@@ -102,42 +103,20 @@ export default function SignupContent({ next, path, goal, mission, answer }: Sig
             if (missionError) console.error('Failed to preserve intro mission:', missionError);
           }
 
-          // Auto-enroll in the first course of the chosen path.
-          let categorySearch = '';
-          if (path === 'civic') categorySearch = 'Civic Participation';
-          if (path === 'green') categorySearch = 'Green Economy Fundamentals';
-          if (path === 'digital') categorySearch = 'Digital Skills';
-          if (path === 'entrepreneurship') categorySearch = 'Digital Entrepreneurship';
+          // Auto-enroll in the first published course for the chosen path.
+          const startingCourseId = await findStartingCourseIdForPath(supabase, path);
 
-          if (categorySearch) {
-            const { data: categoryData } = await supabase
-              .from('module_categories')
-              .select('id')
-              .eq('name', categorySearch)
-              .single();
-
-            if (categoryData) {
-              const { data: courseData } = await supabase
-                .from('courses')
-                .select('id')
-                // Deterministic: always the earliest course in the category.
-                .order('created_at', { ascending: true })
-                .limit(1)
-                .single();
-
-              if (courseData) {
-                await supabase
-                  .from('course_enrollments')
-                  .insert({
-                    user_id: user_id,
-                    course_id: courseData.id,
-                    status: 'active',
-                    progress_percentage: 0,
-                    enrolled_at: new Date().toISOString(),
-                    last_accessed_at: new Date().toISOString()
-                  });
-              }
-            }
+          if (startingCourseId) {
+            await supabase
+              .from('course_enrollments')
+              .upsert({
+                user_id,
+                course_id: startingCourseId,
+                status: 'active',
+                progress_percentage: 0,
+                enrolled_at: new Date().toISOString(),
+                last_accessed_at: new Date().toISOString()
+              }, { onConflict: 'user_id,course_id', ignoreDuplicates: true });
           }
         } catch (dbErr) {
           console.error('Failed to apply onboarding rewards:', dbErr);

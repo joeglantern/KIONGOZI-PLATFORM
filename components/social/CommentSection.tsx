@@ -30,7 +30,9 @@ export default function CommentSection({ postId, currentUser }: CommentSectionPr
                 .select(`
           *,
           profiles:user_id (
-            username
+            username,
+            full_name,
+            avatar_url
           )
         `)
                 .eq('post_id', postId)
@@ -96,7 +98,9 @@ export default function CommentSection({ postId, currentUser }: CommentSectionPr
                 .select(`
                   *,
                   profiles:user_id (
-                    username
+                    username,
+                    full_name,
+                    avatar_url
                   )
                 `)
                 .single();

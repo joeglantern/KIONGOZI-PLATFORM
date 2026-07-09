@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { createClient } from '@/app/utils/supabase/client';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { getProfileDisplayName, getProfileInitials } from '@/lib/social/profile-display';
 
 interface PostProps {
     post: any;
@@ -22,6 +23,8 @@ export default function PostCard({ post, currentUserId }: PostProps) {
     const [isLiked, setIsLiked] = useState(post.is_liked_by_user ?? false);
     const [isLiking, setIsLiking] = useState(false);
     const { toast } = useToast();
+    const authorName = getProfileDisplayName(post.profiles, post.anonymous_name || 'Anonymous');
+    const authorInitials = getProfileInitials(post.profiles, post.anonymous_name || 'AN');
 
     const handleLike = async (e: React.MouseEvent) => {
         e.preventDefault(); // Prevent link click if wrapped
@@ -83,7 +86,7 @@ export default function PostCard({ post, currentUserId }: PostProps) {
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: `Post by @${post.profiles?.username || 'anonymous'} on Kiongozi`,
+                    title: `Post by ${authorName} on Kiongozi`,
                     text: post.content.slice(0, 100) + '...',
                     url: url,
                 });
@@ -109,16 +112,16 @@ export default function PostCard({ post, currentUserId }: PostProps) {
                 <div className="flex items-center gap-3">
                     <Link href={`/community/profile/${post.user_id || 'anonymous'}`}>
                         <Avatar className="h-10 w-10 ring-2 ring-background border border-civic-earth/20 transition-transform group-hover:scale-105">
-                            <AvatarImage src={post.profiles?.avatar_url || ''} alt={post.profiles?.username || 'Anonymous'} />
+                            <AvatarImage src={post.profiles?.avatar_url || ''} alt={authorName} />
                             <AvatarFallback className="bg-civic-green text-white font-bold">
-                                {(post.profiles?.username || post.anonymous_name || 'AN').slice(0, 2).toUpperCase()}
+                                {authorInitials}
                             </AvatarFallback>
                         </Avatar>
                     </Link>
                     <div className="grid gap-0.5">
                         <div className="flex items-center gap-2">
                             <Link href={`/community/profile/${post.user_id || 'anonymous'}`} className="font-semibold text-sm hover:text-civic-green transition-colors">
-                                @{post.profiles?.username || post.anonymous_name || 'anonymous'}
+                                {authorName}
                             </Link>
                             <span className="text-xs text-muted-foreground">
                                 • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}

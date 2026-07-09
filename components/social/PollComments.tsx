@@ -11,6 +11,7 @@ import {
     Trash2 
 } from 'lucide-react';
 import Link from 'next/link';
+import { getProfileDisplayName } from '@/lib/social/profile-display';
 
 interface PollCommentsProps {
     pollId: string;
@@ -48,7 +49,7 @@ export default function PollComments({ pollId, questionId = undefined, currentUs
                 .from('poll_comments')
                 .select(`
                     *,
-                    profiles(username, avatar_url)
+                    profiles(username, full_name, avatar_url)
                 `)
                 .eq('poll_id', pollId);
 
@@ -177,7 +178,7 @@ export default function PollComments({ pollId, questionId = undefined, currentUs
                 })
                 .select(`
                     *,
-                    profiles(username, avatar_url)
+                    profiles(username, full_name, avatar_url)
                 `)
                 .single();
 
@@ -269,7 +270,7 @@ export default function PollComments({ pollId, questionId = undefined, currentUs
             // Fetch matching profiles
             const { data } = await supabase
                 .from('profiles')
-                .select('username')
+                .select('username, full_name')
                 .ilike('username', `${query}%`)
                 .limit(5);
 
@@ -341,7 +342,7 @@ export default function PollComments({ pollId, questionId = undefined, currentUs
                                         onClick={() => insertMention(p.username)}
                                         className="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-muted"
                                     >
-                                        @{p.username}
+                                        {p.full_name || `@${p.username}`}
                                     </button>
                                 ))}
                             </div>
@@ -394,7 +395,7 @@ export default function PollComments({ pollId, questionId = undefined, currentUs
                                     {/* Main content */}
                                     <div className="flex-1 min-w-0 space-y-1">
                                         <div className="flex items-center justify-between gap-2">
-                                            <span className="text-xs font-bold text-foreground">@{comment.profiles?.username ?? 'youth_voice'}</span>
+                                            <span className="text-xs font-bold text-foreground">{getProfileDisplayName(comment.profiles, 'Youth voice')}</span>
                                             <span className="text-[10px] text-muted-foreground">{new Date(comment.created_at).toLocaleDateString('en-KE')}</span>
                                         </div>
 
@@ -456,7 +457,7 @@ export default function PollComments({ pollId, questionId = undefined, currentUs
 
                                                     <div className="flex-1 min-w-0 space-y-1">
                                                         <div className="flex items-center justify-between gap-2">
-                                                            <span className="text-xs font-bold text-foreground">@{reply.profiles?.username ?? 'reply_voice'}</span>
+                                                            <span className="text-xs font-bold text-foreground">{getProfileDisplayName(reply.profiles, 'Reply voice')}</span>
                                                             <span className="text-[10px] text-muted-foreground">{new Date(reply.created_at).toLocaleDateString('en-KE')}</span>
                                                         </div>
                                                         <p className="text-xs md:text-sm text-foreground/85 leading-normal">
@@ -513,7 +514,7 @@ export default function PollComments({ pollId, questionId = undefined, currentUs
                                                             onClick={() => insertMention(p.username)}
                                                             className="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-muted"
                                                         >
-                                                            @{p.username}
+                                                            {p.full_name || `@${p.username}`}
                                                         </button>
                                                     ))}
                                                 </div>

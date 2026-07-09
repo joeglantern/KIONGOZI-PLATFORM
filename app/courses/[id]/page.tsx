@@ -449,7 +449,7 @@ export default function CourseDetailPage() {
                                                 />
                                             </div>
                                             <p className="text-xs text-gray-600 mt-1">
-                                                {completedModules} of {totalModules} modules completed
+                                                {completedModules} of {totalModules} learning items completed
                                             </p>
                                         </div>
                                         <Button

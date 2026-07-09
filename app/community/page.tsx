@@ -48,7 +48,7 @@ async function Feed() {
 
     const [profilesResult, likesResult] = await Promise.all([
         userIds.length > 0
-            ? supabaseAdmin.from('profiles').select('id, username, avatar_url').in('id', userIds as string[])
+            ? supabaseAdmin.from('profiles').select('id, username, full_name, first_name, last_name, avatar_url').in('id', userIds as string[])
             : Promise.resolve({ data: [] }),
         user
             ? supabase.from('social_likes').select('post_id').eq('user_id', user.id).in('post_id', postIds)

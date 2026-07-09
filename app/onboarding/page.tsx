@@ -30,6 +30,7 @@ import { useUser } from "@/app/contexts/UserContext";
 import { createClient } from "@/app/utils/supabase/client";
 import { Mwanzo } from "@/components/landing/Characters";
 import { KENYA_COUNTIES } from "@/lib/kenya-counties";
+import { findStartingCourseIdForPath } from "@/lib/learning/starting-course";
 
 type Goal = "career" | "community" | "project" | "credential" | "explore";
 type PathSlug = "civic" | "green" | "digital" | "entrepreneurship";
@@ -146,23 +147,17 @@ function OnboardingContent() {
     }
 
     // Keep enrollment aligned with the final path choice. Existing enrollment is preserved.
-    const selectedPath = paths.find((path) => path.slug === focusPath);
-    if (selectedPath?.category_name) {
-      const { data: category } = await supabase.from("module_categories").select("id").eq("name", selectedPath.category_name).maybeSingle();
-      if (category) {
-        const { data: course } = await supabase.from("courses").select("id").eq("category_id", category.id).limit(1).maybeSingle();
-        if (course) {
-          const { error: enrollmentError } = await supabase.from("course_enrollments").upsert({
-            user_id: user.id,
-            course_id: course.id,
-            status: "active",
-            progress_percentage: 0,
-            enrolled_at: new Date().toISOString(),
-            last_accessed_at: new Date().toISOString(),
-          }, { onConflict: "user_id,course_id", ignoreDuplicates: true });
-          if (enrollmentError) console.error("Path enrollment failed:", enrollmentError);
-        }
-      }
+    const startingCourseId = await findStartingCourseIdForPath(supabase, focusPath);
+    if (startingCourseId) {
+      const { error: enrollmentError } = await supabase.from("course_enrollments").upsert({
+        user_id: user.id,
+        course_id: startingCourseId,
+        status: "active",
+        progress_percentage: 0,
+        enrolled_at: new Date().toISOString(),
+        last_accessed_at: new Date().toISOString(),
+      }, { onConflict: "user_id,course_id", ignoreDuplicates: true });
+      if (enrollmentError) console.error("Path enrollment failed:", enrollmentError);
     }
     await refreshProfile();
     router.replace("/dashboard?welcome=1");

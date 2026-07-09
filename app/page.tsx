@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { useUser } from "@/app/contexts/UserContext";
 import { createClient } from "@/app/utils/supabase/client";
-import { Mwanzo, Zola, Ken, Tumi } from "@/components/landing/Characters";
+import { Mwanzo, Zola, Ken } from "@/components/landing/Characters";
 import { PENDING_MISSION_KEY } from "@/components/landing/PendingMissionClaim";
 import AnimatedIcon from "@/components/landing/AnimatedIcon";
 import activity from "react-useanimations/lib/activity";
@@ -130,7 +130,7 @@ const learningPaths = [
     icon: Vote,
     bgColor: "bg-[#fff0e6]",
     accentColor: "#FF6633",
-    guide: <Tumi action="cheer" className="h-20 w-20" />,
+    guide: <Ken action="thinking" className="h-full w-full" />,
   },
   {
     key: "green",
@@ -139,7 +139,7 @@ const learningPaths = [
     icon: Leaf,
     bgColor: "bg-[#e8f8ef]",
     accentColor: "#10b981",
-    guide: <Zola action="excited" className="h-20 w-20" />,
+    guide: <Zola action="excited" className="h-full w-full" />,
   },
   {
     key: "digital",
@@ -148,7 +148,7 @@ const learningPaths = [
     icon: Zap,
     bgColor: "bg-[#e6f3fa]",
     accentColor: "#0ea5e9",
-    guide: <Ken action="adjust" className="h-20 w-20" />,
+    guide: <LottieScene src="/lottie/walkthrough.json" className="h-full w-full" ariaLabel="Digital skills walkthrough" />,
   },
   {
     key: "entrepreneurship",
@@ -157,7 +157,7 @@ const learningPaths = [
     icon: Lightbulb,
     bgColor: "bg-[#fef9e7]",
     accentColor: "#f59e0b",
-    guide: <Mwanzo expression="excited" className="h-20 w-20" />,
+    guide: <LottieScene src="/lottie/juggling-master.lottie" className="h-full w-full" ariaLabel="Entrepreneurship momentum" />,
   },
 ];
 
@@ -167,7 +167,7 @@ const testimonials = [
     name: "The Budget Auditor",
     role: "What you'll be able to do",
     quote: "Audit a real county budget, spot where the money stopped, and ask your leaders precise, evidence-backed questions.",
-    avatar: <Mwanzo expression="happy" className="h-full w-full" />,
+    avatar: <Ken action="thinking" className="h-full w-full" />,
     tilt: "-rotate-[1.5deg]",
   },
   {
@@ -183,7 +183,7 @@ const testimonials = [
     name: "The Civic Tech Builder",
     role: "What you'll be able to do",
     quote: "Map a local problem, build civic tech for your community, and turn working code into real accountability.",
-    avatar: <Ken action="excited" className="h-full w-full" />,
+    avatar: <LottieScene src="/lottie/walkthrough.json" className="h-full w-full" ariaLabel="Civic tech builder" />,
     tilt: "-rotate-[0.5deg]",
   },
 ];
@@ -716,29 +716,35 @@ export default function LandingPage() {
                   whileHover={{ y: -7, rotate: active ? -0.4 : -0.8 }}
                   whileTap={{ y: -1, scale: 0.985 }}
                   transition={springPop}
-                  className={`group relative overflow-visible rounded-[2.5rem] border-[3px] border-brand-primary p-6 text-left transition-colors duration-200 flex flex-col justify-between min-h-[360px] landing-card-shine ${active ? path.bgColor : "bg-white hover:bg-slate-50"}`}
+                  className={`group relative overflow-hidden rounded-[2.5rem] border-[3px] border-brand-primary p-6 text-left transition-colors duration-200 flex flex-col justify-between min-h-[360px] landing-card-shine ${active ? path.bgColor : "bg-white hover:bg-slate-50"}`}
                   style={{ boxShadow: active ? `7px 7px 0 ${path.accentColor}` : "4px 4px 0 #1b2432" }}
                 >
-                  {/* Character peeking from top */}
-                  <div className={`absolute -top-8 right-4 h-16 w-16 transition-all duration-300 ${active ? "scale-110 -top-10" : "scale-90 opacity-70 group-hover:scale-100 group-hover:opacity-100 group-hover:-top-9"}`}>
-                    {path.guide}
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between">
+                  <div className="relative z-10">
+                    <div className="flex items-start justify-between gap-5">
                       <div className="rounded-xl border-2 border-brand-primary p-2.5 bg-white shadow-[2px_2px_0_#1b2432]">
                         <Icon className="h-6 w-6 text-brand-primary" />
                       </div>
-                      <span className="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full border-2 border-brand-primary bg-white shadow-[1.5px_1.5px_0_#1b2432]">
+                      <span className="max-w-[8.5rem] break-words text-right text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full border-2 border-brand-primary bg-white shadow-[1.5px_1.5px_0_#1b2432]">
                         {path.title.split(" ")[0]}
                       </span>
+                    </div>
+
+                    <div className="mt-5 flex h-28 items-center justify-center overflow-hidden rounded-[1.75rem] bg-white/55">
+                      <div
+                        className={`pointer-events-none h-24 w-24 transition-all duration-300 ${
+                          active ? "scale-100 opacity-100" : "scale-95 opacity-75 group-hover:scale-100 group-hover:opacity-100"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {path.guide}
+                      </div>
                     </div>
 
                     <h3 className="mt-5 text-xl font-black text-brand-primary leading-tight">{path.title}</h3>
                     <p className="mt-3 text-xs font-semibold leading-relaxed text-brand-primary/70">{path.outcome}</p>
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between border-t-2 border-brand-primary/5 pt-4">
+                  <div className="relative z-10 mt-5 flex items-center justify-between border-t-2 border-brand-primary/5 pt-4">
                     <div className="text-xs font-black flex items-center gap-1 text-brand-primary">
                       <span>{active ? "Selected" : "Choose"}</span>
                       <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -911,11 +917,11 @@ export default function LandingPage() {
 
                 <div className="mt-6 space-y-4">
                   {[
-                    { rank: 1, county: "Kisumu County", xp: "14,200 XP", streak: "248 active youth", avatar: <Zola action="excited" className="h-full w-full" /> },
-                    { rank: 2, county: "Nairobi County", xp: "12,850 XP", streak: "192 active youth", avatar: <Ken action="adjust" className="h-full w-full" /> },
-                    { rank: 3, county: "Mombasa County", xp: "11,400 XP", streak: "154 active youth", avatar: <Tumi action="cheer" className="h-full w-full" /> },
-                    { rank: 4, county: "Uasin Gishu County", xp: "9,900 XP", streak: "98 active youth", avatar: <Mwanzo expression="excited" className="h-full w-full" /> },
-                    { rank: 5, county: "Kiambu County", xp: "8,500 XP", streak: "84 active youth", avatar: <Zola action="cheer" className="h-full w-full" /> },
+                    { rank: 1, county: "Kisumu County", xp: "14,200 XP", streak: "248 active youth", avatar: <LottieScene src="/lottie/dino-dance.lottie" className="h-full w-full" ariaLabel="Top county celebration" /> },
+                    { rank: 2, county: "Nairobi County", xp: "12,850 XP", streak: "192 active youth", avatar: <LottieScene src="/lottie/success.json" className="h-full w-full" ariaLabel="Leaderboard success" /> },
+                    { rank: 3, county: "Mombasa County", xp: "11,400 XP", streak: "154 active youth", avatar: <LottieScene src="/lottie/juggling-master.lottie" className="h-full w-full" ariaLabel="Active county momentum" /> },
+                    { rank: 4, county: "Uasin Gishu County", xp: "9,900 XP", streak: "98 active youth", avatar: <LottieScene src="/lottie/road-to-knowledge.lottie" className="h-full w-full" ariaLabel="Learning progress" /> },
+                    { rank: 5, county: "Kiambu County", xp: "8,500 XP", streak: "84 active youth", avatar: <LottieScene src="/lottie/ripple.json" className="h-full w-full" ariaLabel="Community impact ripple" /> },
                   ].map((c) => (
                     <motion.div key={c.rank} whileHover={{ x: 4 }} className="flex items-center gap-4 bg-[#fbfaf6] border-2 border-brand-primary p-3 rounded-2xl shadow-[3px_3px_0_#1b2432] transition-colors hover:bg-white">
                       <span className={`text-sm font-black w-6 text-center ${c.rank === 1 ? "text-brand-orange text-lg" : c.rank === 2 ? "text-sky-700" : "text-brand-primary/70"}`}>#{c.rank}</span>
@@ -943,10 +949,10 @@ export default function LandingPage() {
                 </h3>
                 <div className="mt-6 space-y-4">
                   {[
-                    { user: "Elisha (Kisumu)", detail: "claimed 'Budget Auditor' badge (+200 XP)", time: "2 mins ago", avatar: <Mwanzo expression="happy" className="h-full w-full" /> },
-                    { user: "Faith (Nairobi)", detail: "started a 5-day study streak", time: "12 mins ago", avatar: <Zola action="cheer" className="h-full w-full" /> },
-                    { user: "Otieno (Mombasa)", detail: "completed county waste map mission", time: "24 mins ago", avatar: <Ken action="adjust" className="h-full w-full" /> },
-                    { user: "Wambui (Nakuru)", detail: "joined Civic Leadership path", time: "1 hour ago", avatar: <Tumi action="cheer" className="h-full w-full" /> },
+                    { user: "Elisha (Kisumu)", detail: "claimed 'Budget Auditor' badge (+200 XP)", time: "2 mins ago", avatar: <LottieScene src="/lottie/success.json" className="h-full w-full" ariaLabel="Badge claimed" /> },
+                    { user: "Faith (Nairobi)", detail: "started a 5-day study streak", time: "12 mins ago", avatar: <LottieScene src="/lottie/lights.json" className="h-full w-full" ariaLabel="Study streak" /> },
+                    { user: "Otieno (Mombasa)", detail: "completed county waste map mission", time: "24 mins ago", avatar: <Zola action="cheer" className="h-full w-full" /> },
+                    { user: "Wambui (Nakuru)", detail: "joined Civic Leadership path", time: "1 hour ago", avatar: <Mwanzo expression="wave" className="h-full w-full" /> },
                   ].map((feed, idx) => (
                     <motion.div key={idx} whileHover={{ x: 4 }} className="flex gap-3 text-sm border-b border-brand-primary/5 pb-3 last:border-0 last:pb-0">
                       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl border-2 border-brand-primary bg-orange-100 p-0.5">{feed.avatar}</div>
@@ -1077,7 +1083,7 @@ export default function LandingPage() {
 
           <div className="relative z-10 mx-auto max-w-3xl flex flex-col items-center">
             <div className="rounded-[1.5rem] border-[3px] border-brand-primary bg-orange-100 p-3 shrink-0 mb-8 w-24 h-24 flex items-center justify-center shadow-[4px_4px_0_#1b2432]">
-              <Zola action="excited" className="h-20 w-20" />
+              <Mwanzo expression="wave" className="h-20 w-20" />
             </div>
 
             <h2 className="font-display text-4xl font-black text-brand-primary sm:text-5xl leading-none">

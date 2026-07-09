@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { formatDistanceToNow, isPast, format } from 'date-fns';
 import { notFound } from 'next/navigation';
 import PetitionCard from '@/components/social/PetitionCard'; // Reuse logic if possible, but detail view is custom
+import { getProfileDisplayName, getProfileInitials } from '@/lib/social/profile-display';
 
 // We'll create a client component for the interactive parts of the detail view
 // to keep the page server-side rendered for SEO
@@ -22,7 +23,10 @@ export default async function PetitionDetailPage({ params }: { params: Promise<{
         .select(`
             *,
             profiles:created_by (
-                username
+                username,
+                full_name,
+                first_name,
+                last_name
             )
         `)
         .eq('id', id)
@@ -53,6 +57,8 @@ export default async function PetitionDetailPage({ params }: { params: Promise<{
     if ((userSigResult as any).data) hasSigned = true;
 
     const progress = Math.min((petition.current_signatures / (petition.target_signatures || 100)) * 100, 100);
+    const creatorName = getProfileDisplayName(petition.profiles, 'Anonymous');
+    const creatorInitials = getProfileInitials(petition.profiles, 'AN');
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
@@ -82,9 +88,9 @@ export default async function PetitionDetailPage({ params }: { params: Promise<{
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6 pb-6 border-b border-border">
                             <div className="flex items-center gap-2">
                                 <div className="h-8 w-8 rounded-full bg-civic-green/10 flex items-center justify-center text-civic-green-dark font-bold uppercase tracking-widest text-xs">
-                                    {(petition.profiles?.username || 'AN').slice(0, 2).toUpperCase()}
+                                    {creatorInitials}
                                 </div>
-                                <span>Started by <span className="font-medium text-foreground">@{petition.profiles?.username || 'anonymous'}</span></span>
+                                <span>Started by <span className="font-medium text-foreground">{creatorName}</span></span>
                             </div>
                             <span>•</span>
                             <span>{formatDistanceToNow(new Date(petition.created_at), { addSuffix: true })}</span>

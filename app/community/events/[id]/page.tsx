@@ -10,6 +10,7 @@ import EventActions from './EventActions';
 import RecordingManager from '../create/RecordingManager';
 import ShareEventButton from './ShareEventButton';
 import { INTERNAL_LIVE_STAGE, isSafeUrl } from '@/lib/events';
+import { getProfileDisplayName } from '@/lib/social/profile-display';
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
@@ -28,8 +29,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
     // Fetch profile separately to avoid RLS join failures
     const { data: creatorProfile } = event.created_by
-        ? await supabase.from('profiles').select('username').eq('id', event.created_by).maybeSingle()
+        ? await supabase.from('profiles').select('username, full_name, first_name, last_name').eq('id', event.created_by).maybeSingle()
         : { data: null };
+    const creatorName = getProfileDisplayName(creatorProfile, 'Anonymous');
 
     // Check RSVP status
     let rsvpStatus: 'going' | 'interested' | null = null;
@@ -99,7 +101,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                             />
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-                            <span>Organized by <span className="font-medium text-foreground">@{creatorProfile?.username || 'anonymous'}</span></span>
+                            <span>Organized by <span className="font-medium text-foreground">{creatorName}</span></span>
                         </div>
 
                         <div className="space-y-4 border-t border-b border-border py-6 mb-6">

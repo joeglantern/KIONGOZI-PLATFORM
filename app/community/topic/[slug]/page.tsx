@@ -56,7 +56,7 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
         if (userIds.length > 0) {
             const { data } = await supabaseAdmin
                 .from('profiles')
-                .select('id, username, avatar_url')
+                .select('id, username, full_name, first_name, last_name, avatar_url')
                 .in('id', userIds as string[]);
             profiles = data;
         }
