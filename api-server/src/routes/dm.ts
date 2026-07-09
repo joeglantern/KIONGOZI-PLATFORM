@@ -343,16 +343,20 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
           .eq('conversation_id', conversationId)
           .neq('user_id', userId);
 
-        console.log('[DM Bot] participants:', JSON.stringify(convParticipants), 'error:', cpError?.message);
+        console.log('[DM Bot] BOT_USER_ID env:', BOT_USER_ID);
+        console.log('[DM Bot] participants raw:', JSON.stringify(convParticipants), 'error:', cpError?.message);
 
         const botParticipant = (convParticipants || []).find(
-          (p: any) => p.profiles?.is_bot === true || p.profiles?.username === 'kiongozi'
+          (p: any) =>
+            p.profiles?.is_bot === true ||
+            p.profiles?.username === 'kiongozi' ||
+            p.user_id === BOT_USER_ID   // fallback: match by configured UUID
         );
         if (!botParticipant) {
-          console.log('[DM Bot] no bot participant found, skipping');
+          console.log('[DM Bot] no bot participant found — other user IDs:', (convParticipants || []).map((p: any) => p.user_id));
           return;
         }
-        console.log('[DM Bot] found bot participant:', botParticipant.user_id);
+        console.log('[DM Bot] found bot, user_id:', botParticipant.user_id);
 
         const botUserId: string = botParticipant.user_id;
 
