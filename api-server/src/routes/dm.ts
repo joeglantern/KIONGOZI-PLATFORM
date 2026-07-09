@@ -333,17 +333,22 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
       });
     }
 
-    // Bot auto-reply: if the other participant is @kiongozi, generate an AI response
+    // Bot auto-reply: if the other participant is the Kiongozi bot, generate an AI response
     setImmediate(async () => {
       try {
+        // Use profile's is_bot flag — more reliable than matching a hardcoded UUID
         const { data: convParticipants } = await supabaseServiceClient
           .from('dm_participants')
-          .select('user_id')
+          .select('user_id, profiles:user_id (is_bot, username)')
           .eq('conversation_id', conversationId)
           .neq('user_id', userId);
 
-        const isBot = convParticipants?.some((p: any) => p.user_id === BOT_USER_ID);
-        if (!isBot) return;
+        const botParticipant = (convParticipants || []).find(
+          (p: any) => p.profiles?.is_bot === true || p.profiles?.username === 'kiongozi'
+        );
+        if (!botParticipant) return;
+
+        const botUserId: string = botParticipant.user_id;
 
         // Build conversation history (last 10 messages)
         const { data: history } = await supabaseServiceClient
@@ -357,7 +362,7 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
           .reverse()
           .filter((m: any) => m.content)
           .map((m: any) => ({
-            role: m.sender_id === BOT_USER_ID ? 'assistant' as const : 'user' as const,
+            role: m.sender_id === botUserId ? 'assistant' as const : 'user' as const,
             content: m.content as string,
           }));
 
@@ -368,7 +373,7 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
           .from('dm_messages')
           .insert({
             conversation_id: conversationId,
-            sender_id: BOT_USER_ID,
+            sender_id: botUserId,
             content: reply,
           })
           .select(`*, sender:sender_id (id, full_name, username, avatar_url, is_bot)`)
@@ -380,10 +385,10 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
           .eq('id', conversationId);
 
         // Emit bot reply via Socket.IO so the DM screen picks it up in realtime
-        const io = (req as any).io;
-        if (io && botMsg) {
-          io.to(`dm:${conversationId}`).emit('dm:message_new', { conversationId, message: botMsg });
-          io.to(`user:${userId}`).emit('dm:message_new', { conversationId, message: botMsg });
+        const ioInstance = (req as any).io;
+        if (ioInstance && botMsg) {
+          ioInstance.to(`dm:${conversationId}`).emit('dm:message_new', { conversationId, message: botMsg });
+          ioInstance.to(`user:${userId}`).emit('dm:message_new', { conversationId, message: botMsg });
         }
       } catch (e) {
         console.error('DM bot reply error:', e);

@@ -202,7 +202,11 @@ export default function DMConversationScreen() {
       const res = await apiClient.sendDM(conversationId, content, uploadedUrl, uploadedUrl ? 'image' : undefined);
       if (res.success && res.data) {
         replaceMessage(conversationId, tempId, res.data);
-        if (isBot) setBotTyping(true); // show typing indicator while waiting for bot reply
+        if (isBot) {
+          setBotTyping(true);
+          // Safety: clear typing indicator after 30s if bot reply never arrives
+          setTimeout(() => setBotTyping(false), 30000);
+        }
       } else {
         removeMessage(conversationId, tempId);
         setText(content);
