@@ -43,70 +43,58 @@ export function useSupabaseDeepLink(options?: UseSupabaseDeepLinkOptions) {
     try {
       const { hostname, path, queryParams } = Linking.parse(url)
 
-      console.log('Deep link received:', { hostname, path, url })
-
-      // kiongozi://auth/callback → hostname='auth', path='/callback'
-      // Also handle kiongozi://auth-callback for backwards compatibility
-      const isAuthCallback =
-        (hostname === 'auth' && path === '/callback') ||
-        hostname === 'auth-callback'
-
-      if (isAuthCallback) {
-        // Tokens can come from query params or hash fragments
-        // Supabase may send them as ?access_token=...&refresh_token=...
-        // or as #access_token=...&refresh_token=...
+      // Extract tokens from query params or hash fragment (Supabase uses both)
+      function extractTokens() {
         let access_token = (queryParams as Record<string, string>)?.access_token
         let refresh_token = (queryParams as Record<string, string>)?.refresh_token
-
-        // Also check for hash fragment tokens (Supabase implicit flow)
         if (!access_token && url.includes('#')) {
           const hashParams = new URLSearchParams(url.split('#')[1])
           access_token = hashParams.get('access_token') || ''
           refresh_token = hashParams.get('refresh_token') || ''
         }
+        return { access_token, refresh_token }
+      }
+
+      // kiongozi://auth/callback — email verification / OAuth
+      const isAuthCallback =
+        (hostname === 'auth' && path === '/callback') ||
+        hostname === 'auth-callback'
+
+      // kiongozi://reset-password — password recovery email link
+      const isPasswordReset = hostname === 'reset-password'
+
+      if (isAuthCallback) {
+        const { access_token, refresh_token } = extractTokens()
 
         if (access_token && refresh_token) {
-          console.log('Setting Supabase session from deep link...')
-
-          const { data, error } = await supabase.auth.setSession({
-            access_token,
-            refresh_token
-          })
-
+          const { data, error } = await supabase.auth.setSession({ access_token, refresh_token })
           if (error) {
-            console.error('Failed to set session:', error)
-            Alert.alert(
-              'Authentication Error',
-              'Failed to complete sign in. Please try again.',
-              [{ text: 'OK' }]
-            )
+            Alert.alert('Authentication Error', 'Failed to complete sign in. Please try again.')
             return
           }
-
-          console.log('Session set successfully:', data.user?.email)
-
           if (options?.onAuthSuccess) {
             options.onAuthSuccess()
-          } else {
-            Alert.alert(
-              'Success!',
-              'You have been signed in successfully.',
-              [{ text: 'OK' }]
-            )
           }
         } else {
-          // No tokens — might be an email verification confirmation
-          // Try refreshing the session to pick up the verified status
-          console.log('No tokens in deep link, attempting session refresh...')
+          // No tokens — email verification confirmation, try refreshing
           const { data, error } = await supabase.auth.refreshSession()
-          if (!error && data.session) {
-            console.log('Session refreshed after email verification')
-            if (options?.onAuthSuccess) {
-              options.onAuthSuccess()
-            }
-          } else {
-            console.warn('No tokens found and session refresh failed')
+          if (!error && data.session && options?.onAuthSuccess) {
+            options.onAuthSuccess()
           }
+        }
+      }
+
+      if (isPasswordReset) {
+        const { access_token, refresh_token } = extractTokens()
+        if (access_token && refresh_token) {
+          // Setting the session with a recovery token fires PASSWORD_RECOVERY via onAuthStateChange
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token })
+          if (error) {
+            Alert.alert('Link Expired', 'This password reset link has expired. Please request a new one.')
+          }
+          // App.tsx PASSWORD_RECOVERY listener will show ResetPasswordScreen automatically
+        } else {
+          Alert.alert('Invalid Link', 'This password reset link is invalid. Please request a new one.')
         }
       }
     } catch (error) {
