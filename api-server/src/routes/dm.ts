@@ -337,16 +337,22 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
     setImmediate(async () => {
       try {
         // Use profile's is_bot flag — more reliable than matching a hardcoded UUID
-        const { data: convParticipants } = await supabaseServiceClient
+        const { data: convParticipants, error: cpError } = await supabaseServiceClient
           .from('dm_participants')
           .select('user_id, profiles:user_id (is_bot, username)')
           .eq('conversation_id', conversationId)
           .neq('user_id', userId);
 
+        console.log('[DM Bot] participants:', JSON.stringify(convParticipants), 'error:', cpError?.message);
+
         const botParticipant = (convParticipants || []).find(
           (p: any) => p.profiles?.is_bot === true || p.profiles?.username === 'kiongozi'
         );
-        if (!botParticipant) return;
+        if (!botParticipant) {
+          console.log('[DM Bot] no bot participant found, skipping');
+          return;
+        }
+        console.log('[DM Bot] found bot participant:', botParticipant.user_id);
 
         const botUserId: string = botParticipant.user_id;
 
