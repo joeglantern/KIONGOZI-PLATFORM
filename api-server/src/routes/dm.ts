@@ -397,6 +397,39 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
   }
 });
 
+// DELETE /api/v1/dm/conversations/:id — Leave conversation (removes user from participants)
+router.delete('/conversations/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { id: conversationId } = req.params;
+
+    // Verify the user is actually a participant
+    const { data: participation } = await supabaseServiceClient
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .single();
+
+    if (!participation) {
+      res.status(403).json({ success: false, error: 'Not a participant in this conversation' });
+      return;
+    }
+
+    // Remove user from participants — conversation stays for the other person
+    await supabaseServiceClient
+      .from('dm_participants')
+      .delete()
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete DM conversation error:', err);
+    res.status(500).json({ success: false, error: 'Failed to delete conversation' });
+  }
+});
+
 // PUT /api/v1/dm/conversations/:id/read — Mark as read
 router.put('/conversations/:id/read', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {

@@ -3,7 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../utils/apiClient';
 
 const ARCHIVED_KEY = 'dm_archived_ids';
-const DELETED_KEY  = 'dm_deleted_ids';
 
 export interface DMParticipant {
   id: string;
@@ -44,7 +43,6 @@ interface DMState {
   messagesLoading: Record<string, boolean>;
   messageCursors: Record<string, string | null>;
   archivedIds: string[];
-  deletedIds: string[];
   showArchived: boolean;
 
   fetchConversations: () => Promise<void>;
@@ -68,7 +66,6 @@ export const useDMStore = create<DMState>((set, get) => ({
   messagesLoading: {},
   messageCursors: {},
   archivedIds: [],
-  deletedIds: [],
   showArchived: false,
 
   fetchConversations: async () => {
@@ -170,11 +167,15 @@ export const useDMStore = create<DMState>((set, get) => ({
   },
 
   deleteConversation: async (id: string) => {
-    const next = [...new Set([...get().deletedIds, id])];
-    // Also remove from archived if present
+    // Remove from server — user leaves the conversation so a new one is created next time
+    try { await apiClient.deleteDMConversation(id); } catch {}
+    // Remove from local state immediately
     const nextArchived = get().archivedIds.filter(x => x !== id);
-    set({ deletedIds: next, archivedIds: nextArchived });
-    await AsyncStorage.setItem(DELETED_KEY, JSON.stringify(next));
+    set(s => ({
+      conversations: s.conversations.filter(c => c.id !== id),
+      messages: Object.fromEntries(Object.entries(s.messages).filter(([k]) => k !== id)),
+      archivedIds: nextArchived,
+    }));
     await AsyncStorage.setItem(ARCHIVED_KEY, JSON.stringify(nextArchived));
   },
 
@@ -182,14 +183,8 @@ export const useDMStore = create<DMState>((set, get) => ({
 
   loadPersistedDMState: async () => {
     try {
-      const [archived, deleted] = await Promise.all([
-        AsyncStorage.getItem(ARCHIVED_KEY),
-        AsyncStorage.getItem(DELETED_KEY),
-      ]);
-      set({
-        archivedIds: archived ? JSON.parse(archived) : [],
-        deletedIds: deleted ? JSON.parse(deleted) : [],
-      });
+      const archived = await AsyncStorage.getItem(ARCHIVED_KEY);
+      set({ archivedIds: archived ? JSON.parse(archived) : [] });
     } catch {}
   },
 
@@ -200,7 +195,6 @@ export const useDMStore = create<DMState>((set, get) => ({
     messagesLoading: {},
     messageCursors: {},
     archivedIds: [],
-    deletedIds: [],
     showArchived: false,
   })
 }));

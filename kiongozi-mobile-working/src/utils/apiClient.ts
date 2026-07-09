@@ -728,6 +728,11 @@ class ApiClient {
     return this.request(`/api/v1/dm/conversations/${conversationId}/read`, { method: 'PUT' });
   }
 
+  /** Delete (leave) a DM conversation */
+  async deleteDMConversation(conversationId: string) {
+    return this.request(`/api/v1/dm/conversations/${conversationId}`, { method: 'DELETE' });
+  }
+
   // ================================
   // NOTIFICATIONS METHODS
   // ================================

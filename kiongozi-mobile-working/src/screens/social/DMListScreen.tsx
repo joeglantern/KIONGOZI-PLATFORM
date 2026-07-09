@@ -35,7 +35,7 @@ export default function DMListScreen() {
   const navigation = useNavigation<any>();
   const {
     conversations, conversationsLoading, fetchConversations,
-    archivedIds, deletedIds, showArchived,
+    archivedIds, showArchived,
     archiveConversation, unarchiveConversation, deleteConversation, setShowArchived,
     loadPersistedDMState,
   } = useDMStore();
@@ -106,14 +106,14 @@ export default function DMListScreen() {
   // Filter conversations for main / archived views
   const visibleConversations = useMemo(() => {
     if (showArchived) {
-      return conversations.filter(c => archivedIds.includes(c.id) && !deletedIds.includes(c.id));
+      return conversations.filter(c => archivedIds.includes(c.id));
     }
-    return conversations.filter(c => !archivedIds.includes(c.id) && !deletedIds.includes(c.id));
-  }, [conversations, archivedIds, deletedIds, showArchived]);
+    return conversations.filter(c => !archivedIds.includes(c.id));
+  }, [conversations, archivedIds, showArchived]);
 
   const archivedCount = useMemo(
-    () => conversations.filter(c => archivedIds.includes(c.id) && !deletedIds.includes(c.id)).length,
-    [conversations, archivedIds, deletedIds]
+    () => conversations.filter(c => archivedIds.includes(c.id)).length,
+    [conversations, archivedIds]
   );
 
   const handleSelectUser = useCallback(async (person: UserRow) => {
