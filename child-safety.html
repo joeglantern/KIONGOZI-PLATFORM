@@ -3,240 +3,243 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Child Safety Standards — Kiongozi Chat</title>
-  <meta name="description" content="Kiongozi Chat's child safety and CSAE (Child Sexual Abuse and Exploitation) prevention standards and policies.">
+  <title>Child Safety Standards | Kiongozi Chat</title>
+  <meta name="description" content="Kiongozi Chat child safety and CSAE prevention standards.">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --navy:     #1a365d;
+      --navy-dk:  #102340;
       --green:    #5CB85C;
-      --green-lt: #f0faf4;
-      --bg:       #ffffff;
-      --surface:  #f8fafc;
+      --green-lt: #f0faf0;
+      --white:    #ffffff;
       --text-hi:  #0f172a;
-      --text-md:  #334155;
-      --text-lo:  #64748b;
-      --border:   #e2e8f0;
+      --text-md:  #374151;
+      --text-lo:  #6b7280;
+      --border:   #e5e7eb;
+      --surface:  #f9fafb;
     }
 
     body {
-      background: var(--bg);
+      background: var(--white);
       color: var(--text-md);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       font-size: 16px;
-      line-height: 1.7;
+      line-height: 1.75;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Header ── */
-    header {
+    /* Header */
+    .site-header {
       background: var(--navy);
-      border-bottom: 4px solid var(--green);
+      border-bottom: 3px solid var(--green);
     }
     .header-inner {
-      max-width: 780px;
+      max-width: 800px;
       margin: 0 auto;
-      padding: 18px 24px;
+      padding: 16px 24px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
     }
-    .logo-circle {
-      width: 38px;
-      height: 38px;
-      background: var(--green);
-      border-radius: 50%;
+    .logo-wrap {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 42px;
+      height: 42px;
       flex-shrink: 0;
     }
-    .header-text .app-name {
-      font-size: 17px;
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+    }
+    .logo-name {
+      font-size: 18px;
       font-weight: 700;
-      color: #fff;
-      letter-spacing: 0.01em;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
     }
-    .header-text .app-sub {
+    .logo-sub {
       font-size: 11px;
-      color: rgba(255,255,255,0.55);
-      letter-spacing: 0.07em;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      margin-top: 1px;
     }
-    .header-nav {
+    .header-link {
       margin-left: auto;
-    }
-    .header-nav a {
-      color: rgba(255,255,255,0.65);
+      color: rgba(255,255,255,0.6);
       font-size: 13px;
       text-decoration: none;
-      transition: color 0.15s;
     }
-    .header-nav a:hover { color: #fff; }
+    .header-link:hover { color: #fff; }
 
-    /* ── Page shell ── */
+    /* Page */
     .page {
-      max-width: 780px;
+      max-width: 800px;
       margin: 0 auto;
-      padding: 52px 24px 88px;
+      padding: 56px 24px 96px;
     }
 
-    /* ── Meta bar ── */
-    .meta-bar {
+    /* Doc stamp row */
+    .doc-stamp {
       display: flex;
       flex-wrap: wrap;
-      gap: 0;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 44px;
+      gap: 20px;
+      align-items: center;
+      padding: 14px 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 48px;
     }
-    .meta-cell {
-      flex: 1 1 140px;
-      padding: 14px 18px;
-      border-right: 1px solid var(--border);
-      background: var(--surface);
+    .stamp-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
-    .meta-cell:last-child { border-right: none; }
-    .meta-cell-label {
+    .stamp-label {
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text-lo);
-      margin-bottom: 4px;
     }
-    .meta-cell-value {
+    .stamp-value {
       font-size: 13px;
       font-weight: 600;
       color: var(--text-hi);
-      font-variant-numeric: tabular-nums;
     }
-
-    /* ── Title area ── */
-    .page-title {
-      font-size: clamp(26px, 5vw, 36px);
-      font-weight: 800;
-      color: var(--text-hi);
-      line-height: 1.2;
-      text-wrap: balance;
-      letter-spacing: -0.02em;
-      margin-bottom: 12px;
-    }
-    .page-title span {
-      color: var(--green);
-    }
-    .page-intro {
-      font-size: 16px;
-      color: var(--text-lo);
-      max-width: 58ch;
-      margin-bottom: 44px;
-    }
-
-    /* ── Sections ── */
-    .section {
-      margin-bottom: 48px;
-    }
-    .section-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .section-num {
-      width: 24px;
-      height: 24px;
-      background: var(--green);
-      border-radius: 50%;
-      font-size: 11px;
-      font-weight: 800;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .stamp-sep {
+      width: 1px;
+      height: 28px;
+      background: var(--border);
       flex-shrink: 0;
     }
-    .section-tag {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-lo);
-    }
-    h2 {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text-hi);
+
+    /* Title */
+    .page-title {
+      font-size: clamp(28px, 5vw, 38px);
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1.15;
+      letter-spacing: -0.025em;
       margin-bottom: 14px;
       text-wrap: balance;
     }
-    p { max-width: 66ch; }
-    p + p { margin-top: 12px; }
+    .page-title .accent { color: var(--green); }
+    .page-intro {
+      font-size: 17px;
+      color: var(--text-lo);
+      max-width: 56ch;
+      margin-bottom: 52px;
+      line-height: 1.6;
+    }
 
-    ul.policy-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-      margin-top: 14px;
-      max-width: 66ch;
+    /* Section */
+    .section {
+      margin-bottom: 52px;
     }
-    ul.policy-list li {
+    .section-header {
       display: flex;
-      gap: 11px;
-      align-items: flex-start;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
     }
-    ul.policy-list li::before {
-      content: '';
-      width: 6px;
-      height: 6px;
+    .section-dot {
+      width: 8px;
+      height: 8px;
       background: var(--green);
       border-radius: 50%;
       flex-shrink: 0;
-      margin-top: 9px;
+    }
+    h2 {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -0.01em;
+    }
+    p {
+      color: var(--text-md);
+      max-width: 64ch;
+    }
+    p + p { margin-top: 12px; }
+    strong { color: var(--text-hi); font-weight: 600; }
+
+    /* List */
+    .policy-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+      max-width: 64ch;
+    }
+    .policy-list li {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      color: var(--text-md);
+    }
+    .policy-list li::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 10px;
     }
 
-    /* ── Highlight box ── */
-    .highlight {
+    /* Callout */
+    .callout {
       background: var(--green-lt);
       border-left: 3px solid var(--green);
-      border-radius: 0 8px 8px 0;
       padding: 18px 20px;
+      border-radius: 0 6px 6px 0;
       margin-top: 20px;
-      max-width: 66ch;
+      max-width: 64ch;
     }
-    .highlight p {
+    .callout p {
       font-size: 15px;
       color: var(--text-md);
     }
-    .highlight strong { color: var(--text-hi); }
 
-    /* ── Rule ── */
-    hr {
+    /* Divider */
+    .rule {
       border: none;
       border-top: 1px solid var(--border);
-      margin: 0 0 48px;
+      margin: 52px 0;
     }
 
-    /* ── Contact card ── */
-    .contact-grid {
+    /* Contact */
+    .contact-table {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 1px;
-      background: var(--border);
+      grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
       border: 1px solid var(--border);
       border-radius: 8px;
       overflow: hidden;
-      margin-top: 18px;
+      margin-top: 20px;
     }
     .contact-cell {
-      background: var(--surface);
       padding: 16px 18px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       gap: 4px;
+    }
+    .contact-cell:nth-child(2n) { border-right: none; }
+    .contact-cell:nth-last-child(-n+2) { border-bottom: none; }
+    @media (min-width: 600px) {
+      .contact-table { grid-template-columns: repeat(4, 1fr); }
+      .contact-cell { border-right: 1px solid var(--border); border-bottom: none; }
+      .contact-cell:last-child { border-right: none; }
     }
     .contact-cell-label {
       font-size: 10px;
@@ -250,182 +253,184 @@
       font-weight: 600;
       color: var(--text-hi);
     }
-    .contact-cell-value a {
-      color: var(--navy);
-      text-decoration: none;
-    }
+    .contact-cell-value a { color: var(--navy); text-decoration: none; }
     .contact-cell-value a:hover { text-decoration: underline; }
 
-    /* ── Footer ── */
-    .page-footer {
+    /* Footer doc line */
+    .doc-footer {
       margin-top: 64px;
-      padding-top: 28px;
+      padding-top: 24px;
       border-top: 1px solid var(--border);
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: 8px;
       align-items: center;
       justify-content: space-between;
     }
-    .footer-brand {
+    .doc-footer-brand {
       font-size: 14px;
       font-weight: 700;
       color: var(--navy);
     }
-    .footer-meta {
+    .doc-footer-meta {
       font-size: 12px;
       color: var(--text-lo);
     }
 
-    footer.site-footer {
-      background: var(--navy);
+    /* Site footer */
+    footer {
+      background: var(--navy-dk);
       border-top: 3px solid var(--green);
-      text-align: center;
       padding: 20px 24px;
+      text-align: center;
       font-size: 12px;
-      color: rgba(255,255,255,0.5);
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.03em;
     }
-    footer.site-footer a {
-      color: rgba(255,255,255,0.65);
-      text-decoration: none;
-    }
-    footer.site-footer a:hover { color: #fff; }
+    footer a { color: rgba(255,255,255,0.6); text-decoration: none; }
+    footer a:hover { color: #fff; }
+    footer .sep { margin: 0 8px; }
 
-    @media (max-width: 520px) {
-      .meta-cell { flex-basis: 100%; border-right: none; border-bottom: 1px solid var(--border); }
-      .meta-cell:last-child { border-bottom: none; }
-      .page { padding: 36px 18px 64px; }
+    @media (max-width: 480px) {
+      .stamp-sep { display: none; }
+      .page { padding: 36px 18px 72px; }
     }
   </style>
 </head>
 <body>
 
-<header>
+<header class="site-header">
   <div class="header-inner">
-    <div class="logo-circle">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <circle cx="10" cy="10" r="7" stroke="#fff" stroke-width="2"/>
-        <path d="M10 6v4l2.5 1.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <a class="logo-wrap" href="https://kiongozi.com">
+      <!-- Kiongozi logo mark -->
+      <svg class="logo-icon" viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="21" cy="21" r="21" fill="#5CB85C"/>
+        <circle cx="21" cy="21" r="14" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+        <line x1="21" y1="21" x2="21" y2="10" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="21" y1="21" x2="28" y2="25" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="21" cy="21" r="2" fill="#ffffff"/>
       </svg>
-    </div>
-    <div class="header-text">
-      <div class="app-name">Kiongozi Chat</div>
-      <div class="app-sub">Kenya's Civic Social Network</div>
-    </div>
-    <nav class="header-nav">
-      <a href="https://kiongozi.com">kiongozi.com</a>
-    </nav>
+      <div class="logo-text">
+        <span class="logo-name">Kiongozi Chat</span>
+        <span class="logo-sub">Kenya's Civic Network</span>
+      </div>
+    </a>
+    <a class="header-link" href="https://kiongozi.com">kiongozi.com</a>
   </div>
 </header>
 
 <main class="page">
 
-  <div class="meta-bar">
-    <div class="meta-cell">
-      <div class="meta-cell-label">Document</div>
-      <div class="meta-cell-value">KCH-CSAE-001</div>
+  <div class="doc-stamp">
+    <div class="stamp-item">
+      <span class="stamp-label">Document</span>
+      <span class="stamp-value">KCH-CSAE-001</span>
     </div>
-    <div class="meta-cell">
-      <div class="meta-cell-label">Effective</div>
-      <div class="meta-cell-value">July 2026</div>
+    <div class="stamp-sep"></div>
+    <div class="stamp-item">
+      <span class="stamp-label">Effective</span>
+      <span class="stamp-value">July 2026</span>
     </div>
-    <div class="meta-cell">
-      <div class="meta-cell-label">App Package</div>
-      <div class="meta-cell-value">com.kiongozi.chat</div>
+    <div class="stamp-sep"></div>
+    <div class="stamp-item">
+      <span class="stamp-label">Package</span>
+      <span class="stamp-value">com.kiongozi.chat</span>
     </div>
-    <div class="meta-cell">
-      <div class="meta-cell-label">Version</div>
-      <div class="meta-cell-value">1.0</div>
+    <div class="stamp-sep"></div>
+    <div class="stamp-item">
+      <span class="stamp-label">Version</span>
+      <span class="stamp-value">1.0</span>
     </div>
   </div>
 
-  <h1 class="page-title">Child <span>Safety</span> Standards</h1>
+  <h1 class="page-title">Child <span class="accent">Safety</span> Standards</h1>
   <p class="page-intro">
     Kiongozi Chat's commitments to protecting children and preventing child sexual abuse and exploitation (CSAE) on our platform.
   </p>
 
-  <hr>
-
   <div class="section">
-    <div class="section-label">
-      <div class="section-num">1</div>
-      <span class="section-tag">About the App</span>
+    <div class="section-header">
+      <div class="section-dot"></div>
+      <h2>About Kiongozi Chat</h2>
     </div>
-    <h2>About Kiongozi Chat</h2>
     <p>
-      Kiongozi Chat (<code>com.kiongozi.chat</code>) is a civic social network for Kenyan youth and citizens. The platform enables users to connect with peers, track public funds, engage in civic discussions, and access an AI guide on governance, the green economy, and youth empowerment.
+      Kiongozi Chat (<strong>com.kiongozi.chat</strong>) is a civic social network for Kenyan youth and citizens. The platform enables users to connect with peers, track public funds, engage in civic discussions, and access an AI guide on governance, the green economy, and youth empowerment.
     </p>
     <p>
-      Kiongozi Chat requires all users to be at least <strong>13 years of age</strong> to register. We do not knowingly collect personal data from children under 13. Accounts discovered to belong to users under 13 are suspended and their data deleted.
+      Kiongozi Chat requires all users to be at least <strong>13 years of age</strong> to register. We do not knowingly collect personal data from children under 13. Accounts found to belong to users under 13 are suspended and their data deleted.
     </p>
   </div>
 
+  <hr class="rule">
+
   <div class="section">
-    <div class="section-label">
-      <div class="section-num">2</div>
-      <span class="section-tag">Zero Tolerance</span>
+    <div class="section-header">
+      <div class="section-dot"></div>
+      <h2>Zero Tolerance for CSAE Content</h2>
     </div>
-    <h2>Zero Tolerance for CSAE Content</h2>
     <p>
       Kiongozi Chat maintains a strict zero-tolerance policy for any content, behaviour, or communication involving child sexual abuse or exploitation. This includes:
     </p>
     <ul class="policy-list">
-      <li>Child sexual abuse material (CSAM) in any form — images, video, text, audio, or links</li>
+      <li>Child sexual abuse material (CSAM) in any form, including images, video, text, audio, or links</li>
       <li>Grooming, sexual solicitation, or exploitation of minors</li>
       <li>Trafficking or recruitment of children for sexual purposes</li>
       <li>Any content that sexualises individuals under 18</li>
       <li>Sharing or promoting CSAE content in posts, comments, or direct messages</li>
     </ul>
-    <p style="margin-top: 14px;">
-      Violations result in immediate and permanent account termination. Confirmed CSAE content is reported to the relevant national and regional law enforcement authorities, including the Communications Authority of Kenya and, where applicable, the National Center for Missing and Exploited Children (NCMEC).
+    <p style="margin-top: 16px;">
+      Violations result in immediate and permanent account termination. Confirmed CSAE content is reported to the relevant national and regional authorities, including the Communications Authority of Kenya and, where applicable, the National Center for Missing and Exploited Children (NCMEC).
     </p>
   </div>
 
+  <hr class="rule">
+
   <div class="section">
-    <div class="section-label">
-      <div class="section-num">3</div>
-      <span class="section-tag">Reporting</span>
+    <div class="section-header">
+      <div class="section-dot"></div>
+      <h2>In-App Reporting</h2>
     </div>
-    <h2>In-App Reporting</h2>
     <p>
       Users can report any child safety concern directly within the app:
     </p>
     <ul class="policy-list">
       <li>Every post, comment, and direct message has a <strong>Report</strong> option</li>
       <li>Every user profile can be reported for child safety concerns</li>
-      <li>Reports are reviewed within 24 hours — CSAE-related reports are escalated immediately</li>
-      <li>Reporters remain anonymous to the reported party</li>
+      <li>Reports are reviewed within 24 hours, and CSAE-related reports are escalated immediately</li>
+      <li>Reporters remain anonymous to the reported party at all times</li>
     </ul>
-    <div class="highlight">
+    <div class="callout">
       <p>
         <strong>Kiongozi Chat allows users to report child safety concerns in-app.</strong> Every user has direct access to reporting tools on all content and profiles at all times.
       </p>
     </div>
   </div>
 
+  <hr class="rule">
+
   <div class="section">
-    <div class="section-label">
-      <div class="section-num">4</div>
-      <span class="section-tag">Safeguards</span>
+    <div class="section-header">
+      <div class="section-dot"></div>
+      <h2>Content Moderation and Safeguards</h2>
     </div>
-    <h2>Content Moderation &amp; Safeguards</h2>
     <ul class="policy-list">
       <li>Automated screening for known CSAM signatures using hash-matching technology</li>
       <li>AI-assisted detection for grooming language and inappropriate communications</li>
       <li>Age verification at registration enforcing the 13+ minimum age requirement</li>
-      <li>Private account mode — users under 18 can restrict who follows or messages them</li>
-      <li>Direct message controls — users opt in to messages from accounts they do not follow</li>
+      <li>Private account mode allowing users under 18 to restrict followers and messages</li>
+      <li>Direct message controls requiring mutual opt-in before receiving messages from unknown accounts</li>
       <li>User blocking and muting tools available on every profile</li>
       <li>Trained moderation staff reviewing all flagged content and accounts</li>
     </ul>
   </div>
 
+  <hr class="rule">
+
   <div class="section">
-    <div class="section-label">
-      <div class="section-num">5</div>
-      <span class="section-tag">Legal Compliance</span>
+    <div class="section-header">
+      <div class="section-dot"></div>
+      <h2>Legal Compliance</h2>
     </div>
-    <h2>Legal Compliance</h2>
     <p>
       Kiongozi Chat complies with all applicable child safety laws and regulations, including:
     </p>
@@ -436,49 +441,53 @@
       <li>Google Play's <strong>Families Policy</strong> and developer content guidelines</li>
       <li>Apple App Store's <strong>Review Guidelines</strong> on child safety</li>
     </ul>
-    <p style="margin-top: 14px;">
+    <p style="margin-top: 16px;">
       Kiongozi Chat cooperates fully with law enforcement investigations involving child safety and proactively reports confirmed CSAE to regional and national authorities as required by law.
     </p>
   </div>
 
+  <hr class="rule">
+
   <div class="section">
-    <div class="section-label">
-      <div class="section-num">6</div>
-      <span class="section-tag">Contact</span>
+    <div class="section-header">
+      <div class="section-dot"></div>
+      <h2>Contact and Escalation</h2>
     </div>
-    <h2>Contact &amp; Escalation</h2>
-    <p>To report a child safety concern or contact our safety team:</p>
-    <div class="contact-grid">
+    <p>To report a child safety concern or contact our safety team directly:</p>
+    <div class="contact-table">
       <div class="contact-cell">
-        <div class="contact-cell-label">Safety Email</div>
-        <div class="contact-cell-value"><a href="mailto:afosi.2025@gmail.com">afosi.2025@gmail.com</a></div>
+        <span class="contact-cell-label">Safety Email</span>
+        <span class="contact-cell-value"><a href="mailto:afosi.2025@gmail.com">afosi.2025@gmail.com</a></span>
       </div>
       <div class="contact-cell">
-        <div class="contact-cell-label">Response Time</div>
-        <div class="contact-cell-value">Within 24 hours</div>
+        <span class="contact-cell-label">Response Time</span>
+        <span class="contact-cell-value">Within 24 hours</span>
       </div>
       <div class="contact-cell">
-        <div class="contact-cell-label">App</div>
-        <div class="contact-cell-value">Kiongozi Chat</div>
+        <span class="contact-cell-label">App</span>
+        <span class="contact-cell-value">Kiongozi Chat</span>
       </div>
       <div class="contact-cell">
-        <div class="contact-cell-label">Developer</div>
-        <div class="contact-cell-value">Afosi / Kiongozi Platform</div>
+        <span class="contact-cell-label">Developer</span>
+        <span class="contact-cell-value">Kiongozi Platform</span>
       </div>
     </div>
   </div>
 
-  <div class="page-footer">
-    <span class="footer-brand">Kiongozi Platform</span>
-    <span class="footer-meta">Document KCH-CSAE-001 &nbsp;·&nbsp; Version 1.0 &nbsp;·&nbsp; July 2026</span>
+  <div class="doc-footer">
+    <span class="doc-footer-brand">Kiongozi Platform</span>
+    <span class="doc-footer-meta">KCH-CSAE-001 &nbsp; Version 1.0 &nbsp; July 2026</span>
   </div>
 
 </main>
 
-<footer class="site-footer">
-  &copy; 2026 Kiongozi Platform &nbsp;·&nbsp;
-  <a href="https://kiongozi.com/child-safety">Child Safety</a> &nbsp;·&nbsp;
-  <a href="https://kiongozi.com/privacy">Privacy Policy</a> &nbsp;·&nbsp;
+<footer>
+  <span>&copy; 2026 Kiongozi Platform</span>
+  <span class="sep">·</span>
+  <a href="https://kiongozi.com/child-safety">Child Safety</a>
+  <span class="sep">·</span>
+  <a href="https://kiongozi.com/privacy">Privacy Policy</a>
+  <span class="sep">·</span>
   <a href="https://kiongozi.com">kiongozi.com</a>
 </footer>
 
