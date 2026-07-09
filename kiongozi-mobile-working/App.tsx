@@ -34,8 +34,7 @@ export default function App() {
           initialize(),
           AsyncStorage.getItem('onboarding_done'),
         ]);
-        await AsyncStorage.removeItem('onboarding_done'); // DEV: force onboarding
-        setShowOnboarding(true);
+        setShowOnboarding(!onboardingDone);
       } catch (error) {
         console.error('App initialization failed:', error);
       } finally {
