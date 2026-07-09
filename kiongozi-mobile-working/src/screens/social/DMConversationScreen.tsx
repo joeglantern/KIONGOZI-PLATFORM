@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Image,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert, ActivityIndicator,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -85,7 +85,6 @@ export default function DMConversationScreen() {
   const [text, setText] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [botTyping, setBotTyping] = useState(false);
   const [viewerMessage, setViewerMessage] = useState<DMMessage | null>(null);
   const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
@@ -144,7 +143,6 @@ export default function DMConversationScreen() {
             // User is actively viewing — skip unread increment, mark read immediately
             appendMessage(conversationId, payload.new as any, true);
             apiClient.markDMRead(conversationId);
-            setBotTyping(false); // bot reply arrived, hide typing indicator
           }
         }
       )
@@ -202,11 +200,6 @@ export default function DMConversationScreen() {
       const res = await apiClient.sendDM(conversationId, content, uploadedUrl, uploadedUrl ? 'image' : undefined);
       if (res.success && res.data) {
         replaceMessage(conversationId, tempId, res.data);
-        if (isBot) {
-          setBotTyping(true);
-          // Safety: clear typing indicator after 30s if bot reply never arrives
-          setTimeout(() => setBotTyping(false), 30000);
-        }
       } else {
         removeMessage(conversationId, tempId);
         setText(content);
@@ -301,22 +294,7 @@ export default function DMConversationScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          ListFooterComponent={
-            botTyping ? (
-              <View style={styles.botTypingRow}>
-                <View style={styles.botTypingAvatarWrap}>
-                  <Image
-                    source={require('../../../assets/kchat-logo.png')}
-                    style={styles.botTypingAvatar}
-                    resizeMode="contain"
-                  />
-                </View>
-                <View style={styles.botTypingBubble}>
-                  <ActivityIndicator size="small" color="#5CB85C" />
-                </View>
-              </View>
-            ) : null
-          }
+          ListFooterComponent={null}
           ListHeaderComponent={
             messageCursors[conversationId] ? (
               <TouchableOpacity
@@ -335,51 +313,57 @@ export default function DMConversationScreen() {
           }
         />
 
-        {/* Input */}
-        <View style={styles.inputBar}>
-          {/* Image attachment preview */}
-          {mediaUri && (
-            <View style={styles.mediaPreviewWrap}>
-              <Image source={{ uri: mediaUri }} style={styles.mediaPreview} />
-              <TouchableOpacity style={styles.mediaRemove} onPress={() => setMediaUri(null)}>
-                <Ionicons name="close-circle" size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <View style={styles.inputRow}>
-            <TouchableOpacity
-              style={styles.attachBtn}
-              onPress={handlePickImage}
-              disabled={uploading}
-            >
-              <Ionicons name="image-outline" size={22} color={uploading ? '#a0aec0' : '#1a365d'} />
-            </TouchableOpacity>
-
-            <View style={styles.inputWrap}>
-              <TextInput
-                style={styles.input}
-                value={text}
-                onChangeText={setText}
-                placeholder="Message..."
-                placeholderTextColor="#b0bec5"
-                multiline
-                maxLength={1000}
-              />
-            </View>
-
-            <Animated.View style={{ transform: [{ scale: sendScale }], opacity: sendScale }}>
-              <TouchableOpacity
-                onPress={handleSend}
-                disabled={!hasContent || uploading}
-                style={styles.sendBtn}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 2 }} />
-              </TouchableOpacity>
-            </Animated.View>
+        {/* Input / Coming Soon */}
+        {isBot ? (
+          <View style={styles.comingSoonBar}>
+            <Text style={styles.comingSoonTitle}>Coming Soon</Text>
+            <Text style={styles.comingSoonSub}>AI replies in direct messages</Text>
           </View>
-        </View>
+        ) : (
+          <View style={styles.inputBar}>
+            {mediaUri && (
+              <View style={styles.mediaPreviewWrap}>
+                <Image source={{ uri: mediaUri }} style={styles.mediaPreview} />
+                <TouchableOpacity style={styles.mediaRemove} onPress={() => setMediaUri(null)}>
+                  <Ionicons name="close-circle" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.inputRow}>
+              <TouchableOpacity
+                style={styles.attachBtn}
+                onPress={handlePickImage}
+                disabled={uploading}
+              >
+                <Ionicons name="image-outline" size={22} color={uploading ? '#a0aec0' : '#1a365d'} />
+              </TouchableOpacity>
+
+              <View style={styles.inputWrap}>
+                <TextInput
+                  style={styles.input}
+                  value={text}
+                  onChangeText={setText}
+                  placeholder="Message..."
+                  placeholderTextColor="#b0bec5"
+                  multiline
+                  maxLength={1000}
+                />
+              </View>
+
+              <Animated.View style={{ transform: [{ scale: sendScale }], opacity: sendScale }}>
+                <TouchableOpacity
+                  onPress={handleSend}
+                  disabled={!hasContent || uploading}
+                  style={styles.sendBtn}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 2 }} />
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
 
       <MediaViewerModal
@@ -533,31 +517,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
-  botTypingRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  comingSoonBar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+    backgroundColor: '#fff',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e8edf3',
   },
-  botTypingAvatarWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#1a365d',
-    overflow: 'hidden',
+  comingSoonTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a202c',
+    letterSpacing: 0.3,
   },
-  botTypingAvatar: {
-    width: 28,
-    height: 28,
-  },
-  botTypingBubble: {
-    backgroundColor: '#f0faf4',
-    borderRadius: 16,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(92, 184, 92, 0.2)',
+  comingSoonSub: {
+    fontSize: 13,
+    color: '#a0aec0',
+    marginTop: 3,
   },
 });

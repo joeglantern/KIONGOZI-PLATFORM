@@ -105,29 +105,12 @@ export default function EnhancedAIMessage({
       );
     }
 
-    if (!processedMessage) {
-      return (
-        <Text style={[styles.messageText, darkMode && styles.messageTextDark]}>
-          {message.text}
-        </Text>
-      );
-    }
-
-    if (processedMessage.hasCode || processedMessage.hasLinks || message.text.includes('#') || message.text.includes('**')) {
-      return (
-        <MarkdownRenderer
-          content={message.text}
-          darkMode={darkMode}
-          style={[styles.messageText, darkMode && styles.messageTextDark]}
-          enableCopy={true}
-        />
-      );
-    }
-
     return (
-      <Text style={[styles.messageText, darkMode && styles.messageTextDark]}>
-        {message.text}
-      </Text>
+      <MarkdownRenderer
+        content={message.text}
+        darkMode={darkMode}
+        style={[styles.messageText, darkMode && styles.messageTextDark]}
+      />
     );
   };
 

@@ -8,6 +8,7 @@ import { FlatList } from 'react-native';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 import { useSocialStore, Post } from '../../stores/socialStore';
 import { useDMStore } from '../../stores/dmStore';
+import { useNotificationStore } from '../../stores/notificationStore';
 import { PostCard } from '../../components/social/PostCard';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
@@ -20,6 +21,7 @@ export default function FeedScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const { conversations, fetchConversations } = useDMStore();
+  const { unreadCount: unreadNotifications } = useNotificationStore();
   const scrollX = useRef(new Animated.Value(0)).current;
 
   // Total unread DM count across all conversations
@@ -138,20 +140,38 @@ export default function FeedScreen() {
             style={styles.headerLogo}
             resizeMode="contain"
           />
-          <TouchableOpacity
-            style={styles.dmBtn}
-            onPress={() => navigation.navigate('DMList')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={24} color="#1a202c" />
-            {unreadDMs > 0 && (
-              <View style={styles.dmBadge}>
-                <Text style={styles.dmBadgeText}>
-                  {unreadDMs > 99 ? '99+' : String(unreadDMs)}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerIcons}>
+            {/* Notifications */}
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => navigation.navigate('NotificationsMain')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="notifications-outline" size={24} color="#1a202c" />
+              {unreadNotifications > 0 && (
+                <View style={styles.iconBadge}>
+                  <Text style={styles.iconBadgeText}>
+                    {unreadNotifications > 99 ? '99+' : String(unreadNotifications)}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {/* DMs */}
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => navigation.navigate('DMList')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={24} color="#1a202c" />
+              {unreadDMs > 0 && (
+                <View style={styles.iconBadge}>
+                  <Text style={styles.iconBadgeText}>
+                    {unreadDMs > 99 ? '99+' : String(unreadDMs)}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
         {/* Tab switcher */}
         <View style={styles.tabs}>
@@ -280,30 +300,35 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
-  headerLogo: { width: 100, height: 34, flexShrink: 0 },
-  dmBtn: {
-    position: 'relative',
-    padding: 4,
+  headerLogo: { width: 120, height: 42, flexShrink: 0 },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  dmBadge: {
+  headerIconBtn: {
+    position: 'relative',
+    padding: 6,
+  },
+  iconBadge: {
     position: 'absolute',
-    top: -2,
-    right: -4,
-    minWidth: 18,
-    height: 18,
+    top: 2,
+    right: 2,
+    minWidth: 17,
+    height: 17,
     borderRadius: 9,
     backgroundColor: '#e53e3e',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
     borderWidth: 1.5,
     borderColor: '#fff',
   },
-  dmBadgeText: {
+  iconBadgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
-    lineHeight: 12,
+    lineHeight: 11,
   },
   tabs: {
     flexDirection: 'row',

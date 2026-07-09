@@ -46,6 +46,8 @@ function FeedStackNavigator() {
       <FeedStack.Screen name="DMList" component={DMListScreen} />
       <FeedStack.Screen name="DMConversation" component={DMConversationScreen} />
       <FeedStack.Screen name="FollowList" component={FollowListScreen} />
+      {/* Notifications accessible from Feed header icon */}
+      <FeedStack.Screen name="NotificationsMain" component={NotificationsScreen} />
     </FeedStack.Navigator>
   );
 }
@@ -65,18 +67,6 @@ function ExploreStackNavigator() {
   );
 }
 
-const NotificationsStack = createNativeStackNavigator();
-function NotificationsStackNavigator() {
-  return (
-    <NotificationsStack.Navigator screenOptions={{ headerShown: false }}>
-      <NotificationsStack.Screen name="NotificationsMain" component={NotificationsScreen} />
-      <NotificationsStack.Screen name="PostDetail" component={PostDetailScreen} />
-      <NotificationsStack.Screen name="PublicProfile" component={PublicProfileScreen} />
-      <NotificationsStack.Screen name="DMConversation" component={DMConversationScreen} />
-      <NotificationsStack.Screen name="DMList" component={DMListScreen} />
-    </NotificationsStack.Navigator>
-  );
-}
 
 const ToolsStack = createNativeStackNavigator();
 function ToolsStackNavigator() {
@@ -141,7 +131,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const [activeRoute, setActiveRoute] = useState('');
   const internalNavRef = useRef<NavigationContainerRef<any>>(null);
   const navRef = externalNavRef ?? internalNavRef;
-  const { unreadCount, addNotification, fetchNotifications } = useNotificationStore();
+  const { addNotification, fetchNotifications } = useNotificationStore();
   const { user, sessionExpired } = useAuthStore();
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 52 + insets.bottom;
@@ -199,7 +189,6 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
               let iconName: keyof typeof Ionicons.glyphMap = 'home-outline';
               if (route.name === 'Feed') iconName = focused ? 'home' : 'home-outline';
               else if (route.name === 'Explore') iconName = focused ? 'search' : 'search-outline';
-              else if (route.name === 'Notifications') iconName = focused ? 'notifications' : 'notifications-outline';
               else if (route.name === 'Tools') iconName = focused ? 'build' : 'build-outline';
               else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
               return <Ionicons name={iconName} size={size} color={color} />;
@@ -228,13 +217,6 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
                   </View>
                 </TouchableOpacity>
               ),
-            }}
-          />
-          <Tab.Screen
-            name="Notifications"
-            component={NotificationsStackNavigator}
-            options={{
-              tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
             }}
           />
           <Tab.Screen name="Tools" component={ToolsStackNavigator} />

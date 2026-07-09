@@ -2,10 +2,6 @@ import { Router, Request, Response } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
 import NotificationService from '../services/NotificationService';
-import BotService from '../services/BotService';
-
-const BOT_USER_ID = process.env.BOT_USER_ID || '00000000-0000-0000-0000-000000000001';
-
 const router = Router();
 
 // GET /api/v1/dm/conversations — List DM conversations
@@ -333,77 +329,8 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
       });
     }
 
-    // Bot auto-reply: if the other participant is the Kiongozi bot, generate an AI response
-    setImmediate(async () => {
-      try {
-        // Use profile's is_bot flag — more reliable than matching a hardcoded UUID
-        const { data: convParticipants, error: cpError } = await supabaseServiceClient
-          .from('dm_participants')
-          .select('user_id, profiles:user_id (is_bot, username)')
-          .eq('conversation_id', conversationId)
-          .neq('user_id', userId);
-
-        console.log('[DM Bot] BOT_USER_ID env:', BOT_USER_ID);
-        console.log('[DM Bot] participants raw:', JSON.stringify(convParticipants), 'error:', cpError?.message);
-
-        const botParticipant = (convParticipants || []).find(
-          (p: any) =>
-            p.profiles?.is_bot === true ||
-            p.profiles?.username === 'kiongozi' ||
-            p.user_id === BOT_USER_ID   // fallback: match by configured UUID
-        );
-        if (!botParticipant) {
-          console.log('[DM Bot] no bot participant found — other user IDs:', (convParticipants || []).map((p: any) => p.user_id));
-          return;
-        }
-        console.log('[DM Bot] found bot, user_id:', botParticipant.user_id);
-
-        const botUserId: string = botParticipant.user_id;
-
-        // Build conversation history (last 10 messages)
-        const { data: history } = await supabaseServiceClient
-          .from('dm_messages')
-          .select('sender_id, content')
-          .eq('conversation_id', conversationId)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        const chatHistory = (history || [])
-          .reverse()
-          .filter((m: any) => m.content)
-          .map((m: any) => ({
-            role: m.sender_id === botUserId ? 'assistant' as const : 'user' as const,
-            content: m.content as string,
-          }));
-
-        const reply = await BotService.generateBotReply(chatHistory);
-        if (!reply) return;
-
-        const { data: botMsg } = await supabaseServiceClient
-          .from('dm_messages')
-          .insert({
-            conversation_id: conversationId,
-            sender_id: botUserId,
-            content: reply,
-          })
-          .select(`*, sender:sender_id (id, full_name, username, avatar_url, is_bot)`)
-          .single();
-
-        await supabaseServiceClient
-          .from('dm_conversations')
-          .update({ last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-          .eq('id', conversationId);
-
-        // Emit bot reply via Socket.IO so the DM screen picks it up in realtime
-        const ioInstance = (req as any).io;
-        if (ioInstance && botMsg) {
-          ioInstance.to(`dm:${conversationId}`).emit('dm:message_new', { conversationId, message: botMsg });
-          ioInstance.to(`user:${userId}`).emit('dm:message_new', { conversationId, message: botMsg });
-        }
-      } catch (e) {
-        console.error('DM bot reply error:', e);
-      }
-    });
+    // TODO: Kiongozi AI DM auto-reply — coming soon
+    // Bot replies directly inside DM conversations will be enabled in a future update.
 
     res.status(201).json({ success: true, data: message });
   } catch (err) {
