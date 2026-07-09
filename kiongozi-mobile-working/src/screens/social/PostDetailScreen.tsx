@@ -72,11 +72,10 @@ export default function PostDetailScreen() {
         { event: 'INSERT', schema: 'public', table: 'posts', filter: `parent_post_id=eq.${postId}` },
         async (payload) => {
           if (payload.new?.user_id === user?.id) return; // own reply already added optimistically
+          // Re-fetch the full replies list so bot grandchild replies also appear
           try {
-            const res = await apiClient.getPost(payload.new.id);
-            if (res.success && res.data) {
-              setReplies(prev => [...prev, res.data]);
-            }
+            const res = await apiClient.getPostReplies(postId);
+            if (res.success) setReplies(res.data || []);
           } catch {}
         }
       )
@@ -337,10 +336,10 @@ const styles = StyleSheet.create({
   },
   replyInput: { fontSize: 15, color: '#1a202c', maxHeight: 100, padding: 0 },
   sendBtn: {
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
     width: 40, height: 40, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#1a365d', shadowOffset: { width: 0, height: 3 },
+    shadowColor: '#5CB85C', shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35, shadowRadius: 6, elevation: 5,
   },
 });

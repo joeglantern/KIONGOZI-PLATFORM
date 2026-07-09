@@ -250,6 +250,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
         visible={createPostVisible}
         animationType="slide"
         presentationStyle="pageSheet"
+        statusBarTranslucent={false}
         onRequestClose={() => setCreatePostVisible(false)}
       >
         <CreatePostScreen onClose={() => setCreatePostVisible(false)} />
@@ -260,6 +261,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
         visible={chatVisible}
         animationType="slide"
         presentationStyle="pageSheet"
+        statusBarTranslucent={false}
         onRequestClose={() => setChatVisible(false)}
       >
         <View style={styles.modalWrap}>

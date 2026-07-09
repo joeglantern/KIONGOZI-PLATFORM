@@ -1,22 +1,36 @@
-import React from 'react';
-import { TouchableOpacity, StyleSheet, View, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useRef, useEffect } from 'react';
+import { TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
 
 interface KiongoziChatFABProps {
   onPress: () => void;
 }
 
 export function KiongoziChatFAB({ onPress }: KiongoziChatFABProps) {
+  const scale = useRef(new Animated.Value(0.82)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: 1,
+      tension: 55,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   return (
-    <TouchableOpacity
-      style={styles.fab}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View style={styles.inner}>
-        <Ionicons name="hardware-chip" size={22} color="#fff" />
-      </View>
-    </TouchableOpacity>
+    <Animated.View style={[styles.fab, { transform: [{ scale }] }]}>
+      <TouchableOpacity
+        style={styles.inner}
+        onPress={onPress}
+        activeOpacity={0.82}
+      >
+        <Image
+          source={require('../../../assets/kchat-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -40,5 +54,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  }
+    borderRadius: 26,
+  },
+  logo: {
+    width: 38,
+    height: 38,
+  },
 });

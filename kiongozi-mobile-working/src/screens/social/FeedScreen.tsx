@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, RefreshControl, ActivityIndicator,
-  TouchableOpacity, Animated, ScrollView, Dimensions
+  TouchableOpacity, Animated, ScrollView, Dimensions, Image
 } from 'react-native';
 import { FlatList } from 'react-native';
 
@@ -133,7 +133,11 @@ export default function FeedScreen() {
       <View style={styles.header}>
         {/* Title row */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Home</Text>
+          <Image
+            source={require('../../../assets/kchat-logo.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
           <TouchableOpacity
             style={styles.dmBtn}
             onPress={() => navigation.navigate('DMList')}
@@ -276,6 +280,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
+  headerLogo: { width: 100, height: 34, flexShrink: 0 },
   dmBtn: {
     position: 'relative',
     padding: 4,

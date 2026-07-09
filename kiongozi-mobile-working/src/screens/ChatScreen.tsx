@@ -1093,7 +1093,7 @@ export default function ChatScreen() {
               </View>
             </TouchableOpacity>
             <Image
-              source={require('../../assets/logo.png')}
+              source={require('../../assets/kchat-logo.png')}
               style={styles.headerLogo}
               resizeMode="contain"
             />
@@ -1102,7 +1102,7 @@ export default function ChatScreen() {
           {/* Center section - Title (flexible) */}
           <View style={styles.headerCenter}>
             <Text style={[styles.headerTitle, darkMode && styles.headerTitleDark]} numberOfLines={1}>
-              Kiongozi<Text style={styles.platformText}>Platform</Text>
+              Kiongozi AI
             </Text>
             <Text style={[styles.headerSubtitle, darkMode && styles.headerSubtitleDark]} numberOfLines={1}>
               {currentConversation?.title || 'AI Assistant'}
@@ -1143,7 +1143,7 @@ export default function ChatScreen() {
       {/* Chat Content */}
       <KeyboardAvoidingView
         style={styles.chatContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Messages Container */}
@@ -1473,8 +1473,8 @@ const styles = StyleSheet.create({
     height: 4,
   },
   headerLogo: {
-    width: 45,
-    height: 30,
+    width: 50,
+    height: 35,
     marginLeft: 8,
   },
   aiIconText: {

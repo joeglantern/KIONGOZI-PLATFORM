@@ -8,7 +8,7 @@ const BOT_USER_ID = process.env.BOT_USER_ID || '00000000-0000-0000-0000-00000000
 const BOT_MAX_REPLY_CHARS = 280;
 const BOT_COOLDOWN_MS = 5000;
 
-// In-memory cooldown only — duplicate detection is DB-backed
+// In-memory cooldown to prevent spam bursts
 let lastReplyTime = 0;
 
 const SYSTEM_PROMPT = `You are @kiongozi, Kenya's civic AI assistant embedded in a social platform.
@@ -26,35 +26,15 @@ Respond in the same language used in the post (Swahili or English).`;
 
 class BotService {
   /**
-   * Check DB whether bot has already replied to this post.
-   * Survives server restarts.
-   */
-  private async hasReplied(postId: string): Promise<boolean> {
-    const { data } = await supabaseServiceClient
-      .from('posts')
-      .select('id')
-      .eq('parent_post_id', postId)
-      .eq('user_id', BOT_USER_ID)
-      .eq('is_bot_reply', true)
-      .limit(1)
-      .maybeSingle();
-    return !!data;
-  }
-
-  /**
    * Handle a new @kiongozi mention in a post.
+   * Replies to every mention — like Grok on X.
    */
   async handleMention(postId: string): Promise<void> {
-    // Enforce cooldown
+    // Enforce cooldown to prevent rapid-fire replies
     const now = Date.now();
     if (now - lastReplyTime < BOT_COOLDOWN_MS) {
       const delay = BOT_COOLDOWN_MS - (now - lastReplyTime);
       await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
-    // DB-backed duplicate check — safe across restarts
-    if (await this.hasReplied(postId)) {
-      return;
     }
 
     try {
@@ -108,7 +88,6 @@ class BotService {
       lastReplyTime = Date.now();
     } catch (err) {
       console.error('BotService.handleMention error:', err);
-      // No cleanup needed — DB check prevents duplicates on retry
     }
   }
 

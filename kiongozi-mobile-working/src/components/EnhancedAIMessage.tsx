@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import TypewriterText from './TypewriterText';
 import MarkdownRenderer from './MarkdownRenderer';
 import CommandResponseCard from './CommandResponseCard';
 import LoadingDots from './LoadingDots';
@@ -56,7 +56,6 @@ export default function EnhancedAIMessage({
   const [processedMessage, setProcessedMessage] = useState<any>(null);
 
   useEffect(() => {
-    // Process the message content
     const processed = processMessageContent(message.text);
     setProcessedMessage(processed);
   }, [message.text]);
@@ -86,7 +85,6 @@ export default function EnhancedAIMessage({
   };
 
   const renderMessageContent = () => {
-    // Show loading dots if message is in loading state
     if (message.isLoading) {
       return (
         <View style={styles.loadingContainer}>
@@ -95,7 +93,6 @@ export default function EnhancedAIMessage({
       );
     }
 
-    // Handle command responses first
     if (message.commandResponse) {
       return (
         <CommandResponseCard
@@ -116,8 +113,6 @@ export default function EnhancedAIMessage({
       );
     }
 
-    // Skip typewriter effect - streaming already provides progressive text display
-    // Show markdown rendered content for messages with formatting
     if (processedMessage.hasCode || processedMessage.hasLinks || message.text.includes('#') || message.text.includes('**')) {
       return (
         <MarkdownRenderer
@@ -129,7 +124,6 @@ export default function EnhancedAIMessage({
       );
     }
 
-    // Fallback to simple text
     return (
       <Text style={[styles.messageText, darkMode && styles.messageTextDark]}>
         {message.text}
@@ -147,40 +141,24 @@ export default function EnhancedAIMessage({
       <View style={[styles.statsContainer, darkMode && styles.statsContainerDark]}>
         {processedMessage.wordCount > 50 && (
           <View style={styles.statItem}>
-            <Ionicons
-              name="document-text-outline"
-              size={12}
-              color={darkMode ? '#9ca3af' : '#6b7280'}
-            />
+            <Ionicons name="document-text-outline" size={12} color={darkMode ? '#9ca3af' : '#6b7280'} />
             <Text style={[styles.statText, darkMode && styles.statTextDark]}>
               {processedMessage.wordCount} words
             </Text>
           </View>
         )}
-        
         {processedMessage.hasCode && (
           <View style={styles.statItem}>
-            <Ionicons
-              name="code-slash-outline"
-              size={12}
-              color={darkMode ? '#9ca3af' : '#6b7280'}
-            />
+            <Ionicons name="code-slash-outline" size={12} color={darkMode ? '#9ca3af' : '#6b7280'} />
             <Text style={[styles.statText, darkMode && styles.statTextDark]}>
               {processedMessage.codeBlocks?.length || 0} code blocks
             </Text>
           </View>
         )}
-        
         {processedMessage.hasLinks && (
           <View style={styles.statItem}>
-            <Ionicons
-              name="link-outline"
-              size={12}
-              color={darkMode ? '#9ca3af' : '#6b7280'}
-            />
-            <Text style={[styles.statText, darkMode && styles.statTextDark]}>
-              Contains links
-            </Text>
+            <Ionicons name="link-outline" size={12} color={darkMode ? '#9ca3af' : '#6b7280'} />
+            <Text style={[styles.statText, darkMode && styles.statTextDark]}>Contains links</Text>
           </View>
         )}
       </View>
@@ -189,74 +167,76 @@ export default function EnhancedAIMessage({
 
   return (
     <View style={styles.container}>
-      {/* Message Content - Full width, no bubble */}
-      <View style={styles.contentContainer}>
-        <View style={styles.messageArea}>
-          {renderMessageContent()}
-          {renderMessageStats()}
+      <View style={styles.row}>
+        {/* Avatar */}
+        <View style={styles.avatarWrap}>
+          <Image
+            source={require('../../assets/kchat-logo.png')}
+            style={styles.avatar}
+            resizeMode="contain"
+          />
         </View>
 
-        {/* Action Buttons - only show when message has content, typing is complete, and not loading */}
-        {message.text && isTypingComplete && !message.isLoading && (
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={[styles.actionButton, darkMode && styles.actionButtonDark]}
-              onPress={handleCopy}
-            >
-              <Ionicons
-                name="copy-outline"
-                size={16}
-                color={darkMode ? '#9ca3af' : '#6b7280'}
-              />
-            </TouchableOpacity>
+        {/* Bubble + actions */}
+        <View style={styles.bubbleCol}>
+          <View style={[styles.bubble, darkMode && styles.bubbleDark]}>
+            {renderMessageContent()}
+            {renderMessageStats()}
+          </View>
 
-            {isLastAiMessage && onRegenerate && (
+          {message.text && isTypingComplete && !message.isLoading && (
+            <View style={styles.actionsContainer}>
               <TouchableOpacity
                 style={[styles.actionButton, darkMode && styles.actionButtonDark]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onRegenerate();
-                }}
+                onPress={handleCopy}
+              >
+                <Ionicons name="copy-outline" size={15} color={darkMode ? '#9ca3af' : '#6b7280'} />
+              </TouchableOpacity>
+
+              {isLastAiMessage && onRegenerate && (
+                <TouchableOpacity
+                  style={[styles.actionButton, darkMode && styles.actionButtonDark]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    onRegenerate();
+                  }}
+                >
+                  <Ionicons name="refresh-outline" size={15} color={darkMode ? '#9ca3af' : '#6b7280'} />
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  darkMode && styles.actionButtonDark,
+                  message.reaction === 'like' && styles.actionButtonLike,
+                ]}
+                onPress={() => handleReaction('like')}
               >
                 <Ionicons
-                  name="refresh-outline"
-                  size={16}
-                  color={darkMode ? '#9ca3af' : '#6b7280'}
+                  name={message.reaction === 'like' ? 'thumbs-up' : 'thumbs-up-outline'}
+                  size={15}
+                  color={message.reaction === 'like' ? '#5CB85C' : (darkMode ? '#9ca3af' : '#6b7280')}
                 />
               </TouchableOpacity>
-            )}
 
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                darkMode && styles.actionButtonDark,
-                message.reaction === 'like' && styles.actionButtonActive
-              ]}
-              onPress={() => handleReaction('like')}
-            >
-              <Ionicons
-                name={message.reaction === 'like' ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={16}
-                color={message.reaction === 'like' ? '#22c55e' : (darkMode ? '#9ca3af' : '#6b7280')}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                darkMode && styles.actionButtonDark,
-                message.reaction === 'dislike' && styles.actionButtonActive
-              ]}
-              onPress={() => handleReaction('dislike')}
-            >
-              <Ionicons
-                name={message.reaction === 'dislike' ? 'thumbs-down' : 'thumbs-down-outline'}
-                size={16}
-                color={message.reaction === 'dislike' ? '#ef4444' : (darkMode ? '#9ca3af' : '#6b7280')}
-              />
-            </TouchableOpacity>
-          </View>
-        )}
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  darkMode && styles.actionButtonDark,
+                  message.reaction === 'dislike' && styles.actionButtonDislike,
+                ]}
+                onPress={() => handleReaction('dislike')}
+              >
+                <Ionicons
+                  name={message.reaction === 'dislike' ? 'thumbs-down' : 'thumbs-down-outline'}
+                  size={15}
+                  color={message.reaction === 'dislike' ? '#ef4444' : (darkMode ? '#9ca3af' : '#6b7280')}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -264,38 +244,67 @@ export default function EnhancedAIMessage({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginBottom: 16,
+    paddingHorizontal: 12,
   },
-  contentContainer: {
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  avatarWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1a365d',
+    overflow: 'hidden',
+    marginTop: 2,
+    flexShrink: 0,
+    borderWidth: 1.5,
+    borderColor: '#5CB85C',
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+  },
+  bubbleCol: {
     flex: 1,
     minWidth: 0,
   },
-  messageArea: {
-    width: '100%',
+  bubble: {
+    backgroundColor: '#f0faf4',
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 184, 92, 0.15)',
+  },
+  bubbleDark: {
+    backgroundColor: '#1a2e1a',
+    borderColor: 'rgba(92, 184, 92, 0.2)',
   },
   loadingContainer: {
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   messageText: {
-    fontSize: 16,
-    lineHeight: 25, // Slightly increased for better readability
-    color: '#1f2937',
+    fontSize: 15.5,
+    lineHeight: 24,
+    color: '#1a202c',
   },
   messageTextDark: {
-    color: '#f3f4f6',
+    color: '#e2e8f0',
   },
   statsContainer: {
     flexDirection: 'row',
-    marginTop: 16,
-    paddingTop: 12,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.06)',
-    gap: 16,
+    gap: 14,
   },
   statsContainerDark: {
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   statItem: {
     flexDirection: 'row',
@@ -303,7 +312,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statText: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#6b7280',
     fontWeight: '500',
   },
@@ -312,26 +321,31 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     flexDirection: 'row',
-    marginTop: 12,
-    gap: 8,
+    marginTop: 6,
+    gap: 6,
     alignSelf: 'flex-start',
+    paddingLeft: 4,
   },
   actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.06)',
   },
   actionButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  actionButtonActive: {
-    backgroundColor: '#e0f2fe',
-    borderColor: '#3b82f6',
+  actionButtonLike: {
+    backgroundColor: '#f0faf4',
+    borderColor: '#5CB85C',
+  },
+  actionButtonDislike: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#ef4444',
   },
 });

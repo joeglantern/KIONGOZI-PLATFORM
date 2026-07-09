@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Image,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -81,9 +81,11 @@ export default function DMConversationScreen() {
   const { user } = useAuthStore();
   const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, markRead } = useDMStore();
 
+  const isBot = participantUsername === 'kiongozi';
   const [text, setText] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [botTyping, setBotTyping] = useState(false);
   const [viewerMessage, setViewerMessage] = useState<DMMessage | null>(null);
   const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
@@ -142,6 +144,7 @@ export default function DMConversationScreen() {
             // User is actively viewing — skip unread increment, mark read immediately
             appendMessage(conversationId, payload.new as any, true);
             apiClient.markDMRead(conversationId);
+            setBotTyping(false); // bot reply arrived, hide typing indicator
           }
         }
       )
@@ -199,6 +202,7 @@ export default function DMConversationScreen() {
       const res = await apiClient.sendDM(conversationId, content, uploadedUrl, uploadedUrl ? 'image' : undefined);
       if (res.success && res.data) {
         replaceMessage(conversationId, tempId, res.data);
+        if (isBot) setBotTyping(true); // show typing indicator while waiting for bot reply
       } else {
         removeMessage(conversationId, tempId);
         setText(content);
@@ -251,19 +255,36 @@ export default function DMConversationScreen() {
             <Ionicons name="arrow-back" size={24} color="#1a202c" />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.headerCenter}
-            activeOpacity={0.7}
-            onPress={() => participantUsername && navigation.navigate('PublicProfile', { username: participantUsername })}
-          >
-            <UserAvatar avatarUrl={participantAvatar} size={36} />
-            <View style={styles.headerNames}>
-              <Text style={styles.headerName} numberOfLines={1}>{participantName || 'Message'}</Text>
-              {participantUsername ? (
-                <Text style={styles.headerHandle}>@{participantUsername}</Text>
-              ) : null}
+          {isBot ? (
+            <View style={styles.headerCenter}>
+              <View style={styles.botAvatarWrap}>
+                <Image
+                  source={require('../../../assets/kchat-logo.png')}
+                  style={styles.botAvatar}
+                  resizeMode="contain"
+                />
+                <View style={styles.onlineDot} />
+              </View>
+              <View style={styles.headerNames}>
+                <Text style={styles.headerName} numberOfLines={1}>Kiongozi AI</Text>
+                <Text style={[styles.headerHandle, { color: '#5CB85C' }]}>Always online</Text>
+              </View>
             </View>
-          </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.headerCenter}
+              activeOpacity={0.7}
+              onPress={() => participantUsername && navigation.navigate('PublicProfile', { username: participantUsername })}
+            >
+              <UserAvatar avatarUrl={participantAvatar} size={36} />
+              <View style={styles.headerNames}>
+                <Text style={styles.headerName} numberOfLines={1}>{participantName || 'Message'}</Text>
+                {participantUsername ? (
+                  <Text style={styles.headerHandle}>@{participantUsername}</Text>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.headerRight} />
         </View>
@@ -276,6 +297,22 @@ export default function DMConversationScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListFooterComponent={
+            botTyping ? (
+              <View style={styles.botTypingRow}>
+                <View style={styles.botTypingAvatarWrap}>
+                  <Image
+                    source={require('../../../assets/kchat-logo.png')}
+                    style={styles.botTypingAvatar}
+                    resizeMode="contain"
+                  />
+                </View>
+                <View style={styles.botTypingBubble}>
+                  <ActivityIndicator size="small" color="#5CB85C" />
+                </View>
+              </View>
+            ) : null
+          }
           ListHeaderComponent={
             messageCursors[conversationId] ? (
               <TouchableOpacity
@@ -454,7 +491,7 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   sendBtn: {
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
     width: 42,
     height: 42,
     borderRadius: 21,
@@ -465,5 +502,58 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 6,
     elevation: 5,
+  },
+
+  // Bot-specific styles
+  botAvatarWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1a365d',
+    overflow: 'visible',
+    position: 'relative',
+  },
+  botAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  onlineDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: '#5CB85C',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  botTypingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  botTypingAvatarWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1a365d',
+    overflow: 'hidden',
+  },
+  botTypingAvatar: {
+    width: 28,
+    height: 28,
+  },
+  botTypingBubble: {
+    backgroundColor: '#f0faf4',
+    borderRadius: 16,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 184, 92, 0.2)',
   },
 });

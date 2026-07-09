@@ -2,6 +2,9 @@ import { Router, Request, Response } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
 import NotificationService from '../services/NotificationService';
+import BotService from '../services/BotService';
+
+const BOT_USER_ID = process.env.BOT_USER_ID || '00000000-0000-0000-0000-000000000001';
 
 const router = Router();
 
@@ -329,6 +332,63 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
         }
       });
     }
+
+    // Bot auto-reply: if the other participant is @kiongozi, generate an AI response
+    setImmediate(async () => {
+      try {
+        const { data: convParticipants } = await supabaseServiceClient
+          .from('dm_participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId)
+          .neq('user_id', userId);
+
+        const isBot = convParticipants?.some((p: any) => p.user_id === BOT_USER_ID);
+        if (!isBot) return;
+
+        // Build conversation history (last 10 messages)
+        const { data: history } = await supabaseServiceClient
+          .from('dm_messages')
+          .select('sender_id, content')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        const chatHistory = (history || [])
+          .reverse()
+          .filter((m: any) => m.content)
+          .map((m: any) => ({
+            role: m.sender_id === BOT_USER_ID ? 'assistant' as const : 'user' as const,
+            content: m.content as string,
+          }));
+
+        const reply = await BotService.generateBotReply(chatHistory);
+        if (!reply) return;
+
+        const { data: botMsg } = await supabaseServiceClient
+          .from('dm_messages')
+          .insert({
+            conversation_id: conversationId,
+            sender_id: BOT_USER_ID,
+            content: reply,
+          })
+          .select(`*, sender:sender_id (id, full_name, username, avatar_url, is_bot)`)
+          .single();
+
+        await supabaseServiceClient
+          .from('dm_conversations')
+          .update({ last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+          .eq('id', conversationId);
+
+        // Emit bot reply via Socket.IO so the DM screen picks it up in realtime
+        const io = (req as any).io;
+        if (io && botMsg) {
+          io.to(`dm:${conversationId}`).emit('dm:message_new', { conversationId, message: botMsg });
+          io.to(`user:${userId}`).emit('dm:message_new', { conversationId, message: botMsg });
+        }
+      } catch (e) {
+        console.error('DM bot reply error:', e);
+      }
+    });
 
     res.status(201).json({ success: true, data: message });
   } catch (err) {
