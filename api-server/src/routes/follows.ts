@@ -197,13 +197,40 @@ router.post('/follow-requests/:requestId/accept', authenticateToken, async (req:
       if (fallback) request = fallback;
     }
 
+    if (!request && fromUserId) {
+      // Stale notification ID — check if the follow relationship already exists
+      const { data: existingFollow } = await supabaseServiceClient
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', fromUserId)
+        .eq('following_id', userId)
+        .maybeSingle();
+
+      if (existingFollow) {
+        // Already following — idempotent success
+        res.json({ success: true });
+        return;
+      }
+
+      // Check if there's any pending request from this user under a different ID
+      const { data: anyPending } = await supabaseServiceClient
+        .from('follow_requests')
+        .select('id, requester_id, target_id, status')
+        .eq('requester_id', fromUserId)
+        .eq('target_id', userId)
+        .maybeSingle();
+
+      if (anyPending) request = anyPending;
+    }
+
     if (!request) {
       res.status(404).json({ success: false, error: 'Follow request not found' });
       return;
     }
 
     if (request.status !== 'pending') {
-      res.status(409).json({ success: false, error: 'Request already handled' });
+      // Already accepted — idempotent success
+      res.json({ success: true });
       return;
     }
 

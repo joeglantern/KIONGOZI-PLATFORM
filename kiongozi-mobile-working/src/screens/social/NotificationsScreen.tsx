@@ -68,10 +68,10 @@ function FollowRequestButtons({
   const handleAccept = async () => {
     if (!requestId && !fromUserId) return;
     setLoading('accept');
+    // Dismiss immediately — avoids buttons reappearing on re-fetch
+    onRemove(item.id);
     try {
-      const res = await apiClient.acceptFollowRequest(requestId, fromUserId);
-      // Dismiss on success, or if request is stale (404/409)
-      if (res.success || !res.success) onRemove(item.id);
+      await apiClient.acceptFollowRequest(requestId, fromUserId);
     } catch {}
     setLoading(null);
   };
@@ -123,7 +123,8 @@ function NotificationItem({
   const isSocial = !!item.fromUsername;
   const isBot = item.fromUsername === 'kiongozi';
   const split = splitMessage(item.message);
-  const isFollowRequest = item.type === 'follow_request';
+  // Only show action buttons on unread follow requests — once dismissed/read, never re-show
+  const isFollowRequest = item.type === 'follow_request' && !item.read;
 
   return (
     <TouchableOpacity
