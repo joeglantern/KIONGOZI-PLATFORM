@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Modal, TextInput
+  ActivityIndicator, Modal, TextInput, Alert
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,10 +33,14 @@ interface UserRow {
 
 export default function DMListScreen() {
   const navigation = useNavigation<any>();
-  const { conversations, conversationsLoading, fetchConversations } = useDMStore();
+  const {
+    conversations, conversationsLoading, fetchConversations,
+    archivedIds, deletedIds, showArchived,
+    archiveConversation, unarchiveConversation, deleteConversation, setShowArchived,
+    loadPersistedDMState,
+  } = useDMStore();
   const { user } = useAuthStore();
 
-  // New DM picker state
   const [newDMVisible, setNewDMVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [following, setFollowing] = useState<UserRow[]>([]);
@@ -46,10 +50,9 @@ export default function DMListScreen() {
   const [startingFor, setStartingFor] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchConversations();
+    loadPersistedDMState().then(() => fetchConversations());
   }, []);
 
-  // Realtime: refresh conversation list when a new DM message arrives
   useEffect(() => {
     if (!user?.id) return;
     const channel = supabase
@@ -61,7 +64,6 @@ export default function DMListScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
-  // Load following list when modal opens
   const openNewDM = useCallback(async () => {
     setNewDMVisible(true);
     setSearchQuery('');
@@ -77,12 +79,8 @@ export default function DMListScreen() {
     setLoadingFollowing(false);
   }, [user?.id]);
 
-  // Search when query changes (debounced via useEffect)
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
+    if (!searchQuery.trim()) { setSearchResults([]); return; }
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
@@ -96,16 +94,27 @@ export default function DMListScreen() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Show following list filtered by query, or search results if query is active
   const displayList = useMemo((): UserRow[] => {
     if (!searchQuery.trim()) return following;
     if (searchResults.length > 0) return searchResults;
-    // Local filter while waiting for search
     const q = searchQuery.toLowerCase();
     return following.filter(u =>
       u.full_name?.toLowerCase().includes(q) || u.username?.toLowerCase().includes(q)
     );
   }, [searchQuery, following, searchResults]);
+
+  // Filter conversations for main / archived views
+  const visibleConversations = useMemo(() => {
+    if (showArchived) {
+      return conversations.filter(c => archivedIds.includes(c.id) && !deletedIds.includes(c.id));
+    }
+    return conversations.filter(c => !archivedIds.includes(c.id) && !deletedIds.includes(c.id));
+  }, [conversations, archivedIds, deletedIds, showArchived]);
+
+  const archivedCount = useMemo(
+    () => conversations.filter(c => archivedIds.includes(c.id) && !deletedIds.includes(c.id)).length,
+    [conversations, archivedIds, deletedIds]
+  );
 
   const handleSelectUser = useCallback(async (person: UserRow) => {
     setStartingFor(person.id);
@@ -130,91 +139,136 @@ export default function DMListScreen() {
     setSearchResults([]);
   }, []);
 
+  const handleLongPress = useCallback((convId: string, isArchived: boolean) => {
+    const archiveLabel = isArchived ? 'Unarchive' : 'Archive';
+    Alert.alert('Conversation', undefined, [
+      {
+        text: archiveLabel,
+        onPress: () => isArchived ? unarchiveConversation(convId) : archiveConversation(convId),
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert('Delete conversation?', 'This removes it from your list. The other person will still have it.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => deleteConversation(convId) },
+          ]),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [archiveConversation, unarchiveConversation, deleteConversation]);
+
+  const renderConversation = useCallback(({ item }: { item: any }) => {
+    const other = item.participants[0];
+    const isArchived = archivedIds.includes(item.id);
+    return (
+      <TouchableOpacity
+        style={styles.convRow}
+        onPress={() => navigation.navigate('DMConversation', {
+          conversationId: item.id,
+          participantName: other?.full_name,
+          participantUsername: other?.username,
+          participantAvatar: other?.avatar_url,
+        })}
+        onLongPress={() => handleLongPress(item.id, isArchived)}
+        delayLongPress={400}
+      >
+        <UserAvatar avatarUrl={other?.avatar_url} size={50} isBot={other?.is_bot} isVerified={other?.is_verified} />
+        <View style={styles.convInfo}>
+          <View style={styles.convHeader}>
+            <Text style={styles.convName}>{other?.full_name}</Text>
+            <Text style={styles.convTime}>{timeAgo(item.last_message_at)}</Text>
+          </View>
+          <View style={styles.convPreview}>
+            <View style={styles.previewRow}>
+              {item.last_message?.media_type === 'image' && (
+                <Ionicons name="camera-outline" size={14} color={item.unread_count > 0 ? '#1a202c' : '#718096'} style={{ marginRight: 3 }} />
+              )}
+              {item.last_message?.media_type === 'video' && (
+                <Ionicons name="videocam-outline" size={14} color={item.unread_count > 0 ? '#1a202c' : '#718096'} style={{ marginRight: 3 }} />
+              )}
+              <Text style={[styles.convLastMsg, item.unread_count > 0 && styles.unreadMsg]} numberOfLines={1}>
+                {item.last_message?.content
+                  ? item.last_message.content
+                  : item.last_message?.media_type === 'video'
+                    ? 'Video'
+                    : item.last_message?.media_type === 'image'
+                      ? 'Photo'
+                      : 'Media message'}
+              </Text>
+            </View>
+            {item.unread_count > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{item.unread_count}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [navigation, archivedIds, handleLongPress]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => {
+          if (showArchived) { setShowArchived(false); } else { navigation.goBack(); }
+        }}>
           <Ionicons name="arrow-back" size={24} color="#1a202c" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Messages</Text>
-        <TouchableOpacity onPress={openNewDM}>
-          <Ionicons name="create-outline" size={24} color="#1a365d" />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {showArchived ? 'Archived' : 'Messages'}
+        </Text>
+        {showArchived ? (
+          <View style={{ width: 24 }} />
+        ) : (
+          <TouchableOpacity onPress={openNewDM}>
+            <Ionicons name="create-outline" size={24} color="#1a365d" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {conversationsLoading ? (
         <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
       ) : (
         <FlatList
-          data={conversations}
+          data={visibleConversations}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => {
-            const other = item.participants[0];
-            return (
-              <TouchableOpacity
-                style={styles.convRow}
-                onPress={() => navigation.navigate('DMConversation', {
-                  conversationId: item.id,
-                  participantName: other?.full_name,
-                  participantUsername: other?.username,
-                  participantAvatar: other?.avatar_url,
-                })}
-              >
-                <UserAvatar avatarUrl={other?.avatar_url} size={50} isBot={other?.is_bot} isVerified={other?.is_verified} />
-                <View style={styles.convInfo}>
-                  <View style={styles.convHeader}>
-                    <Text style={styles.convName}>{other?.full_name}</Text>
-                    <Text style={styles.convTime}>{timeAgo(item.last_message_at)}</Text>
-                  </View>
-                  <View style={styles.convPreview}>
-                    <View style={styles.previewRow}>
-                      {item.last_message?.media_type === 'image' && (
-                        <Ionicons name="camera-outline" size={14} color={item.unread_count > 0 ? '#1a202c' : '#718096'} style={{ marginRight: 3 }} />
-                      )}
-                      {item.last_message?.media_type === 'video' && (
-                        <Ionicons name="videocam-outline" size={14} color={item.unread_count > 0 ? '#1a202c' : '#718096'} style={{ marginRight: 3 }} />
-                      )}
-                      <Text style={[styles.convLastMsg, item.unread_count > 0 && styles.unreadMsg]} numberOfLines={1}>
-                        {item.last_message?.content
-                          ? item.last_message.content
-                          : item.last_message?.media_type === 'video'
-                            ? 'Video'
-                            : item.last_message?.media_type === 'image'
-                              ? 'Photo'
-                              : 'Media message'}
-                      </Text>
-                    </View>
-                    {item.unread_count > 0 && (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.unread_count}</Text>
-                      </View>
-                    )}
-                  </View>
+          renderItem={renderConversation}
+          ListHeaderComponent={
+            !showArchived && archivedCount > 0 ? (
+              <TouchableOpacity style={styles.archivedRow} onPress={() => setShowArchived(true)}>
+                <View style={styles.archivedIcon}>
+                  <Ionicons name="archive-outline" size={20} color="#718096" />
+                </View>
+                <Text style={styles.archivedLabel}>Archived</Text>
+                <View style={styles.archivedRight}>
+                  <Text style={styles.archivedCount}>{archivedCount}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#a0aec0" />
                 </View>
               </TouchableOpacity>
-            );
-          }}
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="mail-outline" size={48} color="#e2e8f0" />
-              <Text style={styles.emptyText}>No conversations yet</Text>
-              <Text style={styles.emptySubtext}>Tap the compose icon to start a conversation</Text>
+              <Ionicons name={showArchived ? 'archive-outline' : 'mail-outline'} size={48} color="#e2e8f0" />
+              <Text style={styles.emptyText}>
+                {showArchived ? 'No archived conversations' : 'No conversations yet'}
+              </Text>
+              {!showArchived && (
+                <Text style={styles.emptySubtext}>Tap the compose icon to start a conversation</Text>
+              )}
             </View>
           }
         />
       )}
 
-      {/* New DM — user picker sheet */}
-      <Modal
-        visible={newDMVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeModal}
-      >
+      {/* New DM picker */}
+      <Modal visible={newDMVisible} transparent animationType="slide" onRequestClose={closeModal}>
         <View style={styles.sheetOverlay}>
           <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeModal} />
           <View style={styles.sheet}>
-            {/* Sheet header */}
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>New Message</Text>
               <TouchableOpacity onPress={closeModal}>
@@ -222,7 +276,6 @@ export default function DMListScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Search bar */}
             <View style={styles.searchBar}>
               <Ionicons name="search" size={16} color="#a0aec0" />
               <TextInput
@@ -242,7 +295,6 @@ export default function DMListScreen() {
               )}
             </View>
 
-            {/* User list */}
             {loadingFollowing ? (
               <ActivityIndicator style={{ marginTop: 32 }} color="#1a365d" />
             ) : (
@@ -256,12 +308,7 @@ export default function DMListScreen() {
                     onPress={() => handleSelectUser(item)}
                     disabled={startingFor === item.id}
                   >
-                    <UserAvatar
-                      avatarUrl={item.avatar_url}
-                      size={44}
-                      isVerified={item.is_verified}
-                      isBot={item.is_bot}
-                    />
+                    <UserAvatar avatarUrl={item.avatar_url} size={44} isVerified={item.is_verified} isBot={item.is_bot} />
                     <View style={styles.userInfo}>
                       <Text style={styles.userName}>{item.full_name}</Text>
                       <Text style={styles.userHandle}>@{item.username}</Text>
@@ -276,9 +323,7 @@ export default function DMListScreen() {
                   !loadingFollowing ? (
                     <View style={styles.emptySearch}>
                       <Text style={styles.emptySearchText}>
-                        {searchQuery.trim()
-                          ? `No results for "${searchQuery}"`
-                          : "You're not following anyone yet"}
+                        {searchQuery.trim() ? `No results for "${searchQuery}"` : "You're not following anyone yet"}
                       </Text>
                     </View>
                   ) : null
@@ -305,6 +350,28 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
   },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#1a202c' },
+
+  archivedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fafafa',
+  },
+  archivedIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  archivedLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#4a5568' },
+  archivedRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  archivedCount: { fontSize: 14, color: '#a0aec0', fontWeight: '500' },
+
   convRow: {
     flexDirection: 'row',
     padding: 14,
@@ -321,7 +388,7 @@ const styles = StyleSheet.create({
   convLastMsg: { flex: 1, color: '#718096', fontSize: 14 },
   unreadMsg: { fontWeight: '600', color: '#1a202c' },
   badge: {
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -333,7 +400,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', padding: 48, gap: 12 },
   emptyText: { fontSize: 16, fontWeight: '600', color: '#4a5568' },
   emptySubtext: { fontSize: 14, color: '#a0aec0', textAlign: 'center' },
-  // Sheet
+
   sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
   sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {

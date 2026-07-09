@@ -1,5 +1,9 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../utils/apiClient';
+
+const ARCHIVED_KEY = 'dm_archived_ids';
+const DELETED_KEY  = 'dm_deleted_ids';
 
 export interface DMParticipant {
   id: string;
@@ -35,10 +39,13 @@ export interface DMConversation {
 
 interface DMState {
   conversations: DMConversation[];
-  messages: Record<string, DMMessage[]>; // conversationId -> messages
+  messages: Record<string, DMMessage[]>;
   conversationsLoading: boolean;
   messagesLoading: Record<string, boolean>;
   messageCursors: Record<string, string | null>;
+  archivedIds: string[];
+  deletedIds: string[];
+  showArchived: boolean;
 
   fetchConversations: () => Promise<void>;
   fetchMessages: (conversationId: string, refresh?: boolean) => Promise<void>;
@@ -46,6 +53,11 @@ interface DMState {
   replaceMessage: (conversationId: string, tempId: string, real: DMMessage) => void;
   removeMessage: (conversationId: string, id: string) => void;
   markRead: (conversationId: string) => void;
+  archiveConversation: (id: string) => Promise<void>;
+  unarchiveConversation: (id: string) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
+  setShowArchived: (v: boolean) => void;
+  loadPersistedDMState: () => Promise<void>;
   reset: () => void;
 }
 
@@ -55,6 +67,9 @@ export const useDMStore = create<DMState>((set, get) => ({
   conversationsLoading: false,
   messagesLoading: {},
   messageCursors: {},
+  archivedIds: [],
+  deletedIds: [],
+  showArchived: false,
 
   fetchConversations: async () => {
     set({ conversationsLoading: true });
@@ -142,11 +157,50 @@ export const useDMStore = create<DMState>((set, get) => ({
     }));
   },
 
+  archiveConversation: async (id: string) => {
+    const next = [...new Set([...get().archivedIds, id])];
+    set({ archivedIds: next });
+    await AsyncStorage.setItem(ARCHIVED_KEY, JSON.stringify(next));
+  },
+
+  unarchiveConversation: async (id: string) => {
+    const next = get().archivedIds.filter(x => x !== id);
+    set({ archivedIds: next });
+    await AsyncStorage.setItem(ARCHIVED_KEY, JSON.stringify(next));
+  },
+
+  deleteConversation: async (id: string) => {
+    const next = [...new Set([...get().deletedIds, id])];
+    // Also remove from archived if present
+    const nextArchived = get().archivedIds.filter(x => x !== id);
+    set({ deletedIds: next, archivedIds: nextArchived });
+    await AsyncStorage.setItem(DELETED_KEY, JSON.stringify(next));
+    await AsyncStorage.setItem(ARCHIVED_KEY, JSON.stringify(nextArchived));
+  },
+
+  setShowArchived: (v: boolean) => set({ showArchived: v }),
+
+  loadPersistedDMState: async () => {
+    try {
+      const [archived, deleted] = await Promise.all([
+        AsyncStorage.getItem(ARCHIVED_KEY),
+        AsyncStorage.getItem(DELETED_KEY),
+      ]);
+      set({
+        archivedIds: archived ? JSON.parse(archived) : [],
+        deletedIds: deleted ? JSON.parse(deleted) : [],
+      });
+    } catch {}
+  },
+
   reset: () => set({
     conversations: [],
     messages: {},
     conversationsLoading: false,
     messagesLoading: {},
-    messageCursors: {}
+    messageCursors: {},
+    archivedIds: [],
+    deletedIds: [],
+    showArchived: false,
   })
 }));
