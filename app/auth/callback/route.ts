@@ -19,6 +19,17 @@ function pickText(...values: Array<string | null | undefined>) {
     return null;
 }
 
+function getRequestBaseUrl(request: Request, fallbackOrigin: string) {
+    const forwardedHost = request.headers.get('x-forwarded-host');
+    const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
+
+    if (forwardedHost) {
+        return `${forwardedProto}://${forwardedHost}`;
+    }
+
+    return process.env.NEXT_PUBLIC_SITE_URL || fallbackOrigin;
+}
+
 function splitFullName(fullName: string | null) {
     if (!fullName) {
         return { firstName: null, lastName: null };
@@ -161,6 +172,7 @@ export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
     const code = searchParams.get('code');
     const next = getSafeNext(searchParams.get('next'));
+    const baseUrl = getRequestBaseUrl(request, origin);
 
     if (code) {
         try {
@@ -174,24 +186,31 @@ export async function GET(request: Request) {
                         : role === 'instructor'
                             ? '/instructor/dashboard'
                             : '/dashboard');
-                const forwardedHost = request.headers.get('x-forwarded-host'); // original origin before load balancer
-                const isLocalEnv = origin.startsWith('http://localhost');
-                if (isLocalEnv) {
-                    return NextResponse.redirect(`${origin}${destination}`);
-                } else if (forwardedHost) {
-                    return NextResponse.redirect(`https://${forwardedHost}${destination}`);
-                } else {
-                    return NextResponse.redirect(`${origin}${destination}`);
-                }
+                return NextResponse.redirect(`${baseUrl}${destination}`);
             }
             console.error('Auth callback error:', error);
+
+            const errorUrl = new URL('/auth/auth-code-error', baseUrl);
+            errorUrl.searchParams.set('reason', error.code ?? 'oauth_callback_failed');
+            if (next) {
+                errorUrl.searchParams.set('next', next);
+            }
+            return NextResponse.redirect(errorUrl);
         } catch (e) {
             console.error('Auth callback exception:', e);
+
+            const errorUrl = new URL('/auth/auth-code-error', baseUrl);
+            errorUrl.searchParams.set('reason', 'oauth_callback_exception');
+            if (next) {
+                errorUrl.searchParams.set('next', next);
+            }
+            return NextResponse.redirect(errorUrl);
         }
     }
 
     // return the user to an error page with instructions
-    const errorUrl = new URL('/auth/auth-code-error', origin);
+    const errorUrl = new URL('/auth/auth-code-error', baseUrl);
+    errorUrl.searchParams.set('reason', 'missing_auth_code');
     if (next) {
         errorUrl.searchParams.set('next', next);
     }
