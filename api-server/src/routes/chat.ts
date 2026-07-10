@@ -18,35 +18,11 @@ const TOOLS_API = process.env.TOOLS_API_URL || 'http://156.67.25.84:8001';
 
 // Tool definitions — LLM calls these when user asks about funds, analytics, or civic inputs
 const KIONGOZI_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'get_advocacy_analytics',
-      description: 'Fetch live analytics on youth civic inputs — total submissions, sector breakdown (Governance, Education, Health, etc.), sentiment distribution, and fund disbursement rates. Use when user asks about civic data, youth voices, what issues are being raised, or advocacy statistics.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_youth_inputs',
-      description: 'Fetch the most recent youth civic submissions from the Policy Pulse tool — what issues young people are raising, their locations, AI-generated categories and summaries. Use when user asks what youth are saying, recent submissions, or specific civic concerns.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
 ];
 
 async function executeTool(name: string): Promise<string> {
   try {
-    const routes: Record<string, string> = {
-      get_advocacy_analytics: `${TOOLS_API}/api/v1/advocacy/analytics`,
-      get_youth_inputs: `${TOOLS_API}/api/v1/inputs`,
-    };
-    const url = routes[name];
-    if (!url) return JSON.stringify({ error: 'Unknown tool' });
-    const res = await fetch(url);
-    const data = await res.json();
-    return JSON.stringify(data);
+    return JSON.stringify({ error: 'No tools configured' });
   } catch (e: any) {
     return JSON.stringify({ error: e.message });
   }

@@ -20,9 +20,6 @@ import DMConversationScreen from '../screens/social/DMConversationScreen';
 import FollowListScreen from '../screens/social/FollowListScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileTabScreen from '../screens/social/ProfileTabScreen';
-import ToolsHubScreen from '../screens/tools/ToolsHubScreen';
-import YouthVoiceScreen from '../screens/tools/YouthVoiceScreen';
-import AdvocacyLabScreen from '../screens/tools/AdvocacyLabScreen';
 import SettingsScreen from '../screens/social/SettingsScreen';
 import BlockedUsersScreen from '../screens/social/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/social/MutedUsersScreen';
@@ -66,17 +63,6 @@ function ExploreStackNavigator() {
   );
 }
 
-
-const ToolsStack = createNativeStackNavigator();
-function ToolsStackNavigator() {
-  return (
-    <ToolsStack.Navigator screenOptions={{ headerShown: false }}>
-      <ToolsStack.Screen name="ToolsHub" component={ToolsHubScreen} />
-      <ToolsStack.Screen name="YouthVoice" component={YouthVoiceScreen} />
-      <ToolsStack.Screen name="AdvocacyLab" component={AdvocacyLabScreen} />
-    </ToolsStack.Navigator>
-  );
-}
 
 const ProfileStack = createNativeStackNavigator();
 function ProfileStackNavigator() {
@@ -187,7 +173,6 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
               let iconName: keyof typeof Ionicons.glyphMap = 'home-outline';
               if (route.name === 'Feed') iconName = focused ? 'home' : 'home-outline';
               else if (route.name === 'Explore') iconName = focused ? 'search' : 'search-outline';
-              else if (route.name === 'Tools') iconName = focused ? 'build' : 'build-outline';
               else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
               return <Ionicons name={iconName} size={size} color={color} />;
             },
@@ -217,7 +202,6 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
               ),
             }}
           />
-          <Tab.Screen name="Tools" component={ToolsStackNavigator} />
           <Tab.Screen name="Profile" component={ProfileStackNavigator} />
         </Tab.Navigator>
       </NavigationContainer>

@@ -85,15 +85,6 @@ const faqs: { section: string; items: { q: string; a: string }[] }[] = [
       },
     ],
   },
-  {
-    section: 'Civic Tools',
-    items: [
-      {
-        q: 'What is Youth Voice?',
-        a: 'Youth Voice is a space for Kenyan youth to submit their views on national policies and issues. Your submissions are aggregated to surface community opinions on governance matters. It is a civic participation tool, not an official government feedback channel.',
-      },
-    ],
-  },
 ];
 
 export default function SupportPage() {

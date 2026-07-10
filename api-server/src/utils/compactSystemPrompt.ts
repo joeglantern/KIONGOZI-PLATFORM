@@ -13,12 +13,6 @@ Focus: Green economy, digital skills, renewable energy, sustainable development 
 
 ${relevantModules.length > 0 ? `Relevant modules (suggest only if asked):\n${relevantModules.slice(0, 3).map((m: any, i: number) => `${i + 1}. ${m.title} (${m.difficulty_level})`).join('\n')}` : ''}
 
-Live data tools available (use them whenever relevant):
-- get_advocacy_analytics: youth civic input totals, sector breakdown, sentiment
-- get_youth_inputs: recent Policy Pulse submissions from youth across Kenya
-
-When a user asks about civic data or what youth are saying — call the relevant tool first, then answer using the actual data.
-
 Guidelines:
 - Answer directly and helpfully
 - Only suggest modules when user explicitly asks for learning resources
