@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support | Kiongozi Chat</title>
+  <meta name="description" content="Get help with Kiongozi Chat — account issues, feed, DMs, AI guide, and more.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:     #1a365d;
+      --navy-dk:  #102340;
+      --green:    #5CB85C;
+      --green-lt: #f0faf0;
+      --white:    #ffffff;
+      --text-hi:  #0f172a;
+      --text-md:  #374151;
+      --text-lo:  #6b7280;
+      --border:   #e5e7eb;
+      --surface:  #f9fafb;
+    }
+
+    body {
+      background: var(--white);
+      color: var(--text-md);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header */
+    .site-header {
+      background: var(--navy);
+      border-bottom: 3px solid var(--green);
+    }
+    .header-inner {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .logo-icon { width: 40px; height: 40px; flex-shrink: 0; }
+    .logo-name { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
+    .logo-sub { font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 1px; }
+    .header-link { margin-left: auto; color: rgba(255,255,255,0.6); font-size: 13px; text-decoration: none; }
+    .header-link:hover { color: #fff; }
+
+    /* Hero */
+    .hero {
+      background: var(--navy);
+      padding: 48px 24px 52px;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: clamp(26px, 5vw, 36px);
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+    .hero h1 span { color: var(--green); }
+    .hero p { color: rgba(255,255,255,0.65); font-size: 16px; max-width: 46ch; margin: 0 auto 28px; }
+
+    /* Search bar style contact prompt */
+    .contact-prompt {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 50px;
+      padding: 10px 20px;
+      color: rgba(255,255,255,0.8);
+      font-size: 14px;
+    }
+    .contact-prompt a { color: var(--green); text-decoration: none; font-weight: 600; }
+    .contact-prompt a:hover { text-decoration: underline; }
+
+    /* Page */
+    .page {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 56px 24px 96px;
+    }
+
+    /* Category grid */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 64px;
+    }
+    .category-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 22px 20px;
+      background: var(--white);
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      text-decoration: none;
+      display: block;
+    }
+    .category-card:hover {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(92,184,92,0.1);
+    }
+    .category-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--green-lt);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    .category-icon svg { display: block; }
+    .category-title { font-size: 15px; font-weight: 700; color: var(--text-hi); margin-bottom: 4px; }
+    .category-desc { font-size: 13px; color: var(--text-lo); line-height: 1.5; }
+
+    /* Section */
+    .support-section { margin-bottom: 56px; }
+    .section-heading {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--green-lt);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-heading-dot {
+      width: 8px; height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* FAQ accordion */
+    .faq { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .faq-item { border-bottom: 1px solid var(--border); }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 18px 20px;
+      text-align: left;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-hi);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.1s;
+    }
+    .faq-question:hover { background: var(--surface); }
+    .faq-question.open { color: var(--navy); background: var(--green-lt); }
+    .faq-chevron {
+      width: 20px; height: 20px;
+      flex-shrink: 0;
+      color: var(--text-lo);
+      transition: transform 0.2s;
+    }
+    .faq-question.open .faq-chevron { transform: rotate(180deg); color: var(--green); }
+    .faq-answer {
+      display: none;
+      padding: 0 20px 18px;
+      font-size: 14px;
+      color: var(--text-md);
+      line-height: 1.7;
+      background: var(--green-lt);
+    }
+    .faq-answer.open { display: block; }
+    .faq-answer p + p { margin-top: 10px; }
+    .faq-answer a { color: var(--navy); }
+
+    /* Contact card */
+    .contact-card {
+      background: var(--navy);
+      border-radius: 12px;
+      padding: 32px 28px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .contact-card-text h3 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .contact-card-text p { color: rgba(255,255,255,0.65); font-size: 14px; max-width: 38ch; }
+    .contact-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--green);
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .contact-btn:hover { opacity: 0.9; }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 16px; }
+    .step { display: flex; gap: 16px; align-items: flex-start; }
+    .step-num {
+      width: 30px; height: 30px;
+      background: var(--green);
+      border-radius: 50%;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-body { font-size: 15px; color: var(--text-md); }
+    .step-body strong { color: var(--text-hi); }
+
+    /* Footer */
+    footer {
+      background: var(--navy-dk);
+      border-top: 3px solid var(--green);
+      padding: 20px 24px;
+      text-align: center;
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+    }
+    footer a { color: rgba(255,255,255,0.6); text-decoration: none; margin: 0 8px; }
+    footer a:hover { color: #fff; }
+
+    @media (max-width: 480px) {
+      .page { padding: 36px 18px 72px; }
+      .hero { padding: 36px 18px 40px; }
+      .contact-card { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="logo-wrap" href="https://kiongozi.com">
+      <svg class="logo-icon" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="20" fill="#5CB85C"/>
+        <circle cx="20" cy="20" r="13" fill="none" stroke="#fff" stroke-width="2.5"/>
+        <line x1="20" y1="20" x2="20" y2="9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="20" y1="20" x2="27" y2="24" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="2" fill="#fff"/>
+      </svg>
+      <div>
+        <div class="logo-name">Kiongozi Chat</div>
+        <div class="logo-sub">Kenya's Civic Network</div>
+      </div>
+    </a>
+    <a class="header-link" href="https://kiongozi.com">kiongozi.com</a>
+  </div>
+</header>
+
+<div class="hero">
+  <h1>How can we <span>help?</span></h1>
+  <p>Find answers to common questions or reach our team directly.</p>
+  <div class="contact-prompt">
+    Still stuck? Email us at <a href="mailto:afosi.2025@gmail.com">afosi.2025@gmail.com</a>
+  </div>
+</div>
+
+<main class="page">
+
+  <!-- Category cards -->
+  <div class="category-grid">
+    <a class="category-card" href="#account">
+      <div class="category-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <circle cx="11" cy="8" r="4" stroke="#5CB85C" stroke-width="2"/>
+          <path d="M3 19c0-4 3.6-7 8-7s8 3 8 7" stroke="#5CB85C" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="category-title">Account and Login</div>
+      <div class="category-desc">Password reset, login issues, deleting your account</div>
+    </a>
+    <a class="category-card" href="#feed">
+      <div class="category-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="4" width="16" height="3" rx="1.5" fill="#5CB85C"/>
+          <rect x="3" y="10" width="12" height="3" rx="1.5" fill="#5CB85C"/>
+          <rect x="3" y="16" width="8" height="3" rx="1.5" fill="#5CB85C"/>
+        </svg>
+      </div>
+      <div class="category-title">Feed and Posts</div>
+      <div class="category-desc">For You feed, posting content, likes and reposts</div>
+    </a>
+    <a class="category-card" href="#messages">
+      <div class="category-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M4 4h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H7l-4 3V5a1 1 0 0 1 1-1z" stroke="#5CB85C" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="category-title">Direct Messages</div>
+      <div class="category-desc">Sending messages, conversation issues, DM requests</div>
+    </a>
+    <a class="category-card" href="#ai">
+      <div class="category-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <circle cx="11" cy="11" r="8" stroke="#5CB85C" stroke-width="2"/>
+          <path d="M11 7v4l3 2" stroke="#5CB85C" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="category-title">AI Guide</div>
+      <div class="category-desc">Using @Kiongozi, governance questions, AI accuracy</div>
+    </a>
+    <a class="category-card" href="#safety">
+      <div class="category-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M11 2l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V5l7-3z" stroke="#5CB85C" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="category-title">Safety and Reporting</div>
+      <div class="category-desc">Report content, block users, privacy settings</div>
+    </a>
+    <a class="category-card" href="#tools">
+      <div class="category-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="3" width="7" height="7" rx="1" stroke="#5CB85C" stroke-width="2"/>
+          <rect x="12" y="3" width="7" height="7" rx="1" stroke="#5CB85C" stroke-width="2"/>
+          <rect x="3" y="12" width="7" height="7" rx="1" stroke="#5CB85C" stroke-width="2"/>
+          <rect x="12" y="12" width="7" height="7" rx="1" stroke="#5CB85C" stroke-width="2"/>
+        </svg>
+      </div>
+      <div class="category-title">Civic Tools</div>
+      <div class="category-desc">Fund Tracker, Youth Voice, Advocacy Lab</div>
+    </a>
+  </div>
+
+  <!-- Account -->
+  <div class="support-section" id="account">
+    <div class="section-heading"><div class="section-heading-dot"></div>Account and Login</div>
+    <div class="faq">
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          I forgot my password. How do I reset it?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>On the login screen, tap <strong>Forgot Password</strong> and enter your email address. You will receive a reset link within a few minutes. Check your spam folder if it does not arrive.</p>
+          <p>If you no longer have access to the email you signed up with, contact us at <a href="mailto:afosi.2025@gmail.com">afosi.2025@gmail.com</a>.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          I can't log in — it says my credentials are incorrect.
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Try resetting your password first. If the issue continues, make sure you are using the email address you signed up with — not a username or phone number.</p>
+          <p>If you signed up with Google or another provider, use that same login method on the login screen.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          How do I delete my account?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Go to <strong>Profile → Settings → Delete Account</strong>. This will permanently remove your account, posts, and all associated data. This action cannot be undone.</p>
+          <p>You can also request deletion by emailing <a href="mailto:afosi.2025@gmail.com">afosi.2025@gmail.com</a> from your registered email address.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          How do I change my username or profile photo?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Tap your profile icon, then tap <strong>Edit Profile</strong>. From there you can update your name, username, bio, avatar, and cover photo.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feed -->
+  <div class="support-section" id="feed">
+    <div class="section-heading"><div class="section-heading-dot"></div>Feed and Posts</div>
+    <div class="faq">
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          Why is my For You feed empty?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>The For You feed personalises as you use the app. When your account is new, it shows recent public posts from across the platform. Follow some users and like posts on topics you care about — the feed improves quickly after a few interactions.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          How do I delete a post I made?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Tap the three dots (<strong>...</strong>) on any of your posts and select <strong>Delete</strong>. Deleted posts are permanently removed and cannot be recovered.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          Can I make my account private?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Yes. Go to <strong>Profile → Settings → Privacy → Private Account</strong>. When your account is private, new followers must send a follow request that you approve before they can see your posts.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="support-section" id="messages">
+    <div class="section-heading"><div class="section-heading-dot"></div>Direct Messages</div>
+    <div class="faq">
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          How do I start a conversation?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Tap the message icon in the top right of the home screen, then tap the compose button to start a new conversation. You can message anyone you follow or who follows you.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          How do I delete a conversation?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>In your messages list, swipe left on the conversation and tap <strong>Delete</strong>. This removes the conversation from your view only.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI -->
+  <div class="support-section" id="ai">
+    <div class="section-heading"><div class="section-heading-dot"></div>AI Guide</div>
+    <div class="faq">
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          What can the Kiongozi AI help me with?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>The Kiongozi AI is your civic guide. It can answer questions about Kenya's Constitution, how county and national government works, public finance, devolution, civic rights, and the green economy.</p>
+          <p>Open it anytime by tapping the green Kiongozi button or by mentioning <strong>@kiongozi</strong> in any post or comment.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          The AI gave me incorrect information. What should I do?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>AI responses may occasionally be incomplete or out of date. For critical civic or legal matters, always verify with official sources such as <a href="https://kenyalaw.org" target="_blank">kenyalaw.org</a> or <a href="https://www.kenya.go.ke" target="_blank">kenya.go.ke</a>.</p>
+          <p>You can report a bad response by tapping the flag icon on any AI message, or email us at <a href="mailto:afosi.2025@gmail.com">afosi.2025@gmail.com</a>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Safety -->
+  <div class="support-section" id="safety">
+    <div class="section-heading"><div class="section-heading-dot"></div>Safety and Reporting</div>
+    <div class="faq">
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          How do I report a post or user?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Tap the three dots (<strong>...</strong>) on any post, comment, or profile and select <strong>Report</strong>. Choose the reason that best applies. All reports are reviewed by our moderation team within 24 hours.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          How do I block someone?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Visit the user's profile, tap the three dots in the top right corner, and select <strong>Block</strong>. Blocked users cannot see your profile, posts, or send you messages. You can manage your block list in <strong>Settings → Privacy → Blocked Accounts</strong>.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          How do I report a child safety concern?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Use the <strong>Report</strong> option on the content or profile and select <strong>Child Safety</strong>. These reports are escalated immediately. You can also email <a href="mailto:afosi.2025@gmail.com">afosi.2025@gmail.com</a> directly — we respond within 24 hours.</p>
+          <p>For more information, read our <a href="https://chat.kiongozi.org/child-safety">Child Safety Standards</a>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tools -->
+  <div class="support-section" id="tools">
+    <div class="section-heading"><div class="section-heading-dot"></div>Civic Tools</div>
+    <div class="faq">
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          What is the Fund Tracker?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Fund Tracker lets you follow public funds and government spending in Kenya. Data is sourced from the Kenya National Treasury (<a href="https://www.treasury.go.ke" target="_blank">treasury.go.ke</a>) and the Controller of Budget (<a href="https://cob.go.ke" target="_blank">cob.go.ke</a>). Kiongozi Chat is not a government platform — this information is presented for civic education purposes.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggle(this)">
+          What is Youth Voice?
+          <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="faq-answer">
+          <p>Youth Voice is a space for Kenyan youth to submit their views on national policies and issues. Your submissions are aggregated to surface community opinions on governance matters. It is a civic participation tool, not an official government feedback channel.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact -->
+  <div class="contact-card">
+    <div class="contact-card-text">
+      <h3>Still need help?</h3>
+      <p>Our team responds to all support emails within 24 hours, Monday to Friday.</p>
+    </div>
+    <a class="contact-btn" href="mailto:afosi.2025@gmail.com">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="3" width="14" height="10" rx="2" stroke="#fff" stroke-width="1.5"/>
+        <path d="M1 5l7 5 7-5" stroke="#fff" stroke-width="1.5"/>
+      </svg>
+      Email Support
+    </a>
+  </div>
+
+</main>
+
+<footer>
+  <span>&copy; 2026 Kiongozi Platform</span>
+  <a href="https://chat.kiongozi.org/child-safety">Child Safety</a>
+  <a href="https://kiongozi.com/privacy">Privacy Policy</a>
+  <a href="https://kiongozi.com">kiongozi.com</a>
+</footer>
+
+<script>
+  function toggle(btn) {
+    const answer = btn.nextElementSibling;
+    const isOpen = btn.classList.contains('open');
+    document.querySelectorAll('.faq-question.open').forEach(q => {
+      q.classList.remove('open');
+      q.nextElementSibling.classList.remove('open');
+    });
+    if (!isOpen) {
+      btn.classList.add('open');
+      answer.classList.add('open');
+    }
+  }
+</script>
+
+</body>
+</html>
