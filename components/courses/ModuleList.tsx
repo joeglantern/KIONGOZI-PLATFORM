@@ -1,11 +1,11 @@
 "use client";
 
 import Link from 'next/link';
-import { CheckCircle, Lock, Clock, FileText, Play } from 'lucide-react';
+import { CheckCircle, Lock, Clock, FileText, FileQuestion, Play } from 'lucide-react';
 
 export type CourseContentItem = {
     id: string;
-    type: 'module' | 'scorm';
+    type: 'module' | 'scorm' | 'quiz';
     title: string;
     description?: string;
     durationMinutes?: number;
@@ -24,8 +24,12 @@ export function ModuleList({ items, isAccessible }: ModuleListProps) {
         <div className="space-y-3">
             {items.map((item, index) => {
                 const lessonNumber = index + 1;
-                const Icon = item.type === 'scorm' ? Play : FileText;
-                const lessonLabel = item.type === 'scorm' ? `Interactive ${lessonNumber}` : `Lesson ${lessonNumber}`;
+                const Icon = item.type === 'scorm' ? Play : item.type === 'quiz' ? FileQuestion : FileText;
+                const lessonLabel = item.type === 'scorm'
+                    ? `Interactive ${lessonNumber}`
+                    : item.type === 'quiz'
+                        ? 'Final assessment'
+                        : `Lesson ${lessonNumber}`;
 
                 const content = (
                     <div className="flex items-start gap-4">
@@ -36,7 +40,11 @@ export function ModuleList({ items, isAccessible }: ModuleListProps) {
                                 </div>
                             ) : isAccessible ? (
                                 <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                                    <span className="text-sm font-bold text-orange-600">{lessonNumber}</span>
+                                    {item.type === 'quiz' ? (
+                                        <FileQuestion className="w-5 h-5 text-orange-600" />
+                                    ) : (
+                                        <span className="text-sm font-bold text-orange-600">{lessonNumber}</span>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">

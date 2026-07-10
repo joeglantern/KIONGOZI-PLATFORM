@@ -52,6 +52,7 @@ export interface ModuleValidationRecord {
 export interface QuizValidationRecord {
     id: string;
     title?: string | null;
+    module_id?: string | null;
     questionCount: number;
     invalidQuestionCount: number;
     missingCorrectAnswerCount: number;
@@ -139,6 +140,7 @@ export function buildCourseReadiness(params: {
     const { course, modules, quizzes, scormPackages } = params;
 
     const issues: ValidationIssue[] = [];
+    const hasFinalQuiz = quizzes.some((quiz) => quiz.module_id === null);
 
     if (!course.title?.trim()) {
         issues.push({
@@ -188,6 +190,16 @@ export function buildCourseReadiness(params: {
             label: 'No curriculum items yet',
             description: 'Add at least one lesson, quiz, or SCORM package before publishing.',
             target: { type: 'settings' },
+        });
+    }
+
+    if (!hasFinalQuiz) {
+        issues.push({
+            id: 'course-final-quiz',
+            level: 'blocking',
+            label: 'Final quiz is missing',
+            description: 'Add a course-level final quiz so learners must pass an assessment before completion.',
+            target: { type: 'quiz', id: null },
         });
     }
 
@@ -312,6 +324,13 @@ export function buildCourseReadiness(params: {
             label: 'Curriculum items',
             description: 'At least one lesson, quiz, or SCORM package is required.',
             passed: curriculumCount > 0,
+            blocking: true,
+        },
+        {
+            id: 'check-final-quiz',
+            label: 'Final quiz',
+            description: 'Learners must pass a course-level quiz before completion.',
+            passed: hasFinalQuiz,
             blocking: true,
         },
         {

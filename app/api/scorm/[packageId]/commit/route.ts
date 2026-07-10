@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeScormPackageAccess } from '@/lib/scorm/access';
+import { syncCourseEnrollmentProgress } from '@/lib/lms/course-progress';
 
 function getScormValue(cmiData: Record<string, string>, scorm12Key: string, scorm2004Key: string) {
   return cmiData[scorm12Key] ?? cmiData[scorm2004Key] ?? null;
@@ -18,65 +19,6 @@ function deriveLessonStatus(cmiData: Record<string, string>) {
   if (completionStatus === 'browsed') return 'browsed';
 
   return 'incomplete';
-}
-
-async function syncCourseEnrollmentProgress(serviceClient: any, userId: string, courseId: string) {
-  const [{ data: courseModules }, { data: scormPackages }] = await Promise.all([
-    serviceClient
-      .from('course_modules')
-      .select('module_id')
-      .eq('course_id', courseId),
-    serviceClient
-      .from('scorm_packages')
-      .select('id')
-      .eq('course_id', courseId)
-      .eq('status', 'active'),
-  ]);
-
-  const moduleIds = (courseModules ?? []).map((moduleLink: any) => moduleLink.module_id).filter(Boolean);
-  const scormIds = (scormPackages ?? []).map((pkg: any) => pkg.id).filter(Boolean);
-
-  let completedModuleCount = 0;
-  if (moduleIds.length > 0) {
-    const { data: completedModules } = await serviceClient
-      .from('user_progress')
-      .select('module_id')
-      .eq('user_id', userId)
-      .eq('status', 'completed')
-      .in('module_id', moduleIds);
-
-    completedModuleCount = new Set((completedModules ?? []).map((progress: any) => progress.module_id)).size;
-  }
-
-  let completedScormCount = 0;
-  if (scormIds.length > 0) {
-    const { data: completedScorm } = await serviceClient
-      .from('scorm_registrations')
-      .select('package_id')
-      .eq('user_id', userId)
-      .in('package_id', scormIds)
-      .in('lesson_status', ['completed', 'passed']);
-
-    completedScormCount = new Set((completedScorm ?? []).map((registration: any) => registration.package_id)).size;
-  }
-
-  const totalItems = moduleIds.length + scormIds.length;
-  const completedItems = completedModuleCount + completedScormCount;
-  const progressPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-
-  await serviceClient
-    .from('course_enrollments')
-    .update({
-      progress_percentage: progressPercentage,
-      last_accessed_at: new Date().toISOString(),
-      ...(progressPercentage === 100
-        ? { status: 'completed', completed_at: new Date().toISOString() }
-        : {}),
-    })
-    .eq('course_id', courseId)
-    .eq('user_id', userId);
-
-  return progressPercentage;
 }
 
 // POST — save CMI data from SCORM LMSCommit / LMSFinish
@@ -157,7 +99,7 @@ export async function POST(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const courseId = data?.course_id || pkg.course_id;
-    const progressPercentage = isComplete
+    const progressSnapshot = isComplete
       ? await syncCourseEnrollmentProgress(serviceClient, user.id, courseId)
       : null;
 
@@ -192,7 +134,11 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ success: true, registration: data, progress_percentage: progressPercentage });
+    return NextResponse.json({
+      success: true,
+      registration: data,
+      progress_percentage: progressSnapshot?.progressPercentage ?? null,
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

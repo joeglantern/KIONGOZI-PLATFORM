@@ -304,6 +304,7 @@ export default function EditCourseClient({
                     return {
                         id: quiz.id,
                         title: quiz.title,
+                        module_id: quiz.module_id,
                         questionCount: quizQuestions.length,
                         invalidQuestionCount: quizQuestions.filter((question) => {
                             const options = optionMap.get(question.id) || [];

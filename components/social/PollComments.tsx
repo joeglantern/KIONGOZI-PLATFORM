@@ -124,12 +124,23 @@ export default function PollComments({ pollId, questionId = undefined, currentUs
                     return c;
                 }));
             } else {
+                const { error: clearErr } = await supabase
+                    .from('poll_comment_votes')
+                    .delete()
+                    .eq('comment_id', commentId)
+                    .eq('user_id', currentUser.id);
+
+                if (clearErr) throw clearErr;
+
                 const { error } = await supabase
                     .from('poll_comment_votes')
                     .upsert({
                         comment_id: commentId,
                         user_id: currentUser.id,
                         vote_type: type
+                    }, {
+                        onConflict: 'comment_id,user_id',
+                        ignoreDuplicates: true
                     });
 
                 if (error) throw error;

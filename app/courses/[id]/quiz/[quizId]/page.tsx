@@ -16,6 +16,9 @@ export default function StudentQuizPage() {
     const returnHref = returnTo?.startsWith('/') && !returnTo.startsWith('//')
         ? returnTo
         : `/courses/${courseId}`;
+    const returnLabel = returnHref === `/courses/${courseId}` || returnHref === `/courses/${courseId}?preview=1`
+        ? 'Back to Course'
+        : 'Back to Lesson';
 
     return (
         <ProtectedRoute allowedRoles={['user', 'instructor', 'admin']}>
@@ -30,7 +33,7 @@ export default function StudentQuizPage() {
                             <div className="w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center group-hover:scale-110 transition-transform">
                                 <ArrowLeft className="w-4 h-4" />
                             </div>
-                            <span className="font-black text-[10px] uppercase tracking-widest">Back to Lesson</span>
+                            <span className="font-black text-[10px] uppercase tracking-widest">{returnLabel}</span>
                         </Link>
 
                         <div className="flex items-center gap-3">

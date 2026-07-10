@@ -414,7 +414,7 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════════════════════════════
           SECTION 1 · HERO
           ══════════════════════════════════════════════════════════════ */}
-      <section className="relative isolate overflow-hidden bg-[#fff8ef] px-4 pb-6 pt-6 sm:px-6 lg:px-8">
+      <section className="relative isolate overflow-hidden bg-[#fff8ef] px-4 pb-8 pt-8 sm:px-6 sm:pt-10 lg:px-8">
         <Image
           src="/hero/kenya-map-bg.png"
           alt=""
@@ -425,16 +425,16 @@ export default function LandingPage() {
         />
 
         <div className="relative mx-auto max-w-[1520px]">
-          <div className="grid items-center gap-6 lg:min-h-[650px] lg:grid-cols-[0.94fr_1.06fr]">
+          <div className="grid items-center gap-4 lg:min-h-[650px] lg:grid-cols-[0.94fr_1.06fr] lg:gap-6">
             <motion.div
               initial="hidden"
               animate="visible"
               variants={staggerChildren}
-              className="relative z-20 max-w-[690px] py-6 lg:py-8"
+              className="relative z-20 max-w-[690px] py-4 text-center sm:text-left lg:py-8"
             >
               <motion.h1
                 variants={fadeUp}
-                className="max-w-3xl font-display text-5xl font-black leading-[0.94] text-brand-primary sm:text-6xl lg:text-6xl xl:text-7xl"
+                className="mx-auto max-w-3xl font-display text-4xl font-black leading-[0.96] text-brand-primary sm:mx-0 sm:text-5xl md:text-6xl lg:text-6xl xl:text-7xl"
               >
                 Learn skills.
                 <br />
@@ -456,7 +456,7 @@ export default function LandingPage() {
               <motion.div variants={fadeUp} className="mt-7 flex flex-col gap-4 sm:flex-row">
                 <Link
                   href={user ? "/dashboard" : signupHref}
-                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl bg-brand-orange px-7 py-4 text-base font-black text-white shadow-[0_18px_35px_rgba(255,102,51,0.28)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-brand-orange px-7 py-4 text-base font-black text-white shadow-[0_18px_35px_rgba(255,102,51,0.28)] transition-transform hover:-translate-y-0.5 active:translate-y-0 sm:w-auto"
                 >
                   <Zap className="h-5 w-5 fill-current" />
                   {user ? "Continue Learning" : "Start Your First Mission"}
@@ -464,7 +464,7 @@ export default function LandingPage() {
                 </Link>
                 <button
                   onClick={() => document.getElementById("first-mission")?.scrollIntoView({ behavior: "smooth" })}
-                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl border border-brand-primary/10 bg-white px-7 py-4 text-base font-black text-brand-primary shadow-[0_15px_35px_rgba(27,36,50,0.08)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl border border-brand-primary/10 bg-white px-7 py-4 text-base font-black text-brand-primary shadow-[0_15px_35px_rgba(27,36,50,0.08)] transition-transform hover:-translate-y-0.5 active:translate-y-0 sm:w-auto"
                 >
                   See How It Works
                   <PlayCircle className="h-5 w-5" />
@@ -500,7 +500,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.12, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 min-h-[510px] w-full overflow-visible sm:min-h-[590px] lg:min-h-[650px]"
+              className="relative z-10 mx-auto min-h-[430px] w-full max-w-[430px] overflow-visible sm:min-h-[560px] sm:max-w-none lg:min-h-[650px]"
             >
               <Image
                 src="/hero/kenya-map-bg.png"
@@ -518,10 +518,10 @@ export default function LandingPage() {
                 height={1202}
                 priority
                 aria-hidden="true"
-                className="pointer-events-none absolute left-0 top-8 z-20 h-[240px] w-auto rotate-[-4deg] object-contain drop-shadow-[0_22px_30px_rgba(27,36,50,0.14)] sm:left-[4%] sm:top-10 sm:h-[320px] lg:left-[4%] lg:top-[8%] lg:h-[340px]"
+                className="pointer-events-none absolute left-[-12px] top-8 z-20 h-[210px] w-auto rotate-[-4deg] object-contain drop-shadow-[0_22px_30px_rgba(27,36,50,0.14)] sm:left-[4%] sm:top-10 sm:h-[320px] lg:left-[4%] lg:top-[8%] lg:h-[340px]"
               />
 
-              <HeroPhoneMockup className="absolute left-[42%] top-4 z-30 w-[245px] -translate-x-1/2 rotate-[3deg] sm:w-[300px] lg:left-[48%] lg:top-[1%] lg:w-[338px]" />
+              <HeroPhoneMockup className="absolute left-1/2 top-3 z-30 w-[225px] -translate-x-1/2 rotate-[3deg] sm:w-[300px] lg:left-[48%] lg:top-[1%] lg:w-[338px]" />
 
               <div className="absolute right-0 top-[2%] z-50 hidden w-[238px] rounded-3xl border border-white/70 bg-white p-5 shadow-[0_24px_60px_rgba(27,36,50,0.14)] md:block lg:right-[3%]">
                 <p className="mb-4 text-sm font-black text-brand-primary">Achievements</p>
@@ -546,7 +546,7 @@ export default function LandingPage() {
                 height={1359}
                 priority
                 aria-hidden="true"
-                className="pointer-events-none absolute bottom-[-10px] right-[-22%] z-40 h-[310px] w-auto object-contain drop-shadow-[0_24px_30px_rgba(27,36,50,0.15)] sm:right-[-7%] sm:h-[380px] lg:bottom-[-22px] lg:right-[-6%] lg:h-[380px] xl:right-[-1%]"
+                className="pointer-events-none absolute bottom-[-6px] right-[-74px] z-40 h-[285px] w-auto object-contain drop-shadow-[0_24px_30px_rgba(27,36,50,0.15)] sm:right-[-7%] sm:h-[380px] lg:bottom-[-22px] lg:right-[-6%] lg:h-[380px] xl:right-[-1%]"
               />
             </motion.div>
           </div>
@@ -555,7 +555,7 @@ export default function LandingPage() {
             initial="hidden"
             animate="visible"
             variants={staggerChildren}
-            className="relative z-20 grid gap-3 pb-3 sm:grid-cols-2 lg:grid-cols-5"
+            className="relative z-20 grid gap-3 pb-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
           >
             {[
               { Icon: Target, title: "Short Missions.", copy: "Real Impact.", detail: "Make change in your community, one step at a time.", tint: "bg-emerald-50 text-emerald-700" },
@@ -567,12 +567,12 @@ export default function LandingPage() {
               <motion.div
                 key={title}
                 variants={fadeUp}
-                className="flex min-h-[106px] items-center gap-4 rounded-2xl border border-brand-primary/10 bg-white/82 p-4 shadow-[0_16px_45px_rgba(27,36,50,0.08)] backdrop-blur"
+                className="flex min-h-[106px] min-w-0 items-center gap-4 rounded-2xl border border-brand-primary/10 bg-white/82 p-4 shadow-[0_16px_45px_rgba(27,36,50,0.08)] backdrop-blur"
               >
                 <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${tint}`}>
                   <Icon className="h-7 w-7" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-base font-black leading-tight text-brand-primary">
                     {title}
                     <br />

@@ -34,7 +34,7 @@ const defaultQuestion = (): Question => ({
 // via the "Use Youth Policy Pulse Template" button rather than hardcoded as
 // the only option, so custom deliberative polls remain fully supported.
 const YOUTH_POLICY_PULSE_TEMPLATE = {
-    title: 'Youth Policy Pulse: Green Finance, Digital Inclusion & the Finance Bill 2026',
+    title: 'Youth Policy Pulse (AI Policy Dialogue)',
     description: "An AI-powered policy conversation gathering youth experiences and recommendations on green finance, digital inclusion, and green jobs — to inform Parliament and County Governments ahead of Finance Bill 2026 implementation.",
     category: 'economy',
     whatContext: 'A structured dialogue asking young Kenyans about barriers to green finance, the impact of digital transformation, and skills gaps in the green economy — feeding directly into an AI-generated, advocacy-ready policy brief for Finance Bill 2026.',

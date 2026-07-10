@@ -8,7 +8,6 @@ import { useUser } from '@/app/contexts/UserContext';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 import { useTheme } from '@/app/contexts/ThemeContext';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import LanguageSwitcher from '@/components/layout/LanguageSwitcher';
 import AccessibilitySwitcher from '@/components/layout/AccessibilitySwitcher';
@@ -27,11 +26,11 @@ import {
     LayoutDashboard,
     Moon,
     Sun,
-    Map as MapIcon,
+    Flame,
 } from 'lucide-react';
 
 export function Navbar() {
-    const { user, profile, signOut } = useUser();
+    const { user, profile, loading, signOut } = useUser();
     const { t } = useLanguage();
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -42,15 +41,21 @@ export function Navbar() {
     const ticking = useRef(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
+        const updateScrolled = () => {
+            const nextScrolled = window.scrollY > 10;
+            setScrolled((current) => (current === nextScrolled ? current : nextScrolled));
+        };
+
         const handleScroll = () => {
             if (!ticking.current) {
                 ticking.current = true;
                 requestAnimationFrame(() => {
-                    setScrolled(window.scrollY > 10);
+                    updateScrolled();
                     ticking.current = false;
                 });
             }
         };
+        updateScrolled();
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
@@ -95,20 +100,21 @@ export function Navbar() {
     const desktopNavClass = (active: boolean) =>
         cn(
             buttonVariants({ variant: 'ghost' }),
-            'rounded-xl px-3 text-sm font-black',
+            'rounded-xl px-3 text-sm font-black whitespace-nowrap',
             active
                 ? 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
                 : 'text-gray-700 hover:bg-orange-50/70 hover:text-orange-700 dark:text-gray-200 dark:hover:bg-gray-800'
         );
     const mobileNavClass = cn(buttonVariants({ variant: 'ghost' }), 'w-full justify-start gap-2');
     const mobileOutlineClass = cn(buttonVariants({ variant: 'outline' }), 'w-full justify-center');
+    const skeletonPillClass = 'h-9 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse';
 
     // Hide root navbar on instructor pages (they have their own navbar)
     if (pathname?.startsWith('/instructor')) return null;
 
     return (
         <header
-            className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
+            className={`fixed top-0 left-0 right-0 z-50 transition-colors duration-200 ${scrolled
                 ? 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-md'
                 : 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm'
                 }`}
@@ -130,7 +136,12 @@ export function Navbar() {
 
                     {/* Desktop Navigation */}
                     <div className="hidden xl:flex items-center space-x-1">
-                        {!user ? (
+                        {loading ? (
+                            <div className="flex items-center gap-2" aria-hidden="true">
+                                <span className={cn(skeletonPillClass, 'w-28')} />
+                                <span className={cn(skeletonPillClass, 'w-24')} />
+                            </div>
+                        ) : !user ? (
                             <>
                                 <Link href="/courses" className={desktopNavClass(isActive('/courses'))}>
                                     <BookOpen className="w-4 h-4 mr-2" />
@@ -139,10 +150,6 @@ export function Navbar() {
                                 <Link href="/community" className={desktopNavClass(isActive('/community'))}>
                                     <Users className="w-4 h-4 mr-2" />
                                     {t('nav.community')}
-                                </Link>
-                                <Link href="/impact-map" className={desktopNavClass(isActive('/impact-map'))}>
-                                    <MapIcon className="w-4 h-4 mr-2" />
-                                    {t('nav.impact_map')}
                                 </Link>
                             </>
                         ) : (
@@ -163,10 +170,6 @@ export function Navbar() {
                                     <Users className="w-4 h-4 mr-2" />
                                     {t('nav.community')}
                                 </Link>
-                                <Link href="/impact-map" className={desktopNavClass(isActive('/impact-map'))}>
-                                    <MapIcon className="w-4 h-4 mr-2" />
-                                    {t('nav.impact_map')}
-                                </Link>
                                 {isInstructor && (
                                     <Link href="/instructor/dashboard" className={cn(buttonVariants(), 'bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md')}>
                                         {t('nav.instructor_panel')}
@@ -180,18 +183,22 @@ export function Navbar() {
                     <div className="hidden xl:flex items-center space-x-3">
                         <LanguageSwitcher />
                         <AccessibilitySwitcher />
-                        {user ? (
+                        {loading ? (
+                            <div className="flex items-center gap-3" aria-hidden="true">
+                                <span className={cn(skeletonPillClass, 'w-16 rounded-full')} />
+                                <span className={cn(skeletonPillClass, 'w-20 rounded-full')} />
+                                <span className="h-10 w-10 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                            </div>
+                        ) : user ? (
                             <>
                                 {/* Streak indicator */}
-                                <motion.div 
-                                    initial={{ scale: 0.9, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
+                                <div
                                     className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/60 rounded-full px-3 py-1 text-orange-600 dark:text-orange-400 font-black text-sm select-none shadow-sm cursor-help"
                                     title={`${profile?.current_streak || 0}-day study streak!`}
                                 >
-                                    <span className={cn("inline-block text-base", (profile?.current_streak || 0) > 0 && "animate-bounce")}>🔥</span>
+                                    <Flame className="w-4 h-4 text-orange-500" aria-hidden="true" />
                                     <span>{profile?.current_streak || 0}</span>
-                                </motion.div>
+                                </div>
 
                                 {/* XP indicator */}
                                 <div 
@@ -301,7 +308,13 @@ export function Navbar() {
                     }`}
             >
                 <div className="px-4 pt-3 pb-24 space-y-2">
-                    {!user ? (
+                    {loading ? (
+                        <div className="space-y-2 px-2 py-1" aria-hidden="true">
+                            <div className={cn(skeletonPillClass, 'w-full')} />
+                            <div className={cn(skeletonPillClass, 'w-full')} />
+                            <div className={cn(skeletonPillClass, 'w-4/5')} />
+                        </div>
+                    ) : !user ? (
                         <>
                             <Link href="/" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <Home className="w-4 h-4 mr-2" />
@@ -314,10 +327,6 @@ export function Navbar() {
                             <Link href="/community" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <Users className="w-4 h-4 mr-2" />
                                 {t('nav.community')}
-                            </Link>
-                            <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
-                                <MapIcon className="w-4 h-4 mr-2" />
-                                {t('nav.impact_map')}
                             </Link>
                             <div className="pt-3 border-t border-gray-200 space-y-2">
                                 <Link href="/login" onClick={() => setMobileMenuOpen(false)} className={mobileOutlineClass}>
@@ -333,7 +342,7 @@ export function Navbar() {
                             {/* Mobile Streak & XP status */}
                             <div className="flex items-center justify-around bg-orange-50/50 dark:bg-orange-950/20 rounded-2xl p-3 border border-orange-100 dark:border-orange-900/40 mb-4 mx-2">
                                 <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 font-black text-sm">
-                                    <span className="text-lg">🔥</span>
+                                    <Flame className="w-4 h-4 text-orange-500" aria-hidden="true" />
                                     <span>{profile?.current_streak || 0} Streak</span>
                                 </div>
                                 <div className="h-4 border-l border-orange-200 dark:border-orange-900/40" />
@@ -362,10 +371,6 @@ export function Navbar() {
                             <Link href="/community" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
                                 <Users className="w-4 h-4 mr-2" />
                                 {t('nav.community')}
-                            </Link>
-                            <Link href="/impact-map" onClick={() => setMobileMenuOpen(false)} className={mobileNavClass}>
-                                <MapIcon className="w-4 h-4 mr-2" />
-                                {t('nav.impact_map')}
                             </Link>
                             {isInstructor && (
                                 <Link href="/instructor/dashboard" onClick={() => setMobileMenuOpen(false)} className={cn(buttonVariants(), 'w-full justify-start bg-orange-500 text-white font-bold')}>

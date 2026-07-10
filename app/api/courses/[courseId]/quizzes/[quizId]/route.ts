@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeQuizAccess, authorizeInstructorCourseAccess } from '@/lib/quiz/access';
+import { syncCourseEnrollmentProgress } from '@/lib/lms/course-progress';
 
 interface OptionPayload {
     id?: string;
@@ -189,12 +190,22 @@ export async function POST(
             message = `You passed with ${finalScore}%. XP was already awarded on your first pass.`;
         }
 
+        const progressSnapshot = passed && quiz.module_id === null
+            ? await syncCourseEnrollmentProgress(serviceClient, user.id, courseId)
+            : null;
+
+        if (progressSnapshot?.progressPercentage === 100) {
+            message = `You passed with ${finalScore}% and completed the course.`;
+        }
+
         return NextResponse.json({
             score: finalScore,
             passed,
             xpAwarded,
             message,
             results,
+            progress_percentage: progressSnapshot?.progressPercentage ?? null,
+            course_completed: progressSnapshot?.progressPercentage === 100,
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message || 'Failed to submit quiz' }, { status: 500 });

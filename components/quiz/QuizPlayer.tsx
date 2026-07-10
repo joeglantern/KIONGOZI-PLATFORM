@@ -29,7 +29,7 @@ interface QuizData {
     description: string;
     passing_score: number;
     time_limit_minutes: number;
-    module_id: string;
+    module_id: string | null;
 }
 
 interface Question {
@@ -199,6 +199,7 @@ export default function QuizPlayer({ quizId, courseId, returnHref, onComplete }:
     if (submitted) {
         const resultMap = new Map(results.map(r => [r.question_id, r]));
         const incorrectCount = results.filter(r => !r.is_correct).length;
+        const returnLabel = quiz.module_id === null ? 'Back to Course' : 'Back to Lesson';
         return (
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -322,7 +323,7 @@ export default function QuizPlayer({ quizId, courseId, returnHref, onComplete }:
                         }}
                         className="border-2 border-gray-200 dark:border-gray-700 px-10 py-7 rounded-2xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all"
                     >
-                        Back to Lesson
+                        {returnLabel}
                     </Button>
                 </div>
             </motion.div>

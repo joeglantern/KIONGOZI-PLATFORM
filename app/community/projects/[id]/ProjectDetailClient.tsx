@@ -106,10 +106,17 @@ export default function ProjectDetailClient({ project, updates: initialUpdates, 
         if (!user) { toast({ title: 'Login required', variant: 'destructive' }); return; }
         try {
             if (hasUpvoted) {
-                await supabase.from('project_update_upvotes').delete()
+                const { error } = await supabase.from('project_update_upvotes').delete()
                     .eq('update_id', updateId).eq('user_id', user.id);
+                if (error) throw error;
             } else {
-                await supabase.from('project_update_upvotes').insert({ update_id: updateId, user_id: user.id });
+                const { error } = await supabase
+                    .from('project_update_upvotes')
+                    .upsert(
+                        { update_id: updateId, user_id: user.id },
+                        { onConflict: 'update_id,user_id', ignoreDuplicates: true }
+                    );
+                if (error) throw error;
             }
             setUpdates(prev => prev.map(u => u.id === updateId ? {
                 ...u,

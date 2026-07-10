@@ -46,6 +46,7 @@ import { fireModuleConfetti, fireCourseConfetti } from '@/lib/confetti';
 import { useKeyboardNav } from '@/hooks/useKeyboardNav';
 import { AccessibilityMenu } from '@/components/learning/AccessibilityMenu';
 import { getQuestionsForModule, type ScenarioQuestion } from '@/lib/scenario-questions';
+import { syncCourseEnrollmentProgress } from '@/lib/lms/course-progress';
 
 type SlideType =
   | { type: 'content'; markdown: string }
@@ -394,63 +395,12 @@ export default function ModuleViewerClient({
 
     const updateCourseProgress = useCallback(async (): Promise<boolean> => {
         try {
-            const [{ data: courseModules }, { data: scormPackages }] = await Promise.all([
-                supabase
-                    .from('course_modules')
-                    .select('module_id')
-                    .eq('course_id', courseId),
-                supabase
-                    .from('scorm_packages')
-                    .select('id')
-                    .eq('course_id', courseId)
-                    .eq('status', 'active'),
-            ]);
+            const snapshot = await syncCourseEnrollmentProgress(supabase, userId, courseId);
 
-            const moduleIds = (courseModules ?? []).map((m: any) => m.module_id).filter(Boolean);
-            const scormIds = (scormPackages ?? []).map((pkg: any) => pkg.id).filter(Boolean);
-
-            let completedModuleCount = 0;
-            if (moduleIds.length > 0) {
-                const { data: completedModules } = await supabase
-                    .from('user_progress')
-                    .select('module_id')
-                    .eq('user_id', userId)
-                    .eq('status', 'completed')
-                    .in('module_id', moduleIds);
-
-                completedModuleCount = new Set((completedModules ?? []).map((m: any) => m.module_id)).size;
-            }
-
-            let completedScormCount = 0;
-            if (scormIds.length > 0) {
-                const { data: completedScorm } = await supabase
-                    .from('scorm_registrations')
-                    .select('package_id')
-                    .eq('user_id', userId)
-                    .in('package_id', scormIds)
-                    .in('lesson_status', ['completed', 'passed']);
-
-                completedScormCount = new Set((completedScorm ?? []).map((registration: any) => registration.package_id)).size;
-            }
-
-            const total = moduleIds.length + scormIds.length;
-            const completed = completedModuleCount + completedScormCount;
-            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-            await supabase
-                .from('course_enrollments')
-                .update({
-                    progress_percentage: pct,
-                    last_accessed_at: new Date().toISOString(),
-                    ...(pct === 100 ? { status: 'completed' } : {}),
-                })
-                .eq('user_id', userId)
-                .eq('course_id', courseId);
-
-            if (pct === 100 && userEmail && course) {
+            if (snapshot.progressPercentage === 100 && userEmail && course) {
                 xapi.courseCompleted(userId, userEmail, courseId, course.title);
             }
-            return pct === 100;
+            return snapshot.progressPercentage === 100;
         } catch {
             return false;
         }

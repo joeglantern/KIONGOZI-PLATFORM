@@ -119,13 +119,26 @@ export default function DeliberationPanel({ parentType, parentId, currentUser }:
                     return r;
                 }));
             } else {
-                // Insert or update vote
+                // Replace any existing vote first so the INSERT/DELETE score
+                // trigger stays correct and repeated clicks never hit the
+                // composite unique constraint.
+                const { error: clearErr } = await supabase
+                    .from('recommendation_votes')
+                    .delete()
+                    .eq('recommendation_id', recId)
+                    .eq('user_id', currentUser.id);
+
+                if (clearErr) throw clearErr;
+
                 const { error } = await supabase
                     .from('recommendation_votes')
                     .upsert({
                         recommendation_id: recId,
                         user_id: currentUser.id,
                         vote_type: type
+                    }, {
+                        onConflict: 'recommendation_id,user_id',
+                        ignoreDuplicates: true
                     });
 
                 if (error) throw error;

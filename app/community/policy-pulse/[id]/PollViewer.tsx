@@ -213,13 +213,26 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, myResp
         try {
             const res = await fetch(`/api/community/policy-pulse/${poll.id}/analyze`, { method: 'POST' });
             const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Policy brief generation failed');
+            }
             if (data.insights) {
                 setInsightsText(data.insights);
                 await loadBrief(); // Reload brief version history
-                toast({ title: 'AI Insights Generated', className: 'bg-civic-green text-white border-none' });
+                toast({
+                    title: data.fallback ? 'Policy Brief Generated' : 'AI Insights Generated',
+                    description: data.warning,
+                    className: 'bg-civic-green text-white border-none'
+                });
+            } else {
+                throw new Error('No policy brief was returned');
             }
-        } catch {
-            toast({ title: 'Failed to generate insights', variant: 'destructive' });
+        } catch (err: any) {
+            toast({
+                title: 'Failed to generate insights',
+                description: err?.message || 'Please try again',
+                variant: 'destructive'
+            });
         } finally {
             setIsGeneratingInsights(false);
         }

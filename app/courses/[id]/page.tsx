@@ -50,12 +50,17 @@ const CourseReviews = dynamic(
     { ssr: false, loading: () => <TabLoader /> }
 );
 
+const EMPTY_ITEMS: any[] = [];
+const EMPTY_SCORM_REGISTRATION_MAP = new Map<string, string>();
+
 type CourseDetailData = {
     course: any;
     enrollment: any;
     modules: any[];
     scormPackages: any[];
     scormRegistrationMap: Map<string, string>;
+    finalQuiz: any;
+    finalQuizAttempt: any;
 };
 
 export default function CourseDetailPage() {
@@ -77,8 +82,8 @@ export default function CourseDetailPage() {
         queryFn: async () => {
             if (!user || !courseId) return null;
 
-            // Run course details, enrollment, module links, and SCORM packages in parallel
-            const [courseResult, enrollmentResult, courseModulesResult, scormResult] = await Promise.all([
+            // Run course details, enrollment, module links, SCORM packages, and the final quiz in parallel
+            const [courseResult, enrollmentResult, courseModulesResult, scormResult, finalQuizResult] = await Promise.all([
                 supabase
                     .from('courses')
                     .select('*, module_categories(name, color)')
@@ -105,16 +110,26 @@ export default function CourseDetailPage() {
                     .eq('course_id', courseId)
                     .eq('status', 'active')
                     .order('created_at'),
+                supabase
+                    .from('quizzes')
+                    .select('id, title, description, passing_score')
+                    .eq('course_id', courseId)
+                    .is('module_id', null)
+                    .order('created_at', { ascending: true })
+                    .limit(1)
+                    .maybeSingle(),
             ]);
 
             if (courseResult.error) throw courseResult.error;
             if (courseModulesResult.error) throw courseModulesResult.error;
+            if (finalQuizResult.error) throw finalQuizResult.error;
 
             const scormPackages = scormResult.data || [];
 
             const course = courseResult.data;
             const enrollment = enrollmentResult.data;
             const courseModules = courseModulesResult.data || [];
+            const finalQuiz = finalQuizResult.data;
             const canReadDirectModules = profile?.role === 'admin' || course.author_id === user.id;
 
             const moduleIds = courseModules
@@ -182,7 +197,22 @@ export default function CourseDetailPage() {
                 );
             }
 
-            return { course, enrollment, modules: modulesWithProgress, scormPackages, scormRegistrationMap };
+            let finalQuizAttempt = null;
+
+            if (finalQuiz?.id) {
+                const { data } = await supabase
+                    .from('quiz_attempts')
+                    .select('score, passed, completed_at')
+                    .eq('quiz_id', finalQuiz.id)
+                    .eq('user_id', user.id)
+                    .order('completed_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                finalQuizAttempt = data;
+            }
+
+            return { course, enrollment, modules: modulesWithProgress, scormPackages, scormRegistrationMap, finalQuiz, finalQuizAttempt };
         },
         enabled: !!user && !!courseId,
         staleTime: 1000 * 60 * 5, // 5 minutes
@@ -201,10 +231,12 @@ export default function CourseDetailPage() {
     });
 
     const course = courseData?.course;
-    const modules = courseData?.modules || [];
+    const modules = courseData?.modules ?? EMPTY_ITEMS;
     const enrollment = courseData?.enrollment;
-    const scormPackages = courseData?.scormPackages || [];
-    const scormRegistrationMap = courseData?.scormRegistrationMap || new Map<string, string>();
+    const scormPackages = courseData?.scormPackages ?? EMPTY_ITEMS;
+    const scormRegistrationMap = courseData?.scormRegistrationMap ?? EMPTY_SCORM_REGISTRATION_MAP;
+    const finalQuiz = courseData?.finalQuiz;
+    const finalQuizAttempt = courseData?.finalQuizAttempt;
     const previewRequested = searchParams.get('preview') === '1';
     const isPreviewMode = previewRequested && (profile?.role === 'admin' || course?.author_id === user?.id);
     const canAccessDiscussion = !isPreviewMode && (!!enrollment || profile?.role === 'admin' || course?.author_id === user?.id);
@@ -237,8 +269,18 @@ export default function CourseDetailPage() {
             };
         });
 
-        return [...moduleItems, ...scormItems];
-    }, [courseId, isPreviewMode, modules, scormPackages, scormRegistrationMap]);
+        const finalQuizItems: CourseContentItem[] = finalQuiz ? [{
+            id: finalQuiz.id,
+            type: 'quiz',
+            title: finalQuiz.title || 'Final Course Quiz',
+            description: finalQuiz.description || `Pass with ${finalQuiz.passing_score ?? 70}% to complete this course.`,
+            href: `/courses/${courseId}/quiz/${finalQuiz.id}?returnTo=${encodeURIComponent(`/courses/${courseId}${previewSuffix}`)}`,
+            isCompleted: finalQuizAttempt?.passed === true,
+            isRequired: true,
+        }] : [];
+
+        return [...moduleItems, ...scormItems, ...finalQuizItems];
+    }, [courseId, finalQuiz, finalQuizAttempt?.passed, isPreviewMode, modules, scormPackages, scormRegistrationMap]);
 
 
     const handleEnroll = async () => {
@@ -406,7 +448,7 @@ export default function CourseDetailPage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <BookOpen className="w-4 h-4" />
-                                        <span>{totalModules} modules</span>
+                                        <span>{totalModules} learning items</span>
                                     </div>
                                 </div>
                             </div>
@@ -467,7 +509,7 @@ export default function CourseDetailPage() {
                                             <span className="font-semibold text-gray-900">Start Learning</span>
                                         </div>
                                         <p className="text-sm text-gray-600 mb-4">
-                                            Enroll now to access all {totalModules} modules and start your learning journey!
+                                            Enroll now to access all {totalModules} learning items and start your learning journey!
                                         </p>
                                         <Button
                                             onClick={handleEnroll}
@@ -570,11 +612,11 @@ export default function CourseDetailPage() {
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
                                     >
-                                        <h2 className="text-2xl font-black text-gray-900 mb-8">Lessons</h2>
+                                        <h2 className="text-2xl font-black text-gray-900 mb-8">Course Journey</h2>
                                         {contentItems.length > 0 ? (
                                             <ModuleList items={contentItems} isAccessible={canAccessContent} />
                                         ) : (
-                                            <p className="text-gray-600 text-center py-12 font-bold italic">No lessons available yet</p>
+                                            <p className="text-gray-600 text-center py-12 font-bold italic">No learning items available yet</p>
                                         )}
                                     </motion.div>
                                 ) : activeTab === 'discussion' ? (
