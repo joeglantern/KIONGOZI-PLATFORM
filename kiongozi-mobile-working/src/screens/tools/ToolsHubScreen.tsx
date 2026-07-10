@@ -17,16 +17,8 @@ const TOOLS = [
     desc: 'Share what civic life is really like where you are. We group it into themes leaders can act on.',
   },
   {
-    route: 'FundTracker',
-    num: '02',
-    accent: C.olive,
-    accentSoft: C.oliveSoft,
-    name: 'Fund Tracker',
-    desc: 'Follow welfare funds from allocation to the ground, with an accountability score for each.',
-  },
-  {
     route: 'AdvocacyLab',
-    num: '03',
+    num: '02',
     accent: C.clay,
     accentSoft: C.claySoft,
     name: 'Advocacy Lab',
@@ -65,12 +57,12 @@ function SnapStat({ target, label, suffix = '' }: { target: number; label: strin
 export default function ToolsHubScreen() {
   const navigation = useNavigation<any>();
   const fade = useRef(new Animated.Value(0)).current;
-  const [stats, setStats] = useState({ inputs: 0, funds: 0, disbursementRate: 0 });
+  const [stats, setStats] = useState({ inputs: 0 });
 
   useEffect(() => {
     Animated.timing(fade, { toValue: 1, duration: 380, useNativeDriver: true }).start();
     toolsApi.getAnalytics()
-      .then((a) => setStats({ inputs: a.total_inputs, funds: a.total_funds, disbursementRate: a.disbursement_rate }))
+      .then((a) => setStats({ inputs: a.total_inputs }))
       .catch(() => {});
   }, []);
 
@@ -90,8 +82,6 @@ export default function ToolsHubScreen() {
         <View style={s.snapshot}>
           <Text style={s.snapKicker}>THIS MONTH</Text>
           <SnapStat target={stats.inputs} label="voices heard" />
-          <SnapStat target={stats.funds} label="funds tracked" />
-          <SnapStat target={stats.disbursementRate} label="disbursed" suffix="%" />
         </View>
 
         <View style={s.toolList}>

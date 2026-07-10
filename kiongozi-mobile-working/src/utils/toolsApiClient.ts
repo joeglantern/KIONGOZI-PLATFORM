@@ -25,26 +25,10 @@ export interface YouthInput {
   created_at: string;
 }
 
-export interface WelfareFund {
-  id: string;
-  fund_name: string;
-  total_allocated: number;
-  disbursed_amount: number;
-  beneficiary_ylo: string | null;
-  status: 'Disbursed' | 'Pending' | 'Audited';
-  accountability_score: number;
-  created_at: string;
-}
-
 export interface Analytics {
   total_inputs: number;
   sector_distribution: { sector: string; count: number }[];
   sentiment_distribution: { sentiment: string; count: number }[];
-  total_funds: number;
-  total_allocated_kes: number;
-  total_disbursed_kes: number;
-  disbursement_rate: number;
-  fund_distribution: { name: string; allocated: number; disbursed: number; status: string }[];
 }
 
 export const toolsApi = {
@@ -52,11 +36,6 @@ export const toolsApi = {
     request<YouthInput>('/api/v1/inputs', { method: 'POST', body: JSON.stringify(data) }),
 
   getInputs: () => request<YouthInput[]>('/api/v1/inputs'),
-
-  getFunds: () => request<WelfareFund[]>('/api/v1/funds'),
-
-  reportFund: (data: { fund_id: string; reporter_name?: string; description: string; severity: string }) =>
-    request('/api/v1/funds/report', { method: 'POST', body: JSON.stringify(data) }),
 
   getAnalytics: () => request<Analytics>('/api/v1/advocacy/analytics'),
 

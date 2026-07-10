@@ -89,10 +89,6 @@ const faqs: { section: string; items: { q: string; a: string }[] }[] = [
     section: 'Civic Tools',
     items: [
       {
-        q: 'What is the Fund Tracker?',
-        a: 'Fund Tracker lets you follow public funds and government spending in Kenya. Data is sourced from the Kenya National Treasury (treasury.go.ke) and the Controller of Budget (cob.go.ke). Kiongozi Chat is not a government platform — this information is presented for civic education purposes only.',
-      },
-      {
         q: 'What is Youth Voice?',
         a: 'Youth Voice is a space for Kenyan youth to submit their views on national policies and issues. Your submissions are aggregated to surface community opinions on governance matters. It is a civic participation tool, not an official government feedback channel.',
       },

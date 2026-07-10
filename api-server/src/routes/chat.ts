@@ -21,14 +21,6 @@ const KIONGOZI_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'get_fund_tracker_data',
-      description: 'Fetch live youth welfare fund data from the Kiongozi platform — allocations, disbursements, accountability scores, and fund status. Use whenever the user asks about funds, money, disbursements, where funds went, or financial accountability.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'get_advocacy_analytics',
       description: 'Fetch live analytics on youth civic inputs — total submissions, sector breakdown (Governance, Education, Health, etc.), sentiment distribution, and fund disbursement rates. Use when user asks about civic data, youth voices, what issues are being raised, or advocacy statistics.',
       parameters: { type: 'object', properties: {}, required: [] },
@@ -47,7 +39,6 @@ const KIONGOZI_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
 async function executeTool(name: string): Promise<string> {
   try {
     const routes: Record<string, string> = {
-      get_fund_tracker_data: `${TOOLS_API}/api/v1/funds`,
       get_advocacy_analytics: `${TOOLS_API}/api/v1/advocacy/analytics`,
       get_youth_inputs: `${TOOLS_API}/api/v1/inputs`,
     };

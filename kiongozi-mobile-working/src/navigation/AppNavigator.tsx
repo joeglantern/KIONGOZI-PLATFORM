@@ -22,7 +22,6 @@ import ChatScreen from '../screens/ChatScreen';
 import ProfileTabScreen from '../screens/social/ProfileTabScreen';
 import ToolsHubScreen from '../screens/tools/ToolsHubScreen';
 import YouthVoiceScreen from '../screens/tools/YouthVoiceScreen';
-import FundTrackerScreen from '../screens/tools/FundTrackerScreen';
 import AdvocacyLabScreen from '../screens/tools/AdvocacyLabScreen';
 import SettingsScreen from '../screens/social/SettingsScreen';
 import BlockedUsersScreen from '../screens/social/BlockedUsersScreen';
@@ -74,7 +73,6 @@ function ToolsStackNavigator() {
     <ToolsStack.Navigator screenOptions={{ headerShown: false }}>
       <ToolsStack.Screen name="ToolsHub" component={ToolsHubScreen} />
       <ToolsStack.Screen name="YouthVoice" component={YouthVoiceScreen} />
-      <ToolsStack.Screen name="FundTracker" component={FundTrackerScreen} />
       <ToolsStack.Screen name="AdvocacyLab" component={AdvocacyLabScreen} />
     </ToolsStack.Navigator>
   );
