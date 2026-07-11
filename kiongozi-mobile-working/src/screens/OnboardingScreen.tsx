@@ -29,7 +29,7 @@ const SLIDES = [
   {
     id: '2',
     title: 'Built for Civic Life',
-    subtitle: 'Track public spending, submit your views on policy, and run advocacy campaigns with tools built for real impact.',
+    subtitle: 'Connect with other young Kenyans, share posts, and join conversations on topics that matter to your community.',
     image: require('../../assets/onboarding/slide2.png'),
   },
   {

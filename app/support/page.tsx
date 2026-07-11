@@ -64,7 +64,7 @@ const faqs: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: 'The AI gave me incorrect information. What should I do?',
-        a: 'AI responses may occasionally be incomplete or out of date. For critical civic or legal matters, always verify with official sources such as kenyalaw.org or kenya.go.ke. You can report a bad response by tapping the flag icon on any AI message, or email us at afosi.2025@gmail.com.',
+        a: 'AI responses may occasionally be incomplete or out of date. For important civic or legal matters, always verify with authoritative sources. You can report a bad response by tapping the flag icon on any AI message, or email us at afosi.2025@gmail.com.',
       },
     ],
   },

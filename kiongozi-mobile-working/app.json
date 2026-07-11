@@ -3,7 +3,7 @@
     "name": "Kiongozi Chat",
     "slug": "kiongozi-mobile-working",
     "version": "2.0.0",
-    "description": "Kenya's civic social network — connect with youth, track public funds, amplify your voice, and chat with an AI guide on governance and the green economy.",
+    "description": "Kenya's civic social network — connect with youth, share your voice, and chat with an AI guide on governance, civic rights, and the green economy.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
