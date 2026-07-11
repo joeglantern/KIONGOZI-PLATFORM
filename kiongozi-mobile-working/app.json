@@ -31,8 +31,8 @@
       }
     },
     "android": {
-      "package": "com.kiongozi.chat",
-      "versionCode": 9,
+      "package": "com.kiongozi.mobile",
+      "versionCode": 10,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -49,6 +49,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/remove-media-playback-permission",
       "expo-secure-store",
       [
         "expo-notifications",
