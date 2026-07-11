@@ -31,8 +31,8 @@
       }
     },
     "android": {
-      "package": "com.kiongozi.mobile",
-      "versionCode": 10,
+      "package": "com.kiongozi.chat",
+      "versionCode": 11,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
