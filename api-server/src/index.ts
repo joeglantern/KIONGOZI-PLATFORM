@@ -101,30 +101,29 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Health check route
 app.use('/api/v1/health', healthRoutes);
 
-// API routes with specific rate limiting
+// API routes — only chat and auth have strict per-route limits; everything else relies on the global limiter
 app.use('/api/v1/auth', authRateLimit.middleware(), authRoutes);
 app.use('/api/v1/chat', chatRateLimit.middleware(), chatRoutes);
-app.use('/api/v1/user', apiRateLimit.middleware(), userRoutes);
-app.use('/api/v1/content', apiRateLimit.middleware(), contentRoutes);
-app.use('/api/v1/progress', apiRateLimit.middleware(), progressRoutes);
+app.use('/api/v1/user', userRoutes);
+app.use('/api/v1/content', contentRoutes);
+app.use('/api/v1/progress', progressRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/admin/security', adminSecurityRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/websocket', websocketRoutes);
 
-// Social platform routes — rate limit applied once, not per-router (avoids double-counting)
-app.use('/api/v1/social', apiRateLimit.middleware());
+// Social platform routes
 app.use('/api/v1/social', socialRoutes);
 app.use('/api/v1/social', followsRoutes);
 app.use('/api/v1/social', profilesSocialRoutes);
 app.use('/api/v1/social', reportsRoutes);
 app.use('/api/v1/social', blocksRoutes);
-app.use('/api/v1/dm', apiRateLimit.middleware(), dmRoutes);
+app.use('/api/v1/dm', dmRoutes);
 app.use('/api/v1/legal', legalRoutes);
-app.use('/api/v1/user', apiRateLimit.middleware(), exportRoutes);
+app.use('/api/v1/user', exportRoutes);
 
-// Upload routes (stricter rate limit: 10 req/min)
+// Upload routes (10 req/min is intentionally strict — prevents storage abuse)
 const uploadRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -133,9 +132,6 @@ const uploadRateLimit = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/v1/upload', uploadRateLimit, uploadRoutes);
-
-// General API routes
-app.use('/api/v1', apiRateLimit.middleware());
 
 // Root route
 app.get('/', (req, res) => {
