@@ -74,10 +74,10 @@ app.use(cors(corsOptions));
 // Advanced security monitoring
 app.use(securityMonitor.middleware());
 
-// Basic rate limiting as fallback
+// Global IP-based fallback limiter — generous limit, per-route limiters handle fine-grained control
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '200'),
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '1000'),
   message: {
     success: false,
     error: 'Too many requests from this IP, please try again later.',
