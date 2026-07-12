@@ -292,9 +292,8 @@ class FeedService {
         .select(POST_SELECT)
         .eq('visibility', 'public')
         .is('parent_post_id', null)
-        .neq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(needed + 30); // overfetch then trim
+        .limit(needed + 30); // overfetch then trim — includes own posts so feed is never empty
 
       const safeExclude = [...excludeSet].filter(Boolean);
       if (safeExclude.length > 0) {

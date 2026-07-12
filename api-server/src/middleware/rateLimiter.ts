@@ -187,19 +187,19 @@ class AdvancedRateLimiter {
 
 export const chatRateLimit = new AdvancedRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 20,
+  maxRequests: 30,
   message: 'Too many chat messages. Please slow down and try again.'
 });
 
 export const apiRateLimit = new AdvancedRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 100,
+  maxRequests: 600,
   message: 'Too many API requests. Please wait before making more requests.'
 });
 
 export const authRateLimit = new AdvancedRateLimiter({
   windowMs: 15 * 60 * 1000,
-  maxRequests: 5,
+  maxRequests: 30,
   message: 'Too many authentication attempts. Please wait 15 minutes.'
 });
 

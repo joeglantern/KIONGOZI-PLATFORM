@@ -113,12 +113,13 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/websocket', websocketRoutes);
 
-// Social platform routes
-app.use('/api/v1/social', apiRateLimit.middleware(), socialRoutes);
-app.use('/api/v1/social', apiRateLimit.middleware(), followsRoutes);
-app.use('/api/v1/social', apiRateLimit.middleware(), profilesSocialRoutes);
-app.use('/api/v1/social', apiRateLimit.middleware(), reportsRoutes);
-app.use('/api/v1/social', apiRateLimit.middleware(), blocksRoutes);
+// Social platform routes — rate limit applied once, not per-router (avoids double-counting)
+app.use('/api/v1/social', apiRateLimit.middleware());
+app.use('/api/v1/social', socialRoutes);
+app.use('/api/v1/social', followsRoutes);
+app.use('/api/v1/social', profilesSocialRoutes);
+app.use('/api/v1/social', reportsRoutes);
+app.use('/api/v1/social', blocksRoutes);
 app.use('/api/v1/dm', apiRateLimit.middleware(), dmRoutes);
 app.use('/api/v1/legal', legalRoutes);
 app.use('/api/v1/user', apiRateLimit.middleware(), exportRoutes);
