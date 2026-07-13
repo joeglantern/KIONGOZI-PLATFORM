@@ -169,6 +169,94 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Update progress for a specific module (PUT /:moduleId — called by mobile app)
+router.put('/:moduleId', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    if (!supabaseServiceClient) {
+      return res.status(500).json({ success: false, error: 'Database not configured' });
+    }
+
+    const module_id = req.params.moduleId;
+    const {
+      status = 'in_progress',
+      progress_percentage,
+      time_spent_minutes,
+      notes
+    } = req.body;
+
+    // Verify the module exists and is published
+    const { data: module, error: moduleError } = await supabaseServiceClient
+      .from('learning_modules')
+      .select('id, status')
+      .eq('id', module_id)
+      .eq('status', 'published')
+      .single();
+
+    if (moduleError || !module) {
+      return res.status(404).json({ success: false, error: 'Module not found or not published' });
+    }
+
+    const { error: progressError } = await supabaseServiceClient
+      .rpc('update_user_progress_status', {
+        p_user_id: req.user.id,
+        p_module_id: module_id,
+        p_status: status,
+        p_progress_percentage: progress_percentage,
+        p_time_spent_minutes: time_spent_minutes
+      });
+
+    if (progressError) {
+      return res.status(500).json({ success: false, error: progressError.message });
+    }
+
+    if (notes !== undefined) {
+      await supabaseServiceClient
+        .from('user_progress')
+        .update({ notes: notes?.trim() || null })
+        .eq('user_id', req.user.id)
+        .eq('module_id', module_id);
+    }
+
+    const { data: updatedProgress, error: fetchError } = await supabaseServiceClient
+      .from('user_progress')
+      .select(`
+        *,
+        learning_modules (
+          id,
+          title,
+          description,
+          difficulty_level,
+          estimated_duration_minutes,
+          module_categories (
+            name,
+            color,
+            icon
+          )
+        )
+      `)
+      .eq('user_id', req.user.id)
+      .eq('module_id', module_id)
+      .single();
+
+    if (fetchError) {
+      return res.status(500).json({ success: false, error: fetchError.message });
+    }
+
+    return res.json({
+      success: true,
+      data: updatedProgress,
+      message: 'Progress updated successfully'
+    });
+  } catch (error: any) {
+    console.error('Failed to update progress:', error);
+    return res.status(500).json({ success: false, error: 'Failed to update progress' });
+  }
+});
+
 // Get user's learning statistics
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
