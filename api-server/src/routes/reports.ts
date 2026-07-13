@@ -28,16 +28,16 @@ router.post('/report', authenticateToken, async (req: Request, res: Response): P
 
     // Deduplicate: reject same reporter+target within 24h
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const dupeQuery = supabaseServiceClient
+    let dupeQuery = supabaseServiceClient
       .from('reports')
       .select('id')
       .eq('reporter_id', reporterId)
       .gte('created_at', twentyFourHoursAgo);
 
     if (type === 'post') {
-      dupeQuery.eq('reported_post_id', id);
+      dupeQuery = dupeQuery.eq('reported_post_id', id);
     } else {
-      dupeQuery.eq('reported_user_id', id);
+      dupeQuery = dupeQuery.eq('reported_user_id', id);
     }
 
     const { data: existing } = await dupeQuery.maybeSingle();

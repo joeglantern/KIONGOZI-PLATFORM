@@ -2,6 +2,10 @@ import { Router, Request, Response } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
 import NotificationService from '../services/NotificationService';
+import BotService from '../services/BotService';
+
+const BOT_USER_ID = process.env.BOT_USER_ID || '00000000-0000-0000-0000-000000000001';
+
 const router = Router();
 
 // GET /api/v1/dm/conversations — List DM conversations
@@ -35,7 +39,7 @@ router.get('/conversations', authenticateToken, async (req: Request, res: Respon
       (data || []).map(async (row: any) => {
         const convId = row.conversation_id;
 
-        const [participantsRes, lastMsgRes] = await Promise.all([
+        const [participantsRes, lastMsgRes, unreadRes] = await Promise.all([
           supabaseServiceClient
             .from('dm_participants')
             .select('user_id, profiles:user_id (id, full_name, username, avatar_url, is_verified, is_bot)')
@@ -46,17 +50,18 @@ router.get('/conversations', authenticateToken, async (req: Request, res: Respon
             .select('id, content, sender_id, created_at, media_type, is_read')
             .eq('conversation_id', convId)
             .order('created_at', { ascending: false })
-            .limit(50), // fetch enough to count unread from JS
+            .limit(1),
+          supabaseServiceClient
+            .from('dm_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', convId)
+            .eq('is_read', false)
+            .neq('sender_id', userId),
         ]);
 
         const participants = (participantsRes.data || []).map((p: any) => p.profiles);
-        const messages = lastMsgRes.data || [];
-        const lastMessage = messages[0] ?? null;
-
-        // Count unread: messages not sent by the user and not yet read
-        const unreadCount = messages.filter(
-          (m: any) => m.sender_id !== userId && !m.is_read
-        ).length;
+        const lastMessage = (lastMsgRes.data || [])[0] ?? null;
+        const unreadCount = unreadRes.count || 0;
 
         return {
           id: convId,
@@ -329,8 +334,55 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
       });
     }
 
-    // TODO: Kiongozi AI DM auto-reply — coming soon
-    // Bot replies directly inside DM conversations will be enabled in a future update.
+    // Bot auto-reply: if any other participant is the bot, generate a reply
+    setImmediate(async () => {
+      try {
+        const isToBot = participants?.some((p: any) => p.user_id === BOT_USER_ID);
+        if (!isToBot) return;
+
+        // Fetch last 10 messages for context
+        const { data: history } = await supabaseServiceClient
+          .from('dm_messages')
+          .select('content, sender_id')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        const messages = (history || []).reverse().map((m: any) => ({
+          role: m.sender_id === BOT_USER_ID ? 'assistant' as const : 'user' as const,
+          content: m.content
+        }));
+
+        const reply = await BotService.generateBotReply(messages);
+        if (!reply) return;
+
+        const now = new Date().toISOString();
+        const { data: botMessage } = await supabaseServiceClient
+          .from('dm_messages')
+          .insert({
+            conversation_id: conversationId,
+            sender_id: BOT_USER_ID,
+            content: reply,
+            is_read: false,
+            created_at: now
+          })
+          .select()
+          .single();
+
+        await supabaseServiceClient
+          .from('dm_conversations')
+          .update({ last_message_at: now, updated_at: now })
+          .eq('id', conversationId);
+
+        const io = (req as any).io;
+        if (io && botMessage) {
+          io.to(`user:${userId}`).emit('dm:message_new', { conversationId, message: botMessage });
+          io.to(`dm:${conversationId}`).emit('dm:message_new', { conversationId, message: botMessage });
+        }
+      } catch (e) {
+        console.error('Bot DM reply error:', e);
+      }
+    });
 
     res.status(201).json({ success: true, data: message });
   } catch (err) {

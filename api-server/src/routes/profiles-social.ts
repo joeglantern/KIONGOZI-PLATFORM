@@ -175,6 +175,9 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
       }
     }
 
+    // For media type, overfetch so client-side filtering still yields a full page
+    const fetchLimit = type === 'media' ? limit * 5 : limit;
+
     let query = supabaseServiceClient
       .from('posts')
       .select(`
@@ -184,15 +187,13 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
       `)
       .eq('user_id', profile.id)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(fetchLimit);
 
     if (type === 'replies') {
       query = query.not('parent_post_id', 'is', null);
     } else if (type === 'media') {
-      // Only posts that have at least one media item; still exclude replies
-      query = (query as any).not('post_media', 'is', null).is('parent_post_id', null);
+      query = query.is('parent_post_id', null);
     } else {
-      // Default: top-level posts only
       query = query.is('parent_post_id', null);
     }
 
@@ -207,13 +208,15 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
       return;
     }
 
-    // For media type, filter client-side to posts that actually have media items
+    // Filter client-side for media posts; use the last raw post as the cursor anchor
     const filtered = type === 'media'
-      ? (posts || []).filter((p: any) => p.post_media && p.post_media.length > 0)
+      ? (posts || []).filter((p: any) => p.post_media && p.post_media.length > 0).slice(0, limit)
       : posts;
 
     const list = filtered || [];
-    const nextCursor = list.length === limit ? list[list.length - 1].created_at : null;
+    // nextCursor is null only when the raw fetch returned fewer rows than requested
+    const rawExhausted = (posts || []).length < fetchLimit;
+    const nextCursor = rawExhausted ? null : list[list.length - 1]?.created_at ?? null;
     res.json({ success: true, data: list, nextCursor });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch user posts' });
