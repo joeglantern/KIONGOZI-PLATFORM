@@ -35,12 +35,12 @@ router.get('/username/check/:username', async (req: Request, res: Response): Pro
   const cleaned = username.toLowerCase().trim();
 
   if (cleaned.length < 3) {
-    res.json({ available: false, reason: 'Too short' });
+    res.json({ success: true, available: false, reason: 'Too short' });
     return;
   }
 
   if (RESERVED_USERNAMES.includes(cleaned)) {
-    res.json({ available: false, reason: 'Reserved' });
+    res.json({ success: true, available: false, reason: 'Reserved' });
     return;
   }
 
@@ -51,9 +51,9 @@ router.get('/username/check/:username', async (req: Request, res: Response): Pro
       .eq('username', cleaned)
       .maybeSingle();
 
-    res.json({ available: !data });
+    res.json({ success: true, available: !data });
   } catch {
-    res.status(500).json({ available: false, reason: 'Error' });
+    res.status(500).json({ success: false, available: false, reason: 'Error' });
   }
 });
 
