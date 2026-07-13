@@ -116,6 +116,14 @@ class AdvancedRateLimiter {
 
       const record = this.store[key];
 
+      // Expire the block when the window resets so users aren't stuck indefinitely
+      if (now > record.resetTime) {
+        record.count = 0;
+        record.resetTime = now + this.config.windowMs;
+        record.suspiciousActivity = Math.max(0, record.suspiciousActivity - 1);
+        if (record.blocked) record.blocked = false;
+      }
+
       if (record.blocked) {
         await this.logSuspiciousActivity(req, 'Request from blocked client');
         return res.status(429).json({
@@ -123,12 +131,6 @@ class AdvancedRateLimiter {
           error: 'Access temporarily blocked due to suspicious activity',
           retryAfter: Math.ceil((record.resetTime - now) / 1000)
         });
-      }
-
-      if (now > record.resetTime) {
-        record.count = 0;
-        record.resetTime = now + this.config.windowMs;
-        record.suspiciousActivity = Math.max(0, record.suspiciousActivity - 1);
       }
 
       if (record.count >= this.config.maxRequests) {

@@ -46,6 +46,7 @@ router.get('/', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Failed to get notifications:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to fetch notifications',
       details: (error as Error).message
     });
@@ -76,6 +77,7 @@ router.put('/:id/read', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Failed to mark notification as read:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to update notification',
       details: (error as Error).message
     });
@@ -105,6 +107,7 @@ router.put('/read-all', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Failed to mark all notifications as read:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to update notifications',
       details: (error as Error).message
     });
@@ -118,6 +121,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     if (!user_id || !title || !message) {
       return res.status(400).json({
+        success: false,
         error: 'user_id, title, and message are required'
       });
     }
@@ -168,6 +172,7 @@ router.post('/', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Failed to create notification:', error);
     return res.status(500).json({
+      success: false,
       error: 'Failed to create notification',
       details: (error as Error).message
     });
@@ -179,13 +184,13 @@ router.get('/counts', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.id;
 
-    const { data: unreadCount } = await supabase
+    const { count: unread } = await supabase
       .from('social_notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('read', false);
 
-    const { data: totalCount } = await supabase
+    const { count: total } = await supabase
       .from('social_notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
@@ -193,13 +198,14 @@ router.get('/counts', authenticateToken, async (req, res) => {
     res.json({
       success: true,
       data: {
-        unread: unreadCount?.length || 0,
-        total: totalCount?.length || 0
+        unread: unread || 0,
+        total: total || 0
       }
     });
   } catch (error) {
     console.error('Failed to get notification counts:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to get notification counts',
       details: (error as Error).message
     });
