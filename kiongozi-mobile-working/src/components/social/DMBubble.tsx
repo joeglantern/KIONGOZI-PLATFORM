@@ -12,6 +12,8 @@ interface DMBubbleProps {
   isLast: boolean;
   avatarUrl?: string;
   onMediaPress?: () => void;
+  onLongPress?: () => void;
+  replyPreview?: { senderName: string; content: string };
 }
 
 function formatTime(dateStr: string): string {
@@ -29,7 +31,7 @@ function ReadReceipt({ pending, read }: { pending?: boolean; read: boolean }) {
   return <Ionicons name="checkmark" size={13} color={T.textSub} style={{ marginLeft: 1 }} />;
 }
 
-export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPress }: DMBubbleProps) {
+export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPress, onLongPress, replyPreview }: DMBubbleProps) {
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
   return (
@@ -40,15 +42,27 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
         </View>
       )}
 
-      <View style={[
-        styles.bubble,
-        isOwn ? styles.ownBubble : styles.otherBubble,
-        isOwn
-          ? (isLast ? styles.ownTail : styles.ownGrouped)
-          : (isLast ? styles.otherTail : styles.otherGrouped),
-        !isFirst && styles.grouped,
-        message._pending && styles.pending,
-      ]}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onLongPress={onLongPress}
+        delayLongPress={350}
+        style={[
+          styles.bubble,
+          isOwn ? styles.ownBubble : styles.otherBubble,
+          isOwn
+            ? (isLast ? styles.ownTail : styles.ownGrouped)
+            : (isLast ? styles.otherTail : styles.otherGrouped),
+          !isFirst && styles.grouped,
+          message._pending && styles.pending,
+        ]}
+      >
+        {replyPreview && (
+          <View style={[styles.replyBar, isOwn ? styles.replyBarOwn : styles.replyBarOther]}>
+            <Text style={styles.replyName} numberOfLines={1}>{replyPreview.senderName}</Text>
+            <Text style={styles.replyContent} numberOfLines={2}>{replyPreview.content}</Text>
+          </View>
+        )}
+
         {message.media_url && message.media_type === 'image' && (
           <TouchableOpacity onPress={onMediaPress} activeOpacity={0.9}>
             <Image source={{ uri: message.media_url }} style={styles.image} resizeMode="cover" />
@@ -76,7 +90,7 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
             <ReadReceipt pending={message._pending} read={message.is_read} />
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -149,5 +163,18 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     otherTime: { color: T.textSub },
 
     pending: { opacity: 0.6 },
+
+    replyBar: {
+      borderLeftWidth: 3,
+      borderLeftColor: T.accent,
+      paddingLeft: 8,
+      paddingVertical: 4,
+      marginBottom: 6,
+      borderRadius: 4,
+    },
+    replyBarOwn: { backgroundColor: 'rgba(0,0,0,0.15)' },
+    replyBarOther: { backgroundColor: T.surface2 },
+    replyName: { fontSize: 12, fontWeight: '700', color: T.accent, marginBottom: 2 },
+    replyContent: { fontSize: 12, color: T.textSub, lineHeight: 16 },
   });
 }

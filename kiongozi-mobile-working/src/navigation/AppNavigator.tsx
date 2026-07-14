@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { NavigationContainer, NavigationContainerRef, NavigationState } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Screens
 import FeedScreen from '../screens/social/FeedScreen';
 import ExploreScreen from '../screens/social/ExploreScreen';
-import CreatePostScreen from '../screens/social/CreatePostScreen';
 import NotificationsScreen from '../screens/social/NotificationsScreen';
 import PostDetailScreen from '../screens/social/PostDetailScreen';
 import PublicProfileScreen from '../screens/social/PublicProfileScreen';
@@ -23,7 +22,6 @@ import ProfileTabScreen from '../screens/social/ProfileTabScreen';
 import SettingsScreen from '../screens/social/SettingsScreen';
 import BlockedUsersScreen from '../screens/social/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/social/MutedUsersScreen';
-import { KiongoziChatFAB } from '../components/social/KiongoziChatFAB';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../utils/supabaseClient';
@@ -43,8 +41,6 @@ function FeedStackNavigator() {
       <FeedStack.Screen name="DMList" component={DMListScreen} />
       <FeedStack.Screen name="DMConversation" component={DMConversationScreen} />
       <FeedStack.Screen name="FollowList" component={FollowListScreen} />
-      {/* Notifications accessible from Feed header icon */}
-      <FeedStack.Screen name="NotificationsMain" component={NotificationsScreen} />
     </FeedStack.Navigator>
   );
 }
@@ -64,6 +60,16 @@ function ExploreStackNavigator() {
   );
 }
 
+const NotificationsStack = createNativeStackNavigator();
+function NotificationsStackNavigator() {
+  return (
+    <NotificationsStack.Navigator screenOptions={{ headerShown: false }}>
+      <NotificationsStack.Screen name="NotificationsMain" component={NotificationsScreen} />
+      <NotificationsStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <NotificationsStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+    </NotificationsStack.Navigator>
+  );
+}
 
 const ProfileStack = createNativeStackNavigator();
 function ProfileStackNavigator() {
@@ -83,27 +89,42 @@ function ProfileStackNavigator() {
   );
 }
 
+// ─── Tab Icon Components ─────────────────────────────────────────────────────
+
+function NotificationTabIcon({ focused, color }: { focused: boolean; color: string }) {
+  const { unreadCount } = useNotificationStore();
+  return (
+    <View style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={focused ? 'notifications' : 'notifications-outline'} size={24} color={color} />
+      {unreadCount > 0 && (
+        <View style={styles.tabBadge}>
+          <Text style={styles.tabBadgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function AIChatTabIcon() {
+  const T = useTheme();
+  return (
+    <View style={[styles.aiTabIcon, { borderColor: T.accent, backgroundColor: T.bg }]}>
+      <Image
+        source={require('../../assets/kchat-logo.png')}
+        style={styles.aiTabLogo}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
+
 // ─── Bottom Tab Navigator ────────────────────────────────────────────────────
 
 const Tab = createBottomTabNavigator();
 
-// Colors set dynamically from useTheme() inside AppNavigator
-
-// Placeholder screen used for the Create tab (never actually rendered)
 function EmptyScreen() {
   return <View />;
 }
-
-// Recursively find the deepest active route name in the nav state
-function getActiveRouteName(state: NavigationState | undefined): string {
-  if (!state) return '';
-  const route = state.routes[state.index];
-  if (route.state) return getActiveRouteName(route.state as NavigationState);
-  return route.name;
-}
-
-// Screens where the FAB should be hidden
-const FAB_HIDDEN_SCREENS = new Set(['DMConversation', 'DMList']);
 
 interface AppNavigatorProps {
   navRef?: React.MutableRefObject<any>;
@@ -111,15 +132,13 @@ interface AppNavigatorProps {
 
 export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorProps = {}) {
   const [chatVisible, setChatVisible] = useState(false);
-  const [createPostVisible, setCreatePostVisible] = useState(false);
-  const [activeRoute, setActiveRoute] = useState('');
   const internalNavRef = useRef<NavigationContainerRef<any>>(null);
   const navRef = externalNavRef ?? internalNavRef;
   const { addNotification, fetchNotifications } = useNotificationStore();
   const { user, sessionExpired } = useAuthStore();
   const insets = useSafeAreaInsets();
   const T = useTheme();
-  const TAB_BAR_HEIGHT = 52 + insets.bottom;
+  const TAB_BAR_HEIGHT = 56 + insets.bottom;
 
   useEffect(() => {
     if (sessionExpired) {
@@ -127,14 +146,9 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
     }
   }, [sessionExpired]);
 
-  // Global notification listener — runs for the entire session regardless of active tab.
-  // Updates the badge and prepends new notifications to the store in real-time.
   useEffect(() => {
     if (!user?.id) return;
-
-    // Initial fetch so the badge is correct on first mount
     fetchNotifications(true);
-
     const channel = supabase
       .channel(`global-notifications-${user.id}`)
       .on('postgres_changes', {
@@ -146,82 +160,75 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
         if (payload.new) addNotification(payload.new);
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
-  const handleStateChange = useCallback((state: NavigationState | undefined) => {
-    setActiveRoute(getActiveRouteName(state));
-  }, []);
-
-  const showFAB = !FAB_HIDDEN_SCREENS.has(activeRoute);
-
   return (
-    // Outer View so FAB and Modals can sit ABOVE the NavigationContainer
     <View style={styles.root}>
-      <NavigationContainer
-        ref={navRef}
-        onStateChange={handleStateChange}
-      >
+      <NavigationContainer ref={navRef}>
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
             tabBarShowLabel: false,
-            tabBarStyle: [styles.tabBar, { height: TAB_BAR_HEIGHT, paddingBottom: insets.bottom, backgroundColor: T.tabBar, borderTopColor: T.tabBarBorder }],
-            tabBarActiveTintColor: T.tabIconActive,
+            tabBarStyle: {
+              height: TAB_BAR_HEIGHT,
+              paddingBottom: insets.bottom,
+              paddingTop: 6,
+              backgroundColor: T.tabBar,
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: T.tabBarBorder,
+              elevation: 8,
+              shadowColor: '#000',
+              shadowOpacity: 0.06,
+              shadowOffset: { width: 0, height: -2 },
+              shadowRadius: 8,
+            },
+            tabBarActiveTintColor: T.accent,
             tabBarInactiveTintColor: T.tabIconInactive,
-            tabBarIcon: ({ focused, color, size }) => {
-              let iconName: keyof typeof Ionicons.glyphMap = 'home-outline';
-              if (route.name === 'Feed') iconName = focused ? 'home' : 'home-outline';
-              else if (route.name === 'Explore') iconName = focused ? 'search' : 'search-outline';
-              else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
-              return <Ionicons name={iconName} size={size} color={color} />;
+            tabBarIcon: ({ focused, color }) => {
+              if (route.name === 'Feed') {
+                return <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />;
+              }
+              if (route.name === 'Explore') {
+                return <Ionicons name={focused ? 'search' : 'search-outline'} size={24} color={color} />;
+              }
+              if (route.name === 'Notifications') {
+                return <NotificationTabIcon focused={focused} color={color} />;
+              }
+              if (route.name === 'Profile') {
+                return <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />;
+              }
+              return null;
             },
           })}
         >
           <Tab.Screen name="Feed" component={FeedStackNavigator} />
           <Tab.Screen name="Explore" component={ExploreStackNavigator} />
+
+          {/* Center AI tab — opens Kiongozi chat modal, no navigation */}
           <Tab.Screen
-            name="CreatePost"
+            name="AIChat"
             component={EmptyScreen}
             options={{
-              tabBarIcon: () => (
-                <View style={[styles.createButton, { backgroundColor: T.tabIconActive }]}>
-                  <Ionicons name="add" size={28} color={T.tabBar} />
-                </View>
-              ),
               tabBarButton: (props) => (
                 <TouchableOpacity
-                  style={[styles.createTabButton, (props as any).style]}
-                  onPress={() => setCreatePostVisible(true)}
+                  style={[styles.aiTabButton, (props as any).style]}
+                  onPress={() => setChatVisible(true)}
                   accessibilityRole="button"
+                  accessibilityLabel="Open Kiongozi AI"
                 >
-                  <View style={[styles.createButton, { backgroundColor: T.tabIconActive }]}>
-                    <Ionicons name="add" size={28} color={T.tabBar} />
-                  </View>
+                  <AIChatTabIcon />
                 </TouchableOpacity>
               ),
             }}
           />
+
+          <Tab.Screen name="Notifications" component={NotificationsStackNavigator} />
           <Tab.Screen name="Profile" component={ProfileStackNavigator} />
         </Tab.Navigator>
       </NavigationContainer>
 
-      {/* FAB hidden on DM screens so it doesn't cover the send button */}
-      {showFAB && <KiongoziChatFAB onPress={() => setChatVisible(true)} />}
-
-      {/* Create Post Modal */}
-      <Modal
-        visible={createPostVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        statusBarTranslucent={false}
-        onRequestClose={() => setCreatePostVisible(false)}
-      >
-        <CreatePostScreen onClose={() => setCreatePostVisible(false)} />
-      </Modal>
-
-      {/* @kiongozi Chat Modal — fullscreen */}
+      {/* Kiongozi AI Chat Modal — fullscreen */}
       <Modal
         visible={chatVisible}
         animationType="slide"
@@ -237,18 +244,39 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  tabBar: { borderTopWidth: StyleSheet.hairlineWidth },
-  createButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  createTabButton: {
+  aiTabButton: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  aiTabIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  aiTabLogo: {
+    width: 32,
+    height: 32,
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -6,
+    backgroundColor: '#FF3B30',
+    borderRadius: 7,
+    minWidth: 14,
+    height: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  tabBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
   },
 });

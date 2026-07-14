@@ -695,10 +695,10 @@ class ApiClient {
   }
 
   /** Send a DM message */
-  async sendDM(conversationId: string, content: string, mediaUrl?: string, mediaType?: string) {
+  async sendDM(conversationId: string, content: string, mediaUrl?: string, mediaType?: string, replyToId?: string) {
     return this.request(`/api/v1/dm/conversations/${conversationId}`, {
       method: 'POST',
-      body: JSON.stringify({ content, media_url: mediaUrl, media_type: mediaType })
+      body: JSON.stringify({ content, media_url: mediaUrl, media_type: mediaType, reply_to_id: replyToId })
     });
   }
 
@@ -710,6 +710,11 @@ class ApiClient {
   /** Delete (leave) a DM conversation */
   async deleteDMConversation(conversationId: string) {
     return this.request(`/api/v1/dm/conversations/${conversationId}`, { method: 'DELETE' });
+  }
+
+  /** Unsend (delete) a single DM message */
+  async deleteDMMessage(conversationId: string, messageId: string) {
+    return this.request(`/api/v1/dm/conversations/${conversationId}/messages/${messageId}`, { method: 'DELETE' });
   }
 
   // ================================

@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, RefreshControl, ActivityIndicator,
-  TouchableOpacity, Animated, ScrollView, Dimensions, Image
+  TouchableOpacity, Animated, ScrollView, Dimensions, Image, Modal
 } from 'react-native';
 import { FlatList } from 'react-native';
+import CreatePostScreen from './CreatePostScreen';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 import { useSocialStore, Post } from '../../stores/socialStore';
 import { useDMStore } from '../../stores/dmStore';
-import { useNotificationStore } from '../../stores/notificationStore';
 import { PostCard } from '../../components/social/PostCard';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
@@ -22,8 +22,8 @@ export default function FeedScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const { conversations, fetchConversations } = useDMStore();
-  const { unreadCount: unreadNotifications } = useNotificationStore();
   const scrollX = useRef(new Animated.Value(0)).current;
+  const [createPostVisible, setCreatePostVisible] = useState(false);
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
 
@@ -110,13 +110,8 @@ export default function FeedScreen() {
         <View style={styles.headerRow}>
           <Image source={require('../../../assets/kchat-logo.png')} style={styles.headerLogo} resizeMode="contain" />
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('NotificationsMain')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="notifications-outline" size={24} color={T.text} />
-              {unreadNotifications > 0 && (
-                <View style={[styles.iconBadge, { borderColor: T.bg }]}>
-                  <Text style={styles.iconBadgeText}>{unreadNotifications > 99 ? '99+' : String(unreadNotifications)}</Text>
-                </View>
-              )}
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setCreatePostVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="create-outline" size={24} color={T.text} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('DMList')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="chatbubble-ellipses-outline" size={24} color={T.text} />
@@ -212,6 +207,15 @@ export default function FeedScreen() {
           onClose={() => setEditTarget(null)}
         />
       )}
+
+      <Modal
+        visible={createPostVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setCreatePostVisible(false)}
+      >
+        <CreatePostScreen onClose={() => setCreatePostVisible(false)} />
+      </Modal>
     </View>
   );
 }

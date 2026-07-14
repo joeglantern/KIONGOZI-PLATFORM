@@ -50,6 +50,7 @@ interface DMState {
   appendMessage: (conversationId: string, message: DMMessage, skipUnreadIncrement?: boolean) => void;
   replaceMessage: (conversationId: string, tempId: string, real: DMMessage) => void;
   removeMessage: (conversationId: string, id: string) => void;
+  unsendMessage: (conversationId: string, messageId: string) => Promise<void>;
   markRead: (conversationId: string) => void;
   archiveConversation: (id: string) => Promise<void>;
   unarchiveConversation: (id: string) => Promise<void>;
@@ -144,6 +145,15 @@ export const useDMStore = create<DMState>((set, get) => ({
         [conversationId]: (s.messages[conversationId] || []).filter(m => m.id !== id),
       }
     }));
+  },
+
+  unsendMessage: async (conversationId: string, messageId: string) => {
+    get().removeMessage(conversationId, messageId);
+    try {
+      await apiClient.deleteDMMessage(conversationId, messageId);
+    } catch {
+      // Optimistic delete — silently ignore if backend isn't ready yet
+    }
   },
 
   markRead: (conversationId: string) => {

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TextInput, Image,
   TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,7 +81,7 @@ export default function DMConversationScreen() {
   const route = useRoute<any>();
   const { conversationId, participantName, participantUsername, participantAvatar } = route.params || {};
   const { user } = useAuthStore();
-  const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, markRead } = useDMStore();
+  const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, unsendMessage, markRead } = useDMStore();
 
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
@@ -89,6 +90,7 @@ export default function DMConversationScreen() {
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [viewerMessage, setViewerMessage] = useState<DMMessage | null>(null);
+  const [replyingTo, setReplyingTo] = useState<DMMessage | null>(null);
   const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
   const sendScale = useRef(new Animated.Value(0)).current;
@@ -119,6 +121,53 @@ export default function DMConversationScreen() {
       setMediaUri(result.assets[0].uri);
     }
   }, []);
+
+  const handleCamera = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera permission required', 'Please allow camera access in Settings to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.85,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setMediaUri(result.assets[0].uri);
+    }
+  }, []);
+
+  const handleLongPress = useCallback((message: DMMessage, isOwn: boolean) => {
+    const actions: Array<{ text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }> = [];
+
+    if (message.content) {
+      actions.push({
+        text: 'Copy',
+        onPress: () => Clipboard.setStringAsync(message.content!),
+      });
+    }
+
+    actions.push({
+      text: 'Reply',
+      onPress: () => setReplyingTo(message),
+    });
+
+    if (isOwn && !message._pending) {
+      actions.push({
+        text: 'Unsend',
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert('Unsend message?', 'This message will be removed.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Unsend', style: 'destructive', onPress: () => unsendMessage(conversationId, message.id) },
+          ]);
+        },
+      });
+    }
+
+    actions.push({ text: 'Cancel', style: 'cancel' });
+    Alert.alert('Message', undefined, actions as any);
+  }, [conversationId, unsendMessage]);
 
   const conversationMessages = messages[conversationId] || [];
 
@@ -159,8 +208,10 @@ export default function DMConversationScreen() {
     isSending.current = true;
     const content = text.trim();
     const attachedUri = mediaUri;
+    const replyToId = replyingTo?.id;
     setText('');
     setMediaUri(null);
+    setReplyingTo(null);
 
     const tempId = `temp_${Date.now()}`;
     appendMessage(conversationId, {
@@ -200,7 +251,7 @@ export default function DMConversationScreen() {
         uploadedUrl = urlData.publicUrl;
       }
 
-      const res = await apiClient.sendDM(conversationId, content, uploadedUrl, uploadedUrl ? 'image' : undefined);
+      const res = await apiClient.sendDM(conversationId, content, uploadedUrl, uploadedUrl ? 'image' : undefined, replyToId);
       if (res.success && res.data) {
         replaceMessage(conversationId, tempId, res.data);
       } else {
@@ -238,9 +289,10 @@ export default function DMConversationScreen() {
         isLast={item.isLast}
         avatarUrl={participantAvatar}
         onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
+        onLongPress={() => handleLongPress(item.message, isOwn)}
       />
     );
-  }, [user?.id, participantAvatar, styles]);
+  }, [user?.id, participantAvatar, styles, handleLongPress]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -324,6 +376,22 @@ export default function DMConversationScreen() {
           </View>
         ) : (
           <View style={styles.inputBar}>
+            {replyingTo && (
+              <View style={styles.replyPreviewBar}>
+                <View style={styles.replyPreviewContent}>
+                  <Text style={styles.replyPreviewLabel}>
+                    Replying to {replyingTo.sender_id === user?.id ? 'yourself' : participantName}
+                  </Text>
+                  <Text style={styles.replyPreviewText} numberOfLines={1}>
+                    {replyingTo.content || (replyingTo.media_url ? '📷 Photo' : 'Message')}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.replyDismiss}>
+                  <Ionicons name="close" size={18} color={T.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             {mediaUri && (
               <View style={styles.mediaPreviewWrap}>
                 <Image source={{ uri: mediaUri }} style={styles.mediaPreview} />
@@ -339,7 +407,14 @@ export default function DMConversationScreen() {
                 onPress={handlePickImage}
                 disabled={uploading}
               >
-                <Ionicons name="image-outline" size={22} color={uploading ? '#555555' : '#5CB85C'} />
+                <Ionicons name="image-outline" size={22} color={uploading ? T.tabIconInactive : T.accent} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.attachBtn}
+                onPress={handleCamera}
+                disabled={uploading}
+              >
+                <Ionicons name="camera-outline" size={22} color={uploading ? T.tabIconInactive : T.accent} />
               </TouchableOpacity>
 
               <View style={styles.inputWrap}>
@@ -429,7 +504,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
 
     inputBar: {
       paddingHorizontal: 12,
-      paddingTop: 10,
+      paddingTop: 8,
       paddingBottom: Platform.OS === 'ios' ? 28 : 12,
       backgroundColor: T.bg,
       borderTopWidth: StyleSheet.hairlineWidth,
@@ -440,6 +515,21 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       shadowRadius: 6,
       elevation: 6,
     },
+    replyPreviewBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: T.surface,
+      borderRadius: 10,
+      borderLeftWidth: 3,
+      borderLeftColor: T.accent,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      marginBottom: 8,
+    },
+    replyPreviewContent: { flex: 1 },
+    replyPreviewLabel: { fontSize: 12, fontWeight: '700', color: T.accent, marginBottom: 2 },
+    replyPreviewText: { fontSize: 13, color: T.textSub },
+    replyDismiss: { padding: 4, marginLeft: 8 },
     mediaPreviewWrap: {
       position: 'relative',
       alignSelf: 'flex-start',

@@ -39,8 +39,9 @@
       },
       "usesCleartextTraffic": true,
       "permissions": [
-        "RECORD_AUDIO",
-        "INTERNET",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
         "RECORD_AUDIO",
         "INTERNET"
       ]
