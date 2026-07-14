@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,12 +10,14 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+import { BottomSheet } from '../../components/social/BottomSheet';
 
 export default function MutedUsersScreen() {
   const navigation = useNavigation<any>();
   const { unmuteUser } = useSocialStore();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unmuteTarget, setUnmuteTarget] = useState<any | null>(null);
   const T = useTheme();
   const styles = React.useMemo(() => makeStyles(T), [T]);
 
@@ -30,22 +32,13 @@ export default function MutedUsersScreen() {
 
   useEffect(() => { loadMuted(); }, []);
 
-  const handleUnmute = useCallback(async (user: any) => {
-    Alert.alert(
-      'Unmute User',
-      `Unmute @${user.username}? Their posts will reappear in your feed.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unmute',
-          onPress: async () => {
-            await unmuteUser(user.id);
-            setUsers(prev => prev.filter(u => u.id !== user.id));
-          },
-        },
-      ]
-    );
-  }, [unmuteUser]);
+  const handleUnmute = useCallback((user: any) => setUnmuteTarget(user), []);
+
+  const doUnmute = async () => {
+    if (!unmuteTarget) return;
+    await unmuteUser(unmuteTarget.id);
+    setUsers(prev => prev.filter(u => u.id !== unmuteTarget.id));
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -87,6 +80,16 @@ export default function MutedUsersScreen() {
           }
         />
       )}
+
+      <BottomSheet
+        visible={!!unmuteTarget}
+        onClose={() => setUnmuteTarget(null)}
+        title={`Unmute @${unmuteTarget?.username}?`}
+        subtitle="Their posts will reappear in your feed."
+        actions={[
+          { icon: 'volume-high-outline', label: 'Unmute', onPress: doUnmute },
+        ]}
+      />
     </SafeAreaView>
   );
 }

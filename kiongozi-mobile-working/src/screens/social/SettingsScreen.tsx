@@ -24,6 +24,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useSocialStore } from '../../stores/socialStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useTheme } from '../../hooks/useTheme';
+import { BottomSheet } from '../../components/social/BottomSheet';
 import { supabase } from '../../utils/supabaseClient';
 import { registerForPushNotifications, unregisterPushNotifications } from '../../utils/pushNotifications';
 import apiClient from '../../utils/apiClient';
@@ -48,6 +49,9 @@ export default function SettingsScreen() {
   const [privateAccount, setPrivateAccount] = useState(false);
   const [privacyLoading, setPrivacyLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [signOutSheet, setSignOutSheet] = useState(false);
+  const [deleteAccountSheet, setDeleteAccountSheet] = useState(false);
+  const [exportSheet, setExportSheet] = useState(false);
 
   // Change password modal
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
@@ -116,78 +120,37 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleExportData = () => {
-    Alert.alert(
-      'Export My Data',
-      'This will download a JSON file with all your Kiongozi data (posts, follows, bookmarks).',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Export',
-          onPress: async () => {
-            setExportLoading(true);
-            try {
-              const res = await apiClient.exportUserData();
-              if (res.success || res.data) {
-                Alert.alert(
-                  'Data Export',
-                  'Your data export is ready. In a production build this would download a JSON file.',
-                );
-              } else {
-                Alert.alert('Error', res.error || 'Failed to export data.');
-              }
-            } catch {
-              Alert.alert('Error', 'Failed to export data. Please try again.');
-            } finally {
-              setExportLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleExportData = () => setExportSheet(true);
+
+  const doExportData = async () => {
+    setExportLoading(true);
+    try {
+      const res = await apiClient.exportUserData();
+      if (res.success || res.data) {
+        Alert.alert('Data Export', 'Your data export is ready. In a production build this would download a JSON file.');
+      } else {
+        Alert.alert('Error', res.error || 'Failed to export data.');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to export data. Please try again.');
+    } finally {
+      setExportLoading(false);
+    }
   };
 
-  const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await signOut();
-          } catch {
-            Alert.alert('Error', 'Failed to sign out. Please try again.');
-          }
-        },
-      },
-    ]);
+  const handleSignOut = () => setSignOutSheet(true);
+
+  const doSignOut = async () => {
+    try { await signOut(); } catch { /* ignore */ }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This action is permanent and cannot be undone. All your data will be deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const result = await apiClient.deleteAccount();
-              if (result.success) {
-                await signOut();
-              } else {
-                Alert.alert('Error', result.error || 'Failed to delete account.');
-              }
-            } catch {
-              Alert.alert('Error', 'Failed to delete account.');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteAccount = () => setDeleteAccountSheet(true);
+
+  const doDeleteAccount = async () => {
+    try {
+      const result = await apiClient.deleteAccount();
+      if (result.success) await signOut();
+    } catch { /* ignore */ }
   };
 
   const handleChangePassword = async () => {
@@ -372,6 +335,36 @@ export default function SettingsScreen() {
           />
         </View>
       </ScrollView>
+
+      <BottomSheet
+        visible={exportSheet}
+        onClose={() => setExportSheet(false)}
+        title="Export My Data"
+        subtitle="This will package all your Kiongozi data (posts, follows, bookmarks) into a JSON file."
+        actions={[
+          { icon: 'download-outline', label: 'Export', onPress: doExportData },
+        ]}
+      />
+
+      <BottomSheet
+        visible={signOutSheet}
+        onClose={() => setSignOutSheet(false)}
+        title="Sign Out"
+        subtitle="Are you sure you want to sign out?"
+        actions={[
+          { icon: 'log-out-outline', label: 'Sign Out', onPress: doSignOut, destructive: true },
+        ]}
+      />
+
+      <BottomSheet
+        visible={deleteAccountSheet}
+        onClose={() => setDeleteAccountSheet(false)}
+        title="Delete Account"
+        subtitle="This is permanent and cannot be undone. All your data will be deleted."
+        actions={[
+          { icon: 'trash-outline', label: 'Delete Account', onPress: doDeleteAccount, destructive: true },
+        ]}
+      />
 
       {/* Change Password Modal */}
       <Modal

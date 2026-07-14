@@ -111,7 +111,7 @@ export default function FeedScreen() {
           <Image source={require('../../../assets/kchat-logo.png')} style={styles.headerLogo} resizeMode="contain" />
           <View style={styles.headerIcons}>
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => setCreatePostVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="create-outline" size={24} color={T.text} />
+              <Ionicons name="add-outline" size={28} color={T.text} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('DMList')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="chatbubble-ellipses-outline" size={24} color={T.text} />

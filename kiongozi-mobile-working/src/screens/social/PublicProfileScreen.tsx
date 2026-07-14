@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Image, ActivityIndicator, FlatList, Alert
+  ScrollView, Image, ActivityIndicator, FlatList,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
 import ReportModal from './ReportModal';
 import { useTheme } from '../../hooks/useTheme';
+import { BottomSheet } from '../../components/social/BottomSheet';
 
 export default function PublicProfileScreen() {
   const navigation = useNavigation<any>();
@@ -35,6 +36,10 @@ export default function PublicProfileScreen() {
   const [messageLoading, setMessageLoading] = useState(false);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
+  const [moreSheet, setMoreSheet] = useState(false);
+  const [blockConfirmSheet, setBlockConfirmSheet] = useState(false);
+  const [muteConfirmSheet, setMuteConfirmSheet] = useState(false);
+  const [unblockConfirmSheet, setUnblockConfirmSheet] = useState(false);
   const { deletePost: deleteFromStore } = useSocialStore();
 
   useEffect(() => {
@@ -191,56 +196,23 @@ export default function PublicProfileScreen() {
     setMessageLoading(false);
   };
 
-  const handleMoreOptions = useCallback(() => {
+  const handleMoreOptions = useCallback(() => { if (profile) setMoreSheet(true); }, [profile]);
+
+  const doBlock = async () => {
     if (!profile) return;
-    Alert.alert(
-      profile.full_name,
-      undefined,
-      [
-        {
-          text: `Report @${profile.username}`,
-          onPress: () => setReportTarget({ type: 'user', id: profile.id, displayName: `@${profile.username}` }),
-        },
-        {
-          text: `Block @${profile.username}`,
-          style: 'destructive',
-          onPress: () => Alert.alert(
-            `Block @${profile.username}?`,
-            'They will no longer be able to see your posts or contact you.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Block',
-                style: 'destructive',
-                onPress: async () => {
-                  await blockUser(profile.id);
-                  navigation.goBack();
-                },
-              },
-            ]
-          ),
-        },
-        {
-          text: `Mute @${profile.username}`,
-          onPress: () => Alert.alert(
-            `Mute @${profile.username}?`,
-            'Their posts will be hidden from your feed. They won\'t know they\'ve been muted.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Mute',
-                onPress: async () => {
-                  await muteUser(profile.id);
-                  Alert.alert('Muted', `@${profile.username} has been muted.`);
-                },
-              },
-            ]
-          ),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  }, [profile, blockUser, muteUser, navigation]);
+    await blockUser(profile.id);
+    navigation.goBack();
+  };
+
+  const doMute = async () => {
+    if (!profile) return;
+    await muteUser(profile.id);
+  };
+
+  const doUnblockProfile = async () => {
+    if (!profile) return;
+    await unblockUser(profile.id);
+  };
 
   if (loading) {
     return <View style={styles.loading}><ActivityIndicator color="#5CB85C" /></View>;
@@ -287,14 +259,7 @@ export default function PublicProfileScreen() {
           <Text style={styles.blockedSub}>Unblock to see their profile and posts.</Text>
           <TouchableOpacity
             style={styles.unblockBtn}
-            onPress={() => Alert.alert(
-              `Unblock @${profile?.username}?`,
-              'They will be able to see your posts and interact with you again.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Unblock', onPress: () => unblockUser(profile.id) },
-              ]
-            )}
+            onPress={() => setUnblockConfirmSheet(true)}
           >
             <Text style={styles.unblockText}>Unblock</Text>
           </TouchableOpacity>
@@ -490,6 +455,60 @@ export default function PublicProfileScreen() {
       <ReportModal
         target={reportTarget}
         onClose={() => setReportTarget(null)}
+      />
+
+      <BottomSheet
+        visible={moreSheet}
+        onClose={() => setMoreSheet(false)}
+        title={profile?.full_name}
+        actions={[
+          {
+            icon: 'flag-outline',
+            label: `Report @${profile?.username}`,
+            onPress: () => setReportTarget({ type: 'user', id: profile!.id, displayName: `@${profile!.username}` }),
+          },
+          {
+            icon: 'ban-outline',
+            label: `Block @${profile?.username}`,
+            onPress: () => setBlockConfirmSheet(true),
+            destructive: true,
+          },
+          {
+            icon: 'volume-mute-outline',
+            label: `Mute @${profile?.username}`,
+            onPress: () => setMuteConfirmSheet(true),
+          },
+        ]}
+      />
+
+      <BottomSheet
+        visible={blockConfirmSheet}
+        onClose={() => setBlockConfirmSheet(false)}
+        title={`Block @${profile?.username}?`}
+        subtitle="They will no longer be able to see your posts or contact you."
+        actions={[
+          { icon: 'ban-outline', label: 'Block', onPress: doBlock, destructive: true },
+        ]}
+      />
+
+      <BottomSheet
+        visible={muteConfirmSheet}
+        onClose={() => setMuteConfirmSheet(false)}
+        title={`Mute @${profile?.username}?`}
+        subtitle="Their posts will be hidden from your feed. They won't know they've been muted."
+        actions={[
+          { icon: 'volume-mute-outline', label: 'Mute', onPress: doMute },
+        ]}
+      />
+
+      <BottomSheet
+        visible={unblockConfirmSheet}
+        onClose={() => setUnblockConfirmSheet(false)}
+        title={`Unblock @${profile?.username}?`}
+        subtitle="They will be able to see your posts and interact with you again."
+        actions={[
+          { icon: 'shield-checkmark-outline', label: 'Unblock', onPress: doUnblockProfile },
+        ]}
       />
     </View>
   );

@@ -24,7 +24,9 @@ export interface DMMessage {
   read_at?: string;
   created_at: string;
   sender?: DMParticipant;
+  reply_to_id?: string;
   _pending?: boolean;
+  _edited?: boolean;
 }
 
 export interface DMConversation {
@@ -51,6 +53,7 @@ interface DMState {
   replaceMessage: (conversationId: string, tempId: string, real: DMMessage) => void;
   removeMessage: (conversationId: string, id: string) => void;
   unsendMessage: (conversationId: string, messageId: string) => Promise<void>;
+  updateMessageContent: (conversationId: string, messageId: string, content: string) => Promise<void>;
   markRead: (conversationId: string) => void;
   archiveConversation: (id: string) => Promise<void>;
   unarchiveConversation: (id: string) => Promise<void>;
@@ -153,6 +156,22 @@ export const useDMStore = create<DMState>((set, get) => ({
       await apiClient.deleteDMMessage(conversationId, messageId);
     } catch {
       // Optimistic delete — silently ignore if backend isn't ready yet
+    }
+  },
+
+  updateMessageContent: async (conversationId: string, messageId: string, content: string) => {
+    set(s => ({
+      messages: {
+        ...s.messages,
+        [conversationId]: (s.messages[conversationId] || []).map(m =>
+          m.id === messageId ? { ...m, content, _edited: true } : m
+        ),
+      }
+    }));
+    try {
+      await apiClient.editDMMessage(conversationId, messageId, content);
+    } catch {
+      // Optimistic edit — silently ignore if backend isn't ready yet
     }
   },
 

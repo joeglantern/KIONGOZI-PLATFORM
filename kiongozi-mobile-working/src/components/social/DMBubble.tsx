@@ -83,6 +83,7 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
         ) : null}
 
         <View style={[styles.meta, isOwn ? styles.metaOwn : styles.metaOther]}>
+          {message._edited && <Text style={styles.editedLabel}>edited</Text>}
           <Text style={[styles.time, isOwn ? styles.ownTime : styles.otherTime]}>
             {formatTime(message.created_at)}
           </Text>
@@ -161,6 +162,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     time: { fontSize: 11 },
     ownTime:   { color: T.textMuted },
     otherTime: { color: T.textSub },
+    editedLabel: { fontSize: 10, color: T.textMuted, fontStyle: 'italic', marginRight: 3 },
 
     pending: { opacity: 0.6 },
 

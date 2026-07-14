@@ -717,6 +717,14 @@ class ApiClient {
     return this.request(`/api/v1/dm/conversations/${conversationId}/messages/${messageId}`, { method: 'DELETE' });
   }
 
+  /** Edit (update content of) a DM message */
+  async editDMMessage(conversationId: string, messageId: string, content: string) {
+    return this.request(`/api/v1/dm/conversations/${conversationId}/messages/${messageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ content }),
+    });
+  }
+
   // ================================
   // NOTIFICATIONS METHODS
   // ================================

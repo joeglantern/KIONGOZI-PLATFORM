@@ -16,6 +16,7 @@ import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
 import { useTheme } from '../../hooks/useTheme';
+import { useHideTabBar } from '../../hooks/useHideTabBar';
 
 // ─── Date label helpers ───────────────────────────────────────────────────────
 
@@ -81,7 +82,8 @@ export default function DMConversationScreen() {
   const route = useRoute<any>();
   const { conversationId, participantName, participantUsername, participantAvatar } = route.params || {};
   const { user } = useAuthStore();
-  const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, unsendMessage, markRead } = useDMStore();
+  const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, unsendMessage, updateMessageContent, markRead } = useDMStore();
+  useHideTabBar();
 
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
@@ -93,6 +95,7 @@ export default function DMConversationScreen() {
   const [replyingTo, setReplyingTo] = useState<DMMessage | null>(null);
   const [contextMenu, setContextMenu] = useState<{ message: DMMessage; isOwn: boolean } | null>(null);
   const [unsendConfirm, setUnsendConfirm] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<DMMessage | null>(null);
   const sheetY = useRef(new Animated.Value(300)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const isSending = useRef(false); // guard against double-tap
@@ -161,6 +164,12 @@ export default function DMConversationScreen() {
 
   const conversationMessages = messages[conversationId] || [];
 
+  const messageMap = useMemo(() => {
+    const map: Record<string, DMMessage> = {};
+    for (const m of conversationMessages) map[m.id] = m;
+    return map;
+  }, [conversationMessages]);
+
   const listItems = useMemo(
     () => buildList(conversationMessages, user?.id || ''),
     [conversationMessages, user?.id]
@@ -195,6 +204,16 @@ export default function DMConversationScreen() {
   const handleSend = useCallback(async () => {
     if (!text.trim() && !mediaUri) return;
     if (isSending.current) return; // prevent double-send
+
+    // Edit mode — update existing message instead of creating a new one
+    if (editingMessage) {
+      const newContent = text.trim();
+      setText('');
+      setEditingMessage(null);
+      await updateMessageContent(conversationId, editingMessage.id, newContent);
+      return;
+    }
+
     isSending.current = true;
     const content = text.trim();
     const attachedUri = mediaUri;
@@ -271,6 +290,7 @@ export default function DMConversationScreen() {
     }
 
     const isOwn = item.message.sender_id === user?.id;
+    const repliedTo = item.message.reply_to_id ? messageMap[item.message.reply_to_id] : undefined;
     return (
       <DMBubble
         message={item.message}
@@ -280,9 +300,13 @@ export default function DMConversationScreen() {
         avatarUrl={participantAvatar}
         onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
         onLongPress={() => openContextMenu(item.message, isOwn)}
+        replyPreview={repliedTo ? {
+          senderName: repliedTo.sender_id === user?.id ? 'You' : (participantName || 'Them'),
+          content: repliedTo.content || (repliedTo.media_url ? '📷 Photo' : 'Message'),
+        } : undefined}
       />
     );
-  }, [user?.id, participantAvatar, styles, openContextMenu]);
+  }, [user?.id, participantAvatar, participantName, styles, openContextMenu, messageMap]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -366,6 +390,20 @@ export default function DMConversationScreen() {
           </View>
         ) : (
           <View style={styles.inputBar}>
+            {editingMessage && (
+              <View style={[styles.replyPreviewBar, styles.editBar]}>
+                <View style={styles.replyPreviewContent}>
+                  <Text style={styles.editBarLabel}>Editing message</Text>
+                  <Text style={styles.replyPreviewText} numberOfLines={1}>
+                    {editingMessage.content}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => { setEditingMessage(null); setText(''); }} style={styles.replyDismiss}>
+                  <Ionicons name="close" size={18} color={T.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             {replyingTo && (
               <View style={styles.replyPreviewBar}>
                 <View style={styles.replyPreviewContent}>
@@ -470,6 +508,13 @@ export default function DMConversationScreen() {
                     <Ionicons name="arrow-undo-outline" size={22} color={T.text} />
                     <Text style={styles.sheetItemText}>Reply</Text>
                   </TouchableOpacity>
+
+                  {contextMenu.isOwn && !contextMenu.message._pending && contextMenu.message.content && (
+                    <TouchableOpacity style={styles.sheetItem} onPress={() => { setEditingMessage(contextMenu.message); setText(contextMenu.message.content || ''); closeContextMenu(); }} activeOpacity={0.7}>
+                      <Ionicons name="pencil-outline" size={22} color={T.text} />
+                      <Text style={styles.sheetItemText}>Edit</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {contextMenu.isOwn && !contextMenu.message._pending && (
                     <TouchableOpacity style={styles.sheetItem} onPress={() => setUnsendConfirm(true)} activeOpacity={0.7}>
@@ -580,6 +625,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     replyPreviewLabel: { fontSize: 12, fontWeight: '700', color: T.accent, marginBottom: 2 },
     replyPreviewText: { fontSize: 13, color: T.textSub },
     replyDismiss: { padding: 4, marginLeft: 8 },
+    editBar: { borderLeftColor: '#F59E0B' },
+    editBarLabel: { fontSize: 12, fontWeight: '700', color: '#F59E0B', marginBottom: 2 },
     mediaPreviewWrap: {
       position: 'relative',
       alignSelf: 'flex-start',

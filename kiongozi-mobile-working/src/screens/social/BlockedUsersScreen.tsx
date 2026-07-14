@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,12 +10,14 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+import { BottomSheet } from '../../components/social/BottomSheet';
 
 export default function BlockedUsersScreen() {
   const navigation = useNavigation<any>();
   const { unblockUser } = useSocialStore();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unblockTarget, setUnblockTarget] = useState<any | null>(null);
   const T = useTheme();
   const styles = React.useMemo(() => makeStyles(T), [T]);
 
@@ -30,22 +32,13 @@ export default function BlockedUsersScreen() {
 
   useEffect(() => { loadBlocked(); }, []);
 
-  const handleUnblock = useCallback((user: any) => {
-    Alert.alert(
-      'Unblock User',
-      `Unblock @${user.username}? They will be able to see your posts and interact with you again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unblock',
-          onPress: async () => {
-            await unblockUser(user.id);
-            setUsers(prev => prev.filter(u => u.id !== user.id));
-          },
-        },
-      ]
-    );
-  }, [unblockUser]);
+  const handleUnblock = useCallback((user: any) => setUnblockTarget(user), []);
+
+  const doUnblock = async () => {
+    if (!unblockTarget) return;
+    await unblockUser(unblockTarget.id);
+    setUsers(prev => prev.filter(u => u.id !== unblockTarget.id));
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -87,6 +80,16 @@ export default function BlockedUsersScreen() {
           }
         />
       )}
+
+      <BottomSheet
+        visible={!!unblockTarget}
+        onClose={() => setUnblockTarget(null)}
+        title={`Unblock @${unblockTarget?.username}?`}
+        subtitle="They will be able to see your posts and interact with you again."
+        actions={[
+          { icon: 'shield-checkmark-outline', label: 'Unblock', onPress: doUnblock },
+        ]}
+      />
     </SafeAreaView>
   );
 }

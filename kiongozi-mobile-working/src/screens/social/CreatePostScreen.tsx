@@ -13,6 +13,7 @@ import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
 import { useTheme } from '../../hooks/useTheme';
+import { BottomSheet } from '../../components/social/BottomSheet';
 
 interface CreatePostScreenProps {
   onClose: () => void;
@@ -29,6 +30,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const [media, setMedia] = useState<Array<{ uri: string; type: 'image' | 'video'; width?: number; height?: number; thumbnailUri?: string }>>([]);
   const [posting, setPosting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [discardSheet, setDiscardSheet] = useState(false);
 
   const canPost = content.trim().length > 0 && content.length <= 280 && !posting;
 
@@ -159,10 +161,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         <TouchableOpacity
           onPress={() => {
             if (content.trim().length > 0 || media.length > 0) {
-              Alert.alert('Discard draft?', 'Your post will not be saved.', [
-                { text: 'Keep editing', style: 'cancel' },
-                { text: 'Discard', style: 'destructive', onPress: onClose },
-              ]);
+              setDiscardSheet(true);
             } else {
               onClose();
             }
@@ -252,6 +251,15 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
           {280 - content.length}
         </Text>
       </View>
+      <BottomSheet
+        visible={discardSheet}
+        onClose={() => setDiscardSheet(false)}
+        title="Discard draft?"
+        subtitle="Your post will not be saved."
+        actions={[
+          { icon: 'trash-outline', label: 'Discard', onPress: onClose, destructive: true },
+        ]}
+      />
     </View>
   );
 }

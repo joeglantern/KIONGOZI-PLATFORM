@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Modal, TextInput, Alert
+  ActivityIndicator, Modal, TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+import { BottomSheet } from '../../components/social/BottomSheet';
 
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '';
@@ -51,6 +52,8 @@ export default function DMListScreen() {
   const [loadingFollowing, setLoadingFollowing] = useState(false);
   const [searching, setSearching] = useState(false);
   const [startingFor, setStartingFor] = useState<string | null>(null);
+  const [convSheet, setConvSheet] = useState<{ convId: string; isArchived: boolean } | null>(null);
+  const [deleteConfirmSheet, setDeleteConfirmSheet] = useState<string | null>(null);
 
   useEffect(() => {
     loadPersistedDMState().then(() => fetchConversations());
@@ -143,24 +146,8 @@ export default function DMListScreen() {
   }, []);
 
   const handleLongPress = useCallback((convId: string, isArchived: boolean) => {
-    const archiveLabel = isArchived ? 'Unarchive' : 'Archive';
-    Alert.alert('Conversation', undefined, [
-      {
-        text: archiveLabel,
-        onPress: () => isArchived ? unarchiveConversation(convId) : archiveConversation(convId),
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () =>
-          Alert.alert('Delete conversation?', 'This removes it from your list. The other person will still have it.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => deleteConversation(convId) },
-          ]),
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [archiveConversation, unarchiveConversation, deleteConversation]);
+    setConvSheet({ convId, isArchived });
+  }, []);
 
   const renderConversation = useCallback(({ item }: { item: any }) => {
     const other = item.participants[0];
@@ -336,6 +323,43 @@ export default function DMListScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Conversation long-press sheet */}
+      <BottomSheet
+        visible={!!convSheet}
+        onClose={() => setConvSheet(null)}
+        actions={convSheet ? [
+          {
+            icon: convSheet.isArchived ? 'archive-outline' : 'archive-outline',
+            label: convSheet.isArchived ? 'Unarchive' : 'Archive',
+            onPress: () => convSheet.isArchived
+              ? unarchiveConversation(convSheet.convId)
+              : archiveConversation(convSheet.convId),
+          },
+          {
+            icon: 'trash-outline',
+            label: 'Delete conversation',
+            destructive: true,
+            onPress: () => setDeleteConfirmSheet(convSheet.convId),
+          },
+        ] : []}
+      />
+
+      {/* Delete confirmation sheet */}
+      <BottomSheet
+        visible={!!deleteConfirmSheet}
+        onClose={() => setDeleteConfirmSheet(null)}
+        title="Delete conversation?"
+        subtitle="This removes it from your list. The other person will still have it."
+        actions={deleteConfirmSheet ? [
+          {
+            icon: 'trash-outline',
+            label: 'Delete',
+            destructive: true,
+            onPress: () => deleteConversation(deleteConfirmSheet!),
+          },
+        ] : []}
+      />
     </View>
   );
 }
