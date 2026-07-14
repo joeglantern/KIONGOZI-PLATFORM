@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   StyleSheet,
   Platform,
   Alert,
@@ -13,44 +14,30 @@ import {
   Animated,
   KeyboardAvoidingView,
   Image,
+  PanResponder,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import * as Sharing from 'expo-sharing';
-// LinearGradient removed for compatibility
 import { useAuthStore } from '../stores/authStore';
+import { useThemeStore } from '../stores/themeStore';
 import apiClient from '../utils/apiClient';
 import LoadingDots from '../components/LoadingDots';
-import MobileMenu from '../components/MobileMenu';
-import CustomToast from '../components/CustomToast';
-import ModernMessageInput from '../components/ModernMessageInput';
-import ProfileScreen from './ProfileScreen';
-import ExportModal from '../components/ExportModal';
-import AIMessage from '../components/AIMessage';
-import UserMessage from '../components/UserMessage';
-import EnhancedAIMessage from '../components/EnhancedAIMessage';
-import WelcomeScreen from '../components/WelcomeScreen';
-import QuickActionsMenu from '../components/QuickActionsMenu';
-import ModuleDetailModal from '../components/ModuleDetailModal';
-import TutorialOverlay from '../components/TutorialOverlay';
-import { ChatSuggestion } from '../components/SmartSuggestions';
-import { useChatStore } from '../stores/chatStore';
-import { useThemeStore } from '../stores/themeStore';
-import { isCommand } from '../utils/messageProcessor';
-import { processCommand as handleCommand } from '../utils/commandProcessor';
-import { LearningModule, ModuleCategory } from '../types/lms';
-import { hasSeenTutorial } from '../utils/tutorialStorage';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SIDEBAR_WIDTH = Math.min(300, SCREEN_WIDTH * 0.78);
+// Edge zone from left where a swipe starts the open gesture
+const EDGE_HIT_WIDTH = 28;
+// Minimum swipe speed or distance to trigger snap
+const SWIPE_VELOCITY_THRESHOLD = 0.4;
+const SWIPE_DISTANCE_THRESHOLD = SIDEBAR_WIDTH * 0.35;
 
 interface Message {
+  id: number;
   text: string;
   isUser: boolean;
-  id: number;
-  type?: 'chat' | 'research';
-  reaction?: 'like' | 'dislike' | null;
-  commandResponse?: any;
   isLoading?: boolean;
 }
 
@@ -59,1557 +46,669 @@ interface Conversation {
   title?: string;
   updated_at: string;
   created_at: string;
-  user_id: string;
 }
 
-const { width } = Dimensions.get('window');
+function timeLabel(dateStr: string) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'long' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default function ChatScreen() {
-  const { user, signOut } = useAuthStore();
+  const { user } = useAuthStore();
+  const isDark = useThemeStore(s => s.isDark);
+  const insets = useSafeAreaInsets();
+
+  // ─── Theme tokens ────────────────────────────────────────────────────────────
+  const C = {
+    bg:         isDark ? '#000000' : '#FFFFFF',
+    surface:    isDark ? '#111111' : '#F2F2F7',
+    surface2:   isDark ? '#1C1C1E' : '#E5E5EA',
+    border:     isDark ? '#2C2C2E' : '#D1D1D6',
+    text:       isDark ? '#FFFFFF' : '#000000',
+    textSub:    isDark ? '#8E8E93' : '#6C6C70',
+    userBubble: isDark ? '#1C1C1E' : '#E9E9EB',
+    accent:     '#5CB85C',
+    sidebar:    isDark ? '#0D0D0D' : '#F8F8F8',
+  };
+
+  // ─── State ───────────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const darkMode = useThemeStore(s => s.isDark);
-  const [showMenu, setShowMenu] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [refreshingConversations, setRefreshingConversations] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
+
+  const flatListRef = useRef<FlatList>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
-  const scrollButtonOpacity = useRef(new Animated.Value(0)).current;
-  const [latestMessageId, setLatestMessageId] = useState<number | null>(null);
-  const [useEnhancedMessages, setUseEnhancedMessages] = useState(true);
-  const [showQuickActions, setShowQuickActions] = useState(false);
-  const [showModuleDetail, setShowModuleDetail] = useState(false);
-  const [selectedModule, setSelectedModule] = useState<LearningModule | null>(null);
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [layoutReady, setLayoutReady] = useState(false);
-  const chatStore = useChatStore();
+  const inputRef = useRef<TextInput>(null);
 
+  // ─── Sidebar animation ───────────────────────────────────────────────────────
+  const sidebarAnim = useRef(new Animated.Value(0)).current;
+  // Track current value without subscription re-renders
+  const sidebarProgress = useRef(0);
   useEffect(() => {
-    // Start with empty messages - welcome screen handles the greeting
-    setMessages([]);
-
-    // Check if user has seen tutorial
-    checkTutorialStatus();
-
-    // Force layout recalculation after mount to fix SafeAreaView on iOS
-    if (Platform.OS === 'ios') {
-      setTimeout(() => {
-        setLayoutReady(true);
-      }, 50);
-    } else {
-      setLayoutReady(true);
-    }
+    const id = sidebarAnim.addListener(({ value }) => { sidebarProgress.current = value; });
+    return () => sidebarAnim.removeListener(id);
   }, []);
 
-  const checkTutorialStatus = async () => {
-    const seen = await hasSeenTutorial();
-    if (!seen) {
-      // Show tutorial after a short delay
-      setTimeout(() => {
-        setShowTutorial(true);
-      }, 1000);
-    }
-  };
+  const animateSidebar = useCallback((toValue: number, velocity = 0) => {
+    Animated.spring(sidebarAnim, {
+      toValue,
+      useNativeDriver: true,
+      velocity,
+      tension: 68,
+      friction: 12,
+    }).start();
+  }, [sidebarAnim]);
 
-  const handleTutorialComplete = () => {
-    setShowTutorial(false);
-  };
-
-  const showTutorialManually = () => {
+  const openSidebar = useCallback((velocity = 0) => {
+    Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowTutorial(true);
-  };
+    animateSidebar(1, velocity);
+  }, [animateSidebar]);
 
-  // Keyboard handling - optimized for iOS
-  useEffect(() => {
-    if (Platform.OS === 'ios') {
-      // On iOS, KeyboardAwareScrollView handles scrolling better
-      // We only track keyboard height for layout adjustments
-      const keyboardWillShowListener = Keyboard.addListener(
-        'keyboardWillShow',
-        (event) => {
-          setKeyboardHeight(event.endCoordinates.height);
+  const closeSidebar = useCallback((velocity = 0) => {
+    animateSidebar(0, velocity);
+  }, [animateSidebar]);
+
+  const isSidebarOpen = () => sidebarProgress.current > 0.5;
+
+  // ─── PanResponder for swipe gestures ─────────────────────────────────────────
+  const panResponder = useRef(
+    PanResponder.create({
+      // Capture only horizontal swipes starting from left edge (open) or with sidebar open (close)
+      onMoveShouldSetPanResponder: (evt, gs) => {
+        const { pageX } = evt.nativeEvent;
+        const { dx, dy } = gs;
+        const isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.5;
+        if (!isHorizontal) return false;
+        // Opening: start from left edge
+        if (sidebarProgress.current < 0.5 && pageX < EDGE_HIT_WIDTH && dx > 5) return true;
+        // Closing: any rightward drag when open
+        if (sidebarProgress.current >= 0.5 && dx < -5) return true;
+        return false;
+      },
+      onPanResponderGrant: () => {
+        sidebarAnim.stopAnimation();
+      },
+      onPanResponderMove: (_, gs) => {
+        const base = sidebarProgress.current >= 0.5 ? 1 : 0;
+        const delta = gs.dx / SIDEBAR_WIDTH;
+        const next = Math.max(0, Math.min(1, base + delta));
+        sidebarAnim.setValue(next);
+      },
+      onPanResponderRelease: (_, gs) => {
+        const current = sidebarProgress.current;
+        const velocity = gs.vx;
+        const shouldOpen =
+          velocity > SWIPE_VELOCITY_THRESHOLD ||
+          (velocity >= -SWIPE_VELOCITY_THRESHOLD && current > 1 - SWIPE_DISTANCE_THRESHOLD / SIDEBAR_WIDTH);
+        if (shouldOpen) {
+          openSidebar(velocity);
+        } else {
+          closeSidebar(-velocity);
         }
-      );
+      },
+      onPanResponderTerminate: (_, gs) => {
+        // Snap based on current position if touch is stolen
+        if (sidebarProgress.current > 0.5) openSidebar(gs.vx);
+        else closeSidebar(-gs.vx);
+      },
+    })
+  ).current;
 
-      const keyboardWillHideListener = Keyboard.addListener(
-        'keyboardWillHide',
-        () => {
-          setKeyboardHeight(0);
-        }
-      );
+  const sidebarTranslateX = sidebarAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-SIDEBAR_WIDTH, 0],
+  });
+  const overlayOpacity = sidebarAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.55],
+  });
+  const overlayPointerEvents = sidebarAnim.interpolate({
+    inputRange: [0, 0.01],
+    outputRange: [0, 1],
+  });
 
-      return () => {
-        keyboardWillShowListener.remove();
-        keyboardWillHideListener.remove();
-      };
-    } else {
-      // Android: Keep original behavior
-      const keyboardDidShowListener = Keyboard.addListener(
-        'keyboardDidShow',
-        (event) => {
-          setKeyboardHeight(event.endCoordinates.height);
-          setShouldAutoScroll(true);
-          scrollToBottom();
-        }
-      );
-
-      const keyboardDidHideListener = Keyboard.addListener(
-        'keyboardDidHide',
-        () => {
-          setKeyboardHeight(0);
-        }
-      );
-
-      return () => {
-        keyboardDidShowListener.remove();
-        keyboardDidHideListener.remove();
-      };
-    }
-  }, []);
-
-  // Load user's conversations from API
-  const loadConversations = async () => {
+  // ─── Data loading ─────────────────────────────────────────────────────────────
+  const loadConversations = useCallback(async () => {
     if (!user) return;
-
     setLoadingConversations(true);
     try {
-      const response = await apiClient.getConversations({ limit: 50, offset: 0 });
-
-      if (response.success && response.data) {
-        const conversationList = Array.isArray(response.data) ? response.data : [];
-        setConversations(conversationList);
-        console.log('✅ Loaded conversations:', conversationList.length);
-      } else {
-        console.warn('❌ Failed to load conversations:', response.error);
-      }
-    } catch (error) {
-      console.error('❌ Error loading conversations:', error);
+      const res = await apiClient.getConversations({ limit: 50, offset: 0 });
+      if (res.success && Array.isArray(res.data)) setConversations(res.data);
     } finally {
       setLoadingConversations(false);
     }
-  };
-
-  // Load conversations when user is available
-  useEffect(() => {
-    if (user) {
-      loadConversations();
-    }
   }, [user]);
 
-  // Auto-scroll when messages change
   useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages]);
+    if (user) loadConversations();
+  }, [user]);
 
-  // Load messages for a specific conversation
-  const loadConversationMessages = async (selectedConversationId: string) => {
-    // Clear current messages first to prevent showing old messages during loading
+  const loadConversationMessages = async (convId: string) => {
+    closeSidebar();
     setMessages([]);
     setLoadingMessages(true);
     try {
-      const response = await apiClient.getConversationMessages(selectedConversationId, { limit: 100, offset: 0 });
-
-      if (response.success && response.data) {
-        const messageList = Array.isArray(response.data) ? response.data : [];
-
-        // Convert API messages to our Message format
-        const formattedMessages: Message[] = messageList.map((msg: any, index: number) => ({
-          id: msg.id || Date.now() + index,
-          text: msg.text || msg.content || '',
-          isUser: msg.is_user === true,
-          type: msg.type || 'chat'
+      const res = await apiClient.getConversationMessages(convId, { limit: 100, offset: 0 });
+      if (res.success && Array.isArray(res.data)) {
+        const formatted: Message[] = res.data.map((m: any, i: number) => ({
+          id: m.id || Date.now() + i,
+          text: m.text || m.content || '',
+          isUser: m.is_user === true,
         }));
-
-        setMessages(formattedMessages);
-        setConversationId(selectedConversationId);
-
-        // Set the current conversation for header display
-        const selectedConversation = conversations.find(c => c.id === selectedConversationId);
-        setCurrentConversation(selectedConversation || null);
-
-        console.log('✅ Loaded conversation messages:', formattedMessages.length);
-
-        // Scroll to bottom after loading messages
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      } else {
-        console.warn('❌ Failed to load conversation messages:', response.error);
-        // If failed to load, show empty state instead of keeping loading
-        setMessages([]);
+        setMessages(formatted);
+        setConversationId(convId);
+        setCurrentConversation(conversations.find(c => c.id === convId) || null);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
       }
-    } catch (error) {
-      console.error('❌ Error loading conversation messages:', error);
-      // On error, show empty state and alert
-      setMessages([]);
-      Alert.alert('Error', 'Failed to load conversation messages');
     } finally {
-      // Always clear loading state
       setLoadingMessages(false);
     }
   };
 
-  // Start a new chat conversation
   const startNewChat = () => {
-    // Clear all states first
-    setLoadingMessages(false);
-    setLoading(false);
+    closeSidebar();
+    setMessages([]);
     setConversationId(null);
     setCurrentConversation(null);
     setInputText('');
-
-    // Start with empty messages - welcome screen will show
-    setMessages([]);
-    console.log('✅ Started new chat');
   };
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
+  const deleteConversation = (convId: string) => {
+    Alert.alert('Delete Chat', 'Delete this conversation?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          await apiClient.deleteConversation(convId);
+          setConversations(prev => prev.filter(c => c.id !== convId));
+          if (conversationId === convId) startNewChat();
+        },
+      },
+    ]);
+  };
+
+  // ─── Send message ─────────────────────────────────────────────────────────────
+  const sendMessage = async () => {
+    const text = inputText.trim();
+    if (!text || isGenerating) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const aiId = Date.now() + 1;
+    setMessages(prev => [
+      ...prev,
+      { id: Date.now(), text, isUser: true },
+      { id: aiId, text: '', isUser: false, isLoading: true },
+    ]);
+    setInputText('');
+    setIsGenerating(true);
+
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+
+    try {
+      const savePromise = apiClient.sendMessage(text, conversationId || undefined);
+      let fullText = '';
+
+      apiClient.generateAIResponseStream(
+        text,
+        conversationId || '',
+        'chat',
+        (chunk: string) => {
+          fullText += chunk;
+          setMessages(prev =>
+            prev.map(m => m.id === aiId ? { ...m, text: fullText, isLoading: false } : m)
+          );
+          flatListRef.current?.scrollToEnd({ animated: false });
+        },
+        async () => {
+          setMessages(prev =>
+            prev.map(m => m.id === aiId ? { ...m, text: fullText, isLoading: false } : m)
+          );
+          setIsGenerating(false);
+          const saved = await savePromise;
+          if (saved.success && !conversationId) {
+            const newId = (saved.data as any)?.conversation_id;
+            if (newId) { setConversationId(newId); }
+          }
+          loadConversations();
+        },
+        () => {
+          setMessages(prev => prev.filter(m => m.id !== aiId));
+          setIsGenerating(false);
+          Alert.alert('Error', 'Failed to get a response. Please try again.');
+        },
+        abortControllerRef.current?.signal
+      );
+    } catch {
+      setMessages(prev => prev.filter(m => m.id !== aiId));
+      setIsGenerating(false);
+    }
+  };
+
+  const stopGeneration = () => {
+    abortControllerRef.current?.abort();
+    setIsGenerating(false);
+    setMessages(prev => prev.map(m => m.isLoading ? { ...m, isLoading: false } : m));
   };
 
   const copyMessage = async (text: string) => {
-    try {
-      await Clipboard.setStringAsync(text);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showToast('Message copied to clipboard', 'success');
-    } catch (error) {
-      console.error('Failed to copy message:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast('Failed to copy message', 'error');
-    }
+    await Clipboard.setStringAsync(text);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const shareConversation = async () => {
-    try {
-      if (!currentConversation?.title && messages.length <= 1) {
-        showToast('No conversation to share', 'info');
-        return;
-      }
-
-      // Update chat store with current conversation data for export
-      if (conversationId && messages.length > 0) {
-        const conversationForExport = {
-          id: conversationId,
-          title: currentConversation?.title || 'Current Conversation',
-          messages: messages.map(msg => ({
-            id: msg.id.toString(),
-            text: msg.text,
-            isUser: msg.isUser,
-            timestamp: new Date().toISOString(),
-            type: msg.type
-          })),
-          created_at: currentConversation?.created_at || new Date().toISOString(),
-          updated_at: currentConversation?.updated_at || new Date().toISOString()
-        };
-
-        chatStore.setCurrentConversation(conversationForExport);
-        chatStore.setConversations([conversationForExport]); // Just current conversation for now
-      }
-
-      // Open export modal with enhanced options
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setShowExportModal(true);
-    } catch (error) {
-      console.error('Failed to open export modal:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast('Failed to open export options', 'error');
-    }
-  };
-
-  const deleteConversation = async (conversationId: string) => {
-    try {
-      const response = await apiClient.deleteConversation(conversationId);
-
-      if (response.success) {
-        // Remove the deleted conversation from the local state
-        setConversations(prev => prev.filter(c => c.id !== conversationId));
-
-        // If the current conversation was deleted, start a new chat
-        if (conversationId === currentConversation?.id) {
-          startNewChat();
-        }
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showToast('Conversation deleted successfully', 'success');
-        console.log('✅ Conversation deleted:', conversationId);
-      } else {
-        console.error('❌ Failed to delete conversation:', response.error);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        showToast('Failed to delete conversation', 'error');
-      }
-    } catch (error) {
-      console.error('❌ Error deleting conversation:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast('Error deleting conversation', 'error');
-    }
-  };
-
-  // Separate refresh function for pull-to-refresh
-  const refreshConversations = async () => {
-    if (!user) return;
-
-    setRefreshingConversations(true);
-    try {
-      const response = await apiClient.getConversations({ limit: 50, offset: 0 });
-
-      if (response.success && response.data) {
-        const conversationList = Array.isArray(response.data) ? response.data : [];
-        setConversations(conversationList);
-        showToast('Conversations refreshed', 'success');
-        console.log('✅ Refreshed conversations:', conversationList.length);
-      } else {
-        console.warn('❌ Failed to refresh conversations:', response.error);
-        showToast('Failed to refresh conversations', 'error');
-      }
-    } catch (error) {
-      console.error('❌ Error refreshing conversations:', error);
-      showToast('Failed to refresh conversations', 'error');
-    } finally {
-      setRefreshingConversations(false);
-    }
-  };
-
-  const scrollToBottom = (animated: boolean = true, force: boolean = false) => {
-    if (scrollViewRef.current && (shouldAutoScroll || force)) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated });
-      }, 100);
-    }
-  };
-
-  const stopGenerating = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setLoading(false);
-    setIsGenerating(false);
-  };
-
-  const regenerateLastResponse = async () => {
-    if (messages.length < 2 || loading || isGenerating) return;
-
-    // Find the last AI message and the user message before it
-    let lastAiIndex = -1;
-    let lastUserMessage = '';
-
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (!messages[i].isUser && lastAiIndex === -1) {
-        lastAiIndex = i;
-      } else if (messages[i].isUser && lastAiIndex !== -1) {
-        lastUserMessage = messages[i].text;
-        break;
-      }
-    }
-
-    if (lastAiIndex === -1 || !lastUserMessage) return;
-
-    // Remove the last AI message
-    setMessages(prev => prev.slice(0, lastAiIndex));
-
-    setLoading(true);
-    setIsGenerating(true);
-
-    // Cancel any previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    try {
-      // Create AI message placeholder with loading state immediately
-      const aiMessageId = Date.now() + 1;
-      const aiMessage: Message = {
-        id: aiMessageId,
-        text: '',
-        isUser: false,
-        type: 'chat',
-        isLoading: true, // Show loading dots inside message
-      };
-
-      setLatestMessageId(aiMessageId);
-      setMessages(prev => [...prev, aiMessage]);
-      setLoading(false); // Hide separate loading indicator
-
-      // Generate new AI response with streaming
-      let fullResponseText = '';
-      await apiClient.generateAIResponseStream(
-        lastUserMessage,
-        conversationId || undefined,
-        'chat',
-        (chunk: string) => {
-          fullResponseText += chunk;
-          // Update message with text and remove loading state
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === aiMessageId
-                ? { ...msg, text: fullResponseText, isLoading: false }
-                : msg
-            )
-          );
-        },
-        (metadata: any) => {
-          // On complete - refresh conversations list
-          loadConversations();
-        },
-        (error: string) => {
-          throw new Error(error);
-        },
-        abortControllerRef.current?.signal
+  // ─── Message renderer ─────────────────────────────────────────────────────────
+  const renderMessage = useCallback(({ item }: { item: Message }) => {
+    if (item.isUser) {
+      return (
+        <View style={styles.userRow}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onLongPress={() => copyMessage(item.text)}
+            style={[styles.userBubble, { backgroundColor: C.userBubble }]}
+          >
+            <Text style={[styles.userText, { color: C.text }]}>{item.text}</Text>
+          </TouchableOpacity>
+        </View>
       );
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        console.error('Error regenerating response:', error);
-      }
-    } finally {
-      setLoading(false);
-      setIsGenerating(false);
-      abortControllerRef.current = null;
-    }
-  };
-
-  const handleScroll = (event: any) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const paddingToBottom = 50; // Increased threshold for better UX
-    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >=
-      contentSize.height - paddingToBottom;
-
-    // Update auto-scroll state based on user's scroll position
-    // Only disable auto-scroll if user actively scrolled up
-    if (!isCloseToBottom && contentOffset.y > 0) {
-      setShouldAutoScroll(false);
-    } else if (isCloseToBottom) {
-      setShouldAutoScroll(true);
-    }
-  };
-
-  // Animate button appearance
-  useEffect(() => {
-    Animated.timing(scrollButtonOpacity, {
-      toValue: shouldAutoScroll ? 0 : 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [shouldAutoScroll]);
-
-  const reactToMessage = (messageId: number, reaction: 'like' | 'dislike') => {
-    setMessages(prevMessages =>
-      prevMessages.map(msg =>
-        msg.id === messageId
-          ? { ...msg, reaction: msg.reaction === reaction ? null : reaction }
-          : msg
-      )
-    );
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleSuggestionPress = (suggestion: ChatSuggestion) => {
-    setInputText(suggestion.action);
-    // Auto-send the suggestion
-    setTimeout(() => {
-      sendMessage();
-    }, 100);
-  };
-
-  const sendModuleDescriptionRequest = async (module: LearningModule) => {
-    // Create a message requesting AI to describe the module
-    const moduleInfo = `Tell me about the "${module.title}" module. It's a ${module.difficulty_level} level module in the ${module.category?.name || 'General'} category that takes about ${module.estimated_duration_minutes} minutes. Here's the description: ${module.description}`;
-
-    // Create user message showing they clicked the module
-    const userMessage: Message = {
-      id: Date.now(),
-      text: `Tell me more about: ${module.title}`,
-      isUser: true,
-      type: 'chat'
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setLoading(true);
-    setShouldAutoScroll(true);
-
-    try {
-      // Save user message to backend
-      const userResponse = await apiClient.sendMessage(userMessage.text, conversationId || undefined);
-
-      if (userResponse.success) {
-        // Handle conversation ID
-        if (!conversationId && (userResponse.data as any)?.conversation_id) {
-          setConversationId((userResponse.data as any).conversation_id);
-
-          const newConversation = {
-            id: (userResponse.data as any).conversation_id,
-            title: userMessage.text.substring(0, 50) + (userMessage.text.length > 50 ? '...' : ''),
-            updated_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            user_id: user?.id || ''
-          };
-
-          setConversations(prev => [newConversation, ...prev]);
-          setCurrentConversation(newConversation);
-
-          chatStore.addConversation({
-            id: newConversation.id,
-            title: newConversation.title,
-            messages: messages.map(m => ({ ...m, id: m.id.toString() })),
-            created_at: newConversation.created_at,
-            updated_at: newConversation.updated_at
-          });
-        }
-
-        // Generate AI response with module context using streaming
-        const currentConvId = conversationId || (userResponse.data as any)?.conversation_id;
-
-        // Create AI message placeholder with loading state
-        const aiMessageId = Date.now() + 1;
-        const aiMessage: Message = {
-          id: aiMessageId,
-          text: '',
-          isUser: false,
-          type: 'chat',
-          isLoading: true, // Show loading dots inside message
-        };
-
-        setLatestMessageId(aiMessageId);
-        setMessages(prev => [...prev, aiMessage]);
-        setLoading(false); // Hide separate loading indicator
-
-        // Use streaming API for progressive response
-        let fullResponseText = '';
-        await apiClient.generateAIResponseStream(
-          moduleInfo,
-          currentConvId,
-          'chat',
-          (chunk: string) => {
-            fullResponseText += chunk;
-            // Update message with text and remove loading state
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === aiMessageId
-                  ? { ...msg, text: fullResponseText, isLoading: false }
-                  : msg
-              )
-            );
-          },
-          (metadata: any) => {
-            // On complete - refresh conversations list
-            loadConversations();
-          },
-          (error: string) => {
-            throw new Error(error);
-          }
-        );
-      } else {
-        throw new Error(userResponse.error || 'Failed to send message');
-      }
-    } catch (error: any) {
-      console.error('Error requesting module description:', error);
-
-      const errorMessage: Message = {
-        id: Date.now() + 1,
-        text: 'Sorry, I encountered an error describing this module. Please try again.',
-        isUser: false,
-        type: 'chat',
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleModulePress = (module: LearningModule) => {
-    // Send AI message request for module description
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    console.log('Module pressed:', {
-      id: module.id,
-      title: module.title,
-      category: module.category?.name,
-      difficulty: module.difficulty_level
-    });
-
-    // Send request to AI for description
-    sendModuleDescriptionRequest(module);
-
-    showToast(`📚 Getting info about ${module.title}...`, 'info');
-  };
-
-  const sendCourseDescriptionRequest = async (course: any) => {
-    // Create a message requesting AI to describe the course
-    const courseInfo = `Tell me about the "${course.title}" course. It's a ${course.difficulty_level} level course in the ${course.category?.name || 'General'} category that takes about ${course.estimated_duration_hours} hours. Here's the description: ${course.description}${course.learning_outcomes ? ` Learning outcomes: ${course.learning_outcomes.join(', ')}` : ''}`;
-
-    // Create user message showing they clicked the course
-    const userMessage: Message = {
-      id: Date.now(),
-      text: `Tell me more about: ${course.title}`,
-      isUser: true,
-      type: 'chat'
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setLoading(true);
-    setShouldAutoScroll(true);
-
-    try {
-      // Save user message to backend
-      const userResponse = await apiClient.sendMessage(userMessage.text, conversationId || undefined);
-
-      if (userResponse.success) {
-        // Handle conversation ID
-        if (!conversationId && (userResponse.data as any)?.conversation_id) {
-          setConversationId((userResponse.data as any).conversation_id);
-
-          const newConversation = {
-            id: (userResponse.data as any).conversation_id,
-            title: userMessage.text.substring(0, 50) + (userMessage.text.length > 50 ? '...' : ''),
-            updated_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            user_id: user?.id || ''
-          };
-
-          setConversations(prev => [newConversation, ...prev]);
-          setCurrentConversation(newConversation);
-
-          chatStore.addConversation({
-            id: newConversation.id,
-            title: newConversation.title,
-            messages: messages.map(m => ({ ...m, id: m.id.toString() })),
-            created_at: newConversation.created_at,
-            updated_at: newConversation.updated_at
-          });
-        }
-
-        // Generate AI response with course context using streaming
-        const currentConvId = conversationId || (userResponse.data as any)?.conversation_id;
-
-        // Create AI message placeholder with loading state
-        const aiMessageId = Date.now() + 1;
-        const aiMessage: Message = {
-          id: aiMessageId,
-          text: '',
-          isUser: false,
-          type: 'chat',
-          isLoading: true, // Show loading dots inside message
-        };
-
-        setLatestMessageId(aiMessageId);
-        setMessages(prev => [...prev, aiMessage]);
-        setLoading(false); // Hide separate loading indicator
-
-        // Use streaming API for progressive response
-        let fullResponseText = '';
-        await apiClient.generateAIResponseStream(
-          courseInfo,
-          currentConvId,
-          'chat',
-          (chunk: string) => {
-            fullResponseText += chunk;
-            // Update message with text and remove loading state
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === aiMessageId
-                  ? { ...msg, text: fullResponseText, isLoading: false }
-                  : msg
-              )
-            );
-          },
-          (metadata: any) => {
-            // On complete - refresh conversations list
-            loadConversations();
-          },
-          (error: string) => {
-            throw new Error(error);
-          }
-        );
-      } else {
-        throw new Error(userResponse.error || 'Failed to send message');
-      }
-    } catch (error: any) {
-      console.error('Error requesting course description:', error);
-
-      const errorMessage: Message = {
-        id: Date.now() + 1,
-        text: 'Sorry, I encountered an error describing this course. Please try again.',
-        isUser: false,
-        type: 'chat',
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCoursePress = (course: any) => {
-    // Send AI message request for course description
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    console.log('Course pressed:', {
-      id: course.id,
-      title: course.title,
-      category: course.category?.name,
-      difficulty: course.difficulty_level
-    });
-
-    // Send request to AI for description
-    sendCourseDescriptionRequest(course);
-
-    showToast(`📚 Getting info about ${course.title}...`, 'info');
-  };
-
-  const handleCategoryPress = (category: ModuleCategory) => {
-    // Handle category press by searching for courses in that category
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    const searchQuery = `/courses ${category.name}`;
-    setInputText(searchQuery);
-
-    // Auto-send the command
-    setTimeout(() => {
-      sendMessage();
-    }, 100);
-
-    showToast(`🔍 Searching courses in ${category.name}`, 'info');
-  };
-
-  const handleQuickActionSelect = async (command: string) => {
-    // Handle quick action selection from the menu - execute immediately
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    if (command === 'What would you like to search for?') {
-      // For search action, just set the input text and let user type
-      setInputText('');
-      showToast('💭 Type what you\'d like to search for', 'info');
-    } else {
-      // Execute command immediately without setting input text
-      try {
-        // Check if it's a command and process it directly
-        if (isCommand(command)) {
-          setLoading(true);
-
-          // Add user message to show what action was selected
-          const userMessage: Message = {
-            text: command,
-            isUser: true,
-            id: Date.now(),
-          };
-          setMessages(prev => [...prev, userMessage]);
-
-          // Process the command
-          const commandResult = await handleCommand(command);
-
-          // Add AI response with command result
-          const aiMessage: Message = {
-            text: commandResult.content,
-            isUser: false,
-            id: Date.now() + 1,
-            commandResponse: commandResult,
-          };
-
-          setMessages(prev => [...prev, aiMessage]);
-          setLatestMessageId(aiMessage.id);
-
-          // Auto-scroll to bottom
-          setTimeout(() => {
-            scrollToBottom();
-          }, 100);
-
-        } else {
-          // For non-command actions, treat as regular message
-          setInputText(command);
-          setTimeout(() => {
-            sendMessage();
-          }, 100);
-        }
-      } catch (error: any) {
-        console.error('Quick action error:', error);
-        showToast('Sorry, there was an error processing that action.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleQuickActionsPress = () => {
-    setShowQuickActions(true);
-  };
-
-  const handleStartLearning = (module: LearningModule) => {
-    // Handle starting a learning module
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-    // For now, show a toast - Phase 4 will add full learning interface
-    showToast(
-      `🚀 Starting "${module.title}"\nThis will open the full learning experience in Phase 4!`,
-      'info'
-    );
-
-    console.log('Starting learning for module:', module.title);
-  };
-
-  const handleModuleBookmark = async (module: LearningModule, bookmarked: boolean) => {
-    // Handle bookmarking a module
-    try {
-      if (bookmarked) {
-        showToast(`📚 Bookmarked "${module.title}"`, 'success');
-      } else {
-        showToast(`📚 Removed bookmark from "${module.title}"`, 'info');
-      }
-
-      console.log(`Module ${bookmarked ? 'bookmarked' : 'unbookmarked'}:`, module.title);
-    } catch (error) {
-      showToast('Failed to update bookmark', 'error');
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!inputText.trim()) return;
-
-    const userMessage: Message = {
-      id: Date.now(),
-      text: inputText.trim(),
-      isUser: true,
-      type: 'chat'
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    const messageText = inputText.trim();
-    setInputText('');
-    setLoading(true);
-    setIsGenerating(true);
-
-    // Cancel any previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    // Ensure user is at the bottom for new messages
-    setShouldAutoScroll(true);
-
-    // Check if this is a command
-    if (isCommand(messageText)) {
-      try {
-        const commandResponse = await handleCommand(messageText);
-
-        const commandMessage: Message = {
-          id: Date.now() + 1,
-          text: commandResponse.success ? '' : commandResponse.content,
-          isUser: false,
-          type: 'chat',
-          commandResponse: commandResponse.success ? commandResponse : undefined
-        };
-
-        setMessages(prev => [...prev, commandMessage]);
-        setLatestMessageId(commandMessage.id);
-        setLoading(false);
-        setIsGenerating(false);
-        return;
-      } catch (error: any) {
-        console.error('Command processing failed:', error);
-
-        const errorMessage: Message = {
-          id: Date.now() + 1,
-          text: error.message || 'Command failed. Please try again.',
-          isUser: false,
-          type: 'chat',
-        };
-
-        setMessages(prev => [...prev, errorMessage]);
-        setLoading(false);
-        setIsGenerating(false);
-        return;
-      }
     }
 
-    // OPTIMIZED FLOW: Don't wait for DB save to start AI generation
-    const tempAiMessageId = Date.now() + 1;
-    let currentConvId = conversationId;
-
-    try {
-      // 1. Show AI loading bubble immediately (Optimistic UI)
-      const aiPlaceholder: Message = {
-        id: tempAiMessageId,
-        text: '',
-        isUser: false,
-        type: 'chat',
-        isLoading: true,
-      };
-      setMessages(prev => [...prev, aiPlaceholder]);
-      setIsGenerating(true);
-      setLoading(false);
-
-      // 2. Start Both: Save to DB and AI Stream in PARALLEL
-      const savePromise = apiClient.sendMessage(messageText, conversationId || undefined);
-
-      let fullResponseText = '';
-      let updateTimer: NodeJS.Timeout | null = null;
-
-      // Start the stream without waiting for the save to finish
-      apiClient.generateAIResponseStream(
-        messageText,
-        currentConvId || '', // If no convId yet, the stream might need to wait or server handles it
-        'chat',
-        (chunk: string) => {
-          fullResponseText += chunk;
-
-          // Throttled UI update (every 50ms) for maximum smoothness
-          if (!updateTimer) {
-            updateTimer = setTimeout(() => {
-              setMessages(prev =>
-                prev.map(msg =>
-                  msg.id === tempAiMessageId
-                    ? { ...msg, text: fullResponseText, isLoading: false }
-                    : msg
-                )
-              );
-              setIsGenerating(false); // Stop "generating" indicator as soon as text comes
-              updateTimer = null;
-            }, 50);
-          }
-        },
-        async (metadata: any) => {
-          // Final update to catch the last bit of text
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === tempAiMessageId
-                ? { ...msg, text: fullResponseText, isLoading: false }
-                : msg
-            )
-          );
-
-          // Simultaneously check/update the conversation ID from the save promise
-          const userResponse = await savePromise;
-          if (userResponse.success && !conversationId) {
-            const newId = (userResponse.data as any)?.conversation_id;
-            if (newId) {
-              setConversationId(newId);
-              loadConversations();
-            }
-          }
-        },
-        (error: string) => {
-          console.error('Streaming error:', error);
-          setMessages(prev => prev.filter(m => m.id !== tempAiMessageId));
-          setIsGenerating(false);
-          Alert.alert('Error', 'Failed to get response. Please try again.');
-        },
-        abortControllerRef.current?.signal
-      );
-
-    } catch (error: any) {
-      console.error('Error in send message flow:', error);
-      Alert.alert('Error', error.message || 'Something went wrong');
-    } finally {
-      abortControllerRef.current = null;
-    }
-  };
-
-
-  const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-          }
-        }
-      ]
-    );
-  };
-
-  return (
-    <SafeAreaView
-      style={[styles.container, darkMode && styles.containerDark]}
-      edges={['top', 'left', 'right']}
-      key={layoutReady ? 'ready' : 'initial'}
-    >
-
-      {/* Header - matching web app */}
-      <View
-        style={[styles.header, darkMode ? styles.headerDark : styles.headerLight]}
-        collapsable={false}
-      >
-        <View style={styles.headerContent}>
-          {/* Left section - Menu & Logo */}
-          <View style={styles.headerLeft}>
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowMenu(true);
-              }}
-              style={[styles.menuButton, darkMode && styles.menuButtonDark]}
-            >
-              <View style={[styles.sidebarIcon, darkMode && styles.sidebarIconDark]}>
-                <View style={[styles.sidebarRect, styles.sidebarRectLarge, darkMode && styles.sidebarRectDark]} />
-                <View style={[styles.sidebarRect, styles.sidebarRectSmall, darkMode && styles.sidebarRectDark]} />
-              </View>
+    return (
+      <View style={styles.aiRow}>
+        <Image
+          source={require('../../assets/kchat-logo.png')}
+          style={styles.aiAvatar}
+          resizeMode="contain"
+        />
+        <View style={styles.aiContent}>
+          {item.isLoading ? (
+            <View style={{ paddingVertical: 6 }}>
+              <LoadingDots />
+            </View>
+          ) : (
+            <TouchableOpacity activeOpacity={1} onLongPress={() => copyMessage(item.text)}>
+              <Text style={[styles.aiText, { color: C.text }]}>{item.text}</Text>
+              <TouchableOpacity
+                onPress={() => copyMessage(item.text)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.copyBtn}
+              >
+                <Ionicons name="copy-outline" size={13} color={C.textSub} />
+              </TouchableOpacity>
             </TouchableOpacity>
-            <Image
-              source={require('../../assets/kchat-logo.png')}
-              style={styles.headerLogo}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Center section - Title (flexible) */}
-          <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, darkMode && styles.headerTitleDark]} numberOfLines={1}>
-              Kiongozi AI
-            </Text>
-            <Text style={[styles.headerSubtitle, darkMode && styles.headerSubtitleDark]} numberOfLines={1}>
-              {currentConversation?.title || 'AI Assistant'}
-            </Text>
-          </View>
-
-          {/* Right section - Actions */}
-          <View style={styles.headerRight}>
-            {/* Help Button */}
-            <TouchableOpacity
-              onPress={showTutorialManually}
-              style={[styles.actionButton, darkMode && styles.actionButtonDark]}
-            >
-              <Ionicons
-                name="help-circle-outline"
-                size={20}
-                color={darkMode ? '#d1d5db' : '#6b7280'}
-              />
-            </TouchableOpacity>
-
-          </View>
+          )}
         </View>
       </View>
+    );
+  }, [C]);
 
-      {/* Chat Content */}
-      <KeyboardAvoidingView
-        style={styles.chatContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+  const renderConversation = useCallback(({ item }: { item: Conversation }) => (
+    <TouchableOpacity
+      style={[styles.convItem, item.id === conversationId && { backgroundColor: C.surface2 }]}
+      onPress={() => loadConversationMessages(item.id)}
+      onLongPress={() => deleteConversation(item.id)}
+      activeOpacity={0.65}
+    >
+      <Ionicons name="chatbubble-outline" size={15} color={C.textSub} style={{ marginTop: 2 }} />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.convTitle, { color: C.text }]} numberOfLines={1}>
+          {item.title || 'New conversation'}
+        </Text>
+        <Text style={[styles.convTime, { color: C.textSub }]}>{timeLabel(item.updated_at)}</Text>
+      </View>
+    </TouchableOpacity>
+  ), [conversationId, C]);
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
+  return (
+    <View style={[styles.root, { backgroundColor: C.bg }]} {...panResponder.panHandlers}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={C.bg}
+      />
+
+      {/* ── Sidebar overlay (tap to close) ───────────────────────────── */}
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { backgroundColor: '#000', opacity: overlayOpacity, zIndex: 99 }]}
+        pointerEvents="none"
+      />
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { zIndex: 99 }]}
+        pointerEvents={
+          // Only intercept touches when sidebar is meaningfully open
+          sidebarProgress.current > 0.05 ? 'auto' : 'none'
+        }
       >
-        {/* Messages Container */}
-        {/* Show welcome screen if no messages */}
-        {!loadingMessages && messages.length === 0 && !loading ? (
-          <WelcomeScreen
-            onSuggestionPress={handleSuggestionPress}
-            darkMode={darkMode}
-            userName={(user?.user_metadata?.first_name as string) || (user?.user_metadata?.full_name as string) || 'there'}
-          />
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          onPress={() => closeSidebar()}
+          activeOpacity={1}
+        />
+      </Animated.View>
+
+      {/* ── Sidebar drawer ───────────────────────────────────────────── */}
+      <Animated.View
+        style={[
+          styles.sidebar,
+          {
+            backgroundColor: C.sidebar,
+            borderRightColor: C.border,
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+            width: SIDEBAR_WIDTH,
+            transform: [{ translateX: sidebarTranslateX }],
+            zIndex: 100,
+          },
+        ]}
+      >
+        <View style={[styles.sidebarHeader, { borderBottomColor: C.border }]}>
+          <Image source={require('../../assets/kchat-logo.png')} style={styles.sidebarLogo} resizeMode="contain" />
+          <Text style={[styles.sidebarHeading, { color: C.text }]}>Chats</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.newChatBtn, { borderColor: C.border }]}
+          onPress={startNewChat}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add" size={18} color={C.accent} />
+          <Text style={[styles.newChatText, { color: C.accent }]}>New Chat</Text>
+        </TouchableOpacity>
+
+        {loadingConversations ? (
+          <ActivityIndicator color={C.accent} style={{ marginTop: 28 }} />
         ) : (
-          <KeyboardAwareScrollView
-            style={[styles.messagesContainer, darkMode ? styles.messagesContainerDark : styles.messagesContainerLight]}
-            contentContainerStyle={styles.messagesContent}
-            ref={scrollViewRef as any}
-            onContentSizeChange={() => scrollToBottom()}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
+          <FlatList
+            data={conversations}
+            keyExtractor={c => c.id}
+            renderItem={renderConversation}
+            contentContainerStyle={{ paddingBottom: 24 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            enableOnAndroid={true}
-            extraScrollHeight={Platform.OS === 'ios' ? 20 : 150}
-            extraHeight={Platform.OS === 'ios' ? 20 : 120}
-            enableAutomaticScroll={Platform.OS === 'ios'}
-            enableResetScrollToCoords={false}
-            keyboardOpeningTime={Platform.OS === 'ios' ? 0 : 250}
-            viewIsInsideTabBar={false}
-            innerRef={(ref: any) => {
-              scrollViewRef.current = ref;
-            }}
+            ListEmptyComponent={
+              <Text style={[styles.noChats, { color: C.textSub }]}>No chats yet</Text>
+            }
+          />
+        )}
+      </Animated.View>
+
+      {/* ── Main content ─────────────────────────────────────────────── */}
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: C.border }]}>
+          <TouchableOpacity
+            onPress={() => openSidebar()}
+            style={styles.headerBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            {loadingMessages && (
-              <View style={styles.conversationLoadingWrapper}>
-                <View style={[styles.conversationLoadingContainer, darkMode && styles.conversationLoadingContainerDark]}>
-                  <ActivityIndicator size="small" color={darkMode ? '#3b82f6' : '#3b82f6'} />
-                  <Text style={[styles.conversationLoadingText, darkMode && styles.conversationLoadingTextDark]}>
-                    Loading conversation...
+            <Ionicons name="menu-outline" size={26} color={C.text} />
+          </TouchableOpacity>
+
+          <View style={styles.headerCenter}>
+            <Image source={require('../../assets/kchat-logo.png')} style={styles.headerLogo} resizeMode="contain" />
+            <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>
+              {currentConversation?.title || 'Kiongozi AI'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={startNewChat}
+            style={styles.headerBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="create-outline" size={23} color={C.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Messages + Input wrapped together so KAV pushes both up */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          {loadingMessages ? (
+            <ActivityIndicator color={C.accent} style={{ flex: 1 }} />
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={m => String(m.id)}
+              renderItem={renderMessage}
+              contentContainerStyle={[
+                styles.messageList,
+                messages.length === 0 && styles.messageListEmpty,
+              ]}
+              ListEmptyComponent={
+                <View style={styles.emptyWrap}>
+                  <Image
+                    source={require('../../assets/kchat-logo.png')}
+                    style={styles.emptyLogo}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.emptyTitle, { color: C.text }]}>How can I help?</Text>
+                  <Text style={[styles.emptySub, { color: C.textSub }]}>
+                    Ask me anything about your learning journey, green careers, or civic rights.
                   </Text>
                 </View>
-              </View>
-            )}
-
-            {!loadingMessages && messages.map((message, index) => (
-              <View
-                key={message.id}
-                style={[
-                  !message.isUser && styles.aiMessageBackground,
-                  !message.isUser && darkMode && styles.aiMessageBackgroundDark
-                ]}
-              >
-                {message.isUser ? (
-                  <UserMessage
-                    message={message}
-                    darkMode={darkMode}
-                    onCopy={copyMessage}
-                  />
-                ) : useEnhancedMessages ? (
-                  <EnhancedAIMessage
-                    message={message}
-                    darkMode={darkMode}
-                    onCopy={copyMessage}
-                    onReact={reactToMessage}
-                    showTypewriter={message.id === latestMessageId}
-                    onTypewriterComplete={() => setLatestMessageId(null)}
-                    onModulePress={handleModulePress}
-                    onCoursePress={handleCoursePress}
-                    onCategoryPress={handleCategoryPress}
-                    isLastAiMessage={index === messages.length - 1 && !message.isUser}
-                    onRegenerate={regenerateLastResponse}
-                  />
-                ) : (
-                  <AIMessage
-                    message={message}
-                    darkMode={darkMode}
-                    onCopy={copyMessage}
-                    onReact={reactToMessage}
-                  />
-                )}
-              </View>
-            ))}
-
-            {loading && (
-              <View style={styles.loadingWrapper}>
-                <View style={[styles.loadingContainer, darkMode && styles.loadingContainerDark]}>
-                  <LoadingDots />
-                </View>
-              </View>
-            )}
-          </KeyboardAwareScrollView>
-        )}
-
-        {/* Scroll to Bottom Button */}
-        <Animated.View
-          style={[
-            styles.scrollToBottomButton,
-            darkMode && styles.scrollToBottomButtonDark,
-            {
-              opacity: scrollButtonOpacity,
-              transform: [{
-                scale: scrollButtonOpacity.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.8, 1]
-                })
-              }]
-            }
-          ]}
-          pointerEvents={shouldAutoScroll ? 'none' : 'auto'}
-        >
-          <TouchableOpacity
-            style={styles.scrollToBottomTouchable}
-            onPress={() => {
-              setShouldAutoScroll(true);
-              scrollToBottom(true, true); // Force scroll even if shouldAutoScroll was false
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="chevron-down"
-              size={20}
-              color="#5CB85C"
+              }
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              keyboardShouldPersistTaps="handled"
+              onScrollBeginDrag={Keyboard.dismiss}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => {
+                if (messages.length > 0) flatListRef.current?.scrollToEnd({ animated: false });
+              }}
             />
-          </TouchableOpacity>
-        </Animated.View>
+          )}
 
-        {/* Modern Input Container */}
-        <View
-          style={[
-            styles.modernInputContainer,
-            Platform.OS === 'android' && keyboardHeight > 0 && {
-              paddingBottom: Math.max(keyboardHeight * 0.1, 10),
-            },
-            Platform.OS === 'ios' && {
-              paddingBottom: 8,
-            }
-          ]}
-        >
-          <ModernMessageInput
-            value={inputText}
-            onChangeText={setInputText}
-            onSend={sendMessage}
-            placeholder="Ask me anything..."
-            darkMode={darkMode}
-            loading={loading}
-            isGenerating={isGenerating}
-            onStopGenerating={stopGenerating}
-            disabled={false}
-            maxLength={1000}
-            onQuickActionsPress={handleQuickActionsPress}
-          />
-        </View>
-      </KeyboardAvoidingView>
-
-      {/* Mobile Menu */}
-      <MobileMenu
-        visible={showMenu}
-        onClose={() => setShowMenu(false)}
-        darkMode={darkMode}
-        onToggleDarkMode={() => {}}
-        onSignOut={handleSignOut}
-        conversations={conversations}
-        loadingConversations={loadingConversations}
-        refreshingConversations={refreshingConversations}
-        onSelectConversation={(selectedConversationId) => {
-          setShowMenu(false);
-          loadConversationMessages(selectedConversationId);
-        }}
-        onNewChat={() => {
-          setShowMenu(false);
-          startNewChat();
-          // Refresh conversations list to potentially show the new chat once user sends a message
-          loadConversations();
-        }}
-        onRefreshConversations={refreshConversations}
-        onOpenProfile={() => {
-          setShowMenu(false);
-          setShowProfile(true);
-        }}
-        onShareConversation={shareConversation}
-        onDeleteConversation={deleteConversation}
-        onShowTutorial={showTutorialManually}
-        currentConversationId={currentConversation?.id}
-      />
-
-      {/* Profile Screen */}
-      <ProfileScreen
-        visible={showProfile}
-        darkMode={darkMode}
-        onToggleDarkMode={() => {}}
-        onClose={() => setShowProfile(false)}
-        onSignOut={handleSignOut}
-      />
-
-      {/* Export Modal */}
-      <ExportModal
-        visible={showExportModal}
-        darkMode={darkMode}
-        onClose={() => setShowExportModal(false)}
-        conversations={chatStore.conversations}
-        currentConversation={chatStore.currentConversation || undefined}
-      />
-
-      {/* Quick Actions Menu */}
-      <QuickActionsMenu
-        visible={showQuickActions}
-        onClose={() => setShowQuickActions(false)}
-        onActionSelect={handleQuickActionSelect}
-        darkMode={darkMode}
-      />
-
-      {/* Module Detail Modal */}
-      <ModuleDetailModal
-        visible={showModuleDetail}
-        module={selectedModule}
-        onClose={() => {
-          setShowModuleDetail(false);
-          setSelectedModule(null);
-        }}
-        darkMode={darkMode}
-        onStartLearning={handleStartLearning}
-        onBookmark={handleModuleBookmark}
-      />
-
-      {/* Tutorial Overlay */}
-      <TutorialOverlay
-        visible={showTutorial}
-        onComplete={handleTutorialComplete}
-        darkMode={darkMode}
-      />
-
-      {/* Custom Toast */}
-      <CustomToast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        darkMode={darkMode}
-        onHide={() => setToastVisible(false)}
-      />
-    </SafeAreaView>
+          {/* Input bar */}
+          <View
+            style={[
+              styles.inputWrap,
+              {
+                backgroundColor: C.bg,
+                borderTopColor: C.border,
+                paddingBottom: Math.max(insets.bottom, 12),
+              },
+            ]}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              style={[styles.inputRow, { backgroundColor: C.surface, borderColor: C.border }]}
+              onPress={() => inputRef.current?.focus()}
+            >
+              <TextInput
+                ref={inputRef}
+                style={[styles.input, { color: C.text }]}
+                placeholder="Message Kiongozi AI…"
+                placeholderTextColor={C.textSub}
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                maxLength={4000}
+                returnKeyType="default"
+                blurOnSubmit={false}
+                scrollEnabled
+              />
+              {isGenerating ? (
+                <TouchableOpacity
+                  onPress={stopGeneration}
+                  style={[styles.sendBtn, { backgroundColor: C.surface2 }]}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                >
+                  <Ionicons name="stop" size={17} color={C.text} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={sendMessage}
+                  disabled={!inputText.trim()}
+                  style={[
+                    styles.sendBtn,
+                    { backgroundColor: inputText.trim() ? C.accent : C.surface2 },
+                  ]}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                >
+                  <Ionicons
+                    name="arrow-up"
+                    size={17}
+                    color={inputText.trim() ? '#FFFFFF' : C.textSub}
+                  />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
+  root: { flex: 1 },
+  safeArea: { flex: 1 },
+
+  // Sidebar
+  sidebar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    borderRightWidth: StyleSheet.hairlineWidth,
   },
-  containerDark: {
-    backgroundColor: '#000000',
-  },
-  chatContainer: {
-    flex: 1,
-  },
-  header: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A1A',
-  },
-  headerLight: {
-    backgroundColor: '#000000',
-  },
-  headerDark: {
-    backgroundColor: '#000000',
-  },
-  headerContent: {
+  sidebarHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerCenter: {
-    flex: 1,
-    paddingHorizontal: 12,
-  },
-  headerRight: {
+  sidebarLogo: { width: 26, height: 18 },
+  sidebarHeading: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  newChatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  menuButton: {
-    padding: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 8,
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  sidebarIcon: {
-    width: 16,
-    height: 12,
-    justifyContent: 'space-between',
-  },
-  sidebarIconDark: {
-    // No additional styling needed for dark mode - handled by rect styles
-  },
-  sidebarRect: {
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-  },
-  sidebarRectDark: {
-    backgroundColor: '#FFFFFF',
-  },
-  sidebarRectLarge: {
-    width: 16,
-    height: 4,
-  },
-  sidebarRectSmall: {
-    width: 12,
-    height: 4,
-  },
-  headerLogo: {
-    width: 50,
-    height: 35,
-    marginLeft: 8,
-  },
-  aiIconText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  headerTitle: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  headerTitleDark: {
-    color: '#FFFFFF',
-  },
-  platformText: {
-    color: '#5CB85C',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    flexShrink: 1,
-  },
-  headerSubtitleDark: {
-    color: '#8E8E93',
-  },
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 8,
-  },
-  actionButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  actionButtonTextDark: {
-    color: '#FFFFFF',
-  },
-  signOutButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  signOutText: {
-    color: '#ef4444',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  messagesContainer: {
-    flex: 1,
-  },
-  messagesContainerLight: {
-    backgroundColor: '#000000',
-  },
-  messagesContainerDark: {
-    backgroundColor: '#000000',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  messagesContent: {
-    paddingHorizontal: 8, // Reduced from 16 for wider messages
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  loadingWrapper: {
-    alignSelf: 'flex-start',
-    maxWidth: '85%',
-    marginBottom: 16,
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111111',
-    borderRadius: 18,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  loadingContainerDark: {
-    backgroundColor: '#111111',
-    borderColor: '#2A2A2A',
-  },
-  loadingText: {
-    marginLeft: 12,
-    fontSize: 14,
-    color: '#6b7280',
-    fontStyle: 'italic',
-  },
-  loadingTextDark: {
-    color: '#9ca3af',
-  },
-  modernInputContainer: {
-    backgroundColor: 'transparent',
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'android' ? 16 : 12,
-  },
-  scrollToBottomButton: {
-    position: 'absolute',
-    right: 16,
-    bottom: 120,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1A1A1A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#5CB85C',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-  },
-  scrollToBottomButtonDark: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#2A2A2A',
-    shadowColor: '#5CB85C',
-  },
-  scrollToBottomTouchable: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  conversationLoadingWrapper: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  conversationLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111111',
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
     borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-  conversationLoadingContainerDark: {
-    backgroundColor: '#111111',
-    borderColor: '#2A2A2A',
+  newChatText: { fontSize: 15, fontWeight: '600' },
+  convItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginHorizontal: 6,
+    marginVertical: 1,
+    borderRadius: 10,
   },
-  conversationLoadingText: {
-    marginLeft: 12,
+  convTitle: { fontSize: 14, fontWeight: '500', marginBottom: 2 },
+  convTime: { fontSize: 12 },
+  noChats: { textAlign: 'center', marginTop: 28, fontSize: 14 },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  headerLogo: { width: 26, height: 18 },
+  headerTitle: { fontSize: 16, fontWeight: '600', flexShrink: 1 },
+
+  // Messages
+  messageList: { paddingTop: 16, paddingHorizontal: 16, paddingBottom: 8 },
+  messageListEmpty: { flexGrow: 1 },
+  aiRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 22,
+    gap: 10,
+  },
+  aiAvatar: { width: 22, height: 16, marginTop: 4 },
+  aiContent: { flex: 1 },
+  aiText: { fontSize: 15, lineHeight: 24 },
+  copyBtn: { marginTop: 8 },
+  userRow: { alignItems: 'flex-end', marginBottom: 22 },
+  userBubble: {
+    maxWidth: '80%',
+    borderRadius: 20,
+    borderBottomRightRadius: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  userText: { fontSize: 15, lineHeight: 22 },
+
+  // Empty state
+  emptyWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 36,
+    paddingBottom: 60,
+  },
+  emptyLogo: { width: 72, height: 50, marginBottom: 22, opacity: 0.65 },
+  emptyTitle: { fontSize: 22, fontWeight: '600', marginBottom: 10, textAlign: 'center', letterSpacing: -0.4 },
+  emptySub: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+
+  // Input
+  inputWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingLeft: 14,
+    paddingRight: 6,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  input: {
+    flex: 1,
     fontSize: 16,
-    color: '#8E8E93',
-    fontWeight: '500',
+    maxHeight: 130,
+    paddingVertical: 7,
+    lineHeight: 22,
   },
-  conversationLoadingTextDark: {
-    color: '#8E8E93',
-  },
-  aiMessageBackground: {
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
-  },
-  aiMessageBackgroundDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  sendBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 1,
   },
 });

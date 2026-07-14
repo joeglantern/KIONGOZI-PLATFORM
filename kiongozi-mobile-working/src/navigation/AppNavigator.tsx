@@ -220,18 +220,15 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
         <CreatePostScreen onClose={() => setCreatePostVisible(false)} />
       </Modal>
 
-      {/* @kiongozi Chat Modal */}
+      {/* @kiongozi Chat Modal — fullscreen */}
       <Modal
         visible={chatVisible}
         animationType="slide"
-        presentationStyle="pageSheet"
-        statusBarTranslucent={false}
+        presentationStyle="fullScreen"
+        statusBarTranslucent={true}
         onRequestClose={() => setChatVisible(false)}
       >
-        <View style={styles.modalWrap}>
-          <View style={styles.modalHandle} />
-          <ChatScreen />
-        </View>
+        <ChatScreen />
       </Modal>
     </View>
   );
@@ -259,18 +256,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  modalWrap: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#333333',
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 4,
   },
 });
