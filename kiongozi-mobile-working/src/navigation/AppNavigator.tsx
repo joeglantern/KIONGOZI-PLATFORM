@@ -27,6 +27,7 @@ import { KiongoziChatFAB } from '../components/social/KiongoziChatFAB';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../utils/supabaseClient';
+import { useTheme } from '../hooks/useTheme';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
@@ -86,8 +87,7 @@ function ProfileStackNavigator() {
 
 const Tab = createBottomTabNavigator();
 
-const ACTIVE_COLOR = '#FFFFFF';
-const INACTIVE_COLOR = '#555555';
+// Colors set dynamically from useTheme() inside AppNavigator
 
 // Placeholder screen used for the Create tab (never actually rendered)
 function EmptyScreen() {
@@ -118,6 +118,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const { addNotification, fetchNotifications } = useNotificationStore();
   const { user, sessionExpired } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const T = useTheme();
   const TAB_BAR_HEIGHT = 52 + insets.bottom;
 
   useEffect(() => {
@@ -166,9 +167,9 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
           screenOptions={({ route }) => ({
             headerShown: false,
             tabBarShowLabel: false,
-            tabBarStyle: [styles.tabBar, { height: TAB_BAR_HEIGHT, paddingBottom: insets.bottom }],
-            tabBarActiveTintColor: ACTIVE_COLOR,
-            tabBarInactiveTintColor: INACTIVE_COLOR,
+            tabBarStyle: [styles.tabBar, { height: TAB_BAR_HEIGHT, paddingBottom: insets.bottom, backgroundColor: T.tabBar, borderTopColor: T.tabBarBorder }],
+            tabBarActiveTintColor: T.tabIconActive,
+            tabBarInactiveTintColor: T.tabIconInactive,
             tabBarIcon: ({ focused, color, size }) => {
               let iconName: keyof typeof Ionicons.glyphMap = 'home-outline';
               if (route.name === 'Feed') iconName = focused ? 'home' : 'home-outline';
@@ -185,8 +186,8 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             component={EmptyScreen}
             options={{
               tabBarIcon: () => (
-                <View style={styles.createButton}>
-                  <Ionicons name="add" size={28} color="#000000" />
+                <View style={[styles.createButton, { backgroundColor: T.tabIconActive }]}>
+                  <Ionicons name="add" size={28} color={T.tabBar} />
                 </View>
               ),
               tabBarButton: (props) => (
@@ -195,8 +196,8 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
                   onPress={() => setCreatePostVisible(true)}
                   accessibilityRole="button"
                 >
-                  <View style={styles.createButton}>
-                    <Ionicons name="add" size={28} color="#000000" />
+                  <View style={[styles.createButton, { backgroundColor: T.tabIconActive }]}>
+                    <Ionicons name="add" size={28} color={T.tabBar} />
                   </View>
                 </TouchableOpacity>
               ),
@@ -235,15 +236,8 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  tabBar: {
-    backgroundColor: '#000000',
-    borderTopColor: '#1A1A1A',
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  root: { flex: 1 },
+  tabBar: { borderTopWidth: StyleSheet.hairlineWidth },
   createButton: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,

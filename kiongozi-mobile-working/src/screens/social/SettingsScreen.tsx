@@ -23,6 +23,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useSocialStore } from '../../stores/socialStore';
 import { useThemeStore } from '../../stores/themeStore';
+import { useTheme } from '../../hooks/useTheme';
 import { supabase } from '../../utils/supabaseClient';
 import { registerForPushNotifications, unregisterPushNotifications } from '../../utils/pushNotifications';
 import apiClient from '../../utils/apiClient';
@@ -39,6 +40,8 @@ export default function SettingsScreen() {
   const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
   const { loadBlockedAndMuted } = useSocialStore();
   const { isDark, toggleTheme } = useThemeStore();
+  const T = useTheme();
+  const styles = React.useMemo(() => makeStyles(T), [T]);
 
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
@@ -427,8 +430,11 @@ export default function SettingsScreen() {
 }
 
 function SectionHeader({ label }: { label: string }) {
+  const T = useTheme();
   return (
-    <Text style={styles.sectionHeader}>{label.toUpperCase()}</Text>
+    <Text style={{ fontSize: 11, fontWeight: '700', color: T.textMuted, letterSpacing: 0.8, marginTop: 24, marginBottom: 4, paddingHorizontal: 20 }}>
+      {label.toUpperCase()}
+    </Text>
   );
 }
 
@@ -445,89 +451,47 @@ function SettingsRow({
   danger?: boolean;
   isLast?: boolean;
 }) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   return (
-    <TouchableOpacity
-      style={[styles.row, isLast && styles.rowLast]}
-      onPress={onPress}
-    >
-      <View style={styles.rowLeft}>
-        <Ionicons name={icon} size={22} color={danger ? '#e53e3e' : '#4a5568'} />
-        <Text style={[styles.rowLabel, danger && styles.dangerLabel]}>{label}</Text>
+    <TouchableOpacity style={[s.row, isLast && s.rowLast]} onPress={onPress}>
+      <View style={s.rowLeft}>
+        <Ionicons name={icon} size={22} color={danger ? '#FF3B30' : T.textSub} />
+        <Text style={[s.rowLabel, danger && s.dangerLabel]}>{label}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#cbd5e0" />
+      <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
     </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-  },
-  backBtn: { padding: 8 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  content: { paddingBottom: 48 },
-  sectionHeader: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#636366',
-    letterSpacing: 0.8,
-    marginTop: 24,
-    marginBottom: 4,
-    paddingHorizontal: 20,
-  },
-  section: {
-    backgroundColor: '#111111',
-    borderRadius: 12,
-    marginHorizontal: 16,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#2A2A2A',
-  },
-  rowLast: { borderBottomWidth: 0 },
-  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  rowLabel: { fontSize: 16, color: '#FFFFFF' },
-  rowSub: { fontSize: 12, color: '#636366', marginTop: 1 },
-  rowValue: { fontSize: 15, color: '#636366' },
-  dangerLabel: { color: '#FF3B30' },
-  // Modal
-  modalContainer: { flex: 1, backgroundColor: '#000000' },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-  },
-  modalCancel: { fontSize: 16, color: '#8E8E93' },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  modalSave: { fontSize: 16, fontWeight: '700', color: '#5CB85C' },
-  modalBody: { padding: 20, gap: 4 },
-  inputLabel: { fontSize: 13, color: '#8E8E93', marginBottom: 4, marginTop: 12 },
-  input: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 8, paddingVertical: 12,
+      backgroundColor: T.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
+    },
+    backBtn: { padding: 8 },
+    headerTitle: { fontSize: 17, fontWeight: '700', color: T.text },
+    content: { paddingBottom: 48 },
+    sectionHeader: { fontSize: 11, fontWeight: '700', color: T.textMuted, letterSpacing: 0.8, marginTop: 24, marginBottom: 4, paddingHorizontal: 20 },
+    section: { backgroundColor: T.surface, borderRadius: 12, marginHorizontal: 16, overflow: 'hidden' },
+    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
+    rowLast: { borderBottomWidth: 0 },
+    rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    rowLabel: { fontSize: 16, color: T.text },
+    rowSub: { fontSize: 12, color: T.textMuted, marginTop: 1 },
+    rowValue: { fontSize: 15, color: T.textMuted },
+    dangerLabel: { color: '#FF3B30' },
+    modalContainer: { flex: 1, backgroundColor: T.bg },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight },
+    modalCancel: { fontSize: 16, color: T.textSub },
+    modalTitle: { fontSize: 17, fontWeight: '700', color: T.text },
+    modalSave: { fontSize: 16, fontWeight: '700', color: T.accent },
+    modalBody: { padding: 20, gap: 4 },
+    inputLabel: { fontSize: 13, color: T.textSub, marginBottom: 4, marginTop: 12 },
+    input: { backgroundColor: T.inputBg, borderRadius: 10, borderWidth: 1, borderColor: T.border, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: T.text },
+  });
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, Image, Alert, ActivityIndicator
@@ -12,6 +12,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
+import { useTheme } from '../../hooks/useTheme';
 
 interface CreatePostScreenProps {
   onClose: () => void;
@@ -21,6 +22,8 @@ interface CreatePostScreenProps {
 export default function CreatePostScreen({ onClose, parentPostId }: CreatePostScreenProps) {
   const { user } = useAuthStore();
   const { prependPost } = useSocialStore();
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   const [content, setContent] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'followers'>('public');
   const [media, setMedia] = useState<Array<{ uri: string; type: 'image' | 'video'; width?: number; height?: number; thumbnailUri?: string }>>([]);
@@ -253,58 +256,60 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: 52,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    backgroundColor: '#000000',
-  },
-  cancelBtn: { padding: 4 },
-  cancelText: { fontSize: 16, color: '#8E8E93' },
-  postBtn: {
-    backgroundColor: '#5CB85C',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  postBtnDisabled: { backgroundColor: '#333333' },
-  postText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  body: { flex: 1 },
-  row: { flexDirection: 'row', padding: 16, gap: 12 },
-  inputContainer: { flex: 1 },
-  mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  mediaItem: { position: 'relative' },
-  mediaThumb: { width: 100, height: 100, borderRadius: 8 },
-  videoThumb: { backgroundColor: '#111111', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  videoLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
-  removeMedia: { position: 'absolute', top: -6, right: -6 },
-  uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  uploadingText: { color: '#8E8E93', fontSize: 13 },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#1A1A1A',
-    padding: 12,
-    paddingBottom: 28,
-    backgroundColor: '#000000',
-  },
-  toolbarBtn: { padding: 8 },
-  visPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
-    borderWidth: 1, borderColor: '#5CB85C', marginLeft: 4,
-  },
-  visText: { fontSize: 12, color: '#5CB85C', fontWeight: '600' },
-  flex: { flex: 1 },
-  charCount: { fontSize: 14, color: '#636366', marginRight: 4 },
-  charCountWarn: { color: '#FF3B30' },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      paddingTop: 52,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+      backgroundColor: T.bg,
+    },
+    cancelBtn: { padding: 4 },
+    cancelText: { fontSize: 16, color: T.textSub },
+    postBtn: {
+      backgroundColor: T.accent,
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      borderRadius: 20,
+      minWidth: 70,
+      alignItems: 'center',
+    },
+    postBtnDisabled: { backgroundColor: T.surface2 },
+    postText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    body: { flex: 1 },
+    row: { flexDirection: 'row', padding: 16, gap: 12 },
+    inputContainer: { flex: 1 },
+    mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+    mediaItem: { position: 'relative' },
+    mediaThumb: { width: 100, height: 100, borderRadius: 8 },
+    videoThumb: { backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', gap: 4 },
+    videoLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
+    removeMedia: { position: 'absolute', top: -6, right: -6 },
+    uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+    uploadingText: { color: T.textSub, fontSize: 13 },
+    toolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: T.borderLight,
+      padding: 12,
+      paddingBottom: 28,
+      backgroundColor: T.bg,
+    },
+    toolbarBtn: { padding: 8 },
+    visPill: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
+      borderWidth: 1, borderColor: T.accent, marginLeft: 4,
+    },
+    visText: { fontSize: 12, color: T.accent, fontWeight: '600' },
+    flex: { flex: 1 },
+    charCount: { fontSize: 14, color: T.textMuted, marginRight: 4 },
+    charCountWarn: { color: T.error },
+  });
+}

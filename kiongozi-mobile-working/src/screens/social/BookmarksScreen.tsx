@@ -9,10 +9,13 @@ import { EditPostModal } from '../../components/social/EditPostModal';
 import { useSocialStore, Post } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function BookmarksScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
+  const T = useTheme();
+  const styles = React.useMemo(() => makeStyles(T), [T]);
   const {
     bookmarkPosts, bookmarkCursor, bookmarkLoading,
     fetchBookmarks, deletePost,
@@ -64,7 +67,7 @@ export default function BookmarksScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1a202c" />
+          <Ionicons name="arrow-back" size={24} color={T.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Bookmarks</Text>
       </View>
@@ -105,22 +108,14 @@ export default function BookmarksScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 52,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 12,
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
-  empty: { padding: 32, alignItems: 'center' },
-  emptyText: { fontSize: 17, fontWeight: '600', color: '#8E8E93', marginBottom: 8 },
-  emptySubtext: { fontSize: 14, color: '#636366', textAlign: 'center' },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    header: { flexDirection: 'row', alignItems: 'center', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12, gap: 12, backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight },
+    backBtn: { padding: 4 },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: T.text },
+    empty: { padding: 32, alignItems: 'center' },
+    emptyText: { fontSize: 17, fontWeight: '600', color: T.textSub, marginBottom: 8 },
+    emptySubtext: { fontSize: 14, color: T.textMuted, textAlign: 'center' },
+  });
+}

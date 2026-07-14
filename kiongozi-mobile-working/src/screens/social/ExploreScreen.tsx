@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View, Text, TextInput, StyleSheet, FlatList,
   TouchableOpacity, ActivityIndicator, RefreshControl
@@ -9,11 +9,14 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { useSocialStore } from '../../stores/socialStore';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import apiClient from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function ExploreScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { initialQuery } = (route.params || {}) as any;
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
 
   const { explorePosts, exploreLoading, exploreCursor, fetchExploreFeed } = useSocialStore();
   const [query, setQuery] = useState(initialQuery || '');
@@ -28,36 +31,26 @@ export default function ExploreScreen() {
     loadTrending();
   }, []);
 
-  // Auto-search if initialQuery is provided
   useEffect(() => {
-    if (initialQuery) {
-      doSearch(initialQuery);
-    }
+    if (initialQuery) doSearch(initialQuery);
   }, [initialQuery]);
 
   const loadTrending = async () => {
     try {
       const res = await apiClient.getTrending();
-      if (res.success) setTrending(res.data);
+      if (res.success) setTrending(res.data as any);
     } catch {}
   };
 
   const doSearch = useCallback(async (text: string) => {
-    if (!text.trim()) {
-      setSearchResults(null);
-      setSearchError(null);
-      return;
-    }
+    if (!text.trim()) { setSearchResults(null); setSearchError(null); return; }
     setSearchLoading(true);
     setSearchError(null);
     try {
       const searchText = text.startsWith('#') ? text.slice(1) : text;
       const res = await apiClient.searchSocial(searchText.trim());
-      if (res.success) {
-        setSearchResults(res.data);
-      } else {
-        setSearchError('Search failed. Please try again.');
-      }
+      if (res.success) setSearchResults(res.data as any);
+      else setSearchError('Search failed. Please try again.');
     } catch {
       setSearchError('Network error — check your connection.');
     }
@@ -67,11 +60,7 @@ export default function ExploreScreen() {
   const handleSearch = useCallback((text: string) => {
     setQuery(text);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (!text.trim()) {
-      setSearchResults(null);
-      setSearchError(null);
-      return;
-    }
+    if (!text.trim()) { setSearchResults(null); setSearchError(null); return; }
     searchTimer.current = setTimeout(() => doSearch(text), 400);
   }, [doSearch]);
 
@@ -79,32 +68,31 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Explore</Text>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#8E8E93" />
+          <Ionicons name="search" size={18} color={T.textSub} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search posts, people, hashtags..."
-            placeholderTextColor="#a0aec0"
+            placeholderTextColor={T.placeholder}
             value={query}
             onChangeText={handleSearch}
             returnKeyType="search"
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => { setQuery(''); setSearchResults(null); }}>
-              <Ionicons name="close-circle" size={18} color="#a0aec0" />
+              <Ionicons name="close-circle" size={18} color={T.placeholder} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       {searchLoading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
+        <ActivityIndicator style={{ marginTop: 40 }} color={T.accent} />
       ) : isSearching && searchError ? (
         <View style={styles.errorState}>
-          <Ionicons name="alert-circle-outline" size={44} color="#2A2A2A" />
+          <Ionicons name="alert-circle-outline" size={44} color={T.border} />
           <Text style={styles.errorText}>{searchError}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => doSearch(query)}>
             <Text style={styles.retryText}>Retry</Text>
@@ -153,7 +141,7 @@ export default function ExploreScreen() {
             <RefreshControl
               refreshing={exploreLoading && explorePosts.length === 0}
               onRefresh={() => { fetchExploreFeed(true); loadTrending(); }}
-              tintColor="#5CB85C"
+              tintColor={T.accent}
             />
           }
           ListHeaderComponent={
@@ -181,68 +169,54 @@ export default function ExploreScreen() {
               onHashtagPress={(tag) => handleSearch(`#${tag}`)}
             />
           )}
-          ListFooterComponent={
-            exploreLoading ? <ActivityIndicator style={{ margin: 16 }} color="#5CB85C" /> : null
-          }
+          ListFooterComponent={exploreLoading ? <ActivityIndicator style={{ margin: 16 }} color={T.accent} /> : null}
         />
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  header: {
-    paddingTop: 52,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    gap: 12,
-  },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-  },
-  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  trendingSection: {
-    padding: 16,
-    backgroundColor: '#000000',
-    marginBottom: 8,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 12 },
-  hashtagRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-  },
-  hashtagText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-  hashtagCount: { fontSize: 13, color: '#8E8E93' },
-  userRow: {
-    flexDirection: 'row',
-    padding: 14,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    backgroundColor: '#000000',
-  },
-  userInfo: { flex: 1 },
-  userName: { fontWeight: '700', fontSize: 15, color: '#FFFFFF' },
-  userHandle: { color: '#8E8E93', fontSize: 14 },
-  userBio: { color: '#8E8E93', fontSize: 13, marginTop: 2 },
-  errorState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  errorText: { fontSize: 15, color: '#8E8E93', textAlign: 'center' },
-  retryBtn: { paddingHorizontal: 28, paddingVertical: 10, backgroundColor: '#5CB85C', borderRadius: 20 },
-  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    header: {
+      paddingTop: 52,
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      backgroundColor: T.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+      gap: 12,
+    },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: T.text },
+    searchBar: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: T.inputBg,
+      borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+      gap: 8, borderWidth: 1, borderColor: T.border,
+    },
+    searchInput: { flex: 1, fontSize: 15, color: T.text },
+    trendingSection: { padding: 16, backgroundColor: T.bg, marginBottom: 8 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: T.text, marginBottom: 12 },
+    hashtagRow: {
+      flexDirection: 'row', justifyContent: 'space-between',
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
+    },
+    hashtagText: { fontSize: 15, fontWeight: '600', color: T.text },
+    hashtagCount: { fontSize: 13, color: T.textSub },
+    userRow: {
+      flexDirection: 'row', padding: 14, gap: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
+      backgroundColor: T.bg,
+    },
+    userInfo: { flex: 1 },
+    userName: { fontWeight: '700', fontSize: 15, color: T.text },
+    userHandle: { color: T.textSub, fontSize: 14 },
+    userBio: { color: T.textSub, fontSize: 13, marginTop: 2 },
+    errorState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+    errorText: { fontSize: 15, color: T.textSub, textAlign: 'center' },
+    retryBtn: { paddingHorizontal: 28, paddingVertical: 10, backgroundColor: T.accent, borderRadius: 20 },
+    retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  });
+}

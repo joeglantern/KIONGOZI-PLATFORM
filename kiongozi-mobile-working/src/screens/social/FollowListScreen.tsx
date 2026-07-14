@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator,
   ScrollView, Animated, Dimensions
@@ -7,6 +7,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 type Tab = 'followers' | 'following';
@@ -25,6 +26,8 @@ export default function FollowListScreen() {
   const route = useRoute<any>();
   const { userId, username, initialTab = 'followers', isOwnProfile = false } = route.params || {};
 
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   const [followers, setFollowers] = useState<FollowUser[]>([]);
   const [following, setFollowing] = useState<FollowUser[]>([]);
   const [loadingFollowers, setLoadingFollowers] = useState(false);
@@ -96,12 +99,12 @@ export default function FollowListScreen() {
   });
   const followersColor = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
-    outputRange: ['#FFFFFF', '#555555'],
+    outputRange: [T.text, T.textMuted],
     extrapolate: 'clamp',
   });
   const followingColor = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
-    outputRange: ['#555555', '#FFFFFF'],
+    outputRange: [T.textMuted, T.text],
     extrapolate: 'clamp',
   });
 
@@ -117,7 +120,7 @@ export default function FollowListScreen() {
         <Text style={styles.handle}>@{item.username}</Text>
         {item.bio ? <Text style={styles.bio} numberOfLines={1}>{item.bio}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#555555" />
+      <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
     </TouchableOpacity>
   );
 
@@ -145,7 +148,7 @@ export default function FollowListScreen() {
             </Text>
           </TouchableOpacity>
         ) : (
-          <Ionicons name="chevron-forward" size={18} color="#555555" />
+          <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
         )}
       </TouchableOpacity>
     );
@@ -156,7 +159,7 @@ export default function FollowListScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={T.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>@{username}</Text>
       </View>
@@ -221,67 +224,69 @@ export default function FollowListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 52,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    gap: 12,
-  },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    position: 'relative',
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  tabText: { fontSize: 15, fontWeight: '600' },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    width: '50%',
-    height: 2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-  },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    gap: 12,
-  },
-  userInfo: { flex: 1 },
-  fullName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  handle: { fontSize: 13, color: '#8E8E93', marginTop: 1 },
-  bio: { fontSize: 13, color: '#EBEBF5', marginTop: 2 },
-  empty: { alignItems: 'center', padding: 48 },
-  emptyText: { color: '#636366', fontSize: 15 },
-  followPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  followPillOutline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-  },
-  followPillText: { fontSize: 13, fontWeight: '600', color: '#000000' },
-  followPillTextOutline: { color: '#FFFFFF' },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 52,
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      backgroundColor: T.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+      gap: 12,
+    },
+    headerTitle: { fontSize: 17, fontWeight: '700', color: T.text },
+    tabs: {
+      flexDirection: 'row',
+      backgroundColor: T.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+      position: 'relative',
+    },
+    tab: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 14,
+    },
+    tabText: { fontSize: 15, fontWeight: '600' },
+    tabIndicator: {
+      position: 'absolute',
+      bottom: 0,
+      width: '50%',
+      height: 2,
+      backgroundColor: T.text,
+      borderRadius: 2,
+    },
+    userRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 14,
+      backgroundColor: T.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+      gap: 12,
+    },
+    userInfo: { flex: 1 },
+    fullName: { fontSize: 15, fontWeight: '700', color: T.text },
+    handle: { fontSize: 13, color: T.textSub, marginTop: 1 },
+    bio: { fontSize: 13, color: T.text, marginTop: 2 },
+    empty: { alignItems: 'center', padding: 48 },
+    emptyText: { color: T.textMuted, fontSize: 15 },
+    followPill: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 16,
+      backgroundColor: T.text,
+    },
+    followPillOutline: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: T.border,
+    },
+    followPillText: { fontSize: 13, fontWeight: '600', color: T.bg },
+    followPillTextOutline: { color: T.text },
+  });
+}

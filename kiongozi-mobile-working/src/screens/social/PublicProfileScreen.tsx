@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Image, ActivityIndicator, FlatList, Alert
@@ -14,12 +14,15 @@ import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
 import ReportModal from './ReportModal';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function PublicProfileScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { username } = route.params || {};
   const { user } = useAuthStore();
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   const { fetchProfile, updateFollowState } = useProfileStore();
   const { blockUser, muteUser, unblockUser, blockedUserIds } = useSocialStore();
 
@@ -248,7 +251,7 @@ export default function PublicProfileScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+            <Ionicons name="arrow-back" size={24} color={T.text} />
           </TouchableOpacity>
           <Text style={styles.headerName}>Profile</Text>
         </View>
@@ -273,7 +276,7 @@ export default function PublicProfileScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+            <Ionicons name="arrow-back" size={24} color={T.text} />
           </TouchableOpacity>
           <Text style={styles.headerName}>@{profile?.username}</Text>
           <View style={{ width: 36 }} />
@@ -306,7 +309,7 @@ export default function PublicProfileScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+            <Ionicons name="arrow-back" size={24} color={T.text} />
           </TouchableOpacity>
           <Text style={styles.headerName}>@{profile.username}</Text>
           <View style={{ width: 36 }} />
@@ -335,12 +338,12 @@ export default function PublicProfileScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#1a202c" />
+          <Ionicons name="arrow-back" size={24} color={T.text} />
         </TouchableOpacity>
         <Text style={styles.headerName}>{profile?.full_name}</Text>
         {!isOwnProfile ? (
           <TouchableOpacity onPress={handleMoreOptions} style={styles.moreBtn}>
-            <Ionicons name="ellipsis-horizontal" size={22} color="#1a202c" />
+            <Ionicons name="ellipsis-horizontal" size={22} color={T.text} />
           </TouchableOpacity>
         ) : (
           <View style={{ width: 36 }} />
@@ -374,7 +377,7 @@ export default function PublicProfileScreen() {
             {profile?.banner_url ? (
               <Image source={{ uri: profile.banner_url }} style={styles.banner} />
             ) : (
-              <View style={[styles.banner, { backgroundColor: '#111111' }]} />
+              <View style={[styles.banner, { backgroundColor: T.surface }]} />
             )}
 
             {/* Profile info */}
@@ -492,110 +495,112 @@ export default function PublicProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 52,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 12,
-    backgroundColor: '#000000',
-    justifyContent: 'space-between',
-  },
-  headerName: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', flex: 1, textAlign: 'center' },
-  moreBtn: { padding: 4 },
-  banner: { width: '100%', height: 120 },
-  profileSection: { padding: 16 },
-  avatarRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 12,
-    marginTop: -36,
-  },
-  actionButtons: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  messageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#5CB85C',
-  },
-  messageBtnText: { color: '#5CB85C', fontWeight: '600', fontSize: 14 },
-  fullName: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
-  username: { color: '#8E8E93', fontSize: 15, marginBottom: 6 },
-  bio: { color: '#EBEBF5', fontSize: 15, lineHeight: 22, marginBottom: 12 },
-  statsRow: { flexDirection: 'row', gap: 16 },
-  stat: { fontSize: 14, color: '#8E8E93' },
-  statNum: { fontWeight: '700', color: '#FFFFFF' },
-  followBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-  },
-  followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#2A2A2A' },
-  requestedBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#555555' },
-  followText: { color: '#000000', fontWeight: '700', fontSize: 14 },
-  followingText: { color: '#FFFFFF' },
-  editBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2A2A2A' },
-  editText: { fontWeight: '700', fontSize: 14, color: '#FFFFFF' },
-  divider: { height: 1, backgroundColor: '#1A1A1A', marginVertical: 8 },
-  postsHeader: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', paddingHorizontal: 16, paddingBottom: 8 },
-  noPosts: { padding: 24, textAlign: 'center', color: '#636366' },
-  privateWall: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 32,
-    gap: 10,
-  },
-  privateIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#111111',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  privateTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  privateSub: { fontSize: 14, color: '#8E8E93', textAlign: 'center', lineHeight: 21 },
-  blockedWall: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
-  blockedTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
-  blockedSub: { fontSize: 15, color: '#8E8E93', textAlign: 'center' },
-  unblockBtn: {
-    marginTop: 8,
-    paddingHorizontal: 28,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#5CB85C',
-  },
-  unblockText: { color: '#5CB85C', fontWeight: '700', fontSize: 15 },
-  blockedByIconWrap: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#111111',
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 4,
-  },
-  blockedByName: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  blockedByUsername: { fontSize: 14, color: '#636366', marginBottom: 6 },
-  blockedByMsg: { fontSize: 15, color: '#636366', textAlign: 'center' },
-  notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
-  notFoundTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
-  notFoundSub: { fontSize: 15, color: '#8E8E93', textAlign: 'center' },
-  goBackBtn: {
-    marginTop: 8,
-    paddingHorizontal: 28,
-    paddingVertical: 10,
-    backgroundColor: '#5CB85C',
-    borderRadius: 20,
-  },
-  goBackText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 52,
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      gap: 12,
+      backgroundColor: T.bg,
+      justifyContent: 'space-between',
+    },
+    headerName: { fontSize: 17, fontWeight: '700', color: T.text, flex: 1, textAlign: 'center' },
+    moreBtn: { padding: 4 },
+    banner: { width: '100%', height: 120 },
+    profileSection: { padding: 16 },
+    avatarRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-end',
+      marginBottom: 12,
+      marginTop: -36,
+    },
+    actionButtons: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    messageBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: T.accent,
+    },
+    messageBtnText: { color: T.accent, fontWeight: '600', fontSize: 14 },
+    fullName: { fontSize: 20, fontWeight: '800', color: T.text },
+    username: { color: T.textSub, fontSize: 15, marginBottom: 6 },
+    bio: { color: T.text, fontSize: 15, lineHeight: 22, marginBottom: 12 },
+    statsRow: { flexDirection: 'row', gap: 16 },
+    stat: { fontSize: 14, color: T.textSub },
+    statNum: { fontWeight: '700', color: T.text },
+    followBtn: {
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: T.text,
+    },
+    followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border },
+    requestedBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.textMuted },
+    followText: { color: T.bg, fontWeight: '700', fontSize: 14 },
+    followingText: { color: T.text },
+    editBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: T.border },
+    editText: { fontWeight: '700', fontSize: 14, color: T.text },
+    divider: { height: 1, backgroundColor: T.borderLight, marginVertical: 8 },
+    postsHeader: { fontSize: 16, fontWeight: '700', color: T.text, paddingHorizontal: 16, paddingBottom: 8 },
+    noPosts: { padding: 24, textAlign: 'center', color: T.textMuted },
+    privateWall: {
+      alignItems: 'center',
+      paddingVertical: 48,
+      paddingHorizontal: 32,
+      gap: 10,
+    },
+    privateIconWrap: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: T.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    privateTitle: { fontSize: 17, fontWeight: '700', color: T.text },
+    privateSub: { fontSize: 14, color: T.textSub, textAlign: 'center', lineHeight: 21 },
+    blockedWall: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
+    blockedTitle: { fontSize: 20, fontWeight: '700', color: T.text },
+    blockedSub: { fontSize: 15, color: T.textSub, textAlign: 'center' },
+    unblockBtn: {
+      marginTop: 8,
+      paddingHorizontal: 28,
+      paddingVertical: 10,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: T.accent,
+    },
+    unblockText: { color: T.accent, fontWeight: '700', fontSize: 15 },
+    blockedByIconWrap: {
+      width: 72, height: 72, borderRadius: 36,
+      backgroundColor: T.surface,
+      justifyContent: 'center', alignItems: 'center',
+      marginBottom: 4,
+    },
+    blockedByName: { fontSize: 18, fontWeight: '700', color: T.text },
+    blockedByUsername: { fontSize: 14, color: T.textMuted, marginBottom: 6 },
+    blockedByMsg: { fontSize: 15, color: T.textMuted, textAlign: 'center' },
+    notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
+    notFoundTitle: { fontSize: 20, fontWeight: '700', color: T.text },
+    notFoundSub: { fontSize: 15, color: T.textSub, textAlign: 'center' },
+    goBackBtn: {
+      marginTop: 8,
+      paddingHorizontal: 28,
+      paddingVertical: 10,
+      backgroundColor: T.accent,
+      borderRadius: 20,
+    },
+    goBackText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  });
+}

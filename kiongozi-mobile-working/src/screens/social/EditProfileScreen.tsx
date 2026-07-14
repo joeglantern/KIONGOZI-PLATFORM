@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useProfileStore } from '../../stores/profileStore';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 const COVER_HEIGHT = 140;
 const AVATAR_SIZE = 80;
@@ -24,6 +25,8 @@ const AVATAR_SIZE = 80;
 export default function EditProfileScreen() {
   const navigation = useNavigation<any>();
   const { currentUserProfile, updateCurrentUserProfile } = useProfileStore();
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
 
   const [bio, setBio] = useState('');
   const [username, setUsername] = useState('');
@@ -147,7 +150,7 @@ export default function EditProfileScreen() {
       {/* ── Header bar ───────────────────────────────────────────────── */}
       <View style={styles.headerBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Ionicons name="close" size={24} color="#1a202c" />
+          <Ionicons name="close" size={24} color={T.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtn}>
@@ -259,100 +262,91 @@ export default function EditProfileScreen() {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const T = useTheme();
   return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+    <View style={{ marginBottom: 20 }}>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: T.textSub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</Text>
       {children}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
 
-  // Header bar
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    backgroundColor: '#000000',
-  },
-  headerBtn: { padding: 8, minWidth: 48, alignItems: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  saveText: { fontSize: 16, fontWeight: '700', color: '#5CB85C' },
+    headerBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 8,
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+      backgroundColor: T.bg,
+    },
+    headerBtn: { padding: 8, minWidth: 48, alignItems: 'center' },
+    headerTitle: { fontSize: 17, fontWeight: '700', color: T.text },
+    saveText: { fontSize: 16, fontWeight: '700', color: T.accent },
 
-  // Photo section
-  photoSection: { marginBottom: AVATAR_SIZE / 2 + 8 },
-  cover: {
-    height: COVER_HEIGHT,
-    backgroundColor: '#111111',
-    overflow: 'hidden',
-  },
-  coverTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  coverCameraHint: {
-    position: 'absolute',
-    bottom: 10,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-  },
-  coverCameraText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  avatarArea: {
-    position: 'absolute',
-    bottom: -(AVATAR_SIZE / 2),
-    left: 20,
-  },
-  avatarBorder: {
-    borderWidth: 3,
-    borderColor: '#000000',
-    borderRadius: (AVATAR_SIZE + 6) / 2,
-  },
+    photoSection: { marginBottom: AVATAR_SIZE / 2 + 8 },
+    cover: {
+      height: COVER_HEIGHT,
+      backgroundColor: T.surface,
+      overflow: 'hidden',
+    },
+    coverTint: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.2)',
+    },
+    coverCameraHint: {
+      position: 'absolute',
+      bottom: 10,
+      alignSelf: 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: 16,
+    },
+    coverCameraText: {
+      color: 'rgba(255,255,255,0.9)',
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    avatarArea: {
+      position: 'absolute',
+      bottom: -(AVATAR_SIZE / 2),
+      left: 20,
+    },
+    avatarBorder: {
+      borderWidth: 3,
+      borderColor: T.bg,
+      borderRadius: (AVATAR_SIZE + 6) / 2,
+    },
 
-  // Form
-  form: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  fieldWrap: { marginBottom: 20 },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#FFFFFF',
-    backgroundColor: '#1A1A1A',
-  },
-  inputError: { borderColor: '#FF3B30' },
-  inputSuccess: { borderColor: '#5CB85C' },
-  bioInput: { minHeight: 90, textAlignVertical: 'top' },
-  charCount: { textAlign: 'right', color: '#636366', fontSize: 12, marginTop: 4 },
-  usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  usernameIcon: { width: 24, alignItems: 'center' },
-  fieldError: { fontSize: 12, color: '#FF3B30', marginTop: 4 },
-});
+    form: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: T.border,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 15,
+      color: T.text,
+      backgroundColor: T.inputBg,
+    },
+    inputError: { borderColor: T.error },
+    inputSuccess: { borderColor: T.accent },
+    bioInput: { minHeight: 90, textAlignVertical: 'top' },
+    charCount: { textAlign: 'right', color: T.textMuted, fontSize: 12, marginTop: 4 },
+    usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    usernameIcon: { width: 24, alignItems: 'center' },
+    fieldError: { fontSize: 12, color: T.error, marginTop: 4 },
+  });
+}

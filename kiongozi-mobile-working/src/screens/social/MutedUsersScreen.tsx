@@ -9,12 +9,15 @@ import { useNavigation } from '@react-navigation/native';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function MutedUsersScreen() {
   const navigation = useNavigation<any>();
   const { unmuteUser } = useSocialStore();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const T = useTheme();
+  const styles = React.useMemo(() => makeStyles(T), [T]);
 
   const loadMuted = useCallback(async () => {
     setLoading(true);
@@ -88,42 +91,20 @@ export default function MutedUsersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-  },
-  backBtn: { padding: 8 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    gap: 12,
-  },
-  info: { flex: 1 },
-  name: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  username: { fontSize: 13, color: '#8E8E93', marginTop: 1 },
-  unmuteBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#5CB85C',
-  },
-  unmuteText: { color: '#5CB85C', fontWeight: '600', fontSize: 14 },
-  empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  emptySub: { fontSize: 14, color: '#8E8E93', textAlign: 'center' },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 12, backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight },
+    backBtn: { padding: 8 },
+    headerTitle: { fontSize: 17, fontWeight: '700', color: T.text },
+    row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, gap: 12 },
+    info: { flex: 1 },
+    name: { fontSize: 15, fontWeight: '700', color: T.text },
+    username: { fontSize: 13, color: T.textSub, marginTop: 1 },
+    unmuteBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: T.accent },
+    unmuteText: { color: T.accent, fontWeight: '600', fontSize: 14 },
+    empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 10 },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: T.text },
+    emptySub: { fontSize: 14, color: T.textSub, textAlign: 'center' },
+  });
+}

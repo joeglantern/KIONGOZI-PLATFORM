@@ -14,6 +14,7 @@ import { useDMStore, DMMessage } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
+import { useTheme } from '../../hooks/useTheme';
 
 // ─── Date label helpers ───────────────────────────────────────────────────────
 
@@ -81,6 +82,8 @@ export default function DMConversationScreen() {
   const { user } = useAuthStore();
   const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, markRead } = useDMStore();
 
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   const isBot = participantUsername === 'kiongozi';
   const [text, setText] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
@@ -237,7 +240,7 @@ export default function DMConversationScreen() {
         onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
       />
     );
-  }, [user?.id, participantAvatar]);
+  }, [user?.id, participantAvatar, styles]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -249,7 +252,7 @@ export default function DMConversationScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+            <Ionicons name="arrow-back" size={24} color={T.text} />
           </TouchableOpacity>
 
           {isBot ? (
@@ -264,7 +267,7 @@ export default function DMConversationScreen() {
               </View>
               <View style={styles.headerNames}>
                 <Text style={styles.headerName} numberOfLines={1}>Kiongozi AI</Text>
-                <Text style={[styles.headerHandle, { color: '#5CB85C' }]}>Always online</Text>
+                <Text style={[styles.headerHandle, { color: T.accent }]}>Always online</Text>
               </View>
             </View>
           ) : (
@@ -380,161 +383,162 @@ export default function DMConversationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
-  container: { flex: 1, backgroundColor: '#000000' },
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: T.bg },
+    container: { flex: 1, backgroundColor: T.bg },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#000000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    gap: 10,
-  },
-  backBtn: { padding: 4 },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerNames: { flex: 1 },
-  headerName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  headerHandle: { fontSize: 13, color: '#8E8E93', marginTop: 1 },
-  headerRight: { width: 32 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: T.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+      gap: 10,
+    },
+    backBtn: { padding: 4 },
+    headerCenter: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    headerNames: { flex: 1 },
+    headerName: { fontSize: 16, fontWeight: '700', color: T.text },
+    headerHandle: { fontSize: 13, color: T.textSub, marginTop: 1 },
+    headerRight: { width: 32 },
 
-  messageList: { paddingVertical: 12, paddingBottom: 4 },
+    messageList: { paddingVertical: 12, paddingBottom: 4 },
 
-  dateSep: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  dateLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#2A2A2A' },
-  dateLabel: { fontSize: 12, color: '#636366', fontWeight: '500' },
+    dateSep: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 16,
+      paddingHorizontal: 16,
+      gap: 10,
+    },
+    dateLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: T.border },
+    dateLabel: { fontSize: 12, color: T.textMuted, fontWeight: '500' },
 
-  empty: { alignItems: 'center', marginTop: 80, gap: 12 },
-  emptyText: { color: '#636366', fontSize: 15 },
-  loadOlderBtn: { alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 8, marginTop: 8, marginBottom: 4 },
-  loadOlderText: { color: '#5CB85C', fontSize: 14, fontWeight: '600' },
+    empty: { alignItems: 'center', marginTop: 80, gap: 12 },
+    emptyText: { color: T.textMuted, fontSize: 15 },
+    loadOlderBtn: { alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 8, marginTop: 8, marginBottom: 4 },
+    loadOlderText: { color: T.accent, fontSize: 14, fontWeight: '600' },
 
-  inputBar: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    backgroundColor: '#000000',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#1A1A1A',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  mediaPreviewWrap: {
-    position: 'relative',
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-    marginLeft: 36,
-  },
-  mediaPreview: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-  },
-  mediaRemove: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  attachBtn: {
-    width: 36,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inputWrap: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  input: {
-    fontSize: 15,
-    color: '#FFFFFF',
-    maxHeight: 110,
-    padding: 0,
-  },
-  sendBtn: {
-    backgroundColor: '#5CB85C',
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#5CB85C',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 5,
-  },
+    inputBar: {
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+      backgroundColor: T.bg,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: T.borderLight,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+      elevation: 6,
+    },
+    mediaPreviewWrap: {
+      position: 'relative',
+      alignSelf: 'flex-start',
+      marginBottom: 8,
+      marginLeft: 36,
+    },
+    mediaPreview: {
+      width: 80,
+      height: 80,
+      borderRadius: 10,
+    },
+    mediaRemove: {
+      position: 'absolute',
+      top: -6,
+      right: -6,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 8,
+    },
+    attachBtn: {
+      width: 36,
+      height: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    inputWrap: {
+      flex: 1,
+      backgroundColor: T.inputBg,
+      borderRadius: 24,
+      paddingHorizontal: 16,
+      paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+      minHeight: 44,
+      justifyContent: 'center',
+    },
+    input: {
+      fontSize: 15,
+      color: T.text,
+      maxHeight: 110,
+      padding: 0,
+    },
+    sendBtn: {
+      backgroundColor: T.accent,
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: T.accent,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.35,
+      shadowRadius: 6,
+      elevation: 5,
+    },
 
-  // Bot-specific styles
-  botAvatarWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#0D1F0D',
-    overflow: 'visible',
-    position: 'relative',
-  },
-  botAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    backgroundColor: '#5CB85C',
-    borderWidth: 2,
-    borderColor: '#000000',
-  },
-  comingSoonBar: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
-    backgroundColor: '#000000',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#1A1A1A',
-  },
-  comingSoonTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  comingSoonSub: {
-    fontSize: 13,
-    color: '#636366',
-    marginTop: 3,
-  },
-});
+    botAvatarWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#0D1F0D',
+      overflow: 'visible',
+      position: 'relative',
+    },
+    botAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+    },
+    onlineDot: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+      width: 11,
+      height: 11,
+      borderRadius: 6,
+      backgroundColor: T.accent,
+      borderWidth: 2,
+      borderColor: T.bg,
+    },
+    comingSoonBar: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 20,
+      paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+      backgroundColor: T.bg,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: T.borderLight,
+    },
+    comingSoonTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: T.text,
+      letterSpacing: 0.3,
+    },
+    comingSoonSub: {
+      fontSize: 13,
+      color: T.textMuted,
+      marginTop: 3,
+    },
+  });
+}

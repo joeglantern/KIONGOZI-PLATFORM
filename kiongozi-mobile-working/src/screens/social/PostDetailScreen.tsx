@@ -12,6 +12,7 @@ import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function PostDetailScreen() {
   const navigation = useNavigation<any>();
@@ -19,6 +20,8 @@ export default function PostDetailScreen() {
   const { postId, focusReply } = route.params || {};
   const { user } = useAuthStore();
   const { deletePost } = useSocialStore();
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
 
   const [post, setPost]           = useState<any>(null);
   const [replies, setReplies]     = useState<any[]>([]);
@@ -291,56 +294,20 @@ export default function PostDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000000' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    backgroundColor: '#000000',
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  errorText: { fontSize: 15, color: '#8E8E93', textAlign: 'center' },
-  retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#5CB85C', borderRadius: 20 },
-  retryText: { color: '#fff', fontWeight: '700' },
-  noReplies: { padding: 28, textAlign: 'center', color: '#636366', fontSize: 14 },
-  replyBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    backgroundColor: '#000000',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#1A1A1A',
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  replyInputWrap: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
-    minHeight: 42,
-    justifyContent: 'center',
-  },
-  replyInput: { fontSize: 15, color: '#FFFFFF', maxHeight: 100, padding: 0 },
-  sendBtn: {
-    backgroundColor: '#5CB85C',
-    width: 40, height: 40, borderRadius: 20,
-    justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#5CB85C', shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35, shadowRadius: 6, elevation: 5,
-  },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: T.bg },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
+    backBtn: { padding: 4 },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: T.text },
+    errorText: { fontSize: 15, color: T.textSub, textAlign: 'center' },
+    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: T.accent, borderRadius: 20 },
+    retryText: { color: '#fff', fontWeight: '700' },
+    noReplies: { padding: 28, textAlign: 'center', color: T.textMuted, fontSize: 14 },
+    replyBar: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 28 : 12, backgroundColor: T.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.borderLight, gap: 8, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 6 },
+    replyInputWrap: { flex: 1, backgroundColor: T.inputBg, borderRadius: 22, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 10 : 6, minHeight: 42, justifyContent: 'center' },
+    replyInput: { fontSize: 15, color: T.text, maxHeight: 100, padding: 0 },
+    sendBtn: { backgroundColor: T.accent, width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', shadowColor: T.accent, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 5 },
+  });
+}

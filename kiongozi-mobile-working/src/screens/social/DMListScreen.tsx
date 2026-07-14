@@ -10,6 +10,7 @@ import { useDMStore } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '';
@@ -33,6 +34,8 @@ interface UserRow {
 
 export default function DMListScreen() {
   const navigation = useNavigation<any>();
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   const {
     conversations, conversationsLoading, fetchConversations,
     archivedIds, showArchived,
@@ -183,10 +186,10 @@ export default function DMListScreen() {
           <View style={styles.convPreview}>
             <View style={styles.previewRow}>
               {item.last_message?.media_type === 'image' && (
-                <Ionicons name="camera-outline" size={14} color={item.unread_count > 0 ? '#1a202c' : '#718096'} style={{ marginRight: 3 }} />
+                <Ionicons name="camera-outline" size={14} color={item.unread_count > 0 ? T.text : T.textSub} style={{ marginRight: 3 }} />
               )}
               {item.last_message?.media_type === 'video' && (
-                <Ionicons name="videocam-outline" size={14} color={item.unread_count > 0 ? '#1a202c' : '#718096'} style={{ marginRight: 3 }} />
+                <Ionicons name="videocam-outline" size={14} color={item.unread_count > 0 ? T.text : T.textSub} style={{ marginRight: 3 }} />
               )}
               <Text style={[styles.convLastMsg, item.unread_count > 0 && styles.unreadMsg]} numberOfLines={1}>
                 {item.last_message?.content
@@ -215,7 +218,7 @@ export default function DMListScreen() {
         <TouchableOpacity onPress={() => {
           if (showArchived) { setShowArchived(false); } else { navigation.goBack(); }
         }}>
-          <Ionicons name="arrow-back" size={24} color="#1a202c" />
+          <Ionicons name="arrow-back" size={24} color={T.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {showArchived ? 'Archived' : 'Messages'}
@@ -337,115 +340,42 @@ export default function DMListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 52,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    backgroundColor: '#000000',
-  },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
-
-  archivedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    backgroundColor: '#111111',
-  },
-  archivedIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#1A1A1A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  archivedLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#8E8E93' },
-  archivedRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  archivedCount: { fontSize: 14, color: '#636366', fontWeight: '500' },
-
-  convRow: {
-    flexDirection: 'row',
-    padding: 14,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    backgroundColor: '#000000',
-  },
-  convInfo: { flex: 1 },
-  convHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  convName: { fontWeight: '700', fontSize: 15, color: '#FFFFFF' },
-  convTime: { color: '#636366', fontSize: 13 },
-  convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  previewRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  convLastMsg: { flex: 1, color: '#8E8E93', fontSize: 14 },
-  unreadMsg: { fontWeight: '600', color: '#FFFFFF' },
-  badge: {
-    backgroundColor: '#5CB85C',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  empty: { alignItems: 'center', padding: 48, gap: 12 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: '#8E8E93' },
-  emptySubtext: { fontSize: 14, color: '#636366', textAlign: 'center' },
-
-  sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
-  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' },
-  sheet: {
-    backgroundColor: '#111111',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '75%',
-    paddingBottom: 32,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#2A2A2A',
-  },
-  sheetTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    gap: 8,
-  },
-  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-  },
-  userInfo: { flex: 1 },
-  userName: { fontWeight: '600', fontSize: 15, color: '#FFFFFF' },
-  userHandle: { color: '#8E8E93', fontSize: 13, marginTop: 1 },
-  emptySearch: { alignItems: 'center', padding: 32 },
-  emptySearchText: { color: '#636366', fontSize: 14, textAlign: 'center' },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
+    headerTitle: { fontSize: 18, fontWeight: '800', color: T.text },
+    archivedRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.surface },
+    archivedIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: T.surface2, justifyContent: 'center', alignItems: 'center' },
+    archivedLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: T.textSub },
+    archivedRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    archivedCount: { fontSize: 14, color: T.textMuted, fontWeight: '500' },
+    convRow: { flexDirection: 'row', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
+    convInfo: { flex: 1 },
+    convHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+    convName: { fontWeight: '700', fontSize: 15, color: T.text },
+    convTime: { color: T.textMuted, fontSize: 13 },
+    convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    previewRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    convLastMsg: { flex: 1, color: T.textSub, fontSize: 14 },
+    unreadMsg: { fontWeight: '600', color: T.text },
+    badge: { backgroundColor: T.accent, borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+    badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+    empty: { alignItems: 'center', padding: 48, gap: 12 },
+    emptyText: { fontSize: 16, fontWeight: '600', color: T.textSub },
+    emptySubtext: { fontSize: 14, color: T.textMuted, textAlign: 'center' },
+    sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
+    sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' },
+    sheet: { backgroundColor: T.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%', paddingBottom: 32 },
+    sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
+    sheetTitle: { fontSize: 17, fontWeight: '700', color: T.text },
+    searchBar: { flexDirection: 'row', alignItems: 'center', margin: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: T.inputBg, borderRadius: 10, borderWidth: 1, borderColor: T.border, gap: 8 },
+    searchInput: { flex: 1, fontSize: 15, color: T.text },
+    userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight },
+    userInfo: { flex: 1 },
+    userName: { fontWeight: '600', fontSize: 15, color: T.text },
+    userHandle: { color: T.textSub, fontSize: 13, marginTop: 1 },
+    emptySearch: { alignItems: 'center', padding: 32 },
+    emptySearchText: { color: T.textMuted, fontSize: 14, textAlign: 'center' },
+  });
+}
