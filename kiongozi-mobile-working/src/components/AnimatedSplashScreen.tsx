@@ -1,18 +1,19 @@
 import React from 'react';
-import { View, Image, StyleSheet, Dimensions } from 'react-native';
+import { View, Image, StyleSheet, Dimensions, useColorScheme } from 'react-native';
+import { useThemeStore } from '../stores/themeStore';
 
 const { width } = Dimensions.get('window');
 
 export const AnimatedSplashScreen: React.FC = () => {
+  const isDark = useThemeStore(s => s.isDark);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+      <Image
+        source={require('../../assets/kchat-logo.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
     </View>
   );
 };
@@ -20,18 +21,13 @@ export const AnimatedSplashScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  logoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   logo: {
-    width: width * 0.4, // 40% of screen width
-    height: width * 0.4 * 0.67, // Maintain aspect ratio (logo is ~861x580)
-    maxWidth: 300,
-    maxHeight: 200,
+    width: width * 0.5,
+    height: width * 0.5 * 0.67,
+    maxWidth: 280,
+    maxHeight: 190,
   },
 });

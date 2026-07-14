@@ -471,7 +471,12 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     }
                   }}
                 >
-                  <Text style={styles.googleBtnText}>🔵  Continue with Google</Text>
+                  <Image
+                    source={require('../../assets/google-icon.png')}
+                    style={styles.googleIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.googleBtnText}>Continue with Google</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -720,6 +725,11 @@ const styles = StyleSheet.create({
     borderColor: '#2A2A2A',
     paddingVertical: 14,
     paddingHorizontal: 20,
+    gap: 10,
+  },
+  googleIcon: {
+    width: 22,
+    height: 22,
   },
   googleBtnText: {
     color: '#FFFFFF',

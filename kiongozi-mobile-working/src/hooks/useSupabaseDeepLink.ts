@@ -64,8 +64,20 @@ export function useSupabaseDeepLink(options?: UseSupabaseDeepLinkOptions) {
       const isPasswordReset = hostname === 'reset-password'
 
       if (isAuthCallback) {
-        const { access_token, refresh_token } = extractTokens()
+        // PKCE flow: code param (Google OAuth via expo-web-browser)
+        const code = (queryParams as Record<string, string>)?.code
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) {
+            Alert.alert('Authentication Error', 'Failed to complete sign in. Please try again.')
+            return
+          }
+          if (options?.onAuthSuccess) options.onAuthSuccess()
+          return
+        }
 
+        // Implicit flow: access_token + refresh_token in params or hash
+        const { access_token, refresh_token } = extractTokens()
         if (access_token && refresh_token) {
           const { data, error } = await supabase.auth.setSession({ access_token, refresh_token })
           if (error) {
