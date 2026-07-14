@@ -194,13 +194,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 </View>
               ) : (
                 <View style={styles.logoContainer}>
-                  <View style={styles.logoPill}>
-                    <Image
-                      source={require('../../assets/logo.png')}
-                      style={styles.logoImage}
-                      resizeMode="contain"
-                    />
-                  </View>
+                  <Image
+                    source={require('../../assets/logo.png')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
                   <Text style={styles.title}>
                     {isSignUp ? 'Create an account' : 'Sign in'}
                   </Text>
@@ -524,15 +522,10 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'center',
   },
-  logoPill: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 3,
-    marginRight: 8,
-  },
   logoImage: {
     width: 60,
     height: 40,
+    marginRight: 12,
   },
   aiIconText: {
     color: '#ffffff',

@@ -1066,13 +1066,11 @@ export default function ChatScreen() {
                 <View style={[styles.sidebarRect, styles.sidebarRectSmall, darkMode && styles.sidebarRectDark]} />
               </View>
             </TouchableOpacity>
-            <View style={styles.headerLogoPill}>
-              <Image
-                source={require('../../assets/kchat-logo.png')}
-                style={styles.headerLogo}
-                resizeMode="contain"
-              />
-            </View>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Center section - Title (flexible) */}
@@ -1427,15 +1425,10 @@ const styles = StyleSheet.create({
     width: 12,
     height: 4,
   },
-  headerLogoPill: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 6,
-    padding: 2,
-    marginLeft: 8,
-  },
   headerLogo: {
     width: 50,
     height: 35,
+    marginLeft: 8,
   },
   aiIconText: {
     color: '#ffffff',
