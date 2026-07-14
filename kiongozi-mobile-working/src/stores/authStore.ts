@@ -164,21 +164,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // PKCE: extract the auth code and exchange for a session
       const url = new URL(result.url);
+
+      // PKCE flow: code in query params
       const code = url.searchParams.get('code');
-
-      if (!code) {
-        set({ loading: false });
-        return { success: false, error: 'No auth code in redirect URL' };
+      if (code) {
+        const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          set({ loading: false });
+          return { success: false, error: exchangeError.message };
+        }
+        set({ user: sessionData.user, loading: false, sessionExpired: false });
+        return { success: true };
       }
 
-      const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-      if (exchangeError) {
-        set({ loading: false });
-        return { success: false, error: exchangeError.message };
+      // Implicit flow fallback: tokens in hash fragment
+      const hashParams = new URLSearchParams(url.hash.replace('#', ''));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionError) {
+          set({ loading: false });
+          return { success: false, error: sessionError.message };
+        }
+        const { data: { user } } = await supabase.auth.getUser();
+        set({ user, loading: false, sessionExpired: false });
+        return { success: true };
       }
 
-      set({ user: sessionData.user, loading: false, sessionExpired: false });
-      return { success: true };
+      set({ loading: false });
+      return { success: false, error: 'Google sign-in failed — please try again' };
     } catch (error: any) {
       set({ loading: false });
       return { success: false, error: error.message };
