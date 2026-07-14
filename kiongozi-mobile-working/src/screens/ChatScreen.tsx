@@ -17,7 +17,7 @@ import {
   PanResponder,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -446,9 +446,9 @@ export default function ChatScreen() {
       </Animated.View>
 
       {/* ── Main content ─────────────────────────────────────────────── */}
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: C.border }]}>
+      <View style={styles.safeArea}>
+        {/* Header — paddingTop accounts for status bar on both platforms */}
+        <View style={[styles.header, { borderBottomColor: C.border, paddingTop: insets.top + 6 }]}>
           <TouchableOpacity
             onPress={() => openSidebar()}
             style={styles.headerBtn}
@@ -571,7 +571,7 @@ export default function ChatScreen() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
