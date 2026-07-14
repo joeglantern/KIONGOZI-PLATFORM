@@ -1067,7 +1067,7 @@ export default function ChatScreen() {
               </View>
             </TouchableOpacity>
             <Image
-              source={require('../../assets/logo.png')}
+              source={require('../../assets/kchat-logo.png')}
               style={styles.headerLogo}
               resizeMode="contain"
             />

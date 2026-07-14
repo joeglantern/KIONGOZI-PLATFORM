@@ -195,7 +195,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
               ) : (
                 <View style={styles.logoContainer}>
                   <Image
-                    source={require('../../assets/logo.png')}
+                    source={require('../../assets/kchat-logo.png')}
                     style={styles.logoImage}
                     resizeMode="contain"
                   />

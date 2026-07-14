@@ -5,14 +5,14 @@
     "version": "2.0.0",
     "description": "Kenya's civic social network — connect with youth, share your voice, and chat with an AI guide on governance, civic rights, and the green economy.",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/kchat-logo.png",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "kiongozi",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/kchat-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": false,
@@ -34,8 +34,8 @@
       "package": "com.kiongozi.chat",
       "versionCode": 11,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/kchat-logo.png",
+        "backgroundColor": "#000000"
       },
       "usesCleartextTraffic": true,
       "permissions": [
@@ -46,7 +46,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/kchat-logo.png"
     },
     "plugins": [
       "./plugins/remove-media-playback-permission",
