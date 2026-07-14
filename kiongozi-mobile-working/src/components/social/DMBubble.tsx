@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
+import { useTheme } from '../../hooks/useTheme';
 
 interface DMBubbleProps {
   message: DMMessage;
@@ -18,16 +19,19 @@ function formatTime(dateStr: string): string {
 }
 
 function ReadReceipt({ pending, read }: { pending?: boolean; read: boolean }) {
+  const T = useTheme();
   if (pending) {
-    return <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.5)" style={styles.receiptIcon} />;
+    return <Ionicons name="time-outline" size={12} color={T.textMuted} style={{ marginLeft: 1 }} />;
   }
   if (read) {
-    return <Ionicons name="checkmark-done" size={13} color="#7dd3fc" style={styles.receiptIcon} />;
+    return <Ionicons name="checkmark-done" size={13} color={T.accent} style={{ marginLeft: 1 }} />;
   }
-  return <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.55)" style={styles.receiptIcon} />;
+  return <Ionicons name="checkmark" size={13} color={T.textSub} style={{ marginLeft: 1 }} />;
 }
 
 export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPress }: DMBubbleProps) {
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   return (
     <View style={[styles.row, isOwn ? styles.rowOwn : styles.rowOther]}>
       {!isOwn && (
@@ -81,69 +85,69 @@ const RADIUS = 20;
 const TAIL   = 4;
 const SOFT   = 8;
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginVertical: 2,
-    paddingHorizontal: 12,
-  },
-  rowOwn:   { justifyContent: 'flex-end' },
-  rowOther: { justifyContent: 'flex-start' },
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      marginVertical: 2,
+      paddingHorizontal: 12,
+    },
+    rowOwn:   { justifyContent: 'flex-end' },
+    rowOther: { justifyContent: 'flex-start' },
 
-  avatarSlot: { width: 34, marginRight: 6, alignItems: 'flex-end' },
+    avatarSlot: { width: 34, marginRight: 6, alignItems: 'flex-end' },
 
-  bubble: {
-    maxWidth: '74%',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: RADIUS,
-  },
-  ownBubble:   { backgroundColor: '#1A1A1A' },
-  otherBubble: { backgroundColor: '#111111', borderWidth: 1, borderColor: '#2A2A2A' },
+    bubble: {
+      maxWidth: '74%',
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      borderRadius: RADIUS,
+    },
+    ownBubble:   { backgroundColor: T.userBubble },
+    otherBubble: { backgroundColor: T.surface, borderWidth: 1, borderColor: T.borderLight },
 
-  ownTail:    { borderBottomRightRadius: TAIL },
-  otherTail:  { borderBottomLeftRadius: TAIL },
-  ownGrouped: { borderBottomRightRadius: SOFT },
-  otherGrouped: { borderBottomLeftRadius: SOFT },
+    ownTail:    { borderBottomRightRadius: TAIL },
+    otherTail:  { borderBottomLeftRadius: TAIL },
+    ownGrouped: { borderBottomRightRadius: SOFT },
+    otherGrouped: { borderBottomLeftRadius: SOFT },
 
-  grouped: { marginTop: 1 },
+    grouped: { marginTop: 1 },
 
-  text: { fontSize: 15, lineHeight: 22 },
-  ownText:   { color: '#fff' },
-  otherText: { color: '#1a202c' },
+    text: { fontSize: 15, lineHeight: 22 },
+    ownText:   { color: T.text },
+    otherText: { color: T.text },
 
-  image: { width: 200, height: 150, borderRadius: 12, marginBottom: 4 },
-  videoThumb: {
-    width: 200,
-    height: 130,
-    borderRadius: 12,
-    backgroundColor: '#1a202c',
-    marginBottom: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  videoLabel: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 13,
-    fontWeight: '500',
-  },
+    image: { width: 200, height: 150, borderRadius: 12, marginBottom: 4 },
+    videoThumb: {
+      width: 200,
+      height: 130,
+      borderRadius: 12,
+      backgroundColor: T.surface2,
+      marginBottom: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    videoLabel: {
+      color: T.text,
+      fontSize: 13,
+      fontWeight: '500',
+    },
 
-  meta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 3,
-  },
-  metaOwn:   { justifyContent: 'flex-end' },
-  metaOther: { justifyContent: 'flex-start' },
+    meta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+      gap: 3,
+    },
+    metaOwn:   { justifyContent: 'flex-end' },
+    metaOther: { justifyContent: 'flex-start' },
 
-  time: { fontSize: 11 },
-  ownTime:   { color: 'rgba(255,255,255,0.55)' },
-  otherTime: { color: '#a0aec0' },
+    time: { fontSize: 11 },
+    ownTime:   { color: T.textMuted },
+    otherTime: { color: T.textSub },
 
-  receiptIcon: { marginLeft: 1 },
-
-  pending: { opacity: 0.6 },
-});
+    pending: { opacity: 0.6 },
+  });
+}

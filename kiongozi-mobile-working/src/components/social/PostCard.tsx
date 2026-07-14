@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Alert, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../hooks/useTheme';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { Post } from '../../stores/socialStore';
@@ -28,6 +29,7 @@ interface PostCardProps {
 
 function VideoThumbnail({ url, style, onPress }: { url: string; style?: any; onPress: () => void }) {
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+  const T = useTheme();
 
   useEffect(() => {
     VideoThumbnails.getThumbnailAsync(url, { time: 0 })
@@ -36,14 +38,16 @@ function VideoThumbnail({ url, style, onPress }: { url: string; style?: any; onP
   }, [url]);
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[styles.videoThumb, style]}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[{ overflow: 'hidden', backgroundColor: T.surface, borderRadius: 8 }, style]}>
       {thumbnailUri ? (
         <Image source={{ uri: thumbnailUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0d1117' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: T.surface }]} />
       )}
-      <View style={styles.videoPlayOverlay}>
-        <Ionicons name="play-circle" size={36} color="rgba(255,255,255,0.92)" />
+      <View style={StyleSheet.absoluteFillObject as any}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="play-circle" size={36} color="rgba(255,255,255,0.92)" />
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -76,6 +80,8 @@ export function PostCard({
   onReportPress,
 }: PostCardProps) {
   const { toggleLike, toggleBookmark, toggleRepost, seedInteraction, postInteractions } = useSocialStore();
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   const repostScale = useRef(new Animated.Value(1)).current;
   const [repostTip, setRepostTip] = useState(false);
 
@@ -305,7 +311,7 @@ export function PostCard({
               style={styles.repostBanner}
               onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}
             >
-              <Ionicons name="repeat-outline" size={13} color="#555555" />
+              <Ionicons name="repeat-outline" size={13} color={T.textMuted} />
               <Text style={styles.repostBannerText}>{post.profiles?.full_name} reposted</Text>
             </TouchableOpacity>
           )}
@@ -402,7 +408,7 @@ export function PostCard({
           {/* Actions */}
           <View style={styles.actions}>
             <TouchableOpacity style={styles.action} onPress={onReplyPress}>
-              <Ionicons name="chatbubble-outline" size={18} color="#555555" />
+              <Ionicons name="chatbubble-outline" size={18} color={T.textMuted} />
               {activePost.comment_count > 0 && <Text style={styles.actionCount}>{activePost.comment_count}</Text>}
             </TouchableOpacity>
 
@@ -411,7 +417,7 @@ export function PostCard({
                 <Ionicons
                   name={isReposted ? 'repeat' : 'repeat-outline'}
                   size={18}
-                  color={isReposted ? '#10b981' : '#718096'}
+                  color={isReposted ? T.accent : T.textSub}
                 />
               </Animated.View>
               <RepostStack reposters={activePost.recentReposters ?? []} count={activePost.repost_count} />
@@ -421,7 +427,7 @@ export function PostCard({
               <Ionicons
                 name={isLiked ? 'heart' : 'heart-outline'}
                 size={18}
-                color={isLiked ? '#e53e3e' : '#718096'}
+                color={isLiked ? '#e53e3e' : T.textSub}
               />
               {likeCount > 0 && (
                 <Text style={[styles.actionCount, isLiked && styles.likedCount]}>
@@ -434,17 +440,17 @@ export function PostCard({
               <Ionicons
                 name={activePost.isBookmarked ? 'bookmark' : 'bookmark-outline'}
                 size={18}
-                color={activePost.isBookmarked ? '#5CB85C' : '#555555'}
+                color={activePost.isBookmarked ? T.accent : T.textMuted}
               />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.action} onPress={handleShare}>
-              <Ionicons name="share-outline" size={18} color="#555555" />
+              <Ionicons name="share-outline" size={18} color={T.textMuted} />
             </TouchableOpacity>
 
             {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
               <TouchableOpacity style={styles.action} onPress={handleOptions}>
-                <Ionicons name="ellipsis-horizontal" size={18} color="#555555" />
+                <Ionicons name="ellipsis-horizontal" size={18} color={T.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -495,138 +501,132 @@ export function PostCard({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1A1A1A',
-    backgroundColor: '#000000',
-  },
-  inner: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingTop: 12,
-  },
-  leftCol: {
-    alignItems: 'center',
-    width: 44,
-    marginRight: 10,
-  },
-  connectorLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: '#2A2A2A',
-    marginTop: 6,
-    minHeight: 20,
-  },
-  right: {
-    flex: 1,
-  },
-  repostBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  repostBannerText: {
-    fontSize: 12,
-    color: '#636366',
-    fontWeight: '500',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flexWrap: 'wrap',
-    marginBottom: 4,
-  },
-  name: {
-    fontWeight: '700',
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
-  username: {
-    fontSize: 14,
-    color: '#8E8E93',
-  },
-  dot: {
-    color: '#555555',
-    fontSize: 14,
-  },
-  time: {
-    fontSize: 14,
-    color: '#636366',
-  },
-  content: {
-    fontSize: 15,
-    color: '#EBEBF5',
-    lineHeight: 22,
-    marginBottom: 4,
-  },
-  readMore: {
-    fontSize: 14,
-    color: '#5CB85C',
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  mediaContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: 6,
-    marginBottom: 10,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  mediaImage: {
-    borderRadius: 8,
-    backgroundColor: '#1A1A1A',
-    overflow: 'hidden',
-  },
-  singleImage: {
-    width: '100%',
-    height: 200,
-  },
-  gridImage: {
-    width: '48%',
-    height: 140,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 20,
-    marginTop: 4,
-  },
-  action: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  actionCount: {
-    fontSize: 13,
-    color: '#555555',
-  },
-  likedCount: {
-    color: '#e53e3e',
-  },
-  videoThumb: {
-    overflow: 'hidden',
-    backgroundColor: '#111111',
-    borderRadius: 8,
-  },
-  videoPlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  repostStack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  repostAvatarWrap: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: '#000', overflow: 'hidden' },
-  repostAvatarImg: { width: 16, height: 16 },
-  repostTip: { fontSize: 11, color: '#5CB85C', marginLeft: 48, marginTop: -6, marginBottom: 2 },
-  translateLink: { fontSize: 12, color: '#5CB85C', marginTop: 2, marginBottom: 4 },
-  translatedText: { fontSize: 15, color: '#8E8E93', lineHeight: 22, marginTop: 4, marginBottom: 2, fontStyle: 'italic' },
-  translateSpinner: { alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    container: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+      backgroundColor: T.bg,
+    },
+    inner: {
+      flexDirection: 'row',
+      paddingHorizontal: 12,
+      paddingTop: 12,
+    },
+    leftCol: {
+      alignItems: 'center',
+      width: 44,
+      marginRight: 10,
+    },
+    connectorLine: {
+      flex: 1,
+      width: 2,
+      backgroundColor: T.border,
+      marginTop: 6,
+      minHeight: 20,
+    },
+    right: {
+      flex: 1,
+    },
+    repostBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginBottom: 4,
+    },
+    repostBannerText: {
+      fontSize: 12,
+      color: T.textMuted,
+      fontWeight: '500',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      flexWrap: 'wrap',
+      marginBottom: 4,
+    },
+    name: {
+      fontWeight: '700',
+      fontSize: 15,
+      color: T.text,
+    },
+    username: {
+      fontSize: 14,
+      color: T.textSub,
+    },
+    dot: {
+      color: T.textMuted,
+      fontSize: 14,
+    },
+    time: {
+      fontSize: 14,
+      color: T.textMuted,
+    },
+    content: {
+      fontSize: 15,
+      color: T.text,
+      lineHeight: 22,
+      marginBottom: 4,
+    },
+    readMore: {
+      fontSize: 14,
+      color: T.accent,
+      fontWeight: '500',
+      marginBottom: 8,
+    },
+    mediaContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 4,
+      marginTop: 6,
+      marginBottom: 10,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    mediaImage: {
+      borderRadius: 8,
+      backgroundColor: T.surface2,
+      overflow: 'hidden',
+    },
+    singleImage: {
+      width: '100%',
+      height: 200,
+    },
+    gridImage: {
+      width: '48%',
+      height: 140,
+    },
+    actions: {
+      flexDirection: 'row',
+      gap: 20,
+      marginTop: 4,
+    },
+    action: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    actionCount: {
+      fontSize: 13,
+      color: T.textMuted,
+    },
+    likedCount: {
+      color: '#e53e3e',
+    },
+    repostStack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    repostAvatarWrap: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: T.bg, overflow: 'hidden' },
+    repostAvatarImg: { width: 16, height: 16 },
+    repostTip: { fontSize: 11, color: T.accent, marginLeft: 48, marginTop: -6, marginBottom: 2 },
+    translateLink: { fontSize: 12, color: T.accent, marginTop: 2, marginBottom: 4 },
+    translatedText: { fontSize: 15, color: T.textSub, lineHeight: 22, marginTop: 4, marginBottom: 2, fontStyle: 'italic' },
+    translateSpinner: { alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
+  });
+}
 
 function RepostStack({ reposters, count }: { reposters: any[]; count: number }) {
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   if (count === 0) return null;
   if (reposters.length === 0) return <Text style={styles.actionCount}>{count}</Text>;
   return (
@@ -635,7 +635,7 @@ function RepostStack({ reposters, count }: { reposters: any[]; count: number }) 
         <View key={i} style={[styles.repostAvatarWrap, { marginLeft: i === 0 ? 0 : -6, zIndex: 3 - i }]}>
           {r?.avatar_url
             ? <Image source={{ uri: r.avatar_url }} style={styles.repostAvatarImg} />
-            : <View style={[styles.repostAvatarImg, { backgroundColor: '#2A2A2A' }]} />}
+            : <View style={[styles.repostAvatarImg, { backgroundColor: T.border }]} />}
         </View>
       ))}
       <Text style={styles.actionCount}>{count}</Text>
