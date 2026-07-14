@@ -28,11 +28,7 @@ import LoadingDots from '../components/LoadingDots';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(300, SCREEN_WIDTH * 0.78);
-// Edge zone from left where a swipe starts the open gesture
-const EDGE_HIT_WIDTH = 28;
-// Minimum swipe speed or distance to trigger snap
-const SWIPE_VELOCITY_THRESHOLD = 0.4;
-const SWIPE_DISTANCE_THRESHOLD = SIDEBAR_WIDTH * 0.35;
+const EDGE_HIT = 30; // px from left edge that starts the open gesture
 
 interface Message {
   id: number;
@@ -50,8 +46,7 @@ interface Conversation {
 
 function timeLabel(dateStr: string) {
   const d = new Date(dateStr);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'long' });
@@ -76,7 +71,7 @@ export default function ChatScreen() {
     sidebar:    isDark ? '#0D0D0D' : '#F8F8F8',
   };
 
-  // ─── State ───────────────────────────────────────────────────────────────────
+  // ─── Chat state ───────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -90,93 +85,100 @@ export default function ChatScreen() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<TextInput>(null);
 
-  // ─── Sidebar animation ───────────────────────────────────────────────────────
+  // ─── Sidebar state ────────────────────────────────────────────────────────────
+  // sidebarAnim 0 = closed, 1 = open
   const sidebarAnim = useRef(new Animated.Value(0)).current;
-  // Track current value without subscription re-renders
-  const sidebarProgress = useRef(0);
+  // Tracks current value without triggering re-renders — used inside PanResponder
+  const sidebarVal = useRef(0);
+  // Boolean state used to conditionally render the tap-to-close overlay
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   useEffect(() => {
-    const id = sidebarAnim.addListener(({ value }) => { sidebarProgress.current = value; });
+    const id = sidebarAnim.addListener(({ value }) => {
+      sidebarVal.current = value;
+    });
     return () => sidebarAnim.removeListener(id);
   }, []);
-
-  const animateSidebar = useCallback((toValue: number, velocity = 0) => {
-    Animated.spring(sidebarAnim, {
-      toValue,
-      useNativeDriver: true,
-      velocity,
-      tension: 68,
-      friction: 12,
-    }).start();
-  }, [sidebarAnim]);
 
   const openSidebar = useCallback((velocity = 0) => {
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    animateSidebar(1, velocity);
-  }, [animateSidebar]);
+    setSidebarOpen(true); // show overlay immediately so tap-to-close works
+    Animated.spring(sidebarAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      velocity,
+      tension: 65,
+      friction: 11,
+    }).start();
+  }, [sidebarAnim]);
 
   const closeSidebar = useCallback((velocity = 0) => {
-    animateSidebar(0, velocity);
-  }, [animateSidebar]);
+    Animated.spring(sidebarAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      velocity,
+      tension: 65,
+      friction: 11,
+    }).start(({ finished }) => {
+      if (finished) setSidebarOpen(false); // hide overlay only after animation ends
+    });
+  }, [sidebarAnim]);
 
-  const isSidebarOpen = () => sidebarProgress.current > 0.5;
-
-  // ─── PanResponder for swipe gestures ─────────────────────────────────────────
-  const panResponder = useRef(
-    PanResponder.create({
-      // Capture only horizontal swipes starting from left edge (open) or with sidebar open (close)
-      onMoveShouldSetPanResponder: (evt, gs) => {
-        const { pageX } = evt.nativeEvent;
-        const { dx, dy } = gs;
-        const isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.5;
-        if (!isHorizontal) return false;
-        // Opening: start from left edge
-        if (sidebarProgress.current < 0.5 && pageX < EDGE_HIT_WIDTH && dx > 5) return true;
-        // Closing: any rightward drag when open
-        if (sidebarProgress.current >= 0.5 && dx < -5) return true;
-        return false;
-      },
-      onPanResponderGrant: () => {
-        sidebarAnim.stopAnimation();
-      },
-      onPanResponderMove: (_, gs) => {
-        const base = sidebarProgress.current >= 0.5 ? 1 : 0;
-        const delta = gs.dx / SIDEBAR_WIDTH;
-        const next = Math.max(0, Math.min(1, base + delta));
-        sidebarAnim.setValue(next);
-      },
-      onPanResponderRelease: (_, gs) => {
-        const current = sidebarProgress.current;
-        const velocity = gs.vx;
-        const shouldOpen =
-          velocity > SWIPE_VELOCITY_THRESHOLD ||
-          (velocity >= -SWIPE_VELOCITY_THRESHOLD && current > 1 - SWIPE_DISTANCE_THRESHOLD / SIDEBAR_WIDTH);
-        if (shouldOpen) {
-          openSidebar(velocity);
-        } else {
-          closeSidebar(-velocity);
-        }
-      },
-      onPanResponderTerminate: (_, gs) => {
-        // Snap based on current position if touch is stolen
-        if (sidebarProgress.current > 0.5) openSidebar(gs.vx);
-        else closeSidebar(-gs.vx);
-      },
-    })
-  ).current;
-
+  // Sidebar slides in from left; main content slides right by same amount (push effect)
   const sidebarTranslateX = sidebarAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [-SIDEBAR_WIDTH, 0],
   });
+  const contentTranslateX = sidebarAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, SIDEBAR_WIDTH],
+  });
   const overlayOpacity = sidebarAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 0.55],
+    outputRange: [0, 0.45],
   });
-  const overlayPointerEvents = sidebarAnim.interpolate({
-    inputRange: [0, 0.01],
-    outputRange: [0, 1],
-  });
+
+  // ─── PanResponder ─────────────────────────────────────────────────────────────
+  // Attached to the root so both edge-drag (open) and content-drag (close) work.
+  // The sidebar FlatList handles its own vertical scrolls independently.
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gs) => {
+        const { dx, dy } = gs;
+        // Must be clearly more horizontal than vertical
+        if (Math.abs(dx) < Math.abs(dy) * 1.4 || Math.abs(dx) < 6) return false;
+        const isOpen = sidebarVal.current > 0.3;
+        // Opening: swipe right starting from left edge, sidebar currently closed
+        if (!isOpen && dx > 0 && evt.nativeEvent.pageX < EDGE_HIT) return true;
+        // Closing: swipe left anywhere when sidebar is open
+        if (isOpen && dx < 0) return true;
+        return false;
+      },
+      onPanResponderGrant: () => {
+        sidebarAnim.stopAnimation();
+        // If just opening we need the overlay tap target to exist
+        if (sidebarVal.current > 0.05) setSidebarOpen(true);
+      },
+      onPanResponderMove: (_, gs) => {
+        const base = sidebarVal.current > 0.5 ? 1 : 0;
+        const next = Math.max(0, Math.min(1, base + gs.dx / SIDEBAR_WIDTH));
+        sidebarAnim.setValue(next);
+        // setSidebarOpen(true) is a no-op when already true (hooks bail out on same value)
+        if (next > 0.05) setSidebarOpen(true);
+      },
+      onPanResponderRelease: (_, gs) => {
+        const cur = sidebarVal.current;
+        const shouldOpen = gs.vx > 0.3 || (gs.vx >= -0.3 && cur > 0.4);
+        if (shouldOpen) openSidebar(gs.vx);
+        else closeSidebar(-gs.vx);
+      },
+      onPanResponderTerminate: (_, gs) => {
+        if (sidebarVal.current > 0.5) openSidebar(gs.vx);
+        else closeSidebar(-gs.vx);
+      },
+    })
+  ).current;
 
   // ─── Data loading ─────────────────────────────────────────────────────────────
   const loadConversations = useCallback(async () => {
@@ -190,9 +192,7 @@ export default function ChatScreen() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (user) loadConversations();
-  }, [user]);
+  useEffect(() => { if (user) loadConversations(); }, [user]);
 
   const loadConversationMessages = async (convId: string) => {
     closeSidebar();
@@ -282,7 +282,7 @@ export default function ChatScreen() {
           const saved = await savePromise;
           if (saved.success && !conversationId) {
             const newId = (saved.data as any)?.conversation_id;
-            if (newId) { setConversationId(newId); }
+            if (newId) setConversationId(newId);
           }
           loadConversations();
         },
@@ -310,7 +310,7 @@ export default function ChatScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  // ─── Message renderer ─────────────────────────────────────────────────────────
+  // ─── Renderers ────────────────────────────────────────────────────────────────
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     if (item.isUser) {
       return (
@@ -325,19 +325,12 @@ export default function ChatScreen() {
         </View>
       );
     }
-
     return (
       <View style={styles.aiRow}>
-        <Image
-          source={require('../../assets/kchat-logo.png')}
-          style={styles.aiAvatar}
-          resizeMode="contain"
-        />
+        <Image source={require('../../assets/kchat-logo.png')} style={styles.aiAvatar} resizeMode="contain" />
         <View style={styles.aiContent}>
           {item.isLoading ? (
-            <View style={{ paddingVertical: 6 }}>
-              <LoadingDots />
-            </View>
+            <View style={{ paddingVertical: 6 }}><LoadingDots /></View>
           ) : (
             <TouchableOpacity activeOpacity={1} onLongPress={() => copyMessage(item.text)}>
               <Text style={[styles.aiText, { color: C.text }]}>{item.text}</Text>
@@ -374,43 +367,20 @@ export default function ChatScreen() {
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.root, { backgroundColor: C.bg }]} {...panResponder.panHandlers}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={C.bg}
-      />
+    <View style={[styles.root, { backgroundColor: C.sidebar }]} {...panResponder.panHandlers}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
-      {/* ── Sidebar overlay (tap to close) ───────────────────────────── */}
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { backgroundColor: '#000', opacity: overlayOpacity, zIndex: 99 }]}
-        pointerEvents="none"
-      />
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { zIndex: 99 }]}
-        pointerEvents={
-          // Only intercept touches when sidebar is meaningfully open
-          sidebarProgress.current > 0.05 ? 'auto' : 'none'
-        }
-      >
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          onPress={() => closeSidebar()}
-          activeOpacity={1}
-        />
-      </Animated.View>
-
-      {/* ── Sidebar drawer ───────────────────────────────────────────── */}
+      {/* ── Sidebar (fixed, slides from left) ──────────────────────── */}
       <Animated.View
         style={[
           styles.sidebar,
           {
+            width: SIDEBAR_WIDTH,
             backgroundColor: C.sidebar,
             borderRightColor: C.border,
             paddingTop: insets.top,
-            paddingBottom: insets.bottom,
-            width: SIDEBAR_WIDTH,
+            paddingBottom: Math.max(insets.bottom, 16),
             transform: [{ translateX: sidebarTranslateX }],
-            zIndex: 100,
           },
         ]}
       >
@@ -445,12 +415,20 @@ export default function ChatScreen() {
         )}
       </Animated.View>
 
-      {/* ── Main content ─────────────────────────────────────────────── */}
-      <View style={styles.safeArea}>
-        {/* Header — paddingTop accounts for status bar on both platforms */}
+      {/* ── Main content (pushed right when sidebar opens) ────────── */}
+      <Animated.View
+        style={[
+          styles.main,
+          {
+            backgroundColor: C.bg,
+            transform: [{ translateX: contentTranslateX }],
+          },
+        ]}
+      >
+        {/* Header */}
         <View style={[styles.header, { borderBottomColor: C.border, paddingTop: insets.top + 6 }]}>
           <TouchableOpacity
-            onPress={() => openSidebar()}
+            onPress={() => isSidebarOpen() ? closeSidebar() : openSidebar()}
             style={styles.headerBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -473,7 +451,7 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Messages + Input wrapped together so KAV pushes both up */}
+        {/* Messages + Input */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -493,11 +471,7 @@ export default function ChatScreen() {
               ]}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
-                  <Image
-                    source={require('../../assets/kchat-logo.png')}
-                    style={styles.emptyLogo}
-                    resizeMode="contain"
-                  />
+                  <Image source={require('../../assets/kchat-logo.png')} style={styles.emptyLogo} resizeMode="contain" />
                   <Text style={[styles.emptyTitle, { color: C.text }]}>How can I help?</Text>
                   <Text style={[styles.emptySub, { color: C.textSub }]}>
                     Ask me anything about your learning journey, green careers, or civic rights.
@@ -555,37 +529,49 @@ export default function ChatScreen() {
                 <TouchableOpacity
                   onPress={sendMessage}
                   disabled={!inputText.trim()}
-                  style={[
-                    styles.sendBtn,
-                    { backgroundColor: inputText.trim() ? C.accent : C.surface2 },
-                  ]}
+                  style={[styles.sendBtn, { backgroundColor: inputText.trim() ? C.accent : C.surface2 }]}
                   hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 >
-                  <Ionicons
-                    name="arrow-up"
-                    size={17}
-                    color={inputText.trim() ? '#FFFFFF' : C.textSub}
-                  />
+                  <Ionicons name="arrow-up" size={17} color={inputText.trim() ? '#FFFFFF' : C.textSub} />
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </View>
+
+        {/* Tap-to-close overlay — rendered inside main content so it never covers the sidebar */}
+        {sidebarOpen && (
+          <>
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { backgroundColor: '#000000', opacity: overlayOpacity }]}
+              pointerEvents="none"
+            />
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              onPress={() => closeSidebar()}
+              activeOpacity={1}
+            />
+          </>
+        )}
+      </Animated.View>
     </View>
   );
+
+  function isSidebarOpen() {
+    return sidebarVal.current > 0.5;
+  }
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  safeArea: { flex: 1 },
+  root: { flex: 1, overflow: 'hidden' },
 
-  // Sidebar
+  // Sidebar — absolute so it sits behind the translated main content
   sidebar: {
     position: 'absolute',
     top: 0,
     left: 0,
     bottom: 0,
+    zIndex: 10,
     borderRightWidth: StyleSheet.hairlineWidth,
   },
   sidebarHeader: {
@@ -625,13 +611,23 @@ const styles = StyleSheet.create({
   convTime: { fontSize: 12 },
   noChats: { textAlign: 'center', marginTop: 28, fontSize: 14 },
 
+  // Main content — fills screen, pushed right by sidebar
+  main: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+  },
+
   // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
@@ -648,12 +644,7 @@ const styles = StyleSheet.create({
   // Messages
   messageList: { paddingTop: 16, paddingHorizontal: 16, paddingBottom: 8 },
   messageListEmpty: { flexGrow: 1 },
-  aiRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 22,
-    gap: 10,
-  },
+  aiRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 22, gap: 10 },
   aiAvatar: { width: 22, height: 16, marginTop: 4 },
   aiContent: { flex: 1 },
   aiText: { fontSize: 15, lineHeight: 24 },
@@ -676,7 +667,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
     paddingBottom: 60,
   },
-  emptyLogo: { width: 72, height: 50, marginBottom: 22, opacity: 0.65 },
+  emptyLogo: { width: 72, height: 50, marginBottom: 22, opacity: 0.6 },
   emptyTitle: { fontSize: 22, fontWeight: '600', marginBottom: 10, textAlign: 'center', letterSpacing: -0.4 },
   emptySub: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
 
