@@ -67,6 +67,9 @@ function NotificationsStackNavigator() {
       <NotificationsStack.Screen name="NotificationsMain" component={NotificationsScreen} />
       <NotificationsStack.Screen name="PostDetail" component={PostDetailScreen} />
       <NotificationsStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <NotificationsStack.Screen name="DMList" component={DMListScreen} />
+      <NotificationsStack.Screen name="DMConversation" component={DMConversationScreen} />
+      <NotificationsStack.Screen name="FollowList" component={FollowListScreen} />
     </NotificationsStack.Navigator>
   );
 }
