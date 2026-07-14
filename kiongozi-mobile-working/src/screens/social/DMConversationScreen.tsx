@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Image,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert, Modal,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -91,6 +91,10 @@ export default function DMConversationScreen() {
   const [uploading, setUploading] = useState(false);
   const [viewerMessage, setViewerMessage] = useState<DMMessage | null>(null);
   const [replyingTo, setReplyingTo] = useState<DMMessage | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ message: DMMessage; isOwn: boolean } | null>(null);
+  const [unsendConfirm, setUnsendConfirm] = useState(false);
+  const sheetY = useRef(new Animated.Value(300)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
   const sendScale = useRef(new Animated.Value(0)).current;
@@ -137,37 +141,23 @@ export default function DMConversationScreen() {
     }
   }, []);
 
-  const handleLongPress = useCallback((message: DMMessage, isOwn: boolean) => {
-    const actions: Array<{ text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }> = [];
+  const openContextMenu = useCallback((message: DMMessage, isOwn: boolean) => {
+    setContextMenu({ message, isOwn });
+    setUnsendConfirm(false);
+    sheetY.setValue(300);
+    backdropOpacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }),
+      Animated.timing(backdropOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+  }, [sheetY, backdropOpacity]);
 
-    if (message.content) {
-      actions.push({
-        text: 'Copy',
-        onPress: () => Clipboard.setStringAsync(message.content!),
-      });
-    }
-
-    actions.push({
-      text: 'Reply',
-      onPress: () => setReplyingTo(message),
-    });
-
-    if (isOwn && !message._pending) {
-      actions.push({
-        text: 'Unsend',
-        style: 'destructive',
-        onPress: () => {
-          Alert.alert('Unsend message?', 'This message will be removed.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Unsend', style: 'destructive', onPress: () => unsendMessage(conversationId, message.id) },
-          ]);
-        },
-      });
-    }
-
-    actions.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert('Message', undefined, actions as any);
-  }, [conversationId, unsendMessage]);
+  const closeContextMenu = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(sheetY, { toValue: 300, duration: 180, useNativeDriver: true }),
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+    ]).start(() => setContextMenu(null));
+  }, [sheetY, backdropOpacity]);
 
   const conversationMessages = messages[conversationId] || [];
 
@@ -289,10 +279,10 @@ export default function DMConversationScreen() {
         isLast={item.isLast}
         avatarUrl={participantAvatar}
         onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
-        onLongPress={() => handleLongPress(item.message, isOwn)}
+        onLongPress={() => openContextMenu(item.message, isOwn)}
       />
     );
-  }, [user?.id, participantAvatar, styles, handleLongPress]);
+  }, [user?.id, participantAvatar, styles, openContextMenu]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -454,6 +444,66 @@ export default function DMConversationScreen() {
         }
         caption={viewerMessage?.content}
       />
+
+      {/* Context menu bottom sheet */}
+      {contextMenu && (
+        <Modal transparent animationType="none" onRequestClose={closeContextMenu}>
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+              <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeContextMenu} activeOpacity={1} />
+            </Animated.View>
+
+            <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
+              {/* Sheet handle */}
+              <View style={styles.sheetHandle} />
+
+              {!unsendConfirm ? (
+                <>
+                  {contextMenu.message.content ? (
+                    <TouchableOpacity style={styles.sheetItem} onPress={() => { Clipboard.setStringAsync(contextMenu.message.content!); closeContextMenu(); }} activeOpacity={0.7}>
+                      <Ionicons name="copy-outline" size={22} color={T.text} />
+                      <Text style={styles.sheetItemText}>Copy</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  <TouchableOpacity style={styles.sheetItem} onPress={() => { setReplyingTo(contextMenu.message); closeContextMenu(); }} activeOpacity={0.7}>
+                    <Ionicons name="arrow-undo-outline" size={22} color={T.text} />
+                    <Text style={styles.sheetItemText}>Reply</Text>
+                  </TouchableOpacity>
+
+                  {contextMenu.isOwn && !contextMenu.message._pending && (
+                    <TouchableOpacity style={styles.sheetItem} onPress={() => setUnsendConfirm(true)} activeOpacity={0.7}>
+                      <Ionicons name="trash-outline" size={22} color={T.error} />
+                      <Text style={[styles.sheetItemText, { color: T.error }]}>Unsend</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
+                <>
+                  <View style={styles.sheetConfirm}>
+                    <Text style={styles.sheetConfirmTitle}>Unsend this message?</Text>
+                    <Text style={styles.sheetConfirmSub}>This will be removed for everyone.</Text>
+                  </View>
+                  <TouchableOpacity style={styles.sheetItem} onPress={() => { unsendMessage(conversationId, contextMenu.message.id); closeContextMenu(); }} activeOpacity={0.7}>
+                    <Ionicons name="trash-outline" size={22} color={T.error} />
+                    <Text style={[styles.sheetItemText, { color: T.error }]}>Confirm unsend</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sheetItem} onPress={() => setUnsendConfirm(false)} activeOpacity={0.7}>
+                    <Ionicons name="arrow-back-outline" size={22} color={T.text} />
+                    <Text style={styles.sheetItemText}>Back</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              <View style={styles.sheetDivider} />
+              <TouchableOpacity style={styles.sheetItem} onPress={closeContextMenu} activeOpacity={0.7}>
+                <Ionicons name="close-outline" size={22} color={T.textSub} />
+                <Text style={[styles.sheetItemText, { color: T.textSub }]}>Cancel</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -629,6 +679,69 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       fontSize: 13,
       color: T.textMuted,
       marginTop: 3,
+    },
+
+    // ─── Context menu bottom sheet ──────────────────────────────────
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    sheet: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: T.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+      paddingTop: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 20,
+    },
+    sheetHandle: {
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: T.border,
+      alignSelf: 'center',
+      marginBottom: 12,
+    },
+    sheetItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingHorizontal: 20,
+      paddingVertical: 15,
+    },
+    sheetItemText: {
+      fontSize: 16,
+      color: T.text,
+      fontWeight: '500',
+    },
+    sheetDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: T.border,
+      marginHorizontal: 16,
+      marginVertical: 4,
+    },
+    sheetConfirm: {
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 12,
+    },
+    sheetConfirmTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: T.text,
+      marginBottom: 4,
+    },
+    sheetConfirmSub: {
+      fontSize: 13,
+      color: T.textSub,
     },
   });
 }
