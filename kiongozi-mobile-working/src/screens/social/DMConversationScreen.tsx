@@ -336,7 +336,7 @@ export default function DMConversationScreen() {
                 onPress={handlePickImage}
                 disabled={uploading}
               >
-                <Ionicons name="image-outline" size={22} color={uploading ? '#a0aec0' : '#1a365d'} />
+                <Ionicons name="image-outline" size={22} color={uploading ? '#555555' : '#5CB85C'} />
               </TouchableOpacity>
 
               <View style={styles.inputWrap}>
@@ -381,17 +381,17 @@ export default function DMConversationScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
-  container: { flex: 1, backgroundColor: '#f4f6f9' },
+  safe: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1, backgroundColor: '#000000' },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
     gap: 10,
   },
   backBtn: { padding: 4 },
@@ -402,8 +402,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerNames: { flex: 1 },
-  headerName: { fontSize: 16, fontWeight: '700', color: '#1a202c' },
-  headerHandle: { fontSize: 13, color: '#718096', marginTop: 1 },
+  headerName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  headerHandle: { fontSize: 13, color: '#8E8E93', marginTop: 1 },
   headerRight: { width: 32 },
 
   messageList: { paddingVertical: 12, paddingBottom: 4 },
@@ -415,24 +415,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 10,
   },
-  dateLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#e2e8f0' },
-  dateLabel: { fontSize: 12, color: '#a0aec0', fontWeight: '500' },
+  dateLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#2A2A2A' },
+  dateLabel: { fontSize: 12, color: '#636366', fontWeight: '500' },
 
   empty: { alignItems: 'center', marginTop: 80, gap: 12 },
-  emptyText: { color: '#a0aec0', fontSize: 15 },
+  emptyText: { color: '#636366', fontSize: 15 },
   loadOlderBtn: { alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 8, marginTop: 8, marginBottom: 4 },
-  loadOlderText: { color: '#3182ce', fontSize: 14, fontWeight: '600' },
+  loadOlderText: { color: '#5CB85C', fontSize: 14, fontWeight: '600' },
 
   inputBar: {
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e8edf3',
+    borderTopColor: '#1A1A1A',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 6,
   },
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   inputWrap: {
     flex: 1,
-    backgroundColor: '#f4f6f9',
+    backgroundColor: '#1A1A1A',
     borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 10 : 6,
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
   input: {
     fontSize: 15,
-    color: '#1a202c',
+    color: '#FFFFFF',
     maxHeight: 110,
     padding: 0,
   },
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#1a365d',
+    shadowColor: '#5CB85C',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#0D1F0D',
     overflow: 'visible',
     position: 'relative',
   },
@@ -515,26 +515,26 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#5CB85C',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: '#000000',
   },
   comingSoonBar: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 20,
     paddingBottom: Platform.OS === 'ios' ? 36 : 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e8edf3',
+    borderTopColor: '#1A1A1A',
   },
   comingSoonTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1a202c',
+    color: '#FFFFFF',
     letterSpacing: 0.3,
   },
   comingSoonSub: {
     fontSize: 13,
-    color: '#a0aec0',
+    color: '#636366',
     marginTop: 3,
   },
 });

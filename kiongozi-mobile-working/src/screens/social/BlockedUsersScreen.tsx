@@ -48,14 +48,14 @@ export default function BlockedUsersScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={26} color="#1a202c" />
+          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Blocked Users</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 60 }} color="#1a365d" />
+        <ActivityIndicator style={{ marginTop: 60 }} color="#5CB85C" />
       ) : (
         <FlatList
           data={users}
@@ -77,7 +77,7 @@ export default function BlockedUsersScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="shield-checkmark-outline" size={48} color="#e2e8f0" />
+              <Ionicons name="shield-checkmark-outline" size={48} color="#2A2A2A" />
               <Text style={styles.emptyTitle}>No blocked users</Text>
               <Text style={styles.emptySub}>You haven't blocked anyone.</Text>
             </View>
@@ -89,41 +89,41 @@ export default function BlockedUsersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
   backBtn: { padding: 8 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: '#1A1A1A',
     gap: 12,
   },
   info: { flex: 1 },
-  name: { fontSize: 15, fontWeight: '700', color: '#1a202c' },
-  username: { fontSize: 13, color: '#718096', marginTop: 1 },
+  name: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  username: { fontSize: 13, color: '#8E8E93', marginTop: 1 },
   unblockBtn: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1a365d',
+    borderColor: '#5CB85C',
   },
-  unblockText: { color: '#1a365d', fontWeight: '600', fontSize: 14 },
+  unblockText: { color: '#5CB85C', fontWeight: '600', fontSize: 14 },
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1a202c' },
-  emptySub: { fontSize: 14, color: '#718096', textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  emptySub: { fontSize: 14, color: '#8E8E93', textAlign: 'center' },
 });

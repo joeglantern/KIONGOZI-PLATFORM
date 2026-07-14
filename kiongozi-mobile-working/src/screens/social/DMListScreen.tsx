@@ -224,13 +224,13 @@ export default function DMListScreen() {
           <View style={{ width: 24 }} />
         ) : (
           <TouchableOpacity onPress={openNewDM}>
-            <Ionicons name="create-outline" size={24} color="#1a365d" />
+            <Ionicons name="create-outline" size={24} color="#5CB85C" />
           </TouchableOpacity>
         )}
       </View>
 
       {conversationsLoading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+        <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
       ) : (
         <FlatList
           data={visibleConversations}
@@ -296,7 +296,7 @@ export default function DMListScreen() {
             </View>
 
             {loadingFollowing ? (
-              <ActivityIndicator style={{ marginTop: 32 }} color="#1a365d" />
+              <ActivityIndicator style={{ marginTop: 32 }} color="#5CB85C" />
             ) : (
               <FlatList
                 data={displayList}
@@ -314,7 +314,7 @@ export default function DMListScreen() {
                       <Text style={styles.userHandle}>@{item.username}</Text>
                     </View>
                     {startingFor === item.id
-                      ? <ActivityIndicator size="small" color="#1a365d" />
+                      ? <ActivityIndicator size="small" color="#5CB85C" />
                       : <Ionicons name="chevron-forward" size={18} color="#cbd5e0" />
                     }
                   </TouchableOpacity>
@@ -338,7 +338,7 @@ export default function DMListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -347,9 +347,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#000000',
   },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1a202c' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
 
   archivedRow: {
     flexDirection: 'row',
@@ -357,36 +358,37 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
-    backgroundColor: '#fafafa',
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#111111',
   },
   archivedIcon: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#1A1A1A',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  archivedLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#4a5568' },
+  archivedLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#8E8E93' },
   archivedRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  archivedCount: { fontSize: 14, color: '#a0aec0', fontWeight: '500' },
+  archivedCount: { fontSize: 14, color: '#636366', fontWeight: '500' },
 
   convRow: {
     flexDirection: 'row',
     padding: 14,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#000000',
   },
   convInfo: { flex: 1 },
   convHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  convName: { fontWeight: '700', fontSize: 15, color: '#1a202c' },
-  convTime: { color: '#a0aec0', fontSize: 13 },
+  convName: { fontWeight: '700', fontSize: 15, color: '#FFFFFF' },
+  convTime: { color: '#636366', fontSize: 13 },
   convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   previewRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  convLastMsg: { flex: 1, color: '#718096', fontSize: 14 },
-  unreadMsg: { fontWeight: '600', color: '#1a202c' },
+  convLastMsg: { flex: 1, color: '#8E8E93', fontSize: 14 },
+  unreadMsg: { fontWeight: '600', color: '#FFFFFF' },
   badge: {
     backgroundColor: '#5CB85C',
     borderRadius: 10,
@@ -398,13 +400,13 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   empty: { alignItems: 'center', padding: 48, gap: 12 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: '#4a5568' },
-  emptySubtext: { fontSize: 14, color: '#a0aec0', textAlign: 'center' },
+  emptyText: { fontSize: 16, fontWeight: '600', color: '#8E8E93' },
+  emptySubtext: { fontSize: 14, color: '#636366', textAlign: 'center' },
 
   sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
-  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: '#111111',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '75%',
@@ -416,22 +418,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#2A2A2A',
   },
-  sheetTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
+  sheetTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     margin: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#f7fafc',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#2A2A2A',
     gap: 8,
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#1a202c' },
+  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -439,11 +441,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0f4f8',
+    borderBottomColor: '#1A1A1A',
   },
   userInfo: { flex: 1 },
-  userName: { fontWeight: '600', fontSize: 15, color: '#1a202c' },
-  userHandle: { color: '#718096', fontSize: 13, marginTop: 1 },
+  userName: { fontWeight: '600', fontSize: 15, color: '#FFFFFF' },
+  userHandle: { color: '#8E8E93', fontSize: 13, marginTop: 1 },
   emptySearch: { alignItems: 'center', padding: 32 },
-  emptySearchText: { color: '#a0aec0', fontSize: 14, textAlign: 'center' },
+  emptySearchText: { color: '#636366', fontSize: 14, textAlign: 'center' },
 });

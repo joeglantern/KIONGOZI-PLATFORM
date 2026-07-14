@@ -2,7 +2,7 @@
  * Mobile API Client for Kiongozi Platform
  * This mirrors the web app's API client but adapted for React Native
  */
-import * as SecureStore from 'expo-secure-store';
+import { supabase } from './supabaseClient';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://kiongozi-api.onrender.com';
 
@@ -45,48 +45,27 @@ export interface LearningStats {
 
 class ApiClient {
   private baseURL: string;
-  // In-memory fallback for tokens exceeding SecureStore's 2KB limit
-  private tokenMemCache: string | null = null;
 
   constructor(baseURL: string = API_BASE_URL) {
     this.baseURL = baseURL;
   }
 
   /**
-   * Get authentication token (SecureStore with in-memory fallback)
+   * Get the current access token from Supabase's own session management.
+   * Supabase handles persistence (SecureStore chunking) and auto-refresh automatically.
    */
   private async getAuthToken(): Promise<string | null> {
-    if (this.tokenMemCache) return this.tokenMemCache;
     try {
-      const token = await SecureStore.getItemAsync('supabase_token');
-      if (token) this.tokenMemCache = token;
-      return token;
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token ?? null;
     } catch {
       return null;
     }
   }
 
-  /**
-   * Save authentication token (SecureStore with in-memory fallback for large tokens)
-   */
-  async saveAuthToken(token: string): Promise<void> {
-    this.tokenMemCache = token;
-    try {
-      await SecureStore.setItemAsync('supabase_token', token);
-    } catch {
-      // SecureStore 2KB limit exceeded — token cached in memory for this session
-    }
-  }
-
-  /**
-   * Remove authentication token from secure storage
-   */
-  async removeAuthToken(): Promise<void> {
-    this.tokenMemCache = null;
-    try {
-      await SecureStore.deleteItemAsync('supabase_token');
-    } catch {}
-  }
+  // These are kept for API compatibility but are no-ops — Supabase manages the token now.
+  async saveAuthToken(_token: string): Promise<void> {}
+  async removeAuthToken(): Promise<void> {}
 
   /**
    * Make HTTP request with proper headers and error handling

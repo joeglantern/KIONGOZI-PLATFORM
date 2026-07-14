@@ -15,9 +15,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
-const NAVY = '#1a365d';
-const GRAY = '#718096';
-const LIGHT = '#e2e8f0';
+const NAVY = '#5CB85C';
+const GRAY = '#8E8E93';
+const LIGHT = '#2A2A2A';
 
 const SLIDES = [
   {
@@ -171,7 +171,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#000000',
   },
   skip: {
     alignSelf: 'flex-end',
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15.5,
-    color: '#4a5568',
+    color: '#8E8E93',
     textAlign: 'center',
     marginTop: 12,
     lineHeight: 25,

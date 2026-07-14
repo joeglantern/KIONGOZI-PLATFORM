@@ -177,7 +177,7 @@ export default function PostDetailScreen() {
   }, [loadPost]);
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator color="#1a365d" /></View>;
+    return <View style={styles.center}><ActivityIndicator color="#5CB85C" /></View>;
   }
 
   if (error) {
@@ -185,12 +185,12 @@ export default function PostDetailScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Post</Text>
         </View>
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={48} color="#e2e8f0" />
+          <Ionicons name="alert-circle-outline" size={48} color="#2A2A2A" />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={loadPost}>
             <Text style={styles.retryText}>Retry</Text>
@@ -210,7 +210,7 @@ export default function PostDetailScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1a202c" />
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Post</Text>
         </View>
@@ -256,7 +256,7 @@ export default function PostDetailScreen() {
               ref={replyInputRef}
               style={styles.replyInput}
               placeholder={`Reply to @${parentAuthor || 'post'}…`}
-              placeholderTextColor="#b0bec5"
+              placeholderTextColor="#555555"
               value={replyText}
               onChangeText={setReplyText}
               multiline
@@ -292,7 +292,7 @@ export default function PostDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
+  safe: { flex: 1, backgroundColor: '#000000' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   header: {
     flexDirection: 'row',
@@ -301,40 +301,41 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#000000',
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a202c' },
-  errorText: { fontSize: 15, color: '#718096', textAlign: 'center' },
-  retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#1a365d', borderRadius: 20 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  errorText: { fontSize: 15, color: '#8E8E93', textAlign: 'center' },
+  retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#5CB85C', borderRadius: 20 },
   retryText: { color: '#fff', fontWeight: '700' },
-  noReplies: { padding: 28, textAlign: 'center', color: '#a0aec0', fontSize: 14 },
+  noReplies: { padding: 28, textAlign: 'center', color: '#636366', fontSize: 14 },
   replyBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e8edf3',
+    borderTopColor: '#1A1A1A',
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 6,
   },
   replyInputWrap: {
     flex: 1,
-    backgroundColor: '#f4f6f9',
+    backgroundColor: '#1A1A1A',
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 10 : 6,
     minHeight: 42,
     justifyContent: 'center',
   },
-  replyInput: { fontSize: 15, color: '#1a202c', maxHeight: 100, padding: 0 },
+  replyInput: { fontSize: 15, color: '#FFFFFF', maxHeight: 100, padding: 0 },
   sendBtn: {
     backgroundColor: '#5CB85C',
     width: 40, height: 40, borderRadius: 20,

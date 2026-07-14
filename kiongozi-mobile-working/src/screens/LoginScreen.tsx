@@ -24,7 +24,7 @@ import apiClient from '../utils/apiClient';
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { signIn, signUp, resetPassword, loading } = useAuthStore();
+  const { signIn, signUp, resetPassword, signInWithGoogle, loading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -161,7 +161,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+      <StatusBar barStyle="light-content" backgroundColor="#000000" />
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -187,18 +187,20 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     style={styles.backBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons name="arrow-back" size={22} color="#111827" />
+                    <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
                   </TouchableOpacity>
                   <Text style={styles.title}>Reset Password</Text>
                   <View style={styles.backBtnPlaceholder} />
                 </View>
               ) : (
                 <View style={styles.logoContainer}>
-                  <Image
-                    source={require('../../assets/logo.png')}
-                    style={styles.logoImage}
-                    resizeMode="contain"
-                  />
+                  <View style={styles.logoPill}>
+                    <Image
+                      source={require('../../assets/logo.png')}
+                      style={styles.logoImage}
+                      resizeMode="contain"
+                    />
+                  </View>
                   <Text style={styles.title}>
                     {isSignUp ? 'Create an account' : 'Sign in'}
                   </Text>
@@ -229,7 +231,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       Enter your email address and we'll send you a link to reset your password.
                     </Text>
                     <View style={styles.inputContainer}>
-                      <Ionicons name="mail-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                      <Ionicons name="mail-outline" size={20} color="#555555" style={styles.inputIcon} />
                       <TextInput
                         style={[styles.input, styles.inputWithIcon]}
                         placeholder="Email address"
@@ -276,7 +278,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     <Ionicons
                       name="person-outline"
                       size={20}
-                      color="#9ca3af"
+                      color="#555555"
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -300,7 +302,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     <Ionicons
                       name="person-outline"
                       size={20}
-                      color="#9ca3af"
+                      color="#555555"
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -345,7 +347,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       autoCorrect={false}
                     />
                     {usernameStatus === 'checking' && (
-                      <ActivityIndicator size="small" color="#9ca3af" style={styles.statusIcon} />
+                      <ActivityIndicator size="small" color="#555555" style={styles.statusIcon} />
                     )}
                     {usernameStatus === 'available' && (
                       <Ionicons name="checkmark-circle" size={20} color="#22c55e" style={styles.statusIcon} />
@@ -368,7 +370,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 <Ionicons
                   name="mail-outline"
                   size={20}
-                  color="#9ca3af"
+                  color="#555555"
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -394,7 +396,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color="#9ca3af"
+                  color="#555555"
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -422,7 +424,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   <Ionicons
                     name={showPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color="#64748b"
+                    color="#8E8E93"
                   />
                 </TouchableOpacity>
               </View>
@@ -452,6 +454,30 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
               </TouchableOpacity>
             </View>}
 
+            {/* Google Sign-In */}
+            {!forgotMode && (
+              <View style={styles.oauthSection}>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+                <TouchableOpacity
+                  style={[styles.googleBtn, loading && styles.submitButtonDisabled]}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                  onPress={async () => {
+                    const result = await signInWithGoogle();
+                    if (!result.success && result.error && result.error !== 'Sign-in cancelled') {
+                      Alert.alert('Google Sign-In Failed', result.error);
+                    }
+                  }}
+                >
+                  <Text style={styles.googleBtnText}>🔵  Continue with Google</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Switch Auth Mode */}
             {!forgotMode && <View style={styles.footer}>
               <Text style={styles.footerText}>
@@ -474,7 +500,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   keyboardContainer: {
     flex: 1,
@@ -498,10 +524,15 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'center',
   },
+  logoPill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 3,
+    marginRight: 8,
+  },
   logoImage: {
     width: 60,
     height: 40,
-    marginRight: 12,
   },
   aiIconText: {
     color: '#ffffff',
@@ -511,7 +542,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#111827',
+    color: '#FFFFFF',
   },
   formContainer: {
     marginBottom: 32,
@@ -527,17 +558,17 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   input: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1A1A1A',
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: '#2A2A2A',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    color: '#111827',
+    color: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.3,
     shadowRadius: 2,
     elevation: 1,
   },
@@ -550,7 +581,7 @@ const styles = StyleSheet.create({
     top: 14,
     zIndex: 1,
     fontSize: 15,
-    color: '#9ca3af',
+    color: '#555555',
     fontWeight: '600',
   },
   inputWithAt: {
@@ -579,9 +610,9 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   inputFocused: {
-    borderColor: '#3b82f6',
+    borderColor: '#5CB85C',
     borderWidth: 2,
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     elevation: 2,
   },
   passwordInput: {
@@ -594,23 +625,23 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   submitButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#5CB85C',
     borderRadius: 10,
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-    shadowColor: '#111827',
+    shadowColor: '#5CB85C',
     shadowOffset: {
       width: 0,
       height: 3,
     },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 4,
     elevation: 5,
   },
   submitButtonDisabled: {
-    backgroundColor: '#cbd5e1',
+    backgroundColor: '#333333',
     shadowOpacity: 0.1,
     elevation: 1,
   },
@@ -665,8 +696,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 32,
   },
+  oauthSection: {
+    paddingHorizontal: 24,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#2A2A2A',
+  },
+  dividerText: {
+    color: '#8E8E93',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  googleBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   footerText: {
-    color: '#6b7280',
+    color: '#8E8E93',
     fontSize: 14,
   },
   switchButton: {
@@ -674,7 +742,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   switchText: {
-    color: '#6366f1',
+    color: '#5CB85C',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -696,12 +764,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   forgotText: {
-    color: '#6366f1',
+    color: '#5CB85C',
     fontSize: 14,
   },
   resetSubtitle: {
     fontSize: 15,
-    color: '#64748b',
+    color: '#8E8E93',
     marginBottom: 20,
   },
   cancelForgotBtn: {
@@ -710,7 +778,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   cancelForgotText: {
-    color: '#64748b',
+    color: '#8E8E93',
     fontSize: 15,
   },
   resetSuccessCard: {
@@ -719,13 +787,13 @@ const styles = StyleSheet.create({
   resetSuccessTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
   },
   resetSuccessText: {
     fontSize: 15,
-    color: '#64748b',
+    color: '#8E8E93',
     textAlign: 'center',
     marginBottom: 28,
     lineHeight: 22,

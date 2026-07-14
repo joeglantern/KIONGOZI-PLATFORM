@@ -96,7 +96,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
             </Text>
             <TouchableOpacity onPress={handleSubmit} disabled={loading || !selectedReason}>
               {loading ? (
-                <ActivityIndicator size="small" color="#1a365d" />
+                <ActivityIndicator size="small" color="#5CB85C" />
               ) : (
                 <Text style={[styles.submitBtn, !selectedReason && styles.submitDisabled]}>
                   Submit
@@ -131,7 +131,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
               value={description}
               onChangeText={t => setDescription(t.slice(0, 500))}
               placeholder="Provide any additional context..."
-              placeholderTextColor="#a0aec0"
+              placeholderTextColor="#555555"
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -145,7 +145,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -153,18 +153,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
-  cancel: { fontSize: 16, color: '#718096' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
-  submitBtn: { fontSize: 16, fontWeight: '700', color: '#1a365d' },
-  submitDisabled: { color: '#a0aec0' },
+  cancel: { fontSize: 16, color: '#8E8E93' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  submitBtn: { fontSize: 16, fontWeight: '700', color: '#5CB85C' },
+  submitDisabled: { color: '#555555' },
   body: { flex: 1, padding: 20 },
-  subtitle: { fontSize: 14, color: '#718096', marginBottom: 20 },
+  subtitle: { fontSize: 14, color: '#8E8E93', marginBottom: 20 },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#718096',
+    color: '#636366',
     letterSpacing: 0.8,
     marginBottom: 8,
   },
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: '#1A1A1A',
     gap: 12,
   },
   radio: {
@@ -181,28 +181,28 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#cbd5e0',
+    borderColor: '#2A2A2A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioSelected: { borderColor: '#1a365d' },
+  radioSelected: { borderColor: '#5CB85C' },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
   },
-  reasonLabel: { fontSize: 16, color: '#2d3748' },
+  reasonLabel: { fontSize: 16, color: '#FFFFFF' },
   textarea: {
-    backgroundColor: '#f7fafc',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#2A2A2A',
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#1a202c',
+    color: '#FFFFFF',
     minHeight: 100,
   },
-  charCount: { fontSize: 12, color: '#a0aec0', textAlign: 'right', marginTop: 4 },
+  charCount: { fontSize: 12, color: '#636366', textAlign: 'right', marginTop: 4 },
 });

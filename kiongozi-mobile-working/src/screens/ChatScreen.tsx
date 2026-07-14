@@ -19,7 +19,6 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 // LinearGradient removed for compatibility
 import { useAuthStore } from '../stores/authStore';
@@ -39,6 +38,7 @@ import ModuleDetailModal from '../components/ModuleDetailModal';
 import TutorialOverlay from '../components/TutorialOverlay';
 import { ChatSuggestion } from '../components/SmartSuggestions';
 import { useChatStore } from '../stores/chatStore';
+import { useThemeStore } from '../stores/themeStore';
 import { isCommand } from '../utils/messageProcessor';
 import { processCommand as handleCommand } from '../utils/commandProcessor';
 import { LearningModule, ModuleCategory } from '../types/lms';
@@ -71,7 +71,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const darkMode = useThemeStore(s => s.isDark);
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -100,9 +100,6 @@ export default function ChatScreen() {
   useEffect(() => {
     // Start with empty messages - welcome screen handles the greeting
     setMessages([]);
-
-    // Load saved dark mode preference
-    loadDarkModePreference();
 
     // Check if user has seen tutorial
     checkTutorialStatus();
@@ -387,29 +384,6 @@ export default function ChatScreen() {
       showToast('Failed to refresh conversations', 'error');
     } finally {
       setRefreshingConversations(false);
-    }
-  };
-
-  // Load dark mode preference from secure storage
-  const loadDarkModePreference = async () => {
-    try {
-      const savedDarkMode = await SecureStore.getItemAsync('darkModeEnabled');
-      if (savedDarkMode !== null) {
-        setDarkMode(savedDarkMode === 'true');
-      }
-    } catch (error) {
-      console.log('Failed to load dark mode preference:', error);
-      // Fallback to default (light mode) - no action needed
-    }
-  };
-
-  // Save dark mode preference to secure storage
-  const saveDarkModePreference = async (isDarkMode: boolean) => {
-    try {
-      await SecureStore.setItemAsync('darkModeEnabled', isDarkMode.toString());
-    } catch (error) {
-      console.log('Failed to save dark mode preference:', error);
-      // Continue without saving - won't persist but won't break the app
     }
   };
 
@@ -1092,11 +1066,13 @@ export default function ChatScreen() {
                 <View style={[styles.sidebarRect, styles.sidebarRectSmall, darkMode && styles.sidebarRectDark]} />
               </View>
             </TouchableOpacity>
-            <Image
-              source={require('../../assets/kchat-logo.png')}
-              style={styles.headerLogo}
-              resizeMode="contain"
-            />
+            <View style={styles.headerLogoPill}>
+              <Image
+                source={require('../../assets/kchat-logo.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+            </View>
           </View>
 
           {/* Center section - Title (flexible) */}
@@ -1123,19 +1099,6 @@ export default function ChatScreen() {
               />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                const newDarkMode = !darkMode;
-                setDarkMode(newDarkMode);
-                saveDarkModePreference(newDarkMode);
-              }}
-              style={[styles.actionButton, darkMode && styles.actionButtonDark]}
-            >
-              <Text style={[styles.actionButtonText, darkMode && styles.actionButtonTextDark]}>
-                {darkMode ? '☀️' : '🌙'}
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -1265,7 +1228,7 @@ export default function ChatScreen() {
             <Ionicons
               name="chevron-down"
               size={20}
-              color={darkMode ? "#60a5fa" : "#3b82f6"}
+              color="#5CB85C"
             />
           </TouchableOpacity>
         </Animated.View>
@@ -1303,11 +1266,7 @@ export default function ChatScreen() {
         visible={showMenu}
         onClose={() => setShowMenu(false)}
         darkMode={darkMode}
-        onToggleDarkMode={() => {
-          const newDarkMode = !darkMode;
-          setDarkMode(newDarkMode);
-          saveDarkModePreference(newDarkMode);
-        }}
+        onToggleDarkMode={() => {}}
         onSignOut={handleSignOut}
         conversations={conversations}
         loadingConversations={loadingConversations}
@@ -1337,11 +1296,7 @@ export default function ChatScreen() {
       <ProfileScreen
         visible={showProfile}
         darkMode={darkMode}
-        onToggleDarkMode={() => {
-          const newDarkMode = !darkMode;
-          setDarkMode(newDarkMode);
-          saveDarkModePreference(newDarkMode);
-        }}
+        onToggleDarkMode={() => {}}
         onClose={() => setShowProfile(false)}
         onSignOut={handleSignOut}
       />
@@ -1398,23 +1353,23 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   containerDark: {
-    backgroundColor: '#111827',
+    backgroundColor: '#000000',
   },
   chatContainer: {
     flex: 1,
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    borderBottomColor: '#1A1A1A',
   },
   headerLight: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   headerDark: {
-    backgroundColor: '#111827',
+    backgroundColor: '#000000',
   },
   headerContent: {
     flexDirection: 'row',
@@ -1459,10 +1414,10 @@ const styles = StyleSheet.create({
   },
   sidebarRect: {
     borderRadius: 2,
-    backgroundColor: '#374151',
+    backgroundColor: '#FFFFFF',
   },
   sidebarRectDark: {
-    backgroundColor: '#d1d5db',
+    backgroundColor: '#FFFFFF',
   },
   sidebarRectLarge: {
     width: 16,
@@ -1472,10 +1427,15 @@ const styles = StyleSheet.create({
     width: 12,
     height: 4,
   },
+  headerLogoPill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    padding: 2,
+    marginLeft: 8,
+  },
   headerLogo: {
     width: 50,
     height: 35,
-    marginLeft: 8,
   },
   aiIconText: {
     color: '#ffffff',
@@ -1485,38 +1445,38 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: '#FFFFFF',
     marginBottom: 2,
   },
   headerTitleDark: {
-    color: '#f9fafb',
+    color: '#FFFFFF',
   },
   platformText: {
-    color: '#3b82f6',
+    color: '#5CB85C',
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#8E8E93',
     flexShrink: 1,
   },
   headerSubtitleDark: {
-    color: '#9ca3af',
+    color: '#8E8E93',
   },
   actionButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 8,
   },
   actionButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   actionButtonText: {
     fontSize: 14,
-    color: '#4b5563',
+    color: '#FFFFFF',
   },
   actionButtonTextDark: {
-    color: '#d1d5db',
+    color: '#FFFFFF',
   },
   signOutButton: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -1530,10 +1490,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContainerLight: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   messagesContainerDark: {
-    backgroundColor: '#111827',
+    backgroundColor: '#000000',
   },
   scrollView: {
     flex: 1,
@@ -1551,25 +1511,25 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderRadius: 18,
     borderBottomLeftRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#2A2A2A',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 3.84,
     elevation: 5,
   },
   loadingContainerDark: {
-    backgroundColor: '#374151',
-    borderColor: '#4b5563',
+    backgroundColor: '#111111',
+    borderColor: '#2A2A2A',
   },
   loadingText: {
     marginLeft: 12,
@@ -1588,15 +1548,14 @@ const styles = StyleSheet.create({
   scrollToBottomButton: {
     position: 'absolute',
     right: 16,
-    bottom: 120, // Moved higher to avoid input field
+    bottom: 120,
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    // backdropFilter not supported in React Native
+    backgroundColor: '#1A1A1A',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#3b82f6',
+    shadowColor: '#5CB85C',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -1605,12 +1564,12 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: '#2A2A2A',
   },
   scrollToBottomButtonDark: {
-    backgroundColor: 'rgba(55, 65, 81, 0.95)',
-    borderColor: 'rgba(75, 85, 99, 0.3)',
-    shadowColor: '#60a5fa',
+    backgroundColor: '#1A1A1A',
+    borderColor: '#2A2A2A',
+    shadowColor: '#5CB85C',
   },
   scrollToBottomTouchable: {
     width: '100%',
@@ -1626,33 +1585,33 @@ const styles = StyleSheet.create({
   conversationLoadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderRadius: 12,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#2A2A2A',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 3.84,
     elevation: 5,
   },
   conversationLoadingContainerDark: {
-    backgroundColor: '#374151',
-    borderColor: '#4b5563',
+    backgroundColor: '#111111',
+    borderColor: '#2A2A2A',
   },
   conversationLoadingText: {
     marginLeft: 12,
     fontSize: 16,
-    color: '#6b7280',
+    color: '#8E8E93',
     fontWeight: '500',
   },
   conversationLoadingTextDark: {
-    color: '#9ca3af',
+    color: '#8E8E93',
   },
   aiMessageBackground: {
     backgroundColor: 'rgba(0, 0, 0, 0.02)',

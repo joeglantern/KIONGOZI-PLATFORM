@@ -74,7 +74,7 @@ export function EditPostModal({ visible, postId, initialContent, initialVisibili
             maxLength={280}
             autoFocus
             placeholder="What's on your mind?"
-            placeholderTextColor="#a0aec0"
+            placeholderTextColor="#555555"
           />
 
           {/* Visibility toggle */}
@@ -84,14 +84,14 @@ export function EditPostModal({ visible, postId, initialContent, initialVisibili
               style={[styles.visPill, visibility === 'public' && styles.visPillActive]}
               onPress={() => setVisibility('public')}
             >
-              <Ionicons name="globe-outline" size={14} color={visibility === 'public' ? '#fff' : '#718096'} />
+              <Ionicons name="globe-outline" size={14} color={visibility === 'public' ? '#fff' : '#8E8E93'} />
               <Text style={[styles.visText, visibility === 'public' && styles.visTextActive]}>Everyone</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.visPill, visibility === 'followers' && styles.visPillActive]}
               onPress={() => setVisibility('followers')}
             >
-              <Ionicons name="people-outline" size={14} color={visibility === 'followers' ? '#fff' : '#718096'} />
+              <Ionicons name="people-outline" size={14} color={visibility === 'followers' ? '#fff' : '#8E8E93'} />
               <Text style={[styles.visText, visibility === 'followers' && styles.visTextActive]}>Followers</Text>
             </TouchableOpacity>
             <Text style={[styles.charCount, content.length > 260 && styles.charWarn]}>
@@ -105,7 +105,7 @@ export function EditPostModal({ visible, postId, initialContent, initialVisibili
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -113,12 +113,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
   closeBtn: { padding: 4 },
-  title: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
+  title: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   saveBtn: {
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
     paddingHorizontal: 18,
     paddingVertical: 7,
     borderRadius: 20,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1a202c',
+    color: '#FFFFFF',
     lineHeight: 24,
     padding: 16,
     textAlignVertical: 'top',
@@ -141,10 +141,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: '#1A1A1A',
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
   },
-  visLabel: { fontSize: 13, color: '#718096', marginRight: 4 },
+  visLabel: { fontSize: 13, color: '#8E8E93', marginRight: 4 },
   visPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -153,12 +153,12 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f7fafc',
+    borderColor: '#2A2A2A',
+    backgroundColor: '#1A1A1A',
   },
-  visPillActive: { backgroundColor: '#1a365d', borderColor: '#1a365d' },
-  visText: { fontSize: 13, color: '#718096' },
+  visPillActive: { backgroundColor: '#5CB85C', borderColor: '#5CB85C' },
+  visText: { fontSize: 13, color: '#8E8E93' },
   visTextActive: { color: '#fff', fontWeight: '600' },
-  charCount: { flex: 1, textAlign: 'right', fontSize: 13, color: '#a0aec0' },
+  charCount: { flex: 1, textAlign: 'right', fontSize: 13, color: '#636366' },
   charWarn: { color: '#e53e3e' },
 });

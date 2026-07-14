@@ -127,7 +127,7 @@ export default function QuotePostModal({ visible, post, onClose, onPosted }: Quo
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
   },
   header: {
     flexDirection: 'row',
@@ -136,22 +136,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
   cancelBtn: {
     minWidth: 60,
   },
   cancelText: {
     fontSize: 16,
-    color: '#3182ce',
+    color: '#8E8E93',
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1a202c',
+    color: '#FFFFFF',
   },
   postBtn: {
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
     borderRadius: 20,
     paddingHorizontal: 18,
     paddingVertical: 7,
@@ -183,10 +183,10 @@ const styles = StyleSheet.create({
   },
   counter: {
     fontSize: 13,
-    color: '#718096',
+    color: '#8E8E93',
   },
   counterWarn: {
-    color: '#e53e3e',
+    color: '#FF3B30',
     fontWeight: '600',
   },
   quoteSection: {
@@ -201,17 +201,17 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#2A2A2A',
   },
   dividerLabel: {
     fontSize: 12,
-    color: '#a0aec0',
+    color: '#636366',
     fontWeight: '500',
   },
   quoteCard: {
-    backgroundColor: '#f7fafc',
+    backgroundColor: '#111111',
     borderLeftWidth: 3,
-    borderLeftColor: '#1a365d',
+    borderLeftColor: '#5CB85C',
     borderRadius: 12,
     padding: 12,
   },
@@ -225,23 +225,23 @@ const styles = StyleSheet.create({
   quoteName: {
     fontWeight: '700',
     fontSize: 14,
-    color: '#1a202c',
+    color: '#FFFFFF',
   },
   quoteUsername: {
     fontSize: 13,
-    color: '#718096',
+    color: '#8E8E93',
   },
   quoteDot: {
-    color: '#718096',
+    color: '#8E8E93',
     fontSize: 13,
   },
   quoteTime: {
     fontSize: 13,
-    color: '#718096',
+    color: '#8E8E93',
   },
   quoteContent: {
     fontSize: 14,
-    color: '#4a5568',
+    color: '#EBEBF5',
     lineHeight: 20,
   },
 });

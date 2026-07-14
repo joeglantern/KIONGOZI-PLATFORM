@@ -72,7 +72,7 @@ export default function ResetPasswordScreen({ visible, onDismiss }: ResetPasswor
           <View style={styles.header}>
             <Text style={styles.title}>Set New Password</Text>
             <TouchableOpacity onPress={onDismiss} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={24} color="#64748b" />
+              <Ionicons name="close" size={24} color="#8E8E93" />
             </TouchableOpacity>
           </View>
 
@@ -94,7 +94,7 @@ export default function ResetPasswordScreen({ visible, onDismiss }: ResetPasswor
               autoCorrect={false}
             />
             <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowNew(!showNew)}>
-              <Ionicons name={showNew ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+              <Ionicons name={showNew ? 'eye-off' : 'eye'} size={20} color="#8E8E93" />
             </TouchableOpacity>
           </View>
 
@@ -112,7 +112,7 @@ export default function ResetPasswordScreen({ visible, onDismiss }: ResetPasswor
               autoCorrect={false}
             />
             <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirm(!showConfirm)}>
-              <Ionicons name={showConfirm ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+              <Ionicons name={showConfirm ? 'eye-off' : 'eye'} size={20} color="#8E8E93" />
             </TouchableOpacity>
           </View>
 
@@ -137,7 +137,7 @@ export default function ResetPasswordScreen({ visible, onDismiss }: ResetPasswor
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   inner: {
     flex: 1,
@@ -153,14 +153,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: '#FFFFFF',
   },
   closeBtn: {
     padding: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: '#64748b',
+    color: '#8E8E93',
     marginBottom: 24,
   },
   inputContainer: {
@@ -168,18 +168,18 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   input: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1A1A1A',
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: '#2A2A2A',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     paddingRight: 48,
     fontSize: 15,
-    color: '#111827',
+    color: '#FFFFFF',
   },
   inputFocused: {
-    borderColor: '#3b82f6',
+    borderColor: '#5CB85C',
     borderWidth: 2,
   },
   eyeBtn: {
@@ -188,14 +188,14 @@ const styles = StyleSheet.create({
     top: 14,
   },
   submitBtn: {
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
     borderRadius: 10,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 8,
   },
   submitBtnDisabled: {
-    backgroundColor: '#cbd5e1',
+    backgroundColor: '#333333',
   },
   submitBtnText: {
     color: '#ffffff',

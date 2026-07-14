@@ -86,8 +86,8 @@ function ProfileStackNavigator() {
 
 const Tab = createBottomTabNavigator();
 
-const ACTIVE_COLOR = '#1a365d';
-const INACTIVE_COLOR = '#a0aec0';
+const ACTIVE_COLOR = '#FFFFFF';
+const INACTIVE_COLOR = '#555555';
 
 // Placeholder screen used for the Create tab (never actually rendered)
 function EmptyScreen() {
@@ -186,7 +186,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             options={{
               tabBarIcon: () => (
                 <View style={styles.createButton}>
-                  <Ionicons name="add" size={28} color="#fff" />
+                  <Ionicons name="add" size={28} color="#000000" />
                 </View>
               ),
               tabBarButton: (props) => (
@@ -196,7 +196,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
                   accessibilityRole="button"
                 >
                   <View style={styles.createButton}>
-                    <Ionicons name="add" size={28} color="#fff" />
+                    <Ionicons name="add" size={28} color="#000000" />
                   </View>
                 </TouchableOpacity>
               ),
@@ -240,13 +240,15 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#000000',
   },
   tabBar: {
-    backgroundColor: '#fff',
-    borderTopColor: '#e2e8f0',
+    backgroundColor: '#000000',
+    borderTopColor: '#1A1A1A',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   createButton: {
-    backgroundColor: '#1a365d',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     width: 40,
     height: 40,
@@ -260,13 +262,13 @@ const styles = StyleSheet.create({
   },
   modalWrap: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
   },
   modalHandle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#cbd5e0',
+    backgroundColor: '#333333',
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 4,

@@ -240,7 +240,7 @@ export default function PublicProfileScreen() {
   }, [profile, blockUser, muteUser, navigation]);
 
   if (loading) {
-    return <View style={styles.loading}><ActivityIndicator color="#1a365d" /></View>;
+    return <View style={styles.loading}><ActivityIndicator color="#5CB85C" /></View>;
   }
 
   if (notFound) {
@@ -366,7 +366,7 @@ export default function PublicProfileScreen() {
           />
         )}
         ListFooterComponent={
-          postsLoadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" /> : null
+          postsLoadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color="#5CB85C" /> : null
         }
         ListHeaderComponent={
           <View>
@@ -374,7 +374,7 @@ export default function PublicProfileScreen() {
             {profile?.banner_url ? (
               <Image source={{ uri: profile.banner_url }} style={styles.banner} />
             ) : (
-              <View style={[styles.banner, { backgroundColor: '#1a365d' }]} />
+              <View style={[styles.banner, { backgroundColor: '#111111' }]} />
             )}
 
             {/* Profile info */}
@@ -394,7 +394,7 @@ export default function PublicProfileScreen() {
                         disabled={messageLoading}
                         style={styles.messageBtn}
                       >
-                        <Ionicons name="mail-outline" size={18} color="#1a365d" />
+                        <Ionicons name="mail-outline" size={18} color="#5CB85C" />
                         <Text style={styles.messageBtnText}>
                           {messageLoading ? '...' : 'Message'}
                         </Text>
@@ -452,7 +452,7 @@ export default function PublicProfileScreen() {
             {profile?.is_private && !profile?.isFollowing && !isOwnProfile ? (
               <View style={styles.privateWall}>
                 <View style={styles.privateIconWrap}>
-                  <Ionicons name="lock-closed" size={28} color="#1a365d" />
+                  <Ionicons name="lock-closed" size={28} color="#5CB85C" />
                 </View>
                 <Text style={styles.privateTitle}>This account is private</Text>
                 <Text style={styles.privateSub}>
@@ -493,7 +493,7 @@ export default function PublicProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#000000' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -502,10 +502,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     gap: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     justifyContent: 'space-between',
   },
-  headerName: { fontSize: 17, fontWeight: '700', color: '#1a202c', flex: 1, textAlign: 'center' },
+  headerName: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', flex: 1, textAlign: 'center' },
   moreBtn: { padding: 4 },
   banner: { width: '100%', height: 120 },
   profileSection: { padding: 16 },
@@ -525,30 +525,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1a365d',
+    borderColor: '#5CB85C',
   },
-  messageBtnText: { color: '#1a365d', fontWeight: '600', fontSize: 14 },
-  fullName: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
-  username: { color: '#718096', fontSize: 15, marginBottom: 6 },
-  bio: { color: '#2d3748', fontSize: 15, lineHeight: 22, marginBottom: 12 },
+  messageBtnText: { color: '#5CB85C', fontWeight: '600', fontSize: 14 },
+  fullName: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
+  username: { color: '#8E8E93', fontSize: 15, marginBottom: 6 },
+  bio: { color: '#EBEBF5', fontSize: 15, lineHeight: 22, marginBottom: 12 },
   statsRow: { flexDirection: 'row', gap: 16 },
-  stat: { fontSize: 14, color: '#718096' },
-  statNum: { fontWeight: '700', color: '#1a202c' },
+  stat: { fontSize: 14, color: '#8E8E93' },
+  statNum: { fontWeight: '700', color: '#FFFFFF' },
   followBtn: {
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#FFFFFF',
   },
-  followingBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#1a365d' },
-  requestedBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#a0aec0' },
-  followText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  followingText: { color: '#1a365d' },
-  editBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0' },
-  editText: { fontWeight: '700', fontSize: 14, color: '#1a202c' },
-  divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
-  postsHeader: { fontSize: 16, fontWeight: '700', color: '#1a202c', paddingHorizontal: 16, paddingBottom: 8 },
-  noPosts: { padding: 24, textAlign: 'center', color: '#a0aec0' },
+  followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#2A2A2A' },
+  requestedBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#555555' },
+  followText: { color: '#000000', fontWeight: '700', fontSize: 14 },
+  followingText: { color: '#FFFFFF' },
+  editBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2A2A2A' },
+  editText: { fontWeight: '700', fontSize: 14, color: '#FFFFFF' },
+  divider: { height: 1, backgroundColor: '#1A1A1A', marginVertical: 8 },
+  postsHeader: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', paddingHorizontal: 16, paddingBottom: 8 },
+  noPosts: { padding: 24, textAlign: 'center', color: '#636366' },
   privateWall: {
     alignItems: 'center',
     paddingVertical: 48,
@@ -559,42 +559,42 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#eef2f7',
+    backgroundColor: '#111111',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
   },
-  privateTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
-  privateSub: { fontSize: 14, color: '#718096', textAlign: 'center', lineHeight: 21 },
+  privateTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  privateSub: { fontSize: 14, color: '#8E8E93', textAlign: 'center', lineHeight: 21 },
   blockedWall: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
-  blockedTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c' },
-  blockedSub: { fontSize: 15, color: '#718096', textAlign: 'center' },
+  blockedTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
+  blockedSub: { fontSize: 15, color: '#8E8E93', textAlign: 'center' },
   unblockBtn: {
     marginTop: 8,
     paddingHorizontal: 28,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1a365d',
+    borderColor: '#5CB85C',
   },
-  unblockText: { color: '#1a365d', fontWeight: '700', fontSize: 15 },
+  unblockText: { color: '#5CB85C', fontWeight: '700', fontSize: 15 },
   blockedByIconWrap: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#111111',
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 4,
   },
-  blockedByName: { fontSize: 18, fontWeight: '700', color: '#1a202c' },
-  blockedByUsername: { fontSize: 14, color: '#94a3b8', marginBottom: 6 },
-  blockedByMsg: { fontSize: 15, color: '#94a3b8', textAlign: 'center' },
+  blockedByName: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  blockedByUsername: { fontSize: 14, color: '#636366', marginBottom: 6 },
+  blockedByMsg: { fontSize: 15, color: '#636366', textAlign: 'center' },
   notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
-  notFoundTitle: { fontSize: 20, fontWeight: '700', color: '#1a202c' },
-  notFoundSub: { fontSize: 15, color: '#718096', textAlign: 'center' },
+  notFoundTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
+  notFoundSub: { fontSize: 15, color: '#8E8E93', textAlign: 'center' },
   goBackBtn: {
     marginTop: 8,
     paddingHorizontal: 28,
     paddingVertical: 10,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
     borderRadius: 20,
   },
   goBackText: { color: '#fff', fontWeight: '700', fontSize: 15 },

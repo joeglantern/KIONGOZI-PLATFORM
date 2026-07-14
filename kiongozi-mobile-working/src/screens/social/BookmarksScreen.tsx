@@ -77,7 +77,7 @@ export default function BookmarksScreen() {
         onEndReachedThreshold={0.5}
         ListEmptyComponent={
           bookmarkLoading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+            <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
           ) : (
             <View style={styles.empty}>
               <Ionicons name="bookmark-outline" size={48} color="#cbd5e0" style={{ marginBottom: 12 }} />
@@ -88,7 +88,7 @@ export default function BookmarksScreen() {
         }
         ListFooterComponent={
           bookmarkLoading && bookmarkPosts.length > 0 ? (
-            <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" />
+            <ActivityIndicator style={{ marginVertical: 16 }} color="#5CB85C" />
           ) : null
         }
       />
@@ -106,7 +106,7 @@ export default function BookmarksScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -114,13 +114,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     gap: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
   empty: { padding: 32, alignItems: 'center' },
-  emptyText: { fontSize: 17, fontWeight: '600', color: '#4a5568', marginBottom: 8 },
-  emptySubtext: { fontSize: 14, color: '#a0aec0', textAlign: 'center' },
+  emptyText: { fontSize: 17, fontWeight: '600', color: '#8E8E93', marginBottom: 8 },
+  emptySubtext: { fontSize: 14, color: '#636366', textAlign: 'center' },
 });

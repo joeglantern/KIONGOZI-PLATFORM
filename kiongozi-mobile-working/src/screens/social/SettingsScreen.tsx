@@ -22,6 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useSocialStore } from '../../stores/socialStore';
+import { useThemeStore } from '../../stores/themeStore';
 import { supabase } from '../../utils/supabaseClient';
 import { registerForPushNotifications, unregisterPushNotifications } from '../../utils/pushNotifications';
 import apiClient from '../../utils/apiClient';
@@ -37,6 +38,7 @@ export default function SettingsScreen() {
   const { signOut } = useAuthStore();
   const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
   const { loadBlockedAndMuted } = useSocialStore();
+  const { isDark, toggleTheme } = useThemeStore();
 
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
@@ -223,13 +225,33 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={26} color="#1a202c" />
+          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* APPEARANCE */}
+        <SectionHeader label="Appearance" />
+        <View style={styles.section}>
+          <View style={[styles.row, styles.rowLast]}>
+            <View style={styles.rowLeft}>
+              <Ionicons name="moon-outline" size={22} color="#8E8E93" />
+              <View>
+                <Text style={styles.rowLabel}>Dark Mode</Text>
+                <Text style={styles.rowSub}>Switch between dark and light theme</Text>
+              </View>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#2A2A2A', true: '#5CB85C' }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+
         {/* ACCOUNT */}
         <SectionHeader label="Account" />
         <View style={styles.section}>
@@ -256,19 +278,19 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Ionicons name="lock-closed-outline" size={22} color="#4a5568" />
+              <Ionicons name="lock-closed-outline" size={22} color="#8E8E93" />
               <View>
                 <Text style={styles.rowLabel}>Private Account</Text>
                 <Text style={styles.rowSub}>New followers must be approved</Text>
               </View>
             </View>
             {privacyLoading ? (
-              <ActivityIndicator size="small" color="#1a365d" />
+              <ActivityIndicator size="small" color="#5CB85C" />
             ) : (
               <Switch
                 value={privateAccount}
                 onValueChange={handlePrivateToggle}
-                trackColor={{ false: '#cbd5e0', true: '#1a365d' }}
+                trackColor={{ false: '#2A2A2A', true: '#5CB85C' }}
                 thumbColor="#fff"
               />
             )}
@@ -291,16 +313,16 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={[styles.row, styles.rowLast]}>
             <View style={styles.rowLeft}>
-              <Ionicons name="notifications-outline" size={22} color="#4a5568" />
+              <Ionicons name="notifications-outline" size={22} color="#8E8E93" />
               <Text style={styles.rowLabel}>Push Notifications</Text>
             </View>
             {pushLoading ? (
-              <ActivityIndicator size="small" color="#1a365d" />
+              <ActivityIndicator size="small" color="#5CB85C" />
             ) : (
               <Switch
                 value={pushEnabled}
                 onValueChange={handlePushToggle}
-                trackColor={{ false: '#cbd5e0', true: '#1a365d' }}
+                trackColor={{ false: '#2A2A2A', true: '#5CB85C' }}
                 thumbColor="#fff"
               />
             )}
@@ -322,7 +344,7 @@ export default function SettingsScreen() {
           />
           <View style={[styles.row, styles.rowLast]}>
             <View style={styles.rowLeft}>
-              <Ionicons name="information-circle-outline" size={22} color="#4a5568" />
+              <Ionicons name="information-circle-outline" size={22} color="#8E8E93" />
               <Text style={styles.rowLabel}>Version</Text>
             </View>
             <Text style={styles.rowValue}>{appVersion}</Text>
@@ -367,7 +389,7 @@ export default function SettingsScreen() {
               <Text style={styles.modalTitle}>Change Password</Text>
               <TouchableOpacity onPress={handleChangePassword} disabled={passwordLoading}>
                 {passwordLoading ? (
-                  <ActivityIndicator size="small" color="#1a365d" />
+                  <ActivityIndicator size="small" color="#5CB85C" />
                 ) : (
                   <Text style={styles.modalSave}>Save</Text>
                 )}
@@ -438,31 +460,31 @@ function SettingsRow({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
   backBtn: { padding: 8 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   content: { paddingBottom: 48 },
   sectionHeader: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#718096',
+    color: '#636366',
     letterSpacing: 0.8,
     marginTop: 24,
     marginBottom: 4,
     paddingHorizontal: 20,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: '#111111',
     borderRadius: 12,
     marginHorizontal: 16,
     overflow: 'hidden',
@@ -474,16 +496,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#2A2A2A',
   },
   rowLast: { borderBottomWidth: 0 },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  rowLabel: { fontSize: 16, color: '#2d3748' },
-  rowSub: { fontSize: 12, color: '#a0aec0', marginTop: 1 },
-  rowValue: { fontSize: 15, color: '#a0aec0' },
-  dangerLabel: { color: '#e53e3e' },
+  rowLabel: { fontSize: 16, color: '#FFFFFF' },
+  rowSub: { fontSize: 12, color: '#636366', marginTop: 1 },
+  rowValue: { fontSize: 15, color: '#636366' },
+  dangerLabel: { color: '#FF3B30' },
   // Modal
-  modalContainer: { flex: 1, backgroundColor: '#fff' },
+  modalContainer: { flex: 1, backgroundColor: '#000000' },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -491,21 +513,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
-  modalCancel: { fontSize: 16, color: '#718096' },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
-  modalSave: { fontSize: 16, fontWeight: '700', color: '#1a365d' },
+  modalCancel: { fontSize: 16, color: '#8E8E93' },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  modalSave: { fontSize: 16, fontWeight: '700', color: '#5CB85C' },
   modalBody: { padding: 20, gap: 4 },
-  inputLabel: { fontSize: 13, color: '#718096', marginBottom: 4, marginTop: 12 },
+  inputLabel: { fontSize: 13, color: '#8E8E93', marginBottom: 4, marginTop: 12 },
   input: {
-    backgroundColor: '#f7fafc',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#2A2A2A',
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1a202c',
+    color: '#FFFFFF',
   },
 });

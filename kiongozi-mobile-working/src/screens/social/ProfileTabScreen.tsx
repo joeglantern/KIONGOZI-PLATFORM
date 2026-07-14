@@ -350,7 +350,7 @@ export default function ProfileTabScreen() {
   if (!profile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color="#1a365d" size="large" />
+        <ActivityIndicator color="#5CB85C" size="large" />
       </View>
     );
   }
@@ -385,14 +385,14 @@ export default function ProfileTabScreen() {
         ListFooterComponent={
           loadingMore ? (
             <View style={{ padding: 16 }}>
-              <ActivityIndicator color="#1a365d" />
+              <ActivityIndicator color="#5CB85C" />
             </View>
           ) : null
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1a365d" />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#5CB85C" />
         }
         showsVerticalScrollIndicator={false}
       />
@@ -401,13 +401,13 @@ export default function ProfileTabScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  container: { flex: 1, backgroundColor: '#000000' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   // Cover
   cover: {
     height: COVER_HEIGHT,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#111111',
     overflow: 'hidden',
   },
   coverTint: {
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 16,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     top: 16,
     right: 16,
     padding: 6,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 20,
   },
 
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     borderWidth: 3,
-    borderColor: '#f7fafc',
+    borderColor: '#000000',
     borderRadius: (AVATAR_SIZE + 6) / 2,
     alignSelf: 'flex-start',
   },
@@ -463,12 +463,12 @@ const styles = StyleSheet.create({
   bioSection: {
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
   },
-  displayName: { fontSize: 20, fontWeight: '800', color: '#1a202c', marginBottom: 4 },
-  handle: { fontSize: 14, color: '#718096' },
-  tagline: { fontSize: 14, color: '#1a365d', fontWeight: '600' },
-  bio: { fontSize: 14, color: '#4a5568', marginTop: 8, lineHeight: 20 },
+  displayName: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginBottom: 4 },
+  handle: { fontSize: 14, color: '#8E8E93' },
+  tagline: { fontSize: 14, color: '#5CB85C', fontWeight: '600' },
+  bio: { fontSize: 14, color: '#8E8E93', marginTop: 8, lineHeight: 20 },
 
   // Stats
   statsRow: {
@@ -477,35 +477,35 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: '#1A1A1A',
   },
   statItem: { flex: 1, alignItems: 'center' },
-  statNum: { fontSize: 18, fontWeight: '800', color: '#1a202c' },
-  statLabel: { fontSize: 12, color: '#718096', marginTop: 2 },
-  statDivider: { width: 1, height: 28, backgroundColor: '#e2e8f0' },
+  statNum: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  statLabel: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+  statDivider: { width: 1, height: 28, backgroundColor: '#2A2A2A' },
 
   // Tab bar
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
     position: 'relative',
   },
   tabBtn: { flex: 1, paddingVertical: 14, alignItems: 'center' },
-  tabLabel: { fontSize: 14, color: '#718096', fontWeight: '500' },
-  tabLabelActive: { color: '#1a365d', fontWeight: '700' },
+  tabLabel: { fontSize: 14, color: '#555555', fontWeight: '500' },
+  tabLabelActive: { color: '#FFFFFF', fontWeight: '700' },
   tabIndicator: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     width: TAB_W,
     height: 2,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#FFFFFF',
     borderRadius: 1,
   },
 
   // Empty
   emptyState: { paddingVertical: 48, alignItems: 'center' },
-  emptyText: { fontSize: 15, color: '#a0aec0' },
+  emptyText: { fontSize: 15, color: '#636366' },
 });

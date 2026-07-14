@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
 import type { User } from '@supabase/supabase-js';
+import * as WebBrowser from 'expo-web-browser';
 
 interface AuthState {
   user: User | null;
@@ -27,37 +28,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
-      // Get current session
+      // getSession() reads from local SecureStore — safe to call offline.
       const { data: { session }, error } = await supabase.auth.getSession();
 
-      // If refresh token is invalid, clear the session silently
       if (error) {
-        console.log('Session restoration failed (token may be expired), clearing session');
-        await supabase.auth.signOut({ scope: 'local' });
-        await apiClient.removeAuthToken();
+        // Only sign out for definitive auth invalidation errors, not network errors.
+        const isAuthInvalid = error.message?.toLowerCase().includes('refresh_token') ||
+          error.message?.toLowerCase().includes('invalid') ||
+          error.message?.toLowerCase().includes('expired');
+        if (isAuthInvalid) {
+          await supabase.auth.signOut({ scope: 'local' });
+        }
+        console.warn('Session check error:', error.message);
         set({ user: null, initialized: true });
         return;
       }
 
-      if (session?.access_token) {
-        // Save token for API client
-        await apiClient.saveAuthToken(session.access_token);
-        set({ user: session.user, initialized: true });
-      } else {
-        set({ user: null, initialized: true });
-      }
+      set({ user: session?.user ?? null, initialized: true });
 
-      // Listen for auth changes
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-          if (session?.access_token) {
-            await apiClient.saveAuthToken(session.access_token);
-            set({ user: session.user });
-          }
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          set({ user: session?.user ?? null });
         } else if (event === 'SIGNED_OUT') {
-          const wasLoggedIn = !!get().user;
-          await apiClient.removeAuthToken();
-          set({ user: null, sessionExpired: wasLoggedIn });
+          set({ user: null, sessionExpired: !!get().user });
           const { useSocialStore } = require('./socialStore');
           const { useDMStore } = require('./dmStore');
           const { useProfileStore } = require('./profileStore');
@@ -67,11 +60,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           useProfileStore.getState().reset();
           useNotificationStore.getState().reset();
         }
+        // TOKEN_REFRESH_FAILED: keep the user logged in — they'll get 401s on
+        // expired requests, but opening the app offline won't force a sign-out.
       });
     } catch (error) {
       console.error('Auth initialization error:', error);
-      // Clear any stale data
-      await apiClient.removeAuthToken();
       set({ user: null, initialized: true });
     }
   },
@@ -87,10 +80,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) {
         set({ loading: false });
         return { success: false, error: error.message };
-      }
-
-      if (data.session?.access_token) {
-        await apiClient.saveAuthToken(data.session.access_token);
       }
 
       set({ user: data.user, loading: false, sessionExpired: false });
@@ -133,9 +122,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
       }
 
-      // Email confirmed (auto-confirm enabled or already verified)
-      if (data.session?.access_token) {
-        await apiClient.saveAuthToken(data.session.access_token);
+      if (data.session) {
         set({ user: data.user, loading: false });
         return { success: true };
       }
@@ -151,27 +138,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signInWithGoogle: async () => {
     set({ loading: true });
     try {
+      const redirectUri = 'kiongozi://auth/callback';
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'kiongozi://auth/callback',
-          skipBrowserRedirect: false,
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true,
         },
       });
 
-      if (error) {
+      if (error || !data?.url) {
         set({ loading: false });
-        return { success: false, error: error.message };
+        return { success: false, error: error?.message || 'Failed to get OAuth URL' };
       }
 
-      // Check if we got a URL to open
-      if (data?.url) {
-        const { Linking } = require('react-native');
-        await Linking.openURL(data.url);
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+
+      if (result.type !== 'success') {
+        set({ loading: false });
+        return {
+          success: false,
+          error: result.type === 'cancel' ? 'Sign-in cancelled' : 'Sign-in failed',
+        };
       }
 
-      // OAuth will handle the redirect, session will be set via onAuthStateChange
-      set({ loading: false });
+      // PKCE: extract the auth code and exchange for a session
+      const url = new URL(result.url);
+      const code = url.searchParams.get('code');
+
+      if (!code) {
+        set({ loading: false });
+        return { success: false, error: 'No auth code in redirect URL' };
+      }
+
+      const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      if (exchangeError) {
+        set({ loading: false });
+        return { success: false, error: exchangeError.message };
+      }
+
+      set({ user: sessionData.user, loading: false, sessionExpired: false });
       return { success: true };
     } catch (error: any) {
       set({ loading: false });
@@ -182,9 +188,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     try {
       await supabase.auth.signOut();
-      await apiClient.removeAuthToken();
       set({ user: null, sessionExpired: false });
-      // Reset all stores to prevent data leakage between sessions
       const { useSocialStore } = require('./socialStore');
       const { useDMStore } = require('./dmStore');
       const { useProfileStore } = require('./profileStore');
@@ -223,8 +227,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: error.message };
       }
 
-      if (data.session?.access_token) {
-        await apiClient.saveAuthToken(data.session.access_token);
+      if (data.session) {
         set({ user: data.user });
         return { success: true };
       }

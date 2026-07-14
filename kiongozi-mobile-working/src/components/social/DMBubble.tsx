@@ -99,8 +99,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: RADIUS,
   },
-  ownBubble:   { backgroundColor: '#1a365d' },
-  otherBubble: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e8edf3' },
+  ownBubble:   { backgroundColor: '#1A1A1A' },
+  otherBubble: { backgroundColor: '#111111', borderWidth: 1, borderColor: '#2A2A2A' },
 
   ownTail:    { borderBottomRightRadius: TAIL },
   otherTail:  { borderBottomLeftRadius: TAIL },

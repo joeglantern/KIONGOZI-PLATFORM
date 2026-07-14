@@ -96,12 +96,12 @@ export default function FollowListScreen() {
   });
   const followersColor = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
-    outputRange: ['#1a365d', '#a0aec0'],
+    outputRange: ['#FFFFFF', '#555555'],
     extrapolate: 'clamp',
   });
   const followingColor = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
-    outputRange: ['#a0aec0', '#1a365d'],
+    outputRange: ['#555555', '#FFFFFF'],
     extrapolate: 'clamp',
   });
 
@@ -117,7 +117,7 @@ export default function FollowListScreen() {
         <Text style={styles.handle}>@{item.username}</Text>
         {item.bio ? <Text style={styles.bio} numberOfLines={1}>{item.bio}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#cbd5e0" />
+      <Ionicons name="chevron-forward" size={18} color="#555555" />
     </TouchableOpacity>
   );
 
@@ -145,7 +145,7 @@ export default function FollowListScreen() {
             </Text>
           </TouchableOpacity>
         ) : (
-          <Ionicons name="chevron-forward" size={18} color="#cbd5e0" />
+          <Ionicons name="chevron-forward" size={18} color="#555555" />
         )}
       </TouchableOpacity>
     );
@@ -156,7 +156,7 @@ export default function FollowListScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#1a202c" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>@{username}</Text>
       </View>
@@ -188,7 +188,7 @@ export default function FollowListScreen() {
         {/* Followers page */}
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
           {loadingFollowers && followers.length === 0 ? (
-            <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+            <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
           ) : (
             <FlatList
               data={followers}
@@ -204,7 +204,7 @@ export default function FollowListScreen() {
         {/* Following page */}
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
           {loadingFollowing && following.length === 0 ? (
-            <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+            <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
           ) : (
             <FlatList
               data={following}
@@ -222,24 +222,24 @@ export default function FollowListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 52,
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
     gap: 12,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
     position: 'relative',
   },
   tab: {
@@ -253,35 +253,35 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '50%',
     height: 2,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#FFFFFF',
     borderRadius: 2,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
     gap: 12,
   },
   userInfo: { flex: 1 },
-  fullName: { fontSize: 15, fontWeight: '700', color: '#1a202c' },
-  handle: { fontSize: 13, color: '#718096', marginTop: 1 },
-  bio: { fontSize: 13, color: '#4a5568', marginTop: 2 },
+  fullName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  handle: { fontSize: 13, color: '#8E8E93', marginTop: 1 },
+  bio: { fontSize: 13, color: '#EBEBF5', marginTop: 2 },
   empty: { alignItems: 'center', padding: 48 },
-  emptyText: { color: '#a0aec0', fontSize: 15 },
+  emptyText: { color: '#636366', fontSize: 15 },
   followPill: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#FFFFFF',
   },
   followPillOutline: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#1a365d',
+    borderColor: '#2A2A2A',
   },
-  followPillText: { fontSize: 13, fontWeight: '600', color: '#fff' },
-  followPillTextOutline: { color: '#1a365d' },
+  followPillText: { fontSize: 13, fontWeight: '600', color: '#000000' },
+  followPillTextOutline: { color: '#FFFFFF' },
 });

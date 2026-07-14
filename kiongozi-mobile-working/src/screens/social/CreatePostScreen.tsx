@@ -214,7 +214,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 
             {uploading && (
               <View style={styles.uploadingRow}>
-                <ActivityIndicator size="small" color="#1a365d" />
+                <ActivityIndicator size="small" color="#5CB85C" />
                 <Text style={styles.uploadingText}>Uploading media...</Text>
               </View>
             )}
@@ -225,10 +225,10 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
       {/* Toolbar */}
       <View style={styles.toolbar}>
         <TouchableOpacity onPress={() => pickMedia('image')} style={styles.toolbarBtn}>
-          <Ionicons name="image-outline" size={24} color="#1a365d" />
+          <Ionicons name="image-outline" size={24} color="#5CB85C" />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => pickMedia('video')} style={styles.toolbarBtn}>
-          <Ionicons name="videocam-outline" size={24} color="#1a365d" />
+          <Ionicons name="videocam-outline" size={24} color="#5CB85C" />
         </TouchableOpacity>
 
         {/* Visibility toggle */}
@@ -239,7 +239,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
           <Ionicons
             name={visibility === 'public' ? 'globe-outline' : 'people-outline'}
             size={14}
-            color="#1a365d"
+            color="#5CB85C"
           />
           <Text style={styles.visText}>{visibility === 'public' ? 'Everyone' : 'Followers'}</Text>
         </TouchableOpacity>
@@ -254,7 +254,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -262,19 +262,20 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 52,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#000000',
   },
   cancelBtn: { padding: 4 },
-  cancelText: { fontSize: 16, color: '#4a5568' },
+  cancelText: { fontSize: 16, color: '#8E8E93' },
   postBtn: {
-    backgroundColor: '#1a365d',
+    backgroundColor: '#5CB85C',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
     minWidth: 70,
     alignItems: 'center',
   },
-  postBtnDisabled: { backgroundColor: '#a0aec0' },
+  postBtnDisabled: { backgroundColor: '#333333' },
   postText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   body: { flex: 1 },
   row: { flexDirection: 'row', padding: 16, gap: 12 },
@@ -282,27 +283,28 @@ const styles = StyleSheet.create({
   mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   mediaItem: { position: 'relative' },
   mediaThumb: { width: 100, height: 100, borderRadius: 8 },
-  videoThumb: { backgroundColor: '#1a202c', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  videoThumb: { backgroundColor: '#111111', alignItems: 'center', justifyContent: 'center', gap: 4 },
   videoLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
   removeMedia: { position: 'absolute', top: -6, right: -6 },
   uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  uploadingText: { color: '#718096', fontSize: 13 },
+  uploadingText: { color: '#8E8E93', fontSize: 13 },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: '#1A1A1A',
     padding: 12,
     paddingBottom: 28,
+    backgroundColor: '#000000',
   },
   toolbarBtn: { padding: 8 },
   visPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
-    borderWidth: 1, borderColor: '#1a365d', marginLeft: 4,
+    borderWidth: 1, borderColor: '#5CB85C', marginLeft: 4,
   },
-  visText: { fontSize: 12, color: '#1a365d', fontWeight: '600' },
+  visText: { fontSize: 12, color: '#5CB85C', fontWeight: '600' },
   flex: { flex: 1 },
-  charCount: { fontSize: 14, color: '#a0aec0', marginRight: 4 },
-  charCountWarn: { color: '#e53e3e' },
+  charCount: { fontSize: 14, color: '#636366', marginRight: 4 },
+  charCountWarn: { color: '#FF3B30' },
 });

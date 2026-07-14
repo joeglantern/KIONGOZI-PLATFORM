@@ -103,7 +103,7 @@ function FollowRequestButtons({
         disabled={!!loading}
       >
         {loading === 'decline'
-          ? <ActivityIndicator size="small" color="#1a365d" />
+          ? <ActivityIndicator size="small" color="#5CB85C" />
           : <Text style={styles.frDeclineText}>Decline</Text>}
       </TouchableOpacity>
     </View>
@@ -237,7 +237,7 @@ export default function NotificationsScreen() {
       </View>
 
       {isLoading && notifications.length === 0 ? (
-        <ActivityIndicator style={{ marginTop: 60 }} color="#1a365d" />
+        <ActivityIndicator style={{ marginTop: 60 }} color="#5CB85C" />
       ) : (
         <FlatList
           data={notifications}
@@ -253,7 +253,7 @@ export default function NotificationsScreen() {
             <RefreshControl
               refreshing={isLoading && notifications.length > 0}
               onRefresh={() => fetchNotifications(true)}
-              tintColor="#1a365d"
+              tintColor="#5CB85C"
             />
           }
           onEndReached={() => { if (hasMore) fetchNotifications(false); }}
@@ -271,7 +271,7 @@ export default function NotificationsScreen() {
           }
           ListFooterComponent={
             isLoading && notifications.length > 0
-              ? <ActivityIndicator style={{ marginVertical: 24 }} color="#1a365d" />
+              ? <ActivityIndicator style={{ marginVertical: 24 }} color="#5CB85C" />
               : <View style={{ height: 32 }} />
           }
         />
@@ -283,7 +283,7 @@ export default function NotificationsScreen() {
 const AVATAR_SIZE = 52;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
+  screen: { flex: 1, backgroundColor: '#000000' },
 
   header: {
     flexDirection: 'row',
@@ -292,38 +292,38 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 18,
     paddingBottom: 14,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#FFFFFF',
     letterSpacing: -0.4,
   },
   markAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#0D1F0D',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
   },
-  markAllText: { color: '#3b82f6', fontSize: 13, fontWeight: '600' },
+  markAllText: { color: '#5CB85C', fontSize: 13, fontWeight: '600' },
 
   item: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingVertical: 16,
     paddingHorizontal: 18,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: '#1A1A1A',
     gap: 13,
   },
-  itemUnread: { backgroundColor: '#fafbff' },
+  itemUnread: { backgroundColor: '#0A0A0A' },
 
   avatarWrap: {
     width: AVATAR_SIZE,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2.5,
-    borderColor: '#fff',
+    borderColor: '#000000',
   },
   systemBubble: {
     width: AVATAR_SIZE,
@@ -354,10 +354,10 @@ const styles = StyleSheet.create({
   textWrap: { flex: 1, paddingTop: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
   nameTime: { fontSize: 14, flexShrink: 1 },
-  name: { fontWeight: '700', color: '#0f172a', fontSize: 14 },
-  dot: { color: '#94a3b8', fontSize: 14 },
-  timeInline: { color: '#94a3b8', fontSize: 13 },
-  messageText: { fontSize: 14, color: '#475569', lineHeight: 20 },
+  name: { fontWeight: '700', color: '#FFFFFF', fontSize: 14 },
+  dot: { color: '#555555', fontSize: 14 },
+  timeInline: { color: '#636366', fontSize: 13 },
+  messageText: { fontSize: 14, color: '#8E8E93', lineHeight: 20 },
 
   unreadDot: {
     width: 9,
@@ -376,20 +376,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 72,
   },
-  frAccept: { backgroundColor: '#1a365d' },
+  frAccept: { backgroundColor: '#5CB85C' },
   frAcceptText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  frDecline: { borderWidth: 1, borderColor: '#e2e8f0' },
-  frDeclineText: { color: '#4a5568', fontWeight: '600', fontSize: 14 },
+  frDecline: { borderWidth: 1, borderColor: '#2A2A2A' },
+  frDeclineText: { color: '#8E8E93', fontWeight: '600', fontSize: 14 },
 
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 12 },
   emptyIcon: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#111111',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
-  emptySubtext: { fontSize: 14, color: '#94a3b8', textAlign: 'center', lineHeight: 21 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  emptySubtext: { fontSize: 14, color: '#636366', textAlign: 'center', lineHeight: 21 },
 });

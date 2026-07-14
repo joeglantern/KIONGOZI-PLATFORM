@@ -226,7 +226,7 @@ export default function ModernMessageInput({
             <Ionicons
               name="apps"
               size={20}
-              color={darkMode ? '#9ca3af' : '#6b7280'}
+              color="#8E8E93"
             />
           </TouchableOpacity>
         )}
@@ -293,7 +293,7 @@ export default function ModernMessageInput({
                 <Ionicons
                   name="send-outline"
                   size={18}
-                  color={canSend ? "#ffffff" : (darkMode ? '#6b7280' : '#9ca3af')}
+                  color={canSend ? "#ffffff" : '#555555'}
                   style={{ transform: [{ rotate: '-45deg' }] }}
                 />
               )}
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderRadius: 24,
     borderWidth: 1.5,
     borderColor: 'rgba(229, 231, 235, 0.8)',

@@ -54,7 +54,7 @@
       [
         "expo-notifications",
         {
-          "color": "#1a365d"
+          "color": "#5CB85C"
         }
       ],
       [
@@ -78,7 +78,8 @@
             "enableMinifyInReleaseBuilds": false
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "owner": "afosi",
     "extra": {

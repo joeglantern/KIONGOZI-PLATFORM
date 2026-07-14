@@ -152,7 +152,7 @@ export default function EditProfileScreen() {
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtn}>
           {saving ? (
-            <ActivityIndicator size="small" color="#1a365d" />
+            <ActivityIndicator size="small" color="#5CB85C" />
           ) : (
             <Text style={styles.saveText}>Save</Text>
           )}
@@ -268,7 +268,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#000000' },
 
   // Header bar
   headerBar: {
@@ -278,17 +278,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#000000',
   },
   headerBtn: { padding: 8, minWidth: 48, alignItems: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a202c' },
-  saveText: { fontSize: 16, fontWeight: '700', color: '#1a365d' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  saveText: { fontSize: 16, fontWeight: '700', color: '#5CB85C' },
 
   // Photo section
   photoSection: { marginBottom: AVATAR_SIZE / 2 + 8 },
   cover: {
     height: COVER_HEIGHT,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#111111',
     overflow: 'hidden',
   },
   coverTint: {
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.38)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 16,
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
   },
   avatarBorder: {
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: '#000000',
     borderRadius: (AVATAR_SIZE + 6) / 2,
   },
 
@@ -332,26 +333,26 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#718096',
+    color: '#8E8E93',
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#2A2A2A',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#1a202c',
-    backgroundColor: '#f7fafc',
+    color: '#FFFFFF',
+    backgroundColor: '#1A1A1A',
   },
-  inputError: { borderColor: '#ef4444' },
-  inputSuccess: { borderColor: '#22c55e' },
+  inputError: { borderColor: '#FF3B30' },
+  inputSuccess: { borderColor: '#5CB85C' },
   bioInput: { minHeight: 90, textAlignVertical: 'top' },
-  charCount: { textAlign: 'right', color: '#a0aec0', fontSize: 12, marginTop: 4 },
+  charCount: { textAlign: 'right', color: '#636366', fontSize: 12, marginTop: 4 },
   usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   usernameIcon: { width: 24, alignItems: 'center' },
-  fieldError: { fontSize: 12, color: '#ef4444', marginTop: 4 },
+  fieldError: { fontSize: 12, color: '#FF3B30', marginTop: 4 },
 });

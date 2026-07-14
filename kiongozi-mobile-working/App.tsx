@@ -5,7 +5,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from './src/stores/authStore';
 import { useSocialStore } from './src/stores/socialStore';
+import { useThemeStore } from './src/stores/themeStore';
 import { supabase } from './src/utils/supabaseClient';
+import * as WebBrowser from 'expo-web-browser';
+
+WebBrowser.maybeCompleteAuthSession();
 import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
 import { useSupabaseDeepLink } from './src/hooks/useSupabaseDeepLink';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -21,6 +25,7 @@ import {
 export default function App() {
   const { user, initialize, initialized } = useAuthStore();
   const { loadBlockedAndMuted } = useSocialStore();
+  const initializeTheme = useThemeStore(s => s.initialize);
   const [isReady, setIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -30,8 +35,9 @@ export default function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        const [, onboardingDone] = await Promise.all([
+        const [, , onboardingDone] = await Promise.all([
           initialize(),
+          initializeTheme(),
           AsyncStorage.getItem('onboarding_done'),
         ]);
         setShowOnboarding(!onboardingDone);
@@ -97,7 +103,7 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#1a365d" />
+          <ActivityIndicator size="large" color="#5CB85C" />
         </GestureHandlerRootView>
       </SafeAreaProvider>
     );
@@ -116,7 +122,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="auto" />
+        <StatusBar style="light" backgroundColor="#000000" />
         {user ? (
           <AppNavigator navRef={navRef} />
         ) : (

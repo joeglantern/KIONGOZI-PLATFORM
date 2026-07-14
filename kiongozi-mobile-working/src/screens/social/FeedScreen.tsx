@@ -120,12 +120,12 @@ export default function FeedScreen() {
   // Active tab label colour tracks scroll
   const forYouColor = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
-    outputRange: ['#1a202c', '#a0aec0'],
+    outputRange: ['#FFFFFF', '#555555'],
     extrapolate: 'clamp',
   });
   const followingColor = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
-    outputRange: ['#a0aec0', '#1a202c'],
+    outputRange: ['#555555', '#FFFFFF'],
     extrapolate: 'clamp',
   });
 
@@ -147,7 +147,7 @@ export default function FeedScreen() {
               onPress={() => navigation.navigate('NotificationsMain')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="notifications-outline" size={24} color="#1a202c" />
+              <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
               {unreadNotifications > 0 && (
                 <View style={styles.iconBadge}>
                   <Text style={styles.iconBadgeText}>
@@ -162,7 +162,7 @@ export default function FeedScreen() {
               onPress={() => navigation.navigate('DMList')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="chatbubble-ellipses-outline" size={24} color="#1a202c" />
+              <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFFFFF" />
               {unreadDMs > 0 && (
                 <View style={styles.iconBadge}>
                   <Text style={styles.iconBadgeText}>
@@ -207,11 +207,11 @@ export default function FeedScreen() {
             onEndReached={() => { if (hasMoreForYou) fetchForYouFeed(false); }}
             onEndReachedThreshold={0.5}
             refreshControl={
-              <RefreshControl refreshing={forYouRefreshing} onRefresh={() => { setForYouError(null); fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.')); }} tintColor="#1a365d" />
+              <RefreshControl refreshing={forYouRefreshing} onRefresh={() => { setForYouError(null); fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.')); }} tintColor="#5CB85C" />
             }
             ListEmptyComponent={
               forYouLoading ? (
-                <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+                <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
               ) : forYouError ? (
                 <View style={styles.empty}>
                   <Text style={styles.emptyText}>{forYouError}</Text>
@@ -228,7 +228,7 @@ export default function FeedScreen() {
             }
             ListFooterComponent={
               forYouLoading && forYouPosts.length > 0
-                ? <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" />
+                ? <ActivityIndicator style={{ marginVertical: 16 }} color="#5CB85C" />
                 : null
             }
           />
@@ -243,11 +243,11 @@ export default function FeedScreen() {
             onEndReached={() => { if (feedCursor) fetchFeed(false); }}
             onEndReachedThreshold={0.5}
             refreshControl={
-              <RefreshControl refreshing={feedRefreshing} onRefresh={() => { setFeedError(null); fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.')); }} tintColor="#1a365d" />
+              <RefreshControl refreshing={feedRefreshing} onRefresh={() => { setFeedError(null); fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.')); }} tintColor="#5CB85C" />
             }
             ListEmptyComponent={
               feedLoading ? (
-                <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+                <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
               ) : feedError ? (
                 <View style={styles.empty}>
                   <Text style={styles.emptyText}>{feedError}</Text>
@@ -264,7 +264,7 @@ export default function FeedScreen() {
             }
             ListFooterComponent={
               feedLoading && feedPosts.length > 0
-                ? <ActivityIndicator style={{ marginVertical: 16 }} color="#1a365d" />
+                ? <ActivityIndicator style={{ marginVertical: 16 }} color="#5CB85C" />
                 : null
             }
           />
@@ -284,14 +284,14 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     paddingTop: 52,
     paddingHorizontal: 16,
     paddingBottom: 0,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
   headerRow: {
     flexDirection: 'row',
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
   headerLogo: { width: 120, height: 42, flexShrink: 0 },
   headerIcons: {
     flexDirection: 'row',
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: '#000000',
   },
   iconBadgeText: {
     color: '#fff',
@@ -342,21 +342,21 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#a0aec0',
+    color: '#555555',
   },
   tabLabelActive: {
-    color: '#1a202c',
+    color: '#FFFFFF',
   },
   tabUnderline: {
     position: 'absolute',
     bottom: 0,
     height: 2,
-    backgroundColor: '#1a365d',
+    backgroundColor: '#FFFFFF',
     borderRadius: 2,
   },
   empty: { padding: 32, alignItems: 'center' },
-  emptyText: { fontSize: 17, fontWeight: '600', color: '#4a5568', marginBottom: 8, textAlign: 'center' },
-  emptySubtext: { fontSize: 14, color: '#a0aec0', textAlign: 'center' },
-  retryBtn: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#1a365d', borderRadius: 20 },
+  emptyText: { fontSize: 17, fontWeight: '600', color: '#8E8E93', marginBottom: 8, textAlign: 'center' },
+  emptySubtext: { fontSize: 14, color: '#555555', textAlign: 'center' },
+  retryBtn: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#5CB85C', borderRadius: 20 },
   retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

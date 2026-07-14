@@ -69,7 +69,7 @@ const SUGGESTIONS: ChatSuggestion[] = [
     action: 'Tell me about the Kiongozi Platform and how it can help me with my learning journey.',
     category: 'general',
     icon: '❓',
-    color: '#6b7280',
+    color: '#8E8E93',
   },
 ];
 
@@ -128,7 +128,7 @@ export default function WelcomeScreen({
             <Ionicons
               name="bulb-outline"
               size={18}
-              color={darkMode ? '#9ca3af' : '#6b7280'}
+              color="#8E8E93"
             />
             <Text style={[styles.suggestionsButtonText, darkMode && styles.suggestionsButtonTextDark]}>
               Show suggestions
@@ -136,7 +136,7 @@ export default function WelcomeScreen({
             <Ionicons
               name="chevron-forward"
               size={16}
-              color={darkMode ? '#9ca3af' : '#6b7280'}
+              color="#8E8E93"
             />
           </TouchableOpacity>
         </View>
@@ -163,7 +163,7 @@ export default function WelcomeScreen({
                 <Ionicons
                   name="close"
                   size={24}
-                  color={darkMode ? '#9ca3af' : '#6b7280'}
+                  color="#8E8E93"
                 />
               </TouchableOpacity>
             </View>
@@ -200,7 +200,7 @@ export default function WelcomeScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     lineHeight: 22,
-    color: '#6b7280',
+    color: '#8E8E93',
     textAlign: 'center',
     maxWidth: width - 80,
   },
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   suggestionsButtonText: {
     fontSize: 15,
-    color: '#6b7280',
+    color: '#8E8E93',
     fontWeight: '500',
   },
   suggestionsButtonTextDark: {
@@ -263,13 +263,13 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   modalContainerDark: {
     backgroundColor: '#111827',
   },
   modalHeader: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
     paddingTop: 16,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   suggestionCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderRadius: 12,
     padding: 16,
     width: (width - 52) / 2, // 2 cards per row with gaps
@@ -333,11 +333,11 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     fontSize: 13,
-    color: '#374151',
+    color: '#FFFFFF',
     textAlign: 'center',
     fontWeight: '500',
   },
   suggestionTextDark: {
-    color: '#d1d5db',
+    color: '#636366',
   },
 });

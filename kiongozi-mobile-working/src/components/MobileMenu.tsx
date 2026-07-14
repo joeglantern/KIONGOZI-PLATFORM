@@ -465,13 +465,13 @@ export default function MobileMenu({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   containerDark: {
     backgroundColor: '#111827',
   },
   header: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   quickSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
     paddingHorizontal: 20,
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   recentChatCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,

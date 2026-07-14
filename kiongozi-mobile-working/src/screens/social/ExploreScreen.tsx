@@ -83,7 +83,7 @@ export default function ExploreScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Explore</Text>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#718096" />
+          <Ionicons name="search" size={18} color="#8E8E93" />
           <TextInput
             style={styles.searchInput}
             placeholder="Search posts, people, hashtags..."
@@ -101,10 +101,10 @@ export default function ExploreScreen() {
       </View>
 
       {searchLoading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color="#1a365d" />
+        <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
       ) : isSearching && searchError ? (
         <View style={styles.errorState}>
-          <Ionicons name="alert-circle-outline" size={44} color="#e2e8f0" />
+          <Ionicons name="alert-circle-outline" size={44} color="#2A2A2A" />
           <Text style={styles.errorText}>{searchError}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => doSearch(query)}>
             <Text style={styles.retryText}>Retry</Text>
@@ -153,7 +153,7 @@ export default function ExploreScreen() {
             <RefreshControl
               refreshing={exploreLoading && explorePosts.length === 0}
               onRefresh={() => { fetchExploreFeed(true); loadTrending(); }}
-              tintColor="#1a365d"
+              tintColor="#5CB85C"
             />
           }
           ListHeaderComponent={
@@ -182,7 +182,7 @@ export default function ExploreScreen() {
             />
           )}
           ListFooterComponent={
-            exploreLoading ? <ActivityIndicator style={{ margin: 16 }} color="#1a365d" /> : null
+            exploreLoading ? <ActivityIndicator style={{ margin: 16 }} color="#5CB85C" /> : null
           }
         />
       )}
@@ -191,58 +191,58 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7fafc' },
+  container: { flex: 1, backgroundColor: '#000000' },
   header: {
     paddingTop: 52,
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
     gap: 12,
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a202c' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f7fafc',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#2A2A2A',
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#1a202c' },
+  searchInput: { flex: 1, fontSize: 15, color: '#FFFFFF' },
   trendingSection: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     marginBottom: 8,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a202c', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 12 },
   hashtagRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#1A1A1A',
   },
-  hashtagText: { fontSize: 15, fontWeight: '600', color: '#1a202c' },
-  hashtagCount: { fontSize: 13, color: '#718096' },
+  hashtagText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  hashtagCount: { fontSize: 13, color: '#8E8E93' },
   userRow: {
     flexDirection: 'row',
     padding: 14,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
-    backgroundColor: '#fff',
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#000000',
   },
   userInfo: { flex: 1 },
-  userName: { fontWeight: '700', fontSize: 15, color: '#1a202c' },
-  userHandle: { color: '#718096', fontSize: 14 },
-  userBio: { color: '#4a5568', fontSize: 13, marginTop: 2 },
+  userName: { fontWeight: '700', fontSize: 15, color: '#FFFFFF' },
+  userHandle: { color: '#8E8E93', fontSize: 14 },
+  userBio: { color: '#8E8E93', fontSize: 13, marginTop: 2 },
   errorState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  errorText: { fontSize: 15, color: '#718096', textAlign: 'center' },
-  retryBtn: { paddingHorizontal: 28, paddingVertical: 10, backgroundColor: '#1a365d', borderRadius: 20 },
+  errorText: { fontSize: 15, color: '#8E8E93', textAlign: 'center' },
+  retryBtn: { paddingHorizontal: 28, paddingVertical: 10, backgroundColor: '#5CB85C', borderRadius: 20 },
   retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
