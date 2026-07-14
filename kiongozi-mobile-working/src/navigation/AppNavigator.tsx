@@ -228,7 +228,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
         statusBarTranslucent={true}
         onRequestClose={() => setChatVisible(false)}
       >
-        <ChatScreen />
+        <ChatScreen onClose={() => setChatVisible(false)} />
       </Modal>
     </View>
   );

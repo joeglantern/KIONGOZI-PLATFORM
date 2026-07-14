@@ -4,6 +4,12 @@ import { Platform } from 'react-native';
 import apiClient from './apiClient';
 
 export async function registerForPushNotifications(): Promise<string | null> {
+  // Remote push notifications were removed from Expo Go on Android in SDK 53.
+  // Skip silently in that environment — works normally in development builds and production.
+  if (Platform.OS === 'android' && Constants.appOwnership === 'expo') {
+    return null;
+  }
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -47,12 +53,19 @@ export async function unregisterPushNotifications(token: string): Promise<void> 
 }
 
 export function setupNotificationHandlers(navigation: any): () => void {
+  if (Platform.OS === 'android' && Constants.appOwnership === 'expo') {
+    return () => {};
+  }
+
   // Foreground: show banner
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
+      // SDK 53 requires these fields on iOS 16+
+      shouldShowBanner: true,
+      shouldShowList: true,
     }),
   });
 

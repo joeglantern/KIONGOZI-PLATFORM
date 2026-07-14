@@ -53,7 +53,11 @@ function timeLabel(dateStr: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function ChatScreen() {
+interface ChatScreenProps {
+  onClose?: () => void;
+}
+
+export default function ChatScreen({ onClose }: ChatScreenProps) {
   const { user } = useAuthStore();
   const isDark = useThemeStore(s => s.isDark);
   const insets = useSafeAreaInsets();
@@ -442,13 +446,24 @@ export default function ChatScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={startNewChat}
-            style={styles.headerBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="create-outline" size={23} color={C.text} />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={startNewChat}
+              style={styles.headerBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="create-outline" size={23} color={C.text} />
+            </TouchableOpacity>
+            {onClose && (
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.headerBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="chevron-down" size={26} color={C.text} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Messages + Input */}
@@ -631,6 +646,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
   headerCenter: {
     flex: 1,
     flexDirection: 'row',
