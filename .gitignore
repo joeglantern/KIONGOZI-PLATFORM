@@ -39,6 +39,7 @@ next-env.d.ts
 
 # test logs and temporary files
 .playwright-cli/
+*.log
 *.err.log
 *.out.log
 lottiefiles-creator-mcp.err.log
@@ -46,4 +47,13 @@ lottiefiles-creator-mcp.out.log
 DATABASE_AUDIT_REPORT.md
 PLATFORM_DB_AUDIT_COMBINED.md
 output/
+
+# lighthouse reports
+.lighthouse-*.json
+
+# generated service worker (serwist swDest)
+/public/sw.js
+
+# supabase cli local state
+/supabase/.temp/
 

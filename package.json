@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/seed-courses-fixed.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@lottiefiles/dotlottie-react": "^0.19.5",
