@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { User, createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { createClient as createServerClient } from '@/app/utils/supabase/server';
+import { User } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
+import { getRequestUser } from '@/lib/auth/request-user';
 
 type PackageRelation = {
     author_id: string | null;
@@ -17,35 +18,13 @@ type ScormPackageRecord = {
     courses?: PackageRelation | PackageRelation[] | null;
 };
 
-export function createServiceRoleClient() {
-    return createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
-
 function getSingleRelation<T>(relation: T | T[] | null | undefined): T | null {
     if (!relation) return null;
     return Array.isArray(relation) ? relation[0] ?? null : relation;
 }
 
-async function getRequestUser(request: NextRequest, serviceClient: ReturnType<typeof createServiceRoleClient>) {
-    const authHeader = request.headers.get('Authorization');
-
-    if (authHeader?.startsWith('Bearer ')) {
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user }, error } = await serviceClient.auth.getUser(token);
-        if (error) return null;
-        return user;
-    }
-
-    const serverClient = await createServerClient();
-    const { data: { user } } = await serverClient.auth.getUser();
-    return user;
-}
-
 export async function authorizeScormPackageAccess(request: NextRequest, packageId: string) {
-    const serviceClient = createServiceRoleClient();
+    const serviceClient = createServiceClient();
     const user = await getRequestUser(request, serviceClient);
 
     if (!user) {

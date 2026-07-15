@@ -1,31 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { createClient as createServerClient } from '@/app/utils/supabase/server';
-
-export function createQuizServiceClient() {
-    return createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
-
-async function getRequestUser(request: NextRequest, serviceClient: ReturnType<typeof createQuizServiceClient>) {
-    const authHeader = request.headers.get('Authorization');
-
-    if (authHeader?.startsWith('Bearer ')) {
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user }, error } = await serviceClient.auth.getUser(token);
-        if (error) return null;
-        return user;
-    }
-
-    const serverClient = await createServerClient();
-    const { data: { user } } = await serverClient.auth.getUser();
-    return user;
-}
+import { createServiceClient } from '@/lib/supabase/service';
+import { getRequestUser } from '@/lib/auth/request-user';
 
 export async function authorizeInstructorCourseAccess(request: NextRequest, courseId: string) {
-    const serviceClient = createQuizServiceClient();
+    const serviceClient = createServiceClient();
     const user = await getRequestUser(request, serviceClient);
 
     if (!user) {
@@ -49,7 +27,7 @@ export async function authorizeInstructorCourseAccess(request: NextRequest, cour
 }
 
 export async function authorizeQuizAccess(request: NextRequest, courseId: string, quizId: string) {
-    const serviceClient = createQuizServiceClient();
+    const serviceClient = createServiceClient();
     const user = await getRequestUser(request, serviceClient);
 
     if (!user) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import JSZip from 'jszip';
-import { createClient } from '@supabase/supabase-js';
 import { parseManifest } from '@/lib/scorm/manifest-parser';
+import { createServiceClient } from '@/lib/supabase/service';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -20,10 +20,6 @@ function isUnsafeEntryPath(relativePath: string): boolean {
   if (norm.startsWith('/')) return true;        // absolute
   if (/^[a-zA-Z]:/.test(norm)) return true;     // windows drive
   return norm.split('/').some((seg) => seg === '..');
-}
-
-function getServiceClient() {
-  return createClient(SUPABASE_URL, SERVICE_KEY);
 }
 
 // Upload a single file directly via Supabase Storage REST API.
@@ -61,7 +57,7 @@ export async function POST(request: NextRequest) {
     if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const token = authHeader.replace('Bearer ', '');
-    const supabase = getServiceClient();
+    const supabase = createServiceClient();
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
