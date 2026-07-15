@@ -409,8 +409,8 @@ export default function CourseDetailPage() {
 
                     {/* Course Header */}
                     <div className="bg-white rounded-xl shadow-lg p-8 mb-6 border border-gray-100">
-                        <div className="flex items-start justify-between gap-6 mb-6">
-                            <div className="flex-1">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 mb-6">
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-3">
                                     {course.module_categories && (
                                         <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
@@ -453,7 +453,7 @@ export default function CourseDetailPage() {
                             </div>
 
                             {/* Enrollment Card */}
-                            <div className="bg-gray-50 rounded-lg p-6 border-2 border-orange-200 min-w-[280px]">
+                            <div className="w-full lg:w-auto bg-gray-50 rounded-lg p-6 border-2 border-orange-200 lg:min-w-[280px]">
                                 {isPreviewMode ? (
                                     <>
                                         <div className="flex items-center gap-2 mb-3">
