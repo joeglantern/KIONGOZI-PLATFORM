@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from 'react';
 import {
     LineChart,
     Line,
@@ -20,22 +19,25 @@ interface XPLineChartProps {
 }
 
 export function XPLineChart({ data, loading }: XPLineChartProps) {
-    // Generate mock data if none provided
-    const chartData = useMemo(() => {
-        if (data && data.length > 0) return data;
-
-        // Mock data for the last 7 days
-        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        return days.map((day, i) => ({
-            date: day,
-            xp: Math.floor(Math.random() * 500) + 100 * (i + 1),
-        }));
-    }, [data]);
+    const chartData = data ?? [];
+    const isEmpty = !loading && chartData.length === 0;
 
     if (loading) {
         return (
             <div className="h-[300px] w-full bg-white rounded-3xl animate-pulse flex items-center justify-center border border-gray-100">
                 <div className="text-gray-300 font-bold uppercase tracking-widest text-xs">Loading Activity...</div>
+            </div>
+        );
+    }
+
+    if (isEmpty) {
+        return (
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm h-[350px] flex flex-col">
+                <h3 className="text-lg font-bold text-gray-900 tracking-tight mb-6">Learning Activity</h3>
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
+                    <p className="text-sm font-semibold text-gray-500">No activity yet</p>
+                    <p className="text-xs text-gray-400 max-w-[220px]">Earn XP by completing lessons to see your activity here.</p>
+                </div>
             </div>
         );
     }

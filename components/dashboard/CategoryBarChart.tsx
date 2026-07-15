@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from 'react';
 import {
     BarChart,
     Bar,
@@ -20,21 +19,25 @@ interface CategoryBarChartProps {
 const COLORS = ['#3b82f6', '#6366f1', '#f97316', '#10b981', '#f59e0b'];
 
 export function CategoryBarChart({ data, loading }: CategoryBarChartProps) {
-    // Generate mock data if none provided
-    const chartData = useMemo(() => {
-        if (data && data.length > 0) return data;
-
-        const categories = ['Leadership', 'Strategy', 'Communication', 'Ops', 'Tech'];
-        return categories.map((cat, i) => ({
-            category: cat,
-            progress: Math.floor(Math.random() * 60) + 20,
-        }));
-    }, [data]);
+    const chartData = data ?? [];
+    const isEmpty = !loading && chartData.length === 0;
 
     if (loading) {
         return (
             <div className="h-[300px] w-full bg-white rounded-3xl animate-pulse flex items-center justify-center border border-gray-100">
                 <div className="text-gray-300 font-bold uppercase tracking-widest text-xs">Loading Progress...</div>
+            </div>
+        );
+    }
+
+    if (isEmpty) {
+        return (
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-none h-[350px] flex flex-col">
+                <h3 className="text-lg font-bold text-gray-900 tracking-tight mb-6">Category Breakdown</h3>
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
+                    <p className="text-sm font-semibold text-gray-500">No category data yet</p>
+                    <p className="text-xs text-gray-400 max-w-[220px]">Enroll in a course to see your progress by category here.</p>
+                </div>
             </div>
         );
     }

@@ -381,10 +381,10 @@ export default function DashboardPage() {
                                     <div className="mb-8">
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[250px] lg:h-[400px]">
                                             <div className="h-full">
-                                                <XPLineChart data={chartDataState.xpHistory} />
+                                                <XPLineChart data={chartDataState.xpHistory} loading={loading} />
                                             </div>
                                             <div className="h-full">
-                                                <CategoryBarChart data={chartDataState.categoryProgress} />
+                                                <CategoryBarChart data={chartDataState.categoryProgress} loading={loading} />
                                             </div>
                                         </div>
                                     </div>
