@@ -642,6 +642,14 @@ class ApiClient {
     return this.request('/api/v1/health/app-config', { method: 'GET' });
   }
 
+  async verifyUser(userId: string) {
+    return this.request(`/api/v1/admin/users/${userId}/verify`, { method: 'PATCH' });
+  }
+
+  async unverifyUser(userId: string) {
+    return this.request(`/api/v1/admin/users/${userId}/verify`, { method: 'DELETE' });
+  }
+
   /** Search posts and users */
   async searchSocial(query: string) {
     return this.request(`/api/v1/social/search?q=${encodeURIComponent(query)}`, { method: 'GET' });

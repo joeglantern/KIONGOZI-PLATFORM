@@ -804,4 +804,60 @@ router.get('/logs', async (req, res) => {
   }
 });
 
+// Grant verified badge
+router.patch('/users/:userId/verify', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminId = (req as any).user.id;
+
+    const { error } = await supabaseServiceClient
+      .from('profiles')
+      .update({ is_verified: true })
+      .eq('id', userId);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: 'Failed to verify user', details: error.message });
+    }
+
+    await supabaseServiceClient.rpc('log_admin_action', {
+      admin_id: adminId,
+      target_user_id: userId,
+      action_type: 'user_verified',
+      action_details: { verified: true },
+    });
+
+    res.json({ success: true, message: 'User verified successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
+// Revoke verified badge
+router.delete('/users/:userId/verify', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminId = (req as any).user.id;
+
+    const { error } = await supabaseServiceClient
+      .from('profiles')
+      .update({ is_verified: false })
+      .eq('id', userId);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: 'Failed to unverify user', details: error.message });
+    }
+
+    await supabaseServiceClient.rpc('log_admin_action', {
+      admin_id: adminId,
+      target_user_id: userId,
+      action_type: 'user_unverified',
+      action_details: { verified: false },
+    });
+
+    res.json({ success: true, message: 'Verification removed successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
 export default router;
