@@ -111,7 +111,20 @@ function NotificationTabIcon({ focused, color }: { focused: boolean; color: stri
 function AIChatTabIcon() {
   const T = useTheme();
   return (
-    <View style={[styles.aiTabIcon, { borderColor: T.accent, backgroundColor: T.bg }]}>
+    <View
+      style={[
+        styles.aiTabIcon,
+        {
+          borderColor: T.accent,
+          backgroundColor: T.bg,
+          shadowColor: T.acc25,
+          shadowOffset: { width: 0, height: 0 },
+          shadowRadius: 16,
+          shadowOpacity: 1,
+          elevation: 8,
+        },
+      ]}
+    >
       <Image
         source={require('../../assets/kchat-logo.png')}
         style={styles.aiTabLogo}
@@ -141,7 +154,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const { user, sessionExpired } = useAuthStore();
   const insets = useSafeAreaInsets();
   const T = useTheme();
-  const TAB_BAR_HEIGHT = 56 + insets.bottom;
+  const TAB_BAR_HEIGHT = 84 + insets.bottom;
 
   useEffect(() => {
     if (sessionExpired) {
@@ -176,7 +189,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             tabBarStyle: {
               height: TAB_BAR_HEIGHT,
               paddingBottom: insets.bottom,
-              paddingTop: 6,
+              paddingTop: 8,
               backgroundColor: T.tabBar,
               borderTopWidth: StyleSheet.hairlineWidth,
               borderTopColor: T.tabBarBorder,
@@ -186,7 +199,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
               shadowOffset: { width: 0, height: -2 },
               shadowRadius: 8,
             },
-            tabBarActiveTintColor: T.accent,
+            tabBarActiveTintColor: T.tabIconActive,
             tabBarInactiveTintColor: T.tabIconInactive,
             tabBarIcon: ({ focused, color }) => {
               if (route.name === 'Feed') {
@@ -213,9 +226,9 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             name="AIChat"
             component={EmptyScreen}
             options={{
-              tabBarButton: (props) => (
+              tabBarButton: () => (
                 <TouchableOpacity
-                  style={[styles.aiTabButton, (props as any).style]}
+                  style={styles.aiTabButton}
                   onPress={() => setChatVisible(true)}
                   accessibilityRole="button"
                   accessibilityLabel="Open Kiongozi AI"
@@ -253,17 +266,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   aiTabIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    marginTop: -8,
   },
   aiTabLogo: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
   },
   tabBadge: {
     position: 'absolute',

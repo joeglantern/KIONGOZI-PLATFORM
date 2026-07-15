@@ -164,7 +164,7 @@ export default function DMListScreen() {
         onLongPress={() => handleLongPress(item.id, isArchived)}
         delayLongPress={400}
       >
-        <UserAvatar avatarUrl={other?.avatar_url} size={50} isBot={other?.is_bot} isVerified={other?.is_verified} />
+        <UserAvatar avatarUrl={other?.avatar_url} size={52} isBot={other?.is_bot} isVerified={other?.is_verified} />
         <View style={styles.convInfo}>
           <View style={styles.convHeader}>
             <Text style={styles.convName}>{other?.full_name}</Text>
@@ -368,7 +368,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
-    headerTitle: { fontSize: 18, fontWeight: '800', color: T.text },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
     archivedRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.surface },
     archivedIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: T.surface2, justifyContent: 'center', alignItems: 'center' },
     archivedLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: T.textSub },
@@ -377,7 +377,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     convRow: { flexDirection: 'row', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
     convInfo: { flex: 1 },
     convHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-    convName: { fontWeight: '700', fontSize: 15, color: T.text },
+    convName: { fontWeight: '700', fontSize: 15, color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
     convTime: { color: T.textMuted, fontSize: 13 },
     convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     previewRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },

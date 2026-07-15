@@ -3,6 +3,12 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  useFonts,
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
 import { useAuthStore } from './src/stores/authStore';
 import { useSocialStore } from './src/stores/socialStore';
 import { useThemeStore } from './src/stores/themeStore';
@@ -27,6 +33,11 @@ export default function App() {
   const { loadBlockedAndMuted } = useSocialStore();
   const initializeTheme = useThemeStore(s => s.initialize);
   const [isReady, setIsReady] = useState(false);
+  const [fontsLoaded] = useFonts({
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+  });
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -99,7 +110,7 @@ export default function App() {
     );
   }
 
-  if (!isReady || !initialized) {
+  if (!isReady || !initialized || !fontsLoaded) {
     return (
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

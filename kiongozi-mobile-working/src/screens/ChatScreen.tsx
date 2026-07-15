@@ -25,10 +25,43 @@ import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
 import apiClient from '../utils/apiClient';
 import LoadingDots from '../components/LoadingDots';
+import { TypingDots } from '../components/social/TypingDots';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(300, SCREEN_WIDTH * 0.78);
 const EDGE_HIT = 30; // px from left edge that starts the open gesture
+
+function GlowingLogo() {
+  const isDark = useThemeStore(s => s.isDark);
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 1300, useNativeDriver: false }),
+        Animated.timing(glowAnim, { toValue: 0, duration: 1300, useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const shadowRadius = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 8] });
+
+  return (
+    <Animated.View style={[
+      glowStyles.circle,
+      { backgroundColor: isDark ? '#0D1F0D' : '#EAF6EA', shadowRadius, shadowColor: '#5CB85C', shadowOpacity: 1, shadowOffset: { width: 0, height: 0 } },
+    ]}>
+      <Image source={require('../../assets/kchat-logo.png')} style={glowStyles.logo} resizeMode="contain" />
+    </Animated.View>
+  );
+}
+
+const glowStyles = StyleSheet.create({
+  circle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A3A2A' },
+  logo: { width: 26, height: 26 },
+});
 
 interface Message {
   id: number;
@@ -334,7 +367,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
         <Image source={require('../../assets/kchat-logo.png')} style={styles.aiAvatar} resizeMode="contain" />
         <View style={styles.aiContent}>
           {item.isLoading ? (
-            <View style={{ paddingVertical: 6 }}><LoadingDots /></View>
+            <View style={{ paddingVertical: 2 }}><TypingDots /></View>
           ) : (
             <TouchableOpacity activeOpacity={1} onLongPress={() => copyMessage(item.text)}>
               <Text style={[styles.aiText, { color: C.text }]}>{item.text}</Text>
@@ -440,10 +473,13 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Image source={require('../../assets/kchat-logo.png')} style={styles.headerLogo} resizeMode="contain" />
-            <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>
-              {currentConversation?.title || 'Kiongozi AI'}
-            </Text>
+            <GlowingLogo />
+            <View style={styles.headerTitleBlock}>
+              <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>
+                Kiongozi AI
+              </Text>
+              <Text style={styles.headerSub}>Green &amp; Digital Transition</Text>
+            </View>
           </View>
 
           <View style={styles.headerRight}>
@@ -655,7 +691,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerLogo: { width: 26, height: 18 },
-  headerTitle: { fontSize: 16, fontWeight: '600', flexShrink: 1 },
+  headerTitleBlock: { flexDirection: 'column', alignItems: 'center', flexShrink: 1 },
+  headerTitle: { fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold', flexShrink: 1 },
+  headerSub: { fontSize: 11.5, fontWeight: '600', color: '#5CB85C', marginTop: 1 },
 
   // Messages
   messageList: { paddingTop: 16, paddingHorizontal: 16, paddingBottom: 8 },
@@ -696,11 +734,11 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    borderRadius: 16,
+    borderRadius: 26,
     borderWidth: 1,
-    paddingLeft: 14,
+    paddingLeft: 16,
     paddingRight: 6,
-    paddingVertical: 6,
+    paddingVertical: 5,
     gap: 6,
   },
   input: {
@@ -711,9 +749,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   sendBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 1,

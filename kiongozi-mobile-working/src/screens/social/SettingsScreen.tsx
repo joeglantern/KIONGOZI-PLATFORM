@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  Switch,
   StyleSheet,
   ScrollView,
   Alert,
@@ -13,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -203,18 +203,15 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={[styles.row, styles.rowLast]}>
             <View style={styles.rowLeft}>
-              <Ionicons name="moon-outline" size={22} color="#8E8E93" />
+              <View style={styles.iconSquare}>
+                <Ionicons name={isDark ? 'moon' : 'sunny'} size={18} color={T.textSub} />
+              </View>
               <View>
                 <Text style={styles.rowLabel}>Dark Mode</Text>
                 <Text style={styles.rowSub}>Switch between dark and light theme</Text>
               </View>
             </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: '#2A2A2A', true: '#5CB85C' }}
-              thumbColor="#fff"
-            />
+            <AnimatedToggle value={isDark} onValueChange={toggleTheme} />
           </View>
         </View>
 
@@ -244,7 +241,9 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Ionicons name="lock-closed-outline" size={22} color="#8E8E93" />
+              <View style={styles.iconSquare}>
+                <Ionicons name="lock-closed-outline" size={18} color={T.textSub} />
+              </View>
               <View>
                 <Text style={styles.rowLabel}>Private Account</Text>
                 <Text style={styles.rowSub}>New followers must be approved</Text>
@@ -253,12 +252,7 @@ export default function SettingsScreen() {
             {privacyLoading ? (
               <ActivityIndicator size="small" color="#5CB85C" />
             ) : (
-              <Switch
-                value={privateAccount}
-                onValueChange={handlePrivateToggle}
-                trackColor={{ false: '#2A2A2A', true: '#5CB85C' }}
-                thumbColor="#fff"
-              />
+              <AnimatedToggle value={privateAccount} onValueChange={handlePrivateToggle} />
             )}
           </View>
           <SettingsRow
@@ -279,18 +273,15 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={[styles.row, styles.rowLast]}>
             <View style={styles.rowLeft}>
-              <Ionicons name="notifications-outline" size={22} color="#8E8E93" />
+              <View style={styles.iconSquare}>
+                <Ionicons name="notifications-outline" size={18} color={T.textSub} />
+              </View>
               <Text style={styles.rowLabel}>Push Notifications</Text>
             </View>
             {pushLoading ? (
               <ActivityIndicator size="small" color="#5CB85C" />
             ) : (
-              <Switch
-                value={pushEnabled}
-                onValueChange={handlePushToggle}
-                trackColor={{ false: '#2A2A2A', true: '#5CB85C' }}
-                thumbColor="#fff"
-              />
+              <AnimatedToggle value={pushEnabled} onValueChange={handlePushToggle} />
             )}
           </View>
         </View>
@@ -310,7 +301,9 @@ export default function SettingsScreen() {
           />
           <View style={[styles.row, styles.rowLast]}>
             <View style={styles.rowLeft}>
-              <Ionicons name="information-circle-outline" size={22} color="#8E8E93" />
+              <View style={styles.iconSquare}>
+                <Ionicons name="information-circle-outline" size={18} color={T.textSub} />
+              </View>
               <Text style={styles.rowLabel}>Version</Text>
             </View>
             <Text style={styles.rowValue}>{appVersion}</Text>
@@ -318,8 +311,8 @@ export default function SettingsScreen() {
         </View>
 
         {/* DANGER ZONE */}
-        <SectionHeader label="Danger Zone" />
-        <View style={styles.section}>
+        <SectionHeader label="Danger Zone" danger />
+        <View style={[styles.section, styles.dangerSection]}>
           <SettingsRow
             icon="log-out-outline"
             label="Sign Out"
@@ -422,12 +415,34 @@ export default function SettingsScreen() {
   );
 }
 
-function SectionHeader({ label }: { label: string }) {
+function SectionHeader({ label, danger = false }: { label: string; danger?: boolean }) {
   const T = useTheme();
   return (
-    <Text style={{ fontSize: 11, fontWeight: '700', color: T.textMuted, letterSpacing: 0.8, marginTop: 24, marginBottom: 4, paddingHorizontal: 20 }}>
+    <Text style={{ fontSize: 11, fontWeight: '800', color: danger ? '#FF3B30' : T.textMuted, letterSpacing: 0.9, marginTop: 24, marginBottom: 4, paddingHorizontal: 20 }}>
       {label.toUpperCase()}
     </Text>
+  );
+}
+
+function AnimatedToggle({ value, onValueChange }: { value: boolean; onValueChange: (v: boolean) => void }) {
+  const T = useTheme();
+  const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, { toValue: value ? 1 : 0, duration: 200, useNativeDriver: false }).start();
+  }, [value]);
+
+  const trackColor = anim.interpolate({ inputRange: [0, 1], outputRange: [T.surface2, T.accent] });
+  const thumbX = anim.interpolate({ inputRange: [0, 1], outputRange: [3, 24] });
+
+  return (
+    <TouchableOpacity activeOpacity={0.85} onPress={() => onValueChange(!value)}>
+      <Animated.View style={[styles.toggleTrack, { backgroundColor: trackColor }]}>
+        <Animated.View style={[styles.toggleThumb, { transform: [{ translateX: thumbX }] }]}>
+          <Ionicons name={value ? 'sunny' : 'moon'} size={13} color={value ? T.accent : '#8E8E93'} />
+        </Animated.View>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -447,15 +462,22 @@ function SettingsRow({
   const T = useTheme();
   const s = React.useMemo(() => makeStyles(T), [T]);
   return (
-    <TouchableOpacity style={[s.row, isLast && s.rowLast]} onPress={onPress}>
+    <TouchableOpacity style={[s.row, isLast && s.rowLast, danger && s.dangerRow]} onPress={onPress}>
       <View style={s.rowLeft}>
-        <Ionicons name={icon} size={22} color={danger ? '#FF3B30' : T.textSub} />
+        <View style={[s.iconSquare, danger && s.dangerIconSquare]}>
+          <Ionicons name={icon} size={18} color={danger ? '#FF3B30' : T.textSub} />
+        </View>
         <Text style={[s.rowLabel, danger && s.dangerLabel]}>{label}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
+      <Ionicons name="chevron-forward" size={18} color={danger ? 'rgba(255,59,48,0.4)' : T.textMuted} />
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  toggleTrack: { width: 52, height: 31, borderRadius: 16, justifyContent: 'center' },
+  toggleThumb: { width: 25, height: 25, borderRadius: 13, backgroundColor: '#FFFFFF', position: 'absolute', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 },
+});
 
 function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
   return StyleSheet.create({
@@ -469,15 +491,18 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     backBtn: { padding: 8 },
     headerTitle: { fontSize: 17, fontWeight: '700', color: T.text },
     content: { paddingBottom: 48 },
-    sectionHeader: { fontSize: 11, fontWeight: '700', color: T.textMuted, letterSpacing: 0.8, marginTop: 24, marginBottom: 4, paddingHorizontal: 20 },
-    section: { backgroundColor: T.surface, borderRadius: 12, marginHorizontal: 16, overflow: 'hidden' },
-    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
+    section: { backgroundColor: T.surface, borderRadius: 16, marginHorizontal: 16, overflow: 'hidden' },
+    dangerSection: { backgroundColor: T.dangerBg, borderWidth: 1, borderColor: 'rgba(255,59,48,0.2)' },
+    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
     rowLast: { borderBottomWidth: 0 },
+    dangerRow: { borderBottomColor: 'rgba(255,59,48,0.14)' },
     rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    iconSquare: { width: 30, height: 30, borderRadius: 9, backgroundColor: T.surface2, justifyContent: 'center', alignItems: 'center' },
+    dangerIconSquare: { backgroundColor: 'rgba(255,59,48,0.15)' },
     rowLabel: { fontSize: 16, color: T.text },
     rowSub: { fontSize: 12, color: T.textMuted, marginTop: 1 },
     rowValue: { fontSize: 15, color: T.textMuted },
-    dangerLabel: { color: '#FF3B30' },
+    dangerLabel: { color: '#FF3B30', fontWeight: '600' },
     modalContainer: { flex: 1, backgroundColor: T.bg },
     modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight },
     modalCancel: { fontSize: 16, color: T.textSub },

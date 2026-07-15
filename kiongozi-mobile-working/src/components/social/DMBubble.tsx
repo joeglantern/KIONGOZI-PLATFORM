@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
@@ -42,56 +43,82 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
         </View>
       )}
 
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onLongPress={onLongPress}
-        delayLongPress={350}
-        style={[
-          styles.bubble,
-          isOwn ? styles.ownBubble : styles.otherBubble,
-          isOwn
-            ? (isLast ? styles.ownTail : styles.ownGrouped)
-            : (isLast ? styles.otherTail : styles.otherGrouped),
-          !isFirst && styles.grouped,
-          message._pending && styles.pending,
-        ]}
-      >
-        {replyPreview && (
-          <View style={[styles.replyBar, isOwn ? styles.replyBarOwn : styles.replyBarOther]}>
-            <Text style={styles.replyName} numberOfLines={1}>{replyPreview.senderName}</Text>
-            <Text style={styles.replyContent} numberOfLines={2}>{replyPreview.content}</Text>
-          </View>
-        )}
-
-        {message.media_url && message.media_type === 'image' && (
-          <TouchableOpacity onPress={onMediaPress} activeOpacity={0.9}>
-            <Image source={{ uri: message.media_url }} style={styles.image} resizeMode="cover" />
+      {isOwn ? (
+        <LinearGradient
+          colors={[T.accent, T.accentDeep]}
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.bubble,
+            isLast ? styles.ownTail : styles.ownGrouped,
+            !isFirst && styles.grouped,
+            message._pending && styles.pending,
+            { shadowColor: T.acc25, shadowOffset: { width: 0, height: 4 }, shadowRadius: 14, shadowOpacity: 1, elevation: 3 },
+          ]}
+        >
+          <TouchableOpacity activeOpacity={0.85} onLongPress={onLongPress} delayLongPress={350}>
+            {replyPreview && (
+              <View style={[styles.replyBar, styles.replyBarOwn]}>
+                <Text style={styles.replyName} numberOfLines={1}>{replyPreview.senderName}</Text>
+                <Text style={styles.replyContent} numberOfLines={2}>{replyPreview.content}</Text>
+              </View>
+            )}
+            {message.media_url && message.media_type === 'image' && (
+              <TouchableOpacity onPress={onMediaPress} activeOpacity={0.9}>
+                <Image source={{ uri: message.media_url }} style={styles.image} resizeMode="cover" />
+              </TouchableOpacity>
+            )}
+            {message.media_url && message.media_type === 'video' && (
+              <TouchableOpacity onPress={onMediaPress} style={styles.videoThumb} activeOpacity={0.9}>
+                <Ionicons name="play-circle" size={40} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.videoLabel}>Video</Text>
+              </TouchableOpacity>
+            )}
+            {message.content ? <Text style={[styles.text, styles.ownText]}>{message.content}</Text> : null}
+            <View style={[styles.meta, styles.metaOwn]}>
+              {message._edited && <Text style={styles.editedLabel}>edited</Text>}
+              <Text style={[styles.time, styles.ownTime]}>{formatTime(message.created_at)}</Text>
+              <ReadReceipt pending={message._pending} read={message.is_read} />
+            </View>
           </TouchableOpacity>
-        )}
-
-        {message.media_url && message.media_type === 'video' && (
-          <TouchableOpacity onPress={onMediaPress} style={styles.videoThumb} activeOpacity={0.9}>
-            <Ionicons name="play-circle" size={40} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.videoLabel}>Video</Text>
-          </TouchableOpacity>
-        )}
-
-        {message.content ? (
-          <Text style={[styles.text, isOwn ? styles.ownText : styles.otherText]}>
-            {message.content}
-          </Text>
-        ) : null}
-
-        <View style={[styles.meta, isOwn ? styles.metaOwn : styles.metaOther]}>
-          {message._edited && <Text style={styles.editedLabel}>edited</Text>}
-          <Text style={[styles.time, isOwn ? styles.ownTime : styles.otherTime]}>
-            {formatTime(message.created_at)}
-          </Text>
-          {isOwn && (
-            <ReadReceipt pending={message._pending} read={message.is_read} />
+        </LinearGradient>
+      ) : (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onLongPress={onLongPress}
+          delayLongPress={350}
+          style={[
+            styles.bubble,
+            styles.otherBubble,
+            isLast ? styles.otherTail : styles.otherGrouped,
+            !isFirst && styles.grouped,
+            message._pending && styles.pending,
+          ]}
+        >
+          {replyPreview && (
+            <View style={[styles.replyBar, styles.replyBarOther]}>
+              <Text style={styles.replyName} numberOfLines={1}>{replyPreview.senderName}</Text>
+              <Text style={styles.replyContent} numberOfLines={2}>{replyPreview.content}</Text>
+            </View>
           )}
-        </View>
-      </TouchableOpacity>
+          {message.media_url && message.media_type === 'image' && (
+            <TouchableOpacity onPress={onMediaPress} activeOpacity={0.9}>
+              <Image source={{ uri: message.media_url }} style={styles.image} resizeMode="cover" />
+            </TouchableOpacity>
+          )}
+          {message.media_url && message.media_type === 'video' && (
+            <TouchableOpacity onPress={onMediaPress} style={styles.videoThumb} activeOpacity={0.9}>
+              <Ionicons name="play-circle" size={40} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.videoLabel}>Video</Text>
+            </TouchableOpacity>
+          )}
+          {message.content ? <Text style={[styles.text, styles.otherText]}>{message.content}</Text> : null}
+          <View style={[styles.meta, styles.metaOther]}>
+            {message._edited && <Text style={styles.editedLabel}>edited</Text>}
+            <Text style={[styles.time, styles.otherTime]}>{formatTime(message.created_at)}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -119,8 +146,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       paddingVertical: 9,
       borderRadius: RADIUS,
     },
-    ownBubble:   { backgroundColor: T.userBubble },
-    otherBubble: { backgroundColor: T.surface, borderWidth: 1, borderColor: T.borderLight },
+    ownBubble:   {},
+    otherBubble: { backgroundColor: T.frost, borderWidth: 1, borderColor: T.border },
 
     ownTail:    { borderBottomRightRadius: TAIL },
     otherTail:  { borderBottomLeftRadius: TAIL },
@@ -130,7 +157,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     grouped: { marginTop: 1 },
 
     text: { fontSize: 15, lineHeight: 22 },
-    ownText:   { color: T.text },
+    ownText:   { color: '#FFFFFF' },
     otherText: { color: T.text },
 
     image: { width: 200, height: 150, borderRadius: 12, marginBottom: 4 },
@@ -160,7 +187,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     metaOther: { justifyContent: 'flex-start' },
 
     time: { fontSize: 11 },
-    ownTime:   { color: T.textMuted },
+    ownTime:   { color: 'rgba(255,255,255,0.7)' },
     otherTime: { color: T.textSub },
     editedLabel: { fontSize: 10, color: T.textMuted, fontStyle: 'italic', marginRight: 3 },
 

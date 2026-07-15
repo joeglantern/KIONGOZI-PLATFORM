@@ -168,7 +168,7 @@ export default function NotificationsScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerTitle}>Activity</Text>
         {unreadCount > 0 && (
           <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn} activeOpacity={0.7}>
             <Ionicons name="checkmark-done" size={14} color="#3b82f6" />
@@ -214,7 +214,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       backgroundColor: T.bg,
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
     },
-    headerTitle: { fontSize: 22, fontWeight: '800', color: T.text, letterSpacing: -0.4 },
+    headerTitle: { fontSize: 26, fontWeight: '700', color: T.text, letterSpacing: -0.6, fontFamily: 'SpaceGrotesk_700Bold' },
     markAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: T.surface, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20 },
     markAllText: { color: T.accent, fontSize: 13, fontWeight: '600' },
     item: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 16, paddingHorizontal: 18, backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, gap: 13 },

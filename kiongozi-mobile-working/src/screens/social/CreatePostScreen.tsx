@@ -170,6 +170,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         >
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>New Post</Text>
         <TouchableOpacity
           onPress={handlePost}
           disabled={!canPost}
@@ -279,6 +280,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     cancelBtn: { padding: 4 },
     cancelText: { fontSize: 16, color: T.textSub },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
     postBtn: {
       backgroundColor: T.accent,
       paddingHorizontal: 20,
@@ -312,8 +314,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     toolbarBtn: { padding: 8 },
     visPill: {
       flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
-      borderWidth: 1, borderColor: T.accent, marginLeft: 4,
+      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
+      borderWidth: 1, borderColor: T.acc25, backgroundColor: T.acc10, marginLeft: 4,
     },
     visText: { fontSize: 12, color: T.accent, fontWeight: '600' },
     flex: { flex: 1 },

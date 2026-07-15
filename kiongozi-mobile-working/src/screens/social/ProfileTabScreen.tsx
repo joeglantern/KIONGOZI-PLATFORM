@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   Animated, ActivityIndicator, RefreshControl, Dimensions, Image, Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,17 +15,10 @@ import { useProfileStore } from '../../stores/profileStore';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 
-type Tab = 'posts' | 'replies' | 'media';
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'posts', label: 'Posts' },
-  { key: 'replies', label: 'Replies' },
-  { key: 'media', label: 'Media' },
-];
-const TAB_COUNT = TABS.length;
+type Tab = 'posts' | 'reposts' | 'saved';
 const { width: SCREEN_W } = Dimensions.get('window');
-const TAB_W = SCREEN_W / TAB_COUNT;
-const COVER_HEIGHT = 180;
-const AVATAR_SIZE = 84;
+const COVER_HEIGHT = 158;
+const AVATAR_SIZE = 88;
 const AVATAR_OVERLAP = AVATAR_SIZE / 2;
 
 export default function ProfileTabScreen() {
@@ -36,35 +30,49 @@ export default function ProfileTabScreen() {
 
   const [activeTab, setActiveTab] = useState<Tab>('posts');
   const [posts, setPosts] = useState<any[]>([]);
+  const [savedPosts, setSavedPosts] = useState<any[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
-  const [localBannerUri, setLocalBannerUri] = useState<string | null>(null);
 
   const spinAnim = useRef(new Animated.Value(0)).current;
-  const tabIndicatorX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => { fetchCurrentUserProfile(); }, []);
 
   useEffect(() => {
-    if (currentUserProfile?.username) fetchPosts(true);
+    if (currentUserProfile?.username) {
+      if (activeTab === 'saved') {
+        fetchSaved();
+      } else {
+        fetchPosts(true);
+      }
+    }
   }, [activeTab, currentUserProfile?.username]);
+
+  const fetchSaved = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.getBookmarks();
+      if (res.success && res.data) setSavedPosts(res.data as any[]);
+    } catch {}
+    finally { setLoading(false); setRefreshing(false); }
+  };
 
   const fetchPosts = useCallback(async (reset = false) => {
     if (!currentUserProfile?.username) return;
     if (reset) { setLoading(true); setCursor(null); setPosts([]); setHasMore(true); }
     try {
       const res = await apiClient.getUserPostsByType(
-        currentUserProfile.username, activeTab,
+        currentUserProfile.username, 'posts',
         reset ? undefined : cursor ?? undefined
       );
       if (res.success && res.data) {
-        const newPosts = res.data as any[];
+        let newPosts = res.data as any[];
+        if (activeTab === 'reposts') newPosts = newPosts.filter((p: any) => p.repost_of_id);
         setPosts(prev => (reset ? newPosts : [...prev, ...newPosts]));
         const nc = (res as any).nextCursor ?? null;
         setCursor(nc);
@@ -79,14 +87,21 @@ export default function ProfileTabScreen() {
     }
   }, [activeTab, currentUserProfile?.username, cursor]);
 
-  const handleRefresh = () => { setRefreshing(true); fetchCurrentUserProfile(); fetchPosts(true); };
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchCurrentUserProfile();
+    if (activeTab === 'saved') fetchSaved();
+    else fetchPosts(true);
+  };
   const handleLoadMore = () => {
-    if (!loadingMore && hasMore && !loading) { setLoadingMore(true); fetchPosts(false); }
+    if (!loadingMore && hasMore && !loading && activeTab !== 'saved') {
+      setLoadingMore(true);
+      fetchPosts(false);
+    }
   };
 
-  const handleTabPress = (tab: Tab, index: number) => {
+  const handleTabPress = (tab: Tab) => {
     setActiveTab(tab);
-    Animated.spring(tabIndicatorX, { toValue: index * TAB_W, useNativeDriver: true, tension: 120, friction: 8 }).start();
   };
 
   const handleGearPress = () => {
@@ -96,41 +111,33 @@ export default function ProfileTabScreen() {
     });
   };
 
-  const handlePickPhoto = async (field: 'avatar' | 'banner') => {
-    const isAvatar = field === 'avatar';
+  const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission required', 'Please allow photo library access in Settings.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, aspect: isAvatar ? [1, 1] : [16, 9], quality: 0.85,
+      allowsEditing: true, aspect: [1, 1], quality: 0.85,
     });
     if (result.canceled) return;
     const uri = result.assets[0].uri;
-    if (isAvatar) { setLocalAvatarUri(uri); setUploadingAvatar(true); }
-    else { setLocalBannerUri(uri); setUploadingBanner(true); }
+    setLocalAvatarUri(uri);
+    setUploadingAvatar(true);
     try {
       const formData = new FormData();
-      formData.append(field, { uri, type: 'image/jpeg', name: `${field}.jpg` } as any);
+      formData.append('avatar', { uri, type: 'image/jpeg', name: 'avatar.jpg' } as any);
       const res = await apiClient.updateProfile(formData);
       if (res.success && res.data) {
-        updateCurrentUserProfile({
-          ...(res.data.avatar_url ? { avatar_url: res.data.avatar_url } : {}),
-          ...(res.data.banner_url ? { banner_url: res.data.banner_url } : {}),
-        });
-        if (isAvatar) setLocalAvatarUri(null);
-        else setLocalBannerUri(null);
+        updateCurrentUserProfile({ ...(res.data.avatar_url ? { avatar_url: res.data.avatar_url } : {}) });
+        setLocalAvatarUri(null);
       } else {
         Alert.alert('Upload failed', res.error || 'Could not update photo.');
-        if (isAvatar) setLocalAvatarUri(null);
-        else setLocalBannerUri(null);
+        setLocalAvatarUri(null);
       }
     } catch {
       Alert.alert('Upload failed', 'Network error. Please try again.');
-      if (isAvatar) setLocalAvatarUri(null);
-      else setLocalBannerUri(null);
+      setLocalAvatarUri(null);
     } finally {
-      if (isAvatar) setUploadingAvatar(false);
-      else setUploadingBanner(false);
+      setUploadingAvatar(false);
     }
   };
 
@@ -143,33 +150,28 @@ export default function ProfileTabScreen() {
     return String(n);
   };
 
-  const bannerSource = localBannerUri ? { uri: localBannerUri } : profile?.banner_url ? { uri: profile.banner_url } : null;
   const avatarUrl = localAvatarUri ?? profile?.avatar_url;
+  const displayPosts = activeTab === 'saved' ? savedPosts : posts;
 
   const ListHeader = (
     <View>
-      <TouchableOpacity activeOpacity={0.85} onPress={() => handlePickPhoto('banner')} style={styles.cover}>
-        {bannerSource ? <Image source={bannerSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" /> : null}
-        <View style={styles.coverTint} />
-        {uploadingBanner && (
-          <View style={styles.coverUploadOverlay}><ActivityIndicator color="#fff" size="large" /></View>
-        )}
-        {!uploadingBanner && (
-          <View style={styles.coverCameraHint}>
-            <Ionicons name="camera-outline" size={16} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.coverCameraText}>Change cover</Text>
-          </View>
-        )}
+      {/* Gradient cover */}
+      <LinearGradient
+        colors={[T.accent, T.accentDeep]}
+        start={{ x: 0.35, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.cover}
+      >
         <TouchableOpacity style={styles.gearBtn} onPress={handleGearPress}>
           <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
             <Ionicons name="settings-outline" size={22} color="#fff" />
           </Animated.View>
         </TouchableOpacity>
-      </TouchableOpacity>
+      </LinearGradient>
 
       <View style={styles.avatarRow}>
         <View style={[styles.avatarWrapper, { borderColor: T.bg }]}>
-          <UserAvatar avatarUrl={avatarUrl} size={AVATAR_SIZE} editable uploading={uploadingAvatar} onPress={() => handlePickPhoto('avatar')} />
+          <UserAvatar avatarUrl={avatarUrl} size={AVATAR_SIZE} editable uploading={uploadingAvatar} onPress={handlePickAvatar} />
         </View>
       </View>
 
@@ -199,16 +201,40 @@ export default function ProfileTabScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Action buttons */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('EditProfile')}>
+            <Text style={styles.actionBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => {}}>
+            <Text style={styles.actionBtnText}>Share Profile</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* Pill tab switcher */}
       <View style={styles.tabBar}>
-        {TABS.map((t, i) => (
-          <TouchableOpacity key={t.key} style={styles.tabBtn} onPress={() => handleTabPress(t.key, i)}>
-            <Text style={[styles.tabLabel, activeTab === t.key && styles.tabLabelActive]}>{t.label}</Text>
+        {(['posts', 'reposts', 'saved'] as Tab[]).map(t => (
+          <TouchableOpacity
+            key={t}
+            style={[styles.tabPill, activeTab === t && styles.tabPillOn]}
+            onPress={() => handleTabPress(t)}
+          >
+            <Text style={[styles.tabLabel, activeTab === t ? styles.tabLabelOn : styles.tabLabelOff]}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </Text>
           </TouchableOpacity>
         ))}
-        <Animated.View style={[styles.tabIndicator, { transform: [{ translateX: tabIndicatorX }] }]} />
       </View>
+
+      {/* Saved private banner */}
+      {activeTab === 'saved' && (
+        <View style={styles.savedBanner}>
+          <Ionicons name="lock-closed" size={14} color={T.accent} />
+          <Text style={styles.savedBannerText}>Only you can see this. Saved posts are private.</Text>
+        </View>
+      )}
     </View>
   );
 
@@ -221,7 +247,7 @@ export default function ProfileTabScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
-        data={posts}
+        data={displayPosts}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <PostCard
@@ -229,7 +255,14 @@ export default function ProfileTabScreen() {
             currentUserId={user?.id}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
             onProfilePress={(username: string) => navigation.navigate('PublicProfile', { username: username || item.profiles?.username })}
-            onDeletePress={async () => { await apiClient.deletePost(item.id); setPosts(prev => prev.filter(p => p.id !== item.id)); }}
+            onDeletePress={async () => {
+              if (activeTab === 'saved') {
+                setSavedPosts(prev => prev.filter((p: any) => p.id !== item.id));
+              } else {
+                await apiClient.deletePost(item.id);
+                setPosts(prev => prev.filter(p => p.id !== item.id));
+              }
+            }}
           />
         )}
         ListHeaderComponent={ListHeader}
@@ -248,29 +281,45 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.bg },
-    cover: { height: COVER_HEIGHT, backgroundColor: T.surface, overflow: 'hidden' },
-    coverTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.18)' },
-    coverUploadOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    coverCameraHint: { position: 'absolute', bottom: 10, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16 },
-    coverCameraText: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '500' },
-    gearBtn: { position: 'absolute', top: 16, right: 16, padding: 6, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+    cover: { height: COVER_HEIGHT },
+    gearBtn: { position: 'absolute', top: 16, right: 16, padding: 8, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 20 },
     avatarRow: { paddingLeft: 20, marginTop: -AVATAR_OVERLAP, marginBottom: 8 },
-    avatarWrapper: { borderWidth: 3, borderRadius: (AVATAR_SIZE + 6) / 2, alignSelf: 'flex-start' },
+    avatarWrapper: { borderWidth: 4, borderRadius: (AVATAR_SIZE + 8) / 2, alignSelf: 'flex-start' },
     bioSection: { paddingHorizontal: 20, paddingBottom: 16, backgroundColor: T.bg },
-    displayName: { fontSize: 20, fontWeight: '800', color: T.text, marginBottom: 4 },
+    displayName: { fontSize: 23, fontWeight: '700', color: T.text, letterSpacing: -0.4, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 4 },
     handle: { fontSize: 14, color: T.textSub },
     tagline: { fontSize: 14, color: T.accent, fontWeight: '600' },
     bio: { fontSize: 14, color: T.textSub, marginTop: 8, lineHeight: 20 },
     statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.borderLight },
     statItem: { flex: 1, alignItems: 'center' },
-    statNum: { fontSize: 18, fontWeight: '800', color: T.text },
+    statNum: { fontSize: 19, fontWeight: '700', color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
     statLabel: { fontSize: 12, color: T.textSub, marginTop: 2 },
     statDivider: { width: 1, height: 28, backgroundColor: T.border },
-    tabBar: { flexDirection: 'row', backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, position: 'relative' },
-    tabBtn: { flex: 1, paddingVertical: 14, alignItems: 'center' },
-    tabLabel: { fontSize: 14, color: T.tabIconInactive, fontWeight: '500' },
-    tabLabelActive: { color: T.text, fontWeight: '700' },
-    tabIndicator: { position: 'absolute', bottom: 0, left: 0, width: TAB_W, height: 2, backgroundColor: T.text, borderRadius: 1 },
+    actionRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+    actionBtn: {
+      flex: 1, paddingVertical: 9, alignItems: 'center',
+      borderRadius: 22, borderWidth: 1, borderColor: T.border,
+    },
+    actionBtnText: { fontSize: 14, fontWeight: '700', color: T.text },
+    tabBar: {
+      flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12,
+      backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
+    },
+    tabPill: {
+      paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20,
+      borderWidth: 1, borderColor: T.borderLight, backgroundColor: T.surface,
+    },
+    tabPillOn: { backgroundColor: T.acc10, borderColor: T.acc25 },
+    tabLabel: { fontSize: 14, fontWeight: '600' },
+    tabLabelOn: { color: T.accent },
+    tabLabelOff: { color: T.textSub },
+    savedBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      marginHorizontal: 16, marginBottom: 8,
+      padding: 12, borderRadius: 12,
+      backgroundColor: T.acc10, borderWidth: 1, borderColor: T.acc25,
+    },
+    savedBannerText: { fontSize: 13, color: T.accent, fontWeight: '600', flex: 1 },
     emptyState: { paddingVertical: 48, alignItems: 'center' },
     emptyText: { fontSize: 15, color: T.textMuted },
   });

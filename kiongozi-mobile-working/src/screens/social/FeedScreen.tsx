@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, RefreshControl, ActivityIndicator,
-  TouchableOpacity, Animated, ScrollView, Dimensions, Image, Modal
+  TouchableOpacity, ScrollView, Dimensions, Image, Modal
 } from 'react-native';
 import { FlatList } from 'react-native';
 import CreatePostScreen from './CreatePostScreen';
@@ -22,7 +22,6 @@ export default function FeedScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const { conversations, fetchConversations } = useDMStore();
-  const scrollX = useRef(new Animated.Value(0)).current;
   const [createPostVisible, setCreatePostVisible] = useState(false);
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
@@ -100,9 +99,12 @@ export default function FeedScreen() {
     />
   ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost]);
 
-  const underlineLeft = scrollX.interpolate({ inputRange: [0, SCREEN_WIDTH], outputRange: ['0%', '50%'], extrapolate: 'clamp' });
-  const forYouColor = scrollX.interpolate({ inputRange: [0, SCREEN_WIDTH], outputRange: [T.text, T.tabIconInactive], extrapolate: 'clamp' });
-  const followingColor = scrollX.interpolate({ inputRange: [0, SCREEN_WIDTH], outputRange: [T.tabIconInactive, T.text], extrapolate: 'clamp' });
+  const [activeTab, setActiveTab] = useState(0);
+
+  const switchTabWithState = (index: number) => {
+    setActiveTab(index);
+    switchTab(index);
+  };
 
   return (
     <View style={styles.container}>
@@ -124,13 +126,18 @@ export default function FeedScreen() {
           </View>
         </View>
         <View style={styles.tabs}>
-          <TouchableOpacity style={styles.tab} onPress={() => switchTab(0)}>
-            <Animated.Text style={[styles.tabLabel, { color: forYouColor }]}>For You</Animated.Text>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 0 && styles.tabPillOn]}
+            onPress={() => switchTabWithState(0)}
+          >
+            <Text style={[styles.tabLabel, activeTab === 0 ? styles.tabLabelOn : styles.tabLabelOff]}>For You</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tab} onPress={() => switchTab(1)}>
-            <Animated.Text style={[styles.tabLabel, { color: followingColor }]}>Following</Animated.Text>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 1 && styles.tabPillOn]}
+            onPress={() => switchTabWithState(1)}
+          >
+            <Text style={[styles.tabLabel, activeTab === 1 ? styles.tabLabelOn : styles.tabLabelOff]}>Following</Text>
           </TouchableOpacity>
-          <Animated.View style={[styles.tabUnderline, { left: underlineLeft, width: '50%', backgroundColor: T.text }]} />
         </View>
       </View>
 
@@ -138,7 +145,10 @@ export default function FeedScreen() {
         ref={scrollRef}
         horizontal pagingEnabled showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+          setActiveTab(idx);
+        }}
         style={{ flex: 1 }}
       >
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
@@ -232,7 +242,10 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       borderBottomColor: T.borderLight,
     },
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-    headerLogo: { width: 120, height: 42, flexShrink: 0 },
+    headerLogo: {
+      width: 120, height: 42, flexShrink: 0,
+      shadowColor: T.acc25, shadowOffset: { width: 0, height: 0 }, shadowRadius: 10, shadowOpacity: 1,
+    },
     headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     headerIconBtn: { position: 'relative', padding: 6 },
     iconBadge: {
@@ -243,10 +256,15 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       paddingHorizontal: 3, borderWidth: 1.5,
     },
     iconBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800', lineHeight: 11 },
-    tabs: { flexDirection: 'row', position: 'relative' },
-    tab: { flex: 1, alignItems: 'center', paddingVertical: 10 },
+    tabs: { flexDirection: 'row', gap: 8, paddingVertical: 10 },
+    tabPill: {
+      paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20,
+      borderWidth: 1, borderColor: T.borderLight, backgroundColor: T.surface,
+    },
+    tabPillOn: { backgroundColor: T.acc10, borderColor: T.acc25 },
     tabLabel: { fontSize: 15, fontWeight: '600' },
-    tabUnderline: { position: 'absolute', bottom: 0, height: 2, borderRadius: 2 },
+    tabLabelOn: { color: T.accent },
+    tabLabelOff: { color: T.textSub },
     empty: { padding: 32, alignItems: 'center' },
     emptyText: { fontSize: 17, fontWeight: '600', color: T.textSub, marginBottom: 8, textAlign: 'center' },
     emptySubtext: { fontSize: 14, color: T.textMuted, textAlign: 'center' },
