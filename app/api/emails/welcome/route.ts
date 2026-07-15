@@ -1,28 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import WelcomeEmail from '@/app/emails/WelcomeEmail';
-import { createClient } from '@/app/utils/supabase/server';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, tooManyRequests } from '@/lib/rate-limit';
+import { requireUser } from '@/lib/auth/guard';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
 
 export async function POST(request: NextRequest) {
     try {
         // Require an authenticated session — closes the anonymous mass-mail hole.
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const gate = await requireUser();
+        if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+        const { user } = gate;
 
         // A few welcome emails per user per hour is plenty.
         const limit = rateLimit(`welcome:${user.id}`, 3, 60 * 60 * 1000);
-        if (!limit.success) {
-            return NextResponse.json(
-                { error: 'Too many requests' },
-                { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
-            );
-        }
+        if (!limit.success) return tooManyRequests(limit);
 
         const body = await request.json().catch(() => ({}));
         const { firstName } = body ?? {};

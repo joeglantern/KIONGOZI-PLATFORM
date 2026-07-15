@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/app/utils/supabase/server';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, tooManyRequests } from '@/lib/rate-limit';
+import { requireUser } from '@/lib/auth/guard';
 import { callAnthropicMessage } from '@/lib/ai/anthropic';
 
 // Return a freshly-cached brief instead of re-calling the model if the last
@@ -8,19 +8,13 @@ import { callAnthropicMessage } from '@/lib/ai/anthropic';
 const CACHE_TTL_MS = 30_000;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ fundId: string }> }) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const gate = await requireUser();
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+    const { supabase, user } = gate;
 
     // Guard the expensive Sonnet call against rapid repeats.
     const limit = rateLimit(`fund-analyze:${user.id}`, 5, 60 * 1000);
-    if (!limit.success) {
-        return NextResponse.json(
-            { error: 'Too many requests' },
-            { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
-        );
-    }
+    if (!limit.success) return tooManyRequests(limit);
 
     const { fundId } = await params;
 

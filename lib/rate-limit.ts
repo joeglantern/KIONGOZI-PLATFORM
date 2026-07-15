@@ -1,3 +1,5 @@
+import { NextResponse } from 'next/server';
+
 /**
  * Lightweight in-memory fixed-window rate limiter.
  *
@@ -58,4 +60,12 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
         resetAt: existing.resetAt,
         retryAfterSeconds: 0,
     };
+}
+
+/** Standard HTTP 429 response for a failed rateLimit() check. */
+export function tooManyRequests(limit: RateLimitResult): NextResponse {
+    return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+    );
 }
