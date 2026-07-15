@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, FlatList,
-  TouchableOpacity, ActivityIndicator,
+  TouchableOpacity, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -15,14 +15,19 @@ export default function FindFriendsScreen() {
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
 
-  const { explorePosts } = useSocialStore();
+  const { explorePosts, exploreLoading, fetchExploreFeed } = useSocialStore();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [following, setFollowing] = useState<Record<string, boolean>>({});
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Derive suggested users from explore posts authors (unique, skip duplicates)
+  // Load explore feed on mount to populate suggestions
+  useEffect(() => {
+    fetchExploreFeed(true);
+  }, []);
+
+  // Derive suggested users: unique authors from explore posts
   const suggestedUsers = useMemo(() => {
     const seen = new Set<string>();
     const users: any[] = [];
@@ -39,15 +44,16 @@ export default function FindFriendsScreen() {
           bio: p.bio,
           is_verified: p.is_verified,
           is_bot: p.is_bot,
+          is_following: p.is_following,
         });
       }
     }
-    return users.slice(0, 20);
+    return users.slice(0, 30);
   }, [explorePosts]);
 
   const doSearch = useCallback(async (text: string) => {
     if (!text.trim()) { setResults(null); return; }
-    setLoading(true);
+    setSearchLoading(true);
     try {
       const res = await apiClient.searchSocial(text.trim());
       if (res.success && res.data) {
@@ -58,7 +64,7 @@ export default function FindFriendsScreen() {
     } catch {
       setResults([]);
     }
-    setLoading(false);
+    setSearchLoading(false);
   }, []);
 
   const handleSearch = useCallback((text: string) => {
@@ -77,12 +83,13 @@ export default function FindFriendsScreen() {
         await apiClient.followUser(userId);
       }
     } catch {
-      // Revert on failure
       setFollowing(prev => ({ ...prev, [userId]: currentlyFollowing }));
     }
   }, []);
 
-  const displayList = results ?? suggestedUsers;
+  const isSearching = query.length > 0;
+  const displayList = isSearching ? (results ?? []) : suggestedUsers;
+  const isLoading = isSearching ? searchLoading : exploreLoading;
 
   const renderUser = ({ item }: { item: any }) => {
     const isFollowing = following[item.id] ?? item.is_following ?? false;
@@ -116,6 +123,17 @@ export default function FindFriendsScreen() {
     );
   };
 
+  const ListHeader = !isSearching ? (
+    <View style={styles.sectionHeader}>
+      <Ionicons name="sparkles" size={14} color={T.accent} />
+      <Text style={styles.sectionLabel}>PEOPLE TO FOLLOW</Text>
+    </View>
+  ) : results !== null ? (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionLabel}>RESULTS</Text>
+    </View>
+  ) : null;
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -123,7 +141,12 @@ export default function FindFriendsScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={26} color={T.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Find Friends</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Find Friends</Text>
+          {!isSearching && suggestedUsers.length > 0 && (
+            <Text style={styles.headerSub}>Active people from your community</Text>
+          )}
+        </View>
       </View>
 
       {/* Search bar */}
@@ -147,29 +170,45 @@ export default function FindFriendsScreen() {
         )}
       </View>
 
-      {/* Section label */}
-      {!results && !loading && suggestedUsers.length > 0 && (
-        <Text style={styles.sectionLabel}>SUGGESTED</Text>
-      )}
-      {results && !loading && (
-        <Text style={styles.sectionLabel}>RESULTS</Text>
-      )}
-
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={T.accent} />
+      {isLoading && displayList.length === 0 ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={T.accent} />
+          <Text style={styles.loadingText}>Finding people to follow…</Text>
+        </View>
       ) : (
         <FlatList
           data={displayList}
           keyExtractor={item => item.id}
           renderItem={renderUser}
           keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={ListHeader}
+          refreshControl={
+            !isSearching ? (
+              <RefreshControl
+                refreshing={exploreLoading && suggestedUsers.length > 0}
+                onRefresh={() => fetchExploreFeed(true)}
+                tintColor={T.accent}
+              />
+            ) : undefined
+          }
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={48} color={T.border} />
-              <Text style={styles.emptyText}>
-                {query ? `No people found for "${query}"` : 'No suggestions yet'}
-              </Text>
-            </View>
+            isLoading ? null : (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name={isSearching ? 'search-outline' : 'people-outline'}
+                  size={48}
+                  color={T.border}
+                />
+                <Text style={styles.emptyTitle}>
+                  {isSearching ? `No results for "${query}"` : 'No suggestions yet'}
+                </Text>
+                {!isSearching && (
+                  <Text style={styles.emptyHint}>
+                    Try searching for people you know
+                  </Text>
+                )}
+              </View>
+            )
           }
         />
       )}
@@ -195,6 +234,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       fontSize: 22, fontWeight: '700', color: T.text,
       letterSpacing: -0.5, fontFamily: 'SpaceGrotesk_700Bold',
     },
+    headerSub: { fontSize: 13, color: T.textSub, marginTop: 1 },
     searchWrap: {
       flexDirection: 'row', alignItems: 'center',
       margin: 16, marginBottom: 4,
@@ -203,9 +243,12 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       gap: 8, borderWidth: 1, borderColor: T.border,
     },
     searchInput: { flex: 1, fontSize: 15, color: T.text },
+    sectionHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6,
+    },
     sectionLabel: {
-      fontSize: 11, fontWeight: '800', color: T.textMuted,
-      letterSpacing: 0.9, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6,
+      fontSize: 11, fontWeight: '800', color: T.textMuted, letterSpacing: 0.9,
     },
     userRow: {
       flexDirection: 'row', alignItems: 'center',
@@ -223,7 +266,10 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     followBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
     followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border },
     followingBtnText: { color: T.text },
-    emptyState: { alignItems: 'center', paddingTop: 64, gap: 12 },
-    emptyText: { fontSize: 15, color: T.textSub, textAlign: 'center' },
+    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    loadingText: { fontSize: 14, color: T.textSub },
+    emptyState: { alignItems: 'center', paddingTop: 64, gap: 10 },
+    emptyTitle: { fontSize: 15, color: T.textSub, textAlign: 'center', fontWeight: '600' },
+    emptyHint: { fontSize: 13, color: T.textMuted, textAlign: 'center' },
   });
 }
