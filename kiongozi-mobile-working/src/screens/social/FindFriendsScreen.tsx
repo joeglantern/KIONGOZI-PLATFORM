@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, FlatList,
-  TouchableOpacity, ActivityIndicator, RefreshControl,
+  TouchableOpacity, RefreshControl,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { UserAvatar } from '../../components/social/UserAvatar';
@@ -138,7 +139,6 @@ export default function FindFriendsScreen() {
 
   const ListHeader = !isSearching ? (
     <View style={styles.sectionHeader}>
-      <Ionicons name="sparkles" size={14} color={T.accent} />
       <Text style={styles.sectionLabel}>PEOPLE TO FOLLOW</Text>
     </View>
   ) : results !== null ? (
@@ -185,7 +185,12 @@ export default function FindFriendsScreen() {
 
       {isLoading && displayList.length === 0 ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={T.accent} />
+          <LottieView
+            source={require('../../../assets/lottie/community.json')}
+            autoPlay
+            loop
+            style={styles.lottie}
+          />
           <Text style={styles.loadingText}>Finding people to follow…</Text>
         </View>
       ) : (
@@ -207,18 +212,17 @@ export default function FindFriendsScreen() {
           ListEmptyComponent={
             isLoading ? null : (
               <View style={styles.emptyState}>
-                <Ionicons
-                  name={isSearching ? 'search-outline' : 'people-outline'}
-                  size={48}
-                  color={T.border}
+                <LottieView
+                  source={require('../../../assets/lottie/community.json')}
+                  autoPlay
+                  loop
+                  style={styles.lottie}
                 />
                 <Text style={styles.emptyTitle}>
                   {isSearching ? `No results for "${query}"` : 'No suggestions yet'}
                 </Text>
                 {!isSearching && (
-                  <Text style={styles.emptyHint}>
-                    Try searching for people you know
-                  </Text>
+                  <Text style={styles.emptyHint}>Try searching for people you know</Text>
                 )}
               </View>
             )
@@ -279,9 +283,10 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     followBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
     followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border },
     followingBtnText: { color: T.text },
-    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    lottie: { width: 200, height: 200 },
+    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingTop: 40 },
     loadingText: { fontSize: 14, color: T.textSub },
-    emptyState: { alignItems: 'center', paddingTop: 64, gap: 10 },
+    emptyState: { alignItems: 'center', paddingTop: 40, gap: 8 },
     emptyTitle: { fontSize: 15, color: T.textSub, textAlign: 'center', fontWeight: '600' },
     emptyHint: { fontSize: 13, color: T.textMuted, textAlign: 'center' },
   });
