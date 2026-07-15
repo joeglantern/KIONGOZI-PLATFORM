@@ -58,6 +58,7 @@ function ExploreStackNavigator() {
       <ExploreStack.Screen name="Bookmarks" component={BookmarksScreen} />
       <ExploreStack.Screen name="DMConversation" component={DMConversationScreen} />
       <ExploreStack.Screen name="FollowList" component={FollowListScreen} />
+      <ExploreStack.Screen name="FindFriends" component={FindFriendsScreen} />
     </ExploreStack.Navigator>
   );
 }

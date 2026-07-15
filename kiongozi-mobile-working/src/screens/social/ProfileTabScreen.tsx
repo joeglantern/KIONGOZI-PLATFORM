@@ -305,13 +305,6 @@ export default function ProfileTabScreen() {
             <Text style={styles.actionBtnText}>Share Profile</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Find Friends */}
-        <TouchableOpacity style={styles.findFriendsBtn} onPress={() => navigation.navigate('FindFriends')}>
-          <Ionicons name="people-outline" size={17} color={T.accent} />
-          <Text style={styles.findFriendsBtnText}>Find Friends</Text>
-          <Ionicons name="chevron-forward" size={16} color={T.textMuted} style={{ marginLeft: 'auto' }} />
-        </TouchableOpacity>
       </View>
 
       {/* Pill tab switcher */}
@@ -410,13 +403,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       borderRadius: 22, borderWidth: 1, borderColor: T.border,
     },
     actionBtnText: { fontSize: 14, fontWeight: '700', color: T.text },
-    findFriendsBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      marginTop: 10, paddingVertical: 11, paddingHorizontal: 16,
-      borderRadius: 16, borderWidth: 1, borderColor: T.acc25,
-      backgroundColor: T.acc10,
-    },
-    findFriendsBtnText: { fontSize: 14, fontWeight: '700', color: T.accent },
     tabBar: {
       flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12,
       backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,

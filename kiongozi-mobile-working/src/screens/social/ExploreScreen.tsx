@@ -124,7 +124,16 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Explore</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Explore</Text>
+          <TouchableOpacity
+            style={styles.findFriendsIcon}
+            onPress={() => navigation.navigate('FindFriends')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="person-add-outline" size={22} color={T.text} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color={T.textSub} />
           <TextInput
@@ -291,9 +300,17 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       borderBottomColor: T.borderLight,
       gap: 12,
     },
+    headerRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    },
     headerTitle: {
       fontSize: 26, fontWeight: '700', color: T.text,
       letterSpacing: -0.6, fontFamily: 'SpaceGrotesk_700Bold',
+    },
+    findFriendsIcon: {
+      width: 38, height: 38, borderRadius: 19,
+      backgroundColor: T.surface, borderWidth: 1, borderColor: T.border,
+      alignItems: 'center', justifyContent: 'center',
     },
     searchBar: {
       flexDirection: 'row', alignItems: 'center',
