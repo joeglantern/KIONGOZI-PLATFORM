@@ -42,7 +42,7 @@ interface EmitOptions {
  * Emit a single xAPI statement to the `xapi_statements` table.
  * This is a fire-and-forget utility — errors are logged but not re-thrown.
  */
-export async function emitXapi(opts: EmitOptions): Promise<void> {
+async function emitXapi(opts: EmitOptions): Promise<void> {
   try {
     const supabase = createClient();
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kiongozi.app';

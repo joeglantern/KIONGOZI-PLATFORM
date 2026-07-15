@@ -10,5 +10,3 @@ export const KENYA_COUNTIES = [
   "Nyeri", "Samburu", "Siaya", "Taita-Taveta", "Tana River", "Tharaka-Nithi", "Trans Nzoia",
   "Turkana", "Uasin Gishu", "Vihiga", "Wajir", "West Pokot", "Outside Kenya",
 ] as const;
-
-export type KenyaCounty = (typeof KENYA_COUNTIES)[number];

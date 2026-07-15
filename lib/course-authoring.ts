@@ -90,7 +90,7 @@ export interface CourseReadinessSummary {
     totalChecks: number;
 }
 
-export function stripRichText(value?: string | null) {
+function stripRichText(value?: string | null) {
     if (!value) return '';
 
     return value
@@ -103,7 +103,7 @@ export function stripRichText(value?: string | null) {
         .trim();
 }
 
-export function hasMeaningfulRichText(value?: string | null) {
+function hasMeaningfulRichText(value?: string | null) {
     return stripRichText(value).length > 0;
 }
 

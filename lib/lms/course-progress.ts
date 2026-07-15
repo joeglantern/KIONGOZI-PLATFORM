@@ -10,7 +10,7 @@ export type CourseProgressSnapshot = {
     finalQuizPassed: boolean;
 };
 
-export async function getCourseProgressSnapshot(
+async function getCourseProgressSnapshot(
     supabase: SupabaseLike,
     userId: string,
     courseId: string

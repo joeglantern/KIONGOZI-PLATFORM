@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-export type CookieCategory = 'essential' | 'analytics' | 'marketing' | 'functional';
+type CookieCategory = 'essential' | 'analytics' | 'marketing' | 'functional';
 
 export interface CookiePreferences {
     essential: boolean;   // Always true, non-toggleable
@@ -12,7 +12,7 @@ export interface CookiePreferences {
     functional: boolean;
 }
 
-export interface ConsentRecord {
+interface ConsentRecord {
     preferences: CookiePreferences;
     consentGiven: boolean;
     consentTimestamp: string;

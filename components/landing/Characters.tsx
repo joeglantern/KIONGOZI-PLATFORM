@@ -137,13 +137,3 @@ export function Tumi({
 }: MascotProps & { action?: TumiAction }) {
   return <MascotAnimation animation={tumiAnimations[action] ?? tumiAnimations.idle} className={className} eager={eager} />;
 }
-
-export function TreasureChest({ className = '', isOpen }: MascotProps & { isOpen?: boolean }) {
-  return (
-    <LottieScene
-      src={isOpen ? '/lottie/success.json' : '/lottie/dino-dance.lottie'}
-      className={className}
-      ariaLabel={isOpen ? 'Reward unlocked' : 'Celebration reward'}
-    />
-  );
-}

@@ -109,30 +109,6 @@ export function ModuleListSkeleton() {
     );
 }
 
-// ---- Profile Skeleton ----
-export function ProfileSkeleton() {
-    return (
-        <div className="max-w-2xl mx-auto p-6 space-y-6">
-            <div className="flex items-center gap-6">
-                <Skeleton className="h-24 w-24 rounded-full" />
-                <div className="space-y-2 flex-1">
-                    <Skeleton className="h-6 w-48" />
-                    <Skeleton className="h-4 w-36" />
-                    <Skeleton className="h-3 w-24" />
-                </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-                {[...Array(3)].map((_, i) => (
-                    <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 text-center">
-                        <Skeleton className="h-8 w-16 mx-auto mb-2" />
-                        <Skeleton className="h-3 w-20 mx-auto" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
 // ---- Bookmarks Skeleton ----
 export function BookmarksSkeleton() {
     return (
@@ -261,55 +237,6 @@ export function CourseDetailSkeleton() {
                 <div className="p-8 space-y-3">
                     <Skeleton className="h-7 w-32 mb-6" />
                     <ModuleListSkeleton />
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ---- Module Viewer Skeleton ----
-export function ModuleViewerSkeleton() {
-    return (
-        <div className="min-h-screen bg-gray-50 flex overflow-hidden">
-            {/* Sidebar */}
-            <aside className="w-80 border-r border-gray-100 bg-white hidden lg:block flex-shrink-0">
-                <div className="p-6 border-b border-gray-100">
-                    <Skeleton className="h-5 w-40 mb-1" />
-                    <Skeleton className="h-3 w-24 mt-2" />
-                </div>
-                <div className="p-4 space-y-2">
-                    {[...Array(6)].map((_, i) => (
-                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl">
-                            <Skeleton className="h-8 w-8 rounded-lg flex-shrink-0" />
-                            <Skeleton className="h-4 flex-1" />
-                        </div>
-                    ))}
-                </div>
-            </aside>
-            {/* Content */}
-            <div className="flex-1 flex flex-col">
-                <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between gap-4">
-                    <div className="space-y-1 flex-1">
-                        <Skeleton className="h-5 w-64" />
-                        <Skeleton className="h-3 w-40" />
-                    </div>
-                    <div className="flex gap-2">
-                        <Skeleton className="h-9 w-20 rounded-xl" />
-                        <Skeleton className="h-9 w-32 rounded-xl" />
-                    </div>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    <div className="max-w-4xl mx-auto px-8 py-12 space-y-8">
-                        <Skeleton className="aspect-video w-full rounded-2xl" />
-                        <div className="bg-white rounded-3xl p-12 border border-gray-100 space-y-4">
-                            <Skeleton className="h-8 w-3/4" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-5/6" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-2/3" />
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

@@ -1,5 +1,3 @@
-import { NextRequest } from 'next/server';
-
 /**
  * Lightweight in-memory fixed-window rate limiter.
  *
@@ -60,11 +58,4 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
         resetAt: existing.resetAt,
         retryAfterSeconds: 0,
     };
-}
-
-/** Best-effort client IP for anonymous rate-limit keying, behind proxies. */
-export function getClientIp(req: NextRequest): string {
-    const forwarded = req.headers.get('x-forwarded-for');
-    if (forwarded) return forwarded.split(',')[0].trim();
-    return req.headers.get('x-real-ip') ?? 'unknown';
 }
