@@ -324,6 +324,36 @@ export default function ScormPlayer({ packageId, preview = false }: ScormPlayerP
       )}
 
       {/* SCORM iframe */}
+      {/*
+        SECURITY (tracked — Kiongozi UX audit 2026-07-16, Critical #11): this
+        iframe runs instructor-uploaded SCORM content with `allow-scripts` AND
+        `allow-same-origin` from the app's OWN origin (see the serve route). That
+        combination lets untrusted package JS read the same-origin session cookie
+        (`.kiongozi.org`, cookie-domain.ts) and call any authenticated API route
+        with `credentials: 'include'` — i.e. act as the logged-in user. Threat
+        model is a malicious/compromised INSTRUCTOR account (upload is
+        privileged), not an anonymous attacker, but it is still a real
+        account-takeover vector.
+
+        COMPLETE FIX (deliberately NOT applied blind — requires verification we
+        cannot do in an automated pass):
+          1. Serve SCORM content from a separate, cookieless origin
+             (e.g. scorm-content.kiongozi.org) so the session cookie never
+             reaches it — needs DNS/hosting changes outside this repo.
+          2. Drop `allow-same-origin` and replace the current direct
+             `window.parent.API` / `window.API_1484_11` access with a
+             postMessage bridge: inject a shim into served HTML that seeds a
+             local CMI cache (so synchronous LMSGetValue keeps working) and
+             posts SetValue/Commit/Initialize/Terminate to this parent, which
+             validates event.origin + event.source and mutates cmiRef here.
+
+        Why not done here: the bridge's correctness is SCORM-package-dependent
+        (the findAPI discovery walk varies by authoring tool; dropping
+        allow-same-origin breaks packages that reach window.parent/window.top),
+        so it MUST be smoke-tested against real SCORM packages and
+        security-reviewed before shipping. Do NOT change the sandbox below or
+        point the serve origin off-domain until BOTH steps above land together.
+      */}
       <iframe
         ref={iframeRef}
         src={entryPoint}

@@ -3,6 +3,15 @@ import { authorizeScormPackageAccess } from '@/lib/scorm/access';
 
 // Proxy SCORM package files from Supabase Storage — keeps everything same-origin
 // so window.parent.API is accessible from the SCORM iframe content.
+//
+// SECURITY (tracked — Kiongozi UX audit 2026-07-16, Critical #11): serving
+// untrusted instructor-uploaded content from the app's own origin, combined
+// with the iframe's `allow-same-origin` sandbox flag (see ScormPlayer.tsx), is
+// a session-hijack vector. The full fix moves this to a cookieless subdomain +
+// a postMessage runtime bridge; it is not applied here because it must be
+// smoke-tested against real SCORM packages and security-reviewed first (see the
+// detailed note in ScormPlayer.tsx). Do not point this serve path off-domain
+// until that bridge lands together with it.
 
 const CONTENT_TYPES: Record<string, string> = {
   html: 'text/html; charset=utf-8',
