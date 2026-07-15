@@ -128,38 +128,44 @@ function OnboardingContent() {
     if (!user || !goal || !county || selectedInterests.length < 2) return;
     setSaving(true);
     setError("");
-    const { error: updateError } = await supabase.from("profiles").update({
-      onboarding_goal: goal,
-      learning_interests: selectedInterests,
-      county,
-      institution_name: institution.trim() || null,
-      daily_goal_minutes: dailyGoal,
-      focus_path: focusPath,
-      onboarding_completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", user.id);
+    try {
+      const { error: updateError } = await supabase.from("profiles").update({
+        onboarding_goal: goal,
+        learning_interests: selectedInterests,
+        county,
+        institution_name: institution.trim() || null,
+        daily_goal_minutes: dailyGoal,
+        focus_path: focusPath,
+        onboarding_completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", user.id);
 
-    if (updateError) {
-      setError(updateError.message || "We could not save your learning path.");
+      if (updateError) {
+        setError(updateError.message || "We could not save your learning path.");
+        setSaving(false);
+        return;
+      }
+
+      // Keep enrollment aligned with the final path choice. Existing enrollment is preserved.
+      const startingCourseId = await findStartingCourseIdForPath(supabase, focusPath);
+      if (startingCourseId) {
+        const { error: enrollmentError } = await supabase.from("course_enrollments").upsert({
+          user_id: user.id,
+          course_id: startingCourseId,
+          status: "active",
+          progress_percentage: 0,
+          enrolled_at: new Date().toISOString(),
+          last_accessed_at: new Date().toISOString(),
+        }, { onConflict: "user_id,course_id", ignoreDuplicates: true });
+        if (enrollmentError) console.error("Path enrollment failed:", enrollmentError);
+      }
+      await refreshProfile();
+      router.replace("/dashboard?welcome=1");
+    } catch (err) {
+      console.error("Onboarding finish failed:", err);
+      setError("Something went wrong saving your path. Please try again.");
       setSaving(false);
-      return;
     }
-
-    // Keep enrollment aligned with the final path choice. Existing enrollment is preserved.
-    const startingCourseId = await findStartingCourseIdForPath(supabase, focusPath);
-    if (startingCourseId) {
-      const { error: enrollmentError } = await supabase.from("course_enrollments").upsert({
-        user_id: user.id,
-        course_id: startingCourseId,
-        status: "active",
-        progress_percentage: 0,
-        enrolled_at: new Date().toISOString(),
-        last_accessed_at: new Date().toISOString(),
-      }, { onConflict: "user_id,course_id", ignoreDuplicates: true });
-      if (enrollmentError) console.error("Path enrollment failed:", enrollmentError);
-    }
-    await refreshProfile();
-    router.replace("/dashboard?welcome=1");
   };
 
   const screens = [
