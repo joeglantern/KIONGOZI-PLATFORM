@@ -231,7 +231,7 @@ export function PostCard({
   onEditPress,
   onReportPress,
 }: PostCardProps) {
-  const { toggleLike, toggleBookmark, toggleRepost, seedInteraction, postInteractions } = useSocialStore();
+  const { toggleLike, toggleBookmark, toggleRepost, seedInteraction, postInteractions, deletePost } = useSocialStore();
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
   const repostScale = useRef(new Animated.Value(1)).current;
@@ -342,8 +342,10 @@ export function PostCard({
     toggleRepost(activePost.id, -1);
     try {
       await apiClient.unrepostPost(activePost.id);
+      // Remove the repost wrapper post from the feed so it doesn't linger as a blank card
+      if (isRepost) deletePost(post.id);
     } catch { toggleRepost(activePost.id, 1); }
-  }, [activePost.id, toggleRepost]);
+  }, [activePost.id, isRepost, post.id, toggleRepost, deletePost]);
 
   const handleRepost = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
