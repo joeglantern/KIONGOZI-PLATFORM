@@ -5,14 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-function getSafeNext(next: string | null) {
-    if (!next || !next.startsWith('/') || next.startsWith('//')) {
-        return null;
-    }
-
-    return next;
-}
+import { getSafeNext } from '@/lib/auth/redirects';
 
 export default function AuthCodeErrorPage() {
     return (
@@ -25,8 +18,16 @@ export default function AuthCodeErrorPage() {
 function AuthCodeErrorContent() {
     const searchParams = useSearchParams();
     const next = getSafeNext(searchParams.get('next'));
+    const reason = searchParams.get('reason');
     const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : '/login';
     const signupHref = next ? `/signup?next=${encodeURIComponent(next)}` : '/signup';
+    const reasonMessage = reason === 'oauth_callback_failed'
+        ? 'Google returned to Kiongozi, but the session exchange did not complete'
+        : reason === 'oauth_callback_exception'
+            ? 'The server hit an unexpected issue while finishing Google sign in'
+            : reason === 'missing_auth_code'
+                ? 'The provider response was missing the expected auth code'
+                : null;
 
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -39,6 +40,11 @@ function AuthCodeErrorContent() {
                     <p className="text-sm text-gray-600">
                         Your login session did not complete successfully. Please try again, or use email and password if Google keeps failing.
                     </p>
+                    {reasonMessage && (
+                        <p className="text-xs font-medium text-gray-500">
+                            Detail: {reasonMessage}
+                        </p>
+                    )}
                 </div>
                 <div className="mt-6 space-y-3">
                     <Button asChild className="w-full bg-orange-600 hover:bg-orange-700">
