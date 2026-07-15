@@ -436,6 +436,41 @@ router.post('/posts/:id/repost', authenticateToken, async (req: Request, res: Re
   }
 });
 
+// DELETE /api/v1/social/posts/:id/repost — undo a repost
+router.delete('/posts/:id/repost', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: repostOfId } = req.params;
+    const userId = req.user!.id;
+
+    const { data: repost } = await supabaseServiceClient
+      .from('posts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('repost_of_id', repostOfId)
+      .maybeSingle();
+
+    if (!repost) {
+      res.status(404).json({ success: false, error: 'Repost not found' });
+      return;
+    }
+
+    const { error } = await supabaseServiceClient
+      .from('posts')
+      .delete()
+      .eq('id', repost.id)
+      .eq('user_id', userId);
+
+    if (error) {
+      res.status(500).json({ success: false, error: 'Failed to remove repost' });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to remove repost' });
+  }
+});
+
 // POST /api/v1/social/posts/:id/reply
 router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {

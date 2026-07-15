@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useSocialStore } from '../../stores/socialStore';
+import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -16,40 +17,49 @@ export default function FindFriendsScreen() {
   const styles = useMemo(() => makeStyles(T), [T]);
 
   const { explorePosts, exploreLoading, fetchExploreFeed } = useSocialStore();
+  const { user } = useAuthStore();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [following, setFollowing] = useState<Record<string, boolean>>({});
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load explore feed on mount to populate suggestions
+  // Load explore feed + current user's following list on mount
   useEffect(() => {
     fetchExploreFeed(true);
+    if (user?.id) {
+      apiClient.getFollowing(user.id).then(res => {
+        if (res.success && Array.isArray(res.data)) {
+          setFollowingIds(new Set((res.data as any[]).map((u: any) => u.id)));
+        }
+      }).catch(() => {});
+    }
   }, []);
 
-  // Derive suggested users: unique authors from explore posts
+  // Derive suggested users: unique authors from explore posts, excluding self and already-followed
   const suggestedUsers = useMemo(() => {
     const seen = new Set<string>();
     const users: any[] = [];
     for (const post of explorePosts) {
       const p = post.profiles ?? post;
       const id = p.id ?? post.user_id;
-      if (id && !seen.has(id)) {
-        seen.add(id);
-        users.push({
-          id,
-          username: p.username,
-          full_name: p.full_name,
-          avatar_url: p.avatar_url,
-          bio: p.bio,
-          is_verified: p.is_verified,
-          is_bot: p.is_bot,
-          is_following: p.is_following,
-        });
-      }
+      if (!id || seen.has(id)) continue;
+      if (id === user?.id) continue;           // skip own profile
+      if (followingIds.has(id)) continue;      // skip already-followed
+      seen.add(id);
+      users.push({
+        id,
+        username: p.username,
+        full_name: p.full_name,
+        avatar_url: p.avatar_url,
+        bio: p.bio,
+        is_verified: p.is_verified,
+        is_bot: p.is_bot,
+      });
     }
     return users.slice(0, 30);
-  }, [explorePosts]);
+  }, [explorePosts, followingIds, user?.id]);
 
   const doSearch = useCallback(async (text: string) => {
     if (!text.trim()) { setResults(null); return; }
@@ -57,7 +67,8 @@ export default function FindFriendsScreen() {
     try {
       const res = await apiClient.searchSocial(text.trim());
       if (res.success && res.data) {
-        setResults((res.data as any).users ?? []);
+        const users = ((res.data as any).users ?? []) as any[];
+        setResults(users.filter((u: any) => u.id !== user?.id && !followingIds.has(u.id)));
       } else {
         setResults([]);
       }
@@ -74,16 +85,18 @@ export default function FindFriendsScreen() {
     searchTimer.current = setTimeout(() => doSearch(text), 350);
   }, [doSearch]);
 
-  const handleFollowToggle = useCallback(async (userId: string, currentlyFollowing: boolean) => {
-    setFollowing(prev => ({ ...prev, [userId]: !currentlyFollowing }));
+  const handleFollowToggle = useCallback(async (targetId: string, currentlyFollowing: boolean) => {
+    setFollowing(prev => ({ ...prev, [targetId]: !currentlyFollowing }));
     try {
       if (currentlyFollowing) {
-        await apiClient.unfollowUser(userId);
+        await apiClient.unfollowUser(targetId);
+        setFollowingIds(prev => { const s = new Set(prev); s.delete(targetId); return s; });
       } else {
-        await apiClient.followUser(userId);
+        await apiClient.followUser(targetId);
+        setFollowingIds(prev => new Set([...prev, targetId]));
       }
     } catch {
-      setFollowing(prev => ({ ...prev, [userId]: currentlyFollowing }));
+      setFollowing(prev => ({ ...prev, [targetId]: currentlyFollowing }));
     }
   }, []);
 
