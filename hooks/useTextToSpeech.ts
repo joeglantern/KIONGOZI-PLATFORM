@@ -35,21 +35,9 @@ export function useTextToSpeech() {
         setIsSpeaking(false);
     }, [supported]);
 
-    const pause = useCallback(() => {
-        if (!supported) return;
-        window.speechSynthesis.pause();
-    }, [supported]);
-
-    const resume = useCallback(() => {
-        if (!supported) return;
-        window.speechSynthesis.resume();
-    }, [supported]);
-
     return {
         speak,
         stop,
-        pause,
-        resume,
         isSpeaking,
         supported
     };

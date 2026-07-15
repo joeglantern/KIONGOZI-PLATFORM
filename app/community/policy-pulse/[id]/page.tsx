@@ -22,7 +22,6 @@ export default async function PollPage({ params }: { params: Promise<{ id: strin
         .order('question_order');
 
     let hasSubmitted = false;
-    let myResponses: Record<string, any> = {};
 
     if (user) {
         const { data: submission } = await supabase
@@ -33,16 +32,6 @@ export default async function PollPage({ params }: { params: Promise<{ id: strin
             .maybeSingle();
 
         hasSubmitted = !!submission;
-
-        if (hasSubmitted) {
-            const { data: responses } = await supabase
-                .from('poll_responses')
-                .select('*')
-                .eq('poll_id', poll.id)
-                .eq('user_id', user.id);
-
-            responses?.forEach(r => { myResponses[r.question_id] = r; });
-        }
     }
 
     const isClosed = poll.status === 'closed' || (poll.closes_at && new Date(poll.closes_at) < new Date());
@@ -53,7 +42,6 @@ export default async function PollPage({ params }: { params: Promise<{ id: strin
             questions={questions ?? []}
             user={user}
             hasSubmitted={hasSubmitted || !!isClosed}
-            myResponses={myResponses}
             isClosed={!!isClosed}
         />
     );

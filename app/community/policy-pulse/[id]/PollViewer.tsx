@@ -26,11 +26,10 @@ interface PollViewerProps {
     questions: any[];
     user: any;
     hasSubmitted: boolean;
-    myResponses: Record<string, any>;
     isClosed: boolean;
 }
 
-export default function PollViewer({ poll, questions, user, hasSubmitted, myResponses, isClosed }: PollViewerProps) {
+export default function PollViewer({ poll, questions, user, hasSubmitted, isClosed }: PollViewerProps) {
     const [answers, setAnswers] = useState<Record<string, any>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);

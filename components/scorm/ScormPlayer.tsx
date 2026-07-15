@@ -11,17 +11,9 @@ interface ScormPlayerProps {
 
 type LessonStatus = 'not attempted' | 'incomplete' | 'completed' | 'passed' | 'failed' | 'browsed';
 
-interface Registration {
-  id: string;
-  cmi_data: Record<string, string>;
-  lesson_status: LessonStatus;
-  score_raw: number | null;
-}
-
 export default function ScormPlayer({ packageId, preview = false }: ScormPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const cmiRef = useRef<Record<string, string>>({});
-  const [registration, setRegistration] = useState<Registration | null>(null);
   const [entryPoint, setEntryPoint] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +79,6 @@ export default function ScormPlayer({ packageId, preview = false }: ScormPlayerP
         const reg = data.registration;
         const pkg = data.package;
 
-        setRegistration(reg);
         setStatus(reg.lesson_status || 'not attempted');
         setScore(reg.score_raw);
         setPackageTitle(pkg.title || '');
