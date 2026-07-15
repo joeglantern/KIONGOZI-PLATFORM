@@ -10,19 +10,13 @@ import {
     BarChart3,
     MessageSquare,
     Settings,
-    LogOut,
-    Sparkles
+    LogOut
 } from 'lucide-react';
-import { useMemo } from 'react';
 import { useUser } from '@/app/contexts/UserContext';
-import { createClient } from '@/app/utils/supabase/client';
-import { useRouter } from 'next/navigation';
 
 export function InstructorSidebar() {
     const pathname = usePathname();
-    const { user, signOut } = useUser();
-    const router = useRouter();
-    const supabase = useMemo(() => createClient(), []);
+    const { signOut } = useUser();
 
     const isActive = (path: string) => pathname === path || pathname?.startsWith(`${path}/`);
 

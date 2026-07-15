@@ -29,12 +29,11 @@ function getPostSignupPath(
 interface SignupContentProps {
   next: string | null;
   path?: string | null;
-  goal?: string | null;
   mission?: string | null;
   answer?: string | null;
 }
 
-export default function SignupContent({ next, path, goal, mission, answer }: SignupContentProps) {
+export default function SignupContent({ next, path, mission, answer }: SignupContentProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const { user, profile, loading: authLoading } = useUser();

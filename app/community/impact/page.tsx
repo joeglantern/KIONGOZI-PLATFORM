@@ -1,7 +1,7 @@
 import { createClient } from '@/app/utils/supabase/server';
 import ImpactReportCard from '@/components/social/ImpactReportCard';
 import { Button } from '@/components/ui/button';
-import { Map, PlusCircle, List } from 'lucide-react';
+import { Map, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function ImpactPage() {
@@ -26,11 +26,6 @@ export default async function ImpactPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {/* Placeholder for Toggle View (Map/List) */}
-                    {/* <Button variant="outline" size="sm" disabled>
-                        <List className="mr-2 h-4 w-4" />
-                        List
-                    </Button> */}
                     <Button asChild className="bg-civic-clay hover:bg-civic-clay/90 text-white shadow-md">
                         <Link href="/community/impact/create">
                             <PlusCircle className="mr-2 h-4 w-4" />

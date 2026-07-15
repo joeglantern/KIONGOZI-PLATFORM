@@ -4,7 +4,6 @@ import WelcomeEmail from '@/app/emails/WelcomeEmail';
 import { createClient } from '@/app/utils/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
 
-// This would typically be stored in your .env
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
 
 export async function POST(request: NextRequest) {

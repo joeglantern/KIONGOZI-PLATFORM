@@ -41,7 +41,7 @@ export function CommentItem({ comment, replies, currentUser, onReply, depth = 0 
     return (
         <div className={`group ${depth > 0 ? 'mt-3' : 'mt-4'}`}>
             <div className="flex gap-3">
-                <Avatar className="h-8 w-8 h-8 w-8 ring-2 ring-background">
+                <Avatar className="h-8 w-8 ring-2 ring-background">
                     <AvatarImage src={comment.profiles?.avatar_url || ''} alt={authorName} />
                     <AvatarFallback className="bg-civic-green-light text-white">
                         {authorInitials}

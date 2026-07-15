@@ -13,10 +13,6 @@ function genId() {
     return count.toString()
 }
 
-type Toastt = Omit<ToasterToast, "id">
-
-type Action = any
-
 let memoryState: any = { toasts: [] }
 const listeners: Array<(state: any) => void> = []
 

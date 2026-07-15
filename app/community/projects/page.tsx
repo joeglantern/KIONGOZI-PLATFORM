@@ -43,11 +43,6 @@ export default async function ProjectsPage({
     const activeMilestone = milestone ?? '';
     const activeType = type ?? '';
 
-    const milestoneCounts = (projects ?? []).reduce((acc: Record<string, number>, p) => {
-        acc[p.milestone] = (acc[p.milestone] ?? 0) + 1;
-        return acc;
-    }, {});
-
     return (
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-civic-earth/10 pb-6">

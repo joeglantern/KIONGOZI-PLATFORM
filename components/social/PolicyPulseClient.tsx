@@ -17,7 +17,7 @@ interface PolicyPulseClientProps {
 }
 
 export default function PolicyPulseClient({ initialPolls, initialRespondedIds }: PolicyPulseClientProps) {
-  const { user, profile } = useUser();
+  const { user } = useUser();
   const supabase = useMemo(() => createClient(), []);
   const { toast } = useToast();
 

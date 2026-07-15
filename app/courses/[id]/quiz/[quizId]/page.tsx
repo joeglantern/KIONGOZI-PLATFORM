@@ -48,10 +48,7 @@ export default function StudentQuizPage() {
                         quizId={quizId}
                         courseId={courseId}
                         returnHref={returnHref}
-                        onComplete={(score, passed) => {
-                            console.log(`Quiz completed with score: ${score}, Passed: ${passed}`);
-                            // Optional: additional logic on completion
-                        }}
+                        onComplete={() => {}}
                     />
                 </div>
             </div>

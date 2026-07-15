@@ -54,7 +54,6 @@ export default function AchievementsPage() {
         fetchData();
     }, [user]);
 
-    const earnedBadgeIds = new Set(userBadges.map(ub => ub.badge_id));
     const lvlInfo = calculateLevel(profile?.total_xp || 0);
 
     return (

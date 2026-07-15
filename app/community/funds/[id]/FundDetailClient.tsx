@@ -79,8 +79,6 @@ export default function FundDetailClient({
         ? Math.min((fund.amount_disbursed / fund.total_amount) * 100, 100)
         : 0;
 
-    const totalAllocPct = allocations.reduce((s, a) => s + (a.percentage ?? 0), 0);
-
     const handleComment = async () => {
         if (!user) { toast({ title: 'Login required', variant: 'destructive' }); return; }
         if (!newComment.trim()) return;

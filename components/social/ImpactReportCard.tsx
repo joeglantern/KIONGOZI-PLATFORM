@@ -74,10 +74,6 @@ export default function ImpactReportCard({ report }: ImpactReportProps) {
                     )}></span>
                     <span className="capitalize">{report.status}</span>
                 </div>
-                {/* Placeholder for upvotes if we add them later */}
-                {/* <div className="flex items-center gap-1">
-                    <ThumbsUp className="h-3 w-3" /> 12
-                 </div> */}
             </CardFooter>
         </Card>
     );

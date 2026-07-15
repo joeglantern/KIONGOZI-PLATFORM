@@ -1,7 +1,7 @@
 import { createClient } from '@/app/utils/supabase/server';
 import EventCard from '@/components/social/EventCard';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Filter, Plus } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function EventsPage() {
@@ -49,10 +49,6 @@ export default async function EventsPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {/* <Button variant="outline" size="sm">
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filter
-                    </Button> */}
                     <Button asChild className="bg-civic-green hover:bg-civic-green-dark text-white shadow-md">
                         <Link href="/community/events/create">
                             <Plus className="mr-2 h-4 w-4" />

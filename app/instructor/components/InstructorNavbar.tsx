@@ -2,7 +2,6 @@
 
 import { useUser } from '@/app/contexts/UserContext';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 import { useTheme } from '@/app/contexts/ThemeContext';
@@ -14,7 +13,6 @@ import {
     Sun,
     Menu,
     Search,
-    ArrowLeftRight,
     GraduationCap
 } from 'lucide-react';
 
@@ -24,7 +22,6 @@ interface InstructorNavbarProps {
 
 export function InstructorNavbar({ onMenuClick }: InstructorNavbarProps) {
     const { user, profile, signOut } = useUser();
-    const router = useRouter();
     const { theme, toggleTheme } = useTheme();
 
     return (
