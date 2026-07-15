@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, tooManyRequests } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/auth/guard';
 import { callAnthropicMessage } from '@/lib/ai/anthropic';
+import { buildCountyBreakdown } from '@/lib/community/analytics';
 
 const CACHE_TTL_MS = 30_000;
 
@@ -41,14 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     }
 
     // Regional (county/ward) distribution.
-    const countyMap = new Map<string, Set<string>>();
-    for (const r of responses) {
-        if (!r.county) continue;
-        const key = r.user_id ?? r.id;
-        if (!countyMap.has(r.county)) countyMap.set(r.county, new Set());
-        countyMap.get(r.county)!.add(key);
-    }
-    const countyBreakdown = [...countyMap.entries()].map(([county, keys]) => ({ county, count: keys.size })).sort((a, b) => b.count - a.count);
+    const countyBreakdown = buildCountyBreakdown(responses, r => r.user_id ?? r.id);
     const wards = [...new Set(responses.map(r => r.ward).filter(Boolean))];
 
     const sections: string[] = [

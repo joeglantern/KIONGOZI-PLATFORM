@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, tooManyRequests } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/auth/guard';
 import { callAnthropicMessage } from '@/lib/ai/anthropic';
+import { buildCountyBreakdown } from '@/lib/community/analytics';
 
 // Return a freshly-cached brief instead of re-calling the model if the last
 // analysis for this poll is younger than this.
@@ -287,16 +288,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
     // Regional (county) distribution — county is sourced from the respondent's
     // profile at submission time, so anonymous respondents (no profile) are
     // excluded from this breakdown.
-    const respondentKey = (r: any) => r.user_id ?? r.anon_session_id ?? r.id;
-    const countyMap = new Map<string, Set<string>>();
-    for (const r of responses) {
-        if (!r.county) continue;
-        if (!countyMap.has(r.county)) countyMap.set(r.county, new Set());
-        countyMap.get(r.county)!.add(respondentKey(r));
-    }
-    const countyBreakdown = [...countyMap.entries()]
-        .map(([county, keys]) => ({ county, count: keys.size }))
-        .sort((a, b) => b.count - a.count);
+    const countyBreakdown = buildCountyBreakdown(responses, r => r.user_id ?? r.anon_session_id ?? r.id);
 
     if (countyBreakdown.length > 0) {
         sections.push('## Regional Distribution');

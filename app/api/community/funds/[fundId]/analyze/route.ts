@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, tooManyRequests } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/auth/guard';
 import { callAnthropicMessage } from '@/lib/ai/anthropic';
+import { buildCountyBreakdown } from '@/lib/community/analytics';
 
 // Return a freshly-cached brief instead of re-calling the model if the last
 // analysis for this fund is younger than this.
@@ -49,16 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ fun
     // Regional (county) distribution — county is sourced from the respondent's
     // profile at submission time; responses without a county are still used
     // for the questions themselves, just excluded from the geographic breakdown.
-    const countyMap = new Map<string, Set<string>>();
-    for (const r of responses) {
-        if (!r.county) continue;
-        const key = r.user_id ?? r.id;
-        if (!countyMap.has(r.county)) countyMap.set(r.county, new Set());
-        countyMap.get(r.county)!.add(key);
-    }
-    const countyBreakdown = [...countyMap.entries()]
-        .map(([county, keys]) => ({ county, count: keys.size }))
-        .sort((a, b) => b.count - a.count);
+    const countyBreakdown = buildCountyBreakdown(responses, r => r.user_id ?? r.id);
 
     const sections: string[] = [
         `# Fund Accountability Data Summary`,
