@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+const VERIFIED_BADGE = require('../../../assets/verified-badge.png');
+
 interface UserAvatarProps {
   avatarUrl?: string;
   size?: number;
@@ -57,11 +59,16 @@ export function UserAvatar({
       {/* Bot / verified badge */}
       {(isBot || isVerified) && !editable && (
         <View style={[styles.badge, { bottom: -2, right: -2 }]}>
-          <Ionicons
-            name={isBot ? 'hardware-chip' : 'checkmark-circle'}
-            size={size * 0.35}
-            color={isBot ? '#805ad5' : '#3182ce'}
-          />
+          {isBot ? (
+            <Ionicons name="hardware-chip" size={size * 0.35} color="#805ad5" />
+          ) : (
+            <Image
+              source={VERIFIED_BADGE}
+              style={{ width: size * 0.38, height: size * 0.38 }}
+              resizeMode="contain"
+              fadeDuration={0}
+            />
+          )}
         </View>
       )}
     </View>
@@ -92,7 +99,5 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    backgroundColor: '#fff',
-    borderRadius: 10,
   },
 });
