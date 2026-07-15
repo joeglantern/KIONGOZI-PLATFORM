@@ -16,6 +16,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../stores/authStore';
@@ -162,6 +163,12 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      {/* Subtle gradient stripe at top */}
+      <LinearGradient
+        colors={['rgba(92,184,92,0.18)', 'transparent']}
+        style={styles.topGradient}
+        pointerEvents="none"
+      />
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -503,10 +510,17 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#0A0A0A',
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: 180,
+    zIndex: 0,
   },
   keyboardContainer: {
     flex: 1,
+    zIndex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -518,19 +532,18 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 28,
     alignItems: 'center',
   },
   logoContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 8,
+    gap: 16,
     justifyContent: 'center',
   },
   logoImage: {
-    width: 60,
-    height: 40,
-    marginRight: 12,
+    width: 72,
+    height: 48,
   },
   aiIconText: {
     color: '#ffffff',
@@ -538,9 +551,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 26,
+    fontWeight: '700',
     color: '#FFFFFF',
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.6,
+    textAlign: 'center',
   },
   formContainer: {
     marginBottom: 32,
@@ -556,19 +572,14 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   input: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#161616',
     borderWidth: 1.5,
     borderColor: '#2A2A2A',
-    borderRadius: 10,
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
     color: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 1,
   },
   inputWithIcon: {
     paddingLeft: 48,
@@ -624,29 +635,27 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#5CB85C',
-    borderRadius: 10,
+    borderRadius: 26,
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
     shadowColor: '#5CB85C',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
     elevation: 5,
   },
   submitButtonDisabled: {
-    backgroundColor: '#333333',
-    shadowOpacity: 0.1,
-    elevation: 1,
+    backgroundColor: '#222222',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   submitButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   divider: {
     flexDirection: 'row',
@@ -719,8 +728,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
+    backgroundColor: '#161616',
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: '#2A2A2A',
     paddingVertical: 14,

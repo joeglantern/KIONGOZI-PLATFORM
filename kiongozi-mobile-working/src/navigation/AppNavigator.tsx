@@ -3,8 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, Image } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeStore } from '../stores/themeStore';
 
 // Screens
 import FeedScreen from '../screens/social/FeedScreen';
@@ -98,7 +99,7 @@ function NotificationTabIcon({ focused, color }: { focused: boolean; color: stri
   const { unreadCount } = useNotificationStore();
   return (
     <View style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
-      <Ionicons name={focused ? 'notifications' : 'notifications-outline'} size={24} color={color} />
+      <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
       {unreadCount > 0 && (
         <View style={styles.tabBadge}>
           <Text style={styles.tabBadgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
@@ -154,7 +155,21 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const { user, sessionExpired } = useAuthStore();
   const insets = useSafeAreaInsets();
   const T = useTheme();
+  const { isDark } = useThemeStore();
   const TAB_BAR_HEIGHT = 84 + insets.bottom;
+
+  // Prevents the white/light flash when navigating between screens in dark mode
+  const navTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme : DefaultTheme).colors,
+      background: isDark ? '#111111' : '#FFFFFF',
+      card: isDark ? '#0C0C0C' : '#FFFFFF',
+      border: isDark ? '#2C2C2E' : '#E9E9EE',
+      text: isDark ? '#FFFFFF' : '#111111',
+      primary: '#5CB85C',
+    },
+  };
 
   useEffect(() => {
     if (sessionExpired) {
@@ -181,7 +196,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 
   return (
     <View style={styles.root}>
-      <NavigationContainer ref={navRef}>
+      <NavigationContainer ref={navRef} theme={navTheme}>
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,

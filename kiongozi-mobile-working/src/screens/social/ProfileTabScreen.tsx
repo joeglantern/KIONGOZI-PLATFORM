@@ -206,10 +206,11 @@ export default function ProfileTabScreen() {
         ) : null}
         {/* Subtle dark tint overlay for readability */}
         <View style={styles.coverTint} />
-        {/* Camera hint */}
+        {/* Camera hint — top-left to avoid avatar overlap at bottom */}
         {!uploadingBanner && (
           <View style={styles.coverCameraHint}>
-            <Ionicons name="camera-outline" size={18} color="rgba(255,255,255,0.85)" />
+            <Ionicons name="camera-outline" size={16} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.coverCameraLabel}>Edit cover</Text>
           </View>
         )}
         {uploadingBanner && (
@@ -337,11 +338,12 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     cover: { height: COVER_HEIGHT, overflow: 'hidden' },
     coverTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.18)' } as any,
     coverCameraHint: {
-      position: 'absolute', bottom: 10, left: 12,
-      width: 32, height: 32, borderRadius: 16,
+      position: 'absolute', top: 14, left: 14,
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16,
       backgroundColor: 'rgba(0,0,0,0.45)',
-      alignItems: 'center', justifyContent: 'center',
     },
+    coverCameraLabel: { fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
     gearBtn: { position: 'absolute', top: 16, right: 16, padding: 8, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 20 },
     avatarRow: { paddingLeft: 20, marginTop: -AVATAR_OVERLAP, marginBottom: 8 },
     avatarWrapper: { borderWidth: 4, borderRadius: (AVATAR_SIZE + 8) / 2, alignSelf: 'flex-start' },
