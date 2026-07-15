@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, NavigationContainerRef, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { useThemeStore } from '../stores/themeStore';
 
 // Screens
@@ -95,11 +96,57 @@ function ProfileStackNavigator() {
 
 // ─── Tab Icon Components ─────────────────────────────────────────────────────
 
-function NotificationTabIcon({ focused, color }: { focused: boolean; color: string }) {
+// ── Design-exact tab icons (SVG paths copied from Kiongozi Redesign.dc.html) ──
+
+function HomeIcon({ color }: { color: string }) {
+  return (
+    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"
+        stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ExploreIcon({ color }: { color: string }) {
+  return (
+    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+      <Circle cx={11} cy={11} r={7} stroke={color} strokeWidth={2} strokeLinecap="round" />
+      <Path d="M21 21l-4.3-4.3" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function BellIcon({ color }: { color: string }) {
+  return (
+    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"
+        stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      />
+      <Path
+        d="M13.7 21a2 2 0 0 1-3.4 0"
+        stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function PersonIcon({ color }: { color: string }) {
+  return (
+    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={8} r={4} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 21a8 8 0 0 1 16 0" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function NotificationTabIcon({ color }: { color: string }) {
   const { unreadCount } = useNotificationStore();
   return (
     <View style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
-      <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
+      <BellIcon color={color} />
       {unreadCount > 0 && (
         <View style={styles.tabBadge}>
           <Text style={styles.tabBadgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
@@ -216,19 +263,11 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             },
             tabBarActiveTintColor: T.tabIconActive,
             tabBarInactiveTintColor: T.tabIconInactive,
-            tabBarIcon: ({ focused, color }) => {
-              if (route.name === 'Feed') {
-                return <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />;
-              }
-              if (route.name === 'Explore') {
-                return <Ionicons name={focused ? 'search' : 'search-outline'} size={24} color={color} />;
-              }
-              if (route.name === 'Notifications') {
-                return <NotificationTabIcon focused={focused} color={color} />;
-              }
-              if (route.name === 'Profile') {
-                return <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />;
-              }
+            tabBarIcon: ({ color }) => {
+              if (route.name === 'Feed') return <HomeIcon color={color} />;
+              if (route.name === 'Explore') return <ExploreIcon color={color} />;
+              if (route.name === 'Notifications') return <NotificationTabIcon color={color} />;
+              if (route.name === 'Profile') return <PersonIcon color={color} />;
               return null;
             },
           })}
