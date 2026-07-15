@@ -188,7 +188,7 @@ export default function ModuleViewerClient({
     const [notes, setNotes] = useState(
         initialProgress.find(p => p.module_id === moduleId)?.notes ?? ''
     );
-    const [isSavingNotes, setIsSavingNotes] = useState(false);
+    const [notesSaveStatus, setNotesSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [showCelebration, setShowCelebration] = useState(false);
     const [isSlidesExpanded, setIsSlidesExpanded] = useState(false);
     const [isVideoExpanded, setIsVideoExpanded] = useState(false);
@@ -476,9 +476,9 @@ export default function ModuleViewerClient({
         if (isPreviewMode) return;
         if (initialNotesRef.current === null || notes === initialNotesRef.current) return;
         const timer = setTimeout(async () => {
+            setNotesSaveStatus('saving');
             try {
-                setIsSavingNotes(true);
-                await supabase
+                const { error } = await supabase
                     .from('user_progress')
                     .upsert({
                         user_id: userId,
@@ -487,14 +487,43 @@ export default function ModuleViewerClient({
                         notes,
                         updated_at: new Date().toISOString(),
                     }, { onConflict: 'user_id, module_id' });
+                if (error) throw error;
+                setNotesSaveStatus('saved');
             } catch (error) {
                 console.error('Error saving notes:', error);
-            } finally {
-                setIsSavingNotes(false);
+                setNotesSaveStatus('error');
             }
         }, 1000);
         return () => clearTimeout(timer);
     }, [notes, userId, moduleId, courseId, isPreviewMode, supabase]);
+
+    const retryNotesSave = useCallback(async () => {
+        setNotesSaveStatus('saving');
+        try {
+            const { error } = await supabase
+                .from('user_progress')
+                .upsert({
+                    user_id: userId,
+                    module_id: moduleId,
+                    course_id: courseId,
+                    notes,
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'user_id, module_id' });
+            if (error) throw error;
+            setNotesSaveStatus('saved');
+        } catch (error) {
+            console.error('Error saving notes (retry):', error);
+            setNotesSaveStatus('error');
+        }
+    }, [notes, userId, moduleId, courseId, supabase]);
+
+    useEffect(() => {
+        const handleOnline = () => {
+            if (notesSaveStatus === 'error') retryNotesSave();
+        };
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [notesSaveStatus, retryNotesSave]);
 
     const handleNextClick = useCallback(async () => {
         if (deliveryMode === 'text') {
@@ -1036,16 +1065,26 @@ export default function ModuleViewerClient({
                                                                     </div>
                                                                     <h3 className="text-lg font-bold text-gray-900">Personal Lesson Notes</h3>
                                                                 </div>
-                                                                {isSavingNotes ? (
+                                                                {notesSaveStatus === 'saving' && (
                                                                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400">
                                                                         <Loader2 className="w-2.5 h-2.5 animate-spin" />
                                                                         <span className="uppercase tracking-wider">Saving...</span>
                                                                     </div>
-                                                                ) : (
+                                                                )}
+                                                                {notesSaveStatus === 'saved' && (
                                                                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-500">
                                                                         <Save className="w-2.5 h-2.5" />
                                                                         <span className="uppercase tracking-wider">Saved</span>
                                                                     </div>
+                                                                )}
+                                                                {notesSaveStatus === 'error' && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={retryNotesSave}
+                                                                        className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 hover:text-red-600"
+                                                                    >
+                                                                        <span className="uppercase tracking-wider">Not saved — retry</span>
+                                                                    </button>
                                                                 )}
                                                             </div>
                                                             <textarea
@@ -1057,7 +1096,7 @@ export default function ModuleViewerClient({
                                                                         ? 'Preview mode does not save personal notes.'
                                                                         : 'Type your notes here... Your insights, questions, or key takeaways. They are saved automatically for your future reference.'
                                                                 }
-                                                                className="w-full h-32 p-4 rounded-xl bg-gray-55 border-gray-100 focus:border-orange-500 focus:ring-orange-500 transition-all resize-none font-medium text-sm placeholder:text-gray-300 disabled:opacity-60"
+                                                                className="w-full h-32 p-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 transition-all resize-none font-medium text-sm placeholder:text-gray-300 disabled:opacity-60"
                                                             />
                                                         </div>
 
