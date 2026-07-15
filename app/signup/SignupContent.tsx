@@ -10,6 +10,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
 import { UserPlus, Mail, Loader2, AlertCircle, CheckCircle, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getPostAuthPath } from '@/lib/auth/redirects';
 import { findStartingCourseIdForPath } from '@/lib/learning/starting-course';
 
 function getPostSignupPath(
@@ -17,13 +18,7 @@ function getPostSignupPath(
   role?: 'user' | 'instructor' | 'admin' | null,
   isProfileIncomplete?: boolean
 ) {
-  if (isProfileIncomplete) {
-    return next ? `/complete-profile?next=${encodeURIComponent(next)}` : '/complete-profile';
-  }
-  if (next) return next;
-  if (role === 'admin') return '/admin/dashboard';
-  if (role === 'instructor') return '/instructor/dashboard';
-  return '/onboarding';
+  return getPostAuthPath(next, role, isProfileIncomplete, '/onboarding');
 }
 
 interface SignupContentProps {

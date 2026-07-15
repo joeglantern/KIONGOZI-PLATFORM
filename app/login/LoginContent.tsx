@@ -11,19 +11,14 @@ import PasswordInput from '@/components/PasswordInput';
 import { LogIn, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { getPostAuthPath } from '@/lib/auth/redirects';
 
 function getPostLoginPath(
   next: string | null,
   role?: 'user' | 'instructor' | 'admin' | null,
   isProfileIncomplete?: boolean
 ) {
-  if (isProfileIncomplete) {
-    return next ? `/complete-profile?next=${encodeURIComponent(next)}` : '/complete-profile';
-  }
-  if (next) return next;
-  if (role === 'admin') return '/admin/dashboard';
-  if (role === 'instructor') return '/instructor/dashboard';
-  return '/dashboard';
+  return getPostAuthPath(next, role, isProfileIncomplete, '/dashboard');
 }
 
 interface LoginContentProps {

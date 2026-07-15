@@ -1,13 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/app/utils/supabase/server';
-
-function getSafeNext(next: string | null) {
-    if (!next || !next.startsWith('/') || next.startsWith('//')) {
-        return null;
-    }
-
-    return next;
-}
+import { getSafeNext } from '@/lib/auth/redirects';
 
 function pickText(...values: Array<string | null | undefined>) {
     for (const value of values) {

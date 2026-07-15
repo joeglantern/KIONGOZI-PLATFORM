@@ -1,9 +1,5 @@
 import LoginContent from './LoginContent';
-
-function getSafeNext(next: string | null | undefined) {
-  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
-  return next;
-}
+import { getSafeNext } from '@/lib/auth/redirects';
 
 // Server component — reads searchParams without useSearchParams(),
 // so LoginContent can render on the server with no Suspense needed.

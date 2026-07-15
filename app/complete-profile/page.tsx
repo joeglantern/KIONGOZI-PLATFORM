@@ -7,6 +7,7 @@ import { useUser } from '@/app/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle2, User as UserIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { getSafeNext } from '@/lib/auth/redirects';
 
 function splitFullName(fullName?: string | null) {
     if (!fullName) {
@@ -22,14 +23,6 @@ function splitFullName(fullName?: string | null) {
         firstName: parts[0] ?? '',
         lastName: parts.length > 1 ? parts.slice(1).join(' ') : '',
     };
-}
-
-function getSafeNext(next: string | null) {
-    if (!next || !next.startsWith('/') || next.startsWith('//')) {
-        return null;
-    }
-
-    return next;
 }
 
 export default function CompleteProfilePage() {

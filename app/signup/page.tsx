@@ -1,9 +1,5 @@
 import SignupContent from './SignupContent';
-
-function getSafeNext(next: string | null | undefined) {
-  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
-  return next;
-}
+import { getSafeNext } from '@/lib/auth/redirects';
 
 export default async function SignupPage({
   searchParams,
