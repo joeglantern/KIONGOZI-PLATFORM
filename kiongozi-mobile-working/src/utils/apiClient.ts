@@ -568,6 +568,11 @@ class ApiClient {
     });
   }
 
+  /** Undo a repost */
+  async unrepostPost(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}/repost`, { method: 'DELETE' });
+  }
+
   /** Reply to a post */
   async replyToPost(postId: string, content: string, media?: any[]) {
     return this.request(`/api/v1/social/posts/${postId}/reply`, {
@@ -631,6 +636,10 @@ class ApiClient {
   /** Get trending hashtags + posts */
   async getTrending() {
     return this.request('/api/v1/social/trending', { method: 'GET' });
+  }
+
+  async getAppConfig() {
+    return this.request('/api/v1/health/app-config', { method: 'GET' });
   }
 
   /** Search posts and users */

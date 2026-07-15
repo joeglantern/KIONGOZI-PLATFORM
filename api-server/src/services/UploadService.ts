@@ -20,7 +20,7 @@ class UploadService {
       .from(BUCKET)
       .upload(storagePath, buffer, {
         contentType: mimeType,
-        upsert: false
+        upsert: true
       });
 
     if (error) {

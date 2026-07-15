@@ -64,5 +64,24 @@ router.get('/detailed', async (_req, res) => {
   res.status(statusCode).json(healthCheck);
 });
 
+// GET /api/v1/health/app-config — minimum version requirements, checked on app startup
+// To force an update: bump android.min_version_code or ios.min_build_number, then restart PM2
+router.get('/app-config', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      android: {
+        min_version_code: 11,
+        store_url: 'https://play.google.com/store/apps/details?id=com.kiongozi.chat',
+      },
+      ios: {
+        min_build_number: 9,
+        store_url: 'https://apps.apple.com/app/id6789518676',
+      },
+      force_update_message: 'A new version of Kiongozi is available with important updates. Please update to continue.',
+    },
+  });
+});
+
 export default router;
 

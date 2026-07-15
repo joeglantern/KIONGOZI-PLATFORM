@@ -28,6 +28,7 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../utils/supabaseClient';
 import { useTheme } from '../hooks/useTheme';
+import { useForceUpdate, openStore } from '../hooks/useForceUpdate';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
@@ -153,6 +154,7 @@ interface AppNavigatorProps {
 
 export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorProps = {}) {
   const [chatVisible, setChatVisible] = useState(false);
+  const forceUpdate = useForceUpdate();
   const internalNavRef = useRef<NavigationContainerRef<any>>(null);
   const navRef = externalNavRef ?? internalNavRef;
   const { addNotification, fetchNotifications } = useNotificationStore();
@@ -265,12 +267,45 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
       >
         <ChatScreen onClose={() => setChatVisible(false)} />
       </Modal>
+
+      {/* Force update — non-dismissable */}
+      <Modal visible={forceUpdate.required} transparent animationType="fade">
+        <View style={styles.updateOverlay}>
+          <View style={[styles.updateCard, { backgroundColor: T.bg, borderColor: T.border }]}>
+            <Text style={styles.updateEmoji}>🚀</Text>
+            <Text style={[styles.updateTitle, { color: T.text }]}>Update Required</Text>
+            <Text style={[styles.updateMessage, { color: T.textSub }]}>{forceUpdate.message}</Text>
+            <TouchableOpacity
+              style={[styles.updateBtn, { backgroundColor: T.accent }]}
+              onPress={() => openStore(forceUpdate.storeUrl)}
+            >
+              <Text style={styles.updateBtnText}>Update Now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  updateOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center', justifyContent: 'center', padding: 32,
+  },
+  updateCard: {
+    width: '100%', borderRadius: 24, padding: 28,
+    alignItems: 'center', borderWidth: 1, gap: 12,
+  },
+  updateEmoji: { fontSize: 44 },
+  updateTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  updateMessage: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  updateBtn: {
+    marginTop: 8, width: '100%', paddingVertical: 14,
+    borderRadius: 22, alignItems: 'center',
+  },
+  updateBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   aiTabButton: {
     flex: 1,
     justifyContent: 'center',
