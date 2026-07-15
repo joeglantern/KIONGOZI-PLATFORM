@@ -47,6 +47,12 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
         if (!hasHtml) {
             return '';
         }
+        if (typeof window === 'undefined') {
+            // DOMPurify has no sanitize() without a window (SSR/hard navigation).
+            // Render nothing server-side; the client render below will sanitize
+            // and hydrate correctly once window exists.
+            return '';
+        }
 
         return DOMPurify.sanitize(content, {
             USE_PROFILES: { html: true },
@@ -58,6 +64,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
             <div
                 className={proseClassName}
                 dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                suppressHydrationWarning
             />
         );
     }
