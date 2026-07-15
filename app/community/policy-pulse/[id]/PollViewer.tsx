@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import {
     ArrowLeft, Check, CheckCircle2, ClipboardCopy, Download, Loader2, Printer, RefreshCw,
     Sparkles, Trash2, Users, FileText, BarChart2, Compass, Zap, Target, ShieldAlert, Megaphone, FlaskConical, Info,

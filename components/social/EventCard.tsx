@@ -8,7 +8,7 @@ import { Calendar, MapPin, Users, Clock, CheckCircle2, Share2, Check } from 'luc
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { createClient } from '@/app/utils/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
 interface EventProps {

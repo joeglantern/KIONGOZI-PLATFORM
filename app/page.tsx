@@ -26,7 +26,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useUser } from "@/app/contexts/UserContext";
-import { createClient } from "@/app/utils/supabase/client";
+import { createClient } from '@/app/utils/supabase/client';
 import { Mwanzo, Zola, Ken } from "@/components/landing/Characters";
 import { PENDING_MISSION_KEY } from "@/components/landing/PendingMissionClaim";
 import AnimatedIcon from "@/components/landing/AnimatedIcon";

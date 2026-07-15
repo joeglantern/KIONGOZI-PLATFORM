@@ -9,7 +9,7 @@ import { MessageSquare, Heart, Share2, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { createClient } from '@/app/utils/supabase/client';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { getProfileDisplayName, getProfileInitials } from '@/lib/social/profile-display';
 
 interface PostProps {

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Video, Save, Loader2, Copy, ExternalLink, Pencil } from 'lucide-react';
 import { createClient } from '@/app/utils/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { isSafeUrl } from '@/lib/events';
 
 interface RecordingManagerProps {

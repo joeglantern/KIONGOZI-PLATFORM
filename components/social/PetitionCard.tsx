@@ -9,7 +9,7 @@ import { FileText, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, isPast, format } from 'date-fns';
 import { createClient } from '@/app/utils/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
 interface PetitionProps {

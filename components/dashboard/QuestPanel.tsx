@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Award, BookOpen, Check, Flame, Loader2, MessageCircle, RotateCcw, Sparkles, Target, Users, Vote } from "lucide-react";
-import { createClient } from "@/app/utils/supabase/client";
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from "@/app/contexts/UserContext";
 
 interface QuestTemplate {

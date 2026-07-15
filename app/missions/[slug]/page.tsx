@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Award, Check, Clock3, Lightbulb, Loader2, RotateCcw, ShieldCheck, Sparkles, Target, X } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { createClient } from "@/app/utils/supabase/client";
+import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from "@/app/contexts/UserContext";
 import { Mwanzo } from "@/components/landing/Characters";
 import { Confetti } from "@/components/landing/Confetti";

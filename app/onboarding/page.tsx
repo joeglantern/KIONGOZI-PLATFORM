@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useUser } from "@/app/contexts/UserContext";
-import { createClient } from "@/app/utils/supabase/client";
+import { createClient } from '@/app/utils/supabase/client';
 import { Mwanzo } from "@/components/landing/Characters";
 import { KENYA_COUNTIES } from "@/lib/kenya-counties";
 import { findStartingCourseIdForPath } from "@/lib/learning/starting-course";

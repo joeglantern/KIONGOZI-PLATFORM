@@ -6,7 +6,7 @@ import { createClient } from '@/app/utils/supabase/client';
 import { useUser } from '@/app/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle2, User as UserIcon } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/useToast';
 import { getSafeNext } from '@/lib/auth/redirects';
 
 function splitFullName(fullName?: string | null) {

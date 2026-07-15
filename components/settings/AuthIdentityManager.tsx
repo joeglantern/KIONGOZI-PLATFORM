@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { UserIdentity } from '@supabase/supabase-js';
 import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import {
     AlertCircle,
     CheckCircle2,

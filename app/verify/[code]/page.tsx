@@ -1,4 +1,4 @@
-import { createClient } from "@/app/utils/supabase/server";
+import { createClient } from '@/app/utils/supabase/server';
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { ShieldCheck, Calendar, User, BookOpen, ExternalLink, Globe } from "lucide-react";

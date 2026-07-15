@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Share2, FileSignature, Trash2 } from 'lucide-react';
 import { createClient } from '@/app/utils/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { AnimatedToast, ToastAction } from '@/components/gamification/AnimatedToast';
 
 interface PetitionActionsProps {

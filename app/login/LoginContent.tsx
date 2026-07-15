@@ -9,7 +9,7 @@ import { useUser } from '@/app/contexts/UserContext';
 import { Button, buttonVariants } from '@/components/ui/button';
 import PasswordInput from '@/components/PasswordInput';
 import { LogIn, Mail, Loader2, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 import { getPostAuthPath } from '@/lib/auth/redirects';
 

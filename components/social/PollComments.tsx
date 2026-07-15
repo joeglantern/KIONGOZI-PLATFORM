@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/app/utils/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { 
     ChevronDown, ChevronUp, Globe, Loader2, MessageSquare, Reply, Send, 
     Trash2 

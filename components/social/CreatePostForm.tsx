@@ -18,7 +18,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Loader2, MessageSquarePlus, Plus, Hash, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 
 const MAX_CONTENT = 2000;
 const MAX_ANON_NAME = 40;
