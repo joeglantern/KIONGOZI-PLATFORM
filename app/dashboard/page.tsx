@@ -519,7 +519,7 @@ export default function DashboardPage() {
                 </div>
             </div>
             {/* Mascot Guided Tour Pop-up */}
-            <DashboardTour />
+            <DashboardTour onboardingCompleted={Boolean(profile?.onboarding_completed_at)} />
         </ProtectedRoute>
     );
 }

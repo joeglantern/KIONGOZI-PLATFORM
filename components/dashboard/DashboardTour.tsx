@@ -57,17 +57,18 @@ const TOUR_STEPS: TourStep[] = [
   }
 ];
 
-export function DashboardTour() {
+export function DashboardTour({ onboardingCompleted }: { onboardingCompleted: boolean }) {
   const [currentStep, setCurrentStep] = useState<number | null>(null);
   const [highlightStyle, setHighlightStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
+    if (!onboardingCompleted) return;
     // Check if user has completed the tour already
     const completed = localStorage.getItem('kiongozi_dashboard_tour_completed');
     if (!completed) {
       setCurrentStep(0);
     }
-  }, []);
+  }, [onboardingCompleted]);
 
   useEffect(() => {
     if (currentStep === null || currentStep >= TOUR_STEPS.length) {
