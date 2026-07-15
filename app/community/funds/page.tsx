@@ -2,7 +2,7 @@ import { createClient } from '@/app/utils/supabase/server';
 import FundCard from '@/components/social/FundCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, DollarSign, TrendingUp, Activity } from 'lucide-react';
+import { PlusCircle, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 
 function formatCurrency(amount: number, currency = 'KES') {

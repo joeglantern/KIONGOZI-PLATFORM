@@ -13,7 +13,6 @@ import {
   Clock3,
   Compass,
   Flag,
-  GraduationCap,
   HeartHandshake,
   Leaf,
   Lightbulb,

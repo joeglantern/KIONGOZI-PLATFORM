@@ -1,9 +1,9 @@
 import { createClient } from '@/app/utils/supabase/server';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-    TrendingUp, MessageSquare, Hash, Users, FileText,
+    MessageSquare, FileText,
     Calendar, BarChart2, DollarSign, Clipboard, Zap,
     ArrowRight, PenSquare, Flame
 } from 'lucide-react';

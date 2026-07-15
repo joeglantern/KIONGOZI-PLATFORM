@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, CornerDownRight, Reply, Send, Loader2 } from 'lucide-react';
+import { Reply, Send, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { getProfileDisplayName, getProfileInitials } from '@/lib/social/profile-display';
 

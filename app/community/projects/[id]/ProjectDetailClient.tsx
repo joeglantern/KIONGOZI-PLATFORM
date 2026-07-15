@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import {
     ArrowLeft, MapPin, Users, Bell, BellOff, Loader2,
-    ThumbsUp, Plus, Image, Clipboard, Calendar, Trash2
+    ThumbsUp, Plus, Image, Calendar, Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';

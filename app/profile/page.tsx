@@ -14,12 +14,10 @@ import {
     Save,
     Loader2,
     CheckCircle2,
-    ArrowLeft,
     Trophy,
     Star,
     Award
 } from 'lucide-react';
-import ImageUpload from '@/components/ui/ImageUpload';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Ken } from '@/components/landing/Characters';

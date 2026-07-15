@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Award, Check, Clock3, Lightbulb, Loader2, RotateCcw, ShieldCheck, Sparkles, Target, X } from "lucide-react";
+import { ArrowRight, Award, Check, Clock3, Lightbulb, Loader2, RotateCcw, ShieldCheck, Sparkles, Target, X } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { createClient } from "@/app/utils/supabase/client";
 import { useUser } from "@/app/contexts/UserContext";

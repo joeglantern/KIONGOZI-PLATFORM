@@ -9,7 +9,6 @@ import {
     BookOpen,
     Search,
     ExternalLink,
-    Filter,
     Calendar,
     ChevronDown,
     ChevronUp

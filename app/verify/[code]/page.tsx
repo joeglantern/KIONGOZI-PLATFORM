@@ -1,7 +1,7 @@
 import { createClient } from "@/app/utils/supabase/server";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import { Award, ShieldCheck, Calendar, User, BookOpen, ExternalLink, Globe } from "lucide-react";
+import { ShieldCheck, Calendar, User, BookOpen, ExternalLink, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";

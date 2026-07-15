@@ -7,7 +7,7 @@ import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Award, Download, Eye, ShieldCheck, FileText, Search, Linkedin } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { CertificatesSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';

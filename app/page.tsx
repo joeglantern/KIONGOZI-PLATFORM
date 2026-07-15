@@ -10,7 +10,6 @@ import {
   BarChart3,
   BookOpen,
   ChevronDown,
-  ChevronRight,
   Clock3,
   Flame,
   Leaf,

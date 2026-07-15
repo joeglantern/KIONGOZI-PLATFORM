@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
     Search,
-    Filter,
     Mail,
     MoreVertical,
     Users,

@@ -9,8 +9,6 @@ import { Button } from '@/components/ui/button';
 import {
     Users,
     BookOpen,
-    BarChart3,
-    MessageSquare,
     TrendingUp,
     Star,
     Eye,

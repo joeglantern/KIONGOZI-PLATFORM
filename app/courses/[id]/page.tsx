@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +14,6 @@ import {
     TrendingUp,
     Loader2,
     CheckCircle,
-    ArrowLeft,
     Sparkles,
     MessageSquare,
     Eye,

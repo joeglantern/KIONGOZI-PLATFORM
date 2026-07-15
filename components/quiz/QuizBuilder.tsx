@@ -12,10 +12,6 @@ import {
     Settings,
     PlusCircle,
     CheckCircle2,
-    AlertCircle,
-    GripVertical,
-    ChevronDown,
-    ChevronUp,
     Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

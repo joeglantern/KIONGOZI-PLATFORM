@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
     Search, SlidersHorizontal, X, Globe, MapPin, Tag, Briefcase, 
-    BookOpen, HelpCircle, GraduationCap, Award
+    BookOpen, GraduationCap
 } from 'lucide-react';
 
 interface LibraryClientProps {

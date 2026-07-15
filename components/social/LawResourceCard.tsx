@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, FileText, Download, Globe, MapPin, Tag, Briefcase, Award } from 'lucide-react';
+import { FileText, Download, Globe, MapPin, Tag, Briefcase, Award } from 'lucide-react';
 
 interface LawResourceProps {
     resource: any;

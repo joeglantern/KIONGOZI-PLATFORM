@@ -3,7 +3,6 @@
 import { ImpactMap } from "@/components/map/ImpactMap";
 import { Button } from "@/components/ui/button";
 import { Plus, MapPin, TreePine, Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { AddImpactDialog } from "@/components/map/AddImpactDialog";
 import { useState } from "react";
 import { Zola } from "@/components/landing/Characters";

@@ -10,8 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { 
-    Award, BarChart2, CheckCircle2, ChevronDown, ChevronUp, Loader2, 
-    MessageSquare, Plus, Send, ShieldAlert, Sparkles, TrendingUp, Users 
+    ChevronDown, ChevronUp, Loader2, 
+    Plus, Send, Sparkles, Users 
 } from 'lucide-react';
 import { getProfileDisplayName, getProfileInitials } from '@/lib/social/profile-display';
 

@@ -1,6 +1,5 @@
 "use client";
 
-import React from 'react';
 import { useCookieConsent } from '@/app/contexts/CookieConsentContext';
 import { Settings } from 'lucide-react';
 

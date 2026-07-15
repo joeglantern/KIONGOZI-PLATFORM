@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { BouncyThermometer } from './BouncyThermometer';
 import { Badge } from '@/components/ui/badge';
-import { Users, FileText, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
+import { FileText, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, isPast, format } from 'date-fns';
 import { createClient } from '@/app/utils/supabase/client';
