@@ -48,6 +48,10 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+// Routes where the profile-completion/onboarding gate must never fire —
+// primarily auth flows the user may reach mid-recovery with an incomplete profile.
+const AUTH_EXEMPT_PATHS = ['/reset-password', '/forgot-password', '/auth/callback', '/auth/auth-code-error'];
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   // Stable client reference — never re-created on re-render
   const supabase = useMemo(() => createClient(), []);
@@ -60,6 +64,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // Profile completion interceptor
   useEffect(() => {
     if (!loading && user && profile) {
+      const isAuthExempt = AUTH_EXEMPT_PATHS.some(
+        (p) => pathname === p || pathname?.startsWith(`${p}/`)
+      );
+      if (isAuthExempt) return;
+
       const hasDisplayName = Boolean(profile.first_name?.trim() || profile.full_name?.trim());
       const isMissingInfo = !profile.username || !hasDisplayName;
       const isCurrentlyCompleting = pathname === '/complete-profile';
