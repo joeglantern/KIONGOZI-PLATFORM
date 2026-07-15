@@ -38,6 +38,8 @@ export default function ProfileTabScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [localBannerUri, setLocalBannerUri] = useState<string | null>(null);
 
   const spinAnim = useRef(new Animated.Value(0)).current;
 
@@ -111,6 +113,36 @@ export default function ProfileTabScreen() {
     });
   };
 
+  const handlePickBanner = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permission required', 'Please allow photo library access in Settings.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, aspect: [3, 1], quality: 0.85,
+    });
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+    setLocalBannerUri(uri);
+    setUploadingBanner(true);
+    try {
+      const formData = new FormData();
+      formData.append('banner', { uri, type: 'image/jpeg', name: 'banner.jpg' } as any);
+      const res = await apiClient.updateProfile(formData);
+      if (res.success && res.data) {
+        updateCurrentUserProfile({ ...(res.data.banner_url ? { banner_url: res.data.banner_url } : {}) });
+        setLocalBannerUri(null);
+      } else {
+        Alert.alert('Upload failed', res.error || 'Could not update cover photo.');
+        setLocalBannerUri(null);
+      }
+    } catch {
+      Alert.alert('Upload failed', 'Network error. Please try again.');
+      setLocalBannerUri(null);
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
+
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission required', 'Please allow photo library access in Settings.'); return; }
@@ -155,19 +187,40 @@ export default function ProfileTabScreen() {
 
   const ListHeader = (
     <View>
-      {/* Gradient cover */}
-      <LinearGradient
-        colors={[T.accent, T.accentDeep]}
-        start={{ x: 0.35, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.cover}
-      >
+      {/* Cover photo — tap to change; gradient shown when no photo */}
+      <TouchableOpacity activeOpacity={0.85} onPress={handlePickBanner} style={styles.cover}>
+        {/* Gradient fallback (always underneath) */}
+        <LinearGradient
+          colors={[T.accent, T.accentDeep]}
+          start={{ x: 0.35, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        {/* Photo on top when available */}
+        {(localBannerUri || profile?.banner_url) ? (
+          <Image
+            source={{ uri: localBannerUri ?? profile!.banner_url }}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+          />
+        ) : null}
+        {/* Subtle dark tint overlay for readability */}
+        <View style={styles.coverTint} />
+        {/* Camera hint */}
+        {!uploadingBanner && (
+          <View style={styles.coverCameraHint}>
+            <Ionicons name="camera-outline" size={18} color="rgba(255,255,255,0.85)" />
+          </View>
+        )}
+        {uploadingBanner && (
+          <ActivityIndicator color="#fff" style={{ position: 'absolute', bottom: 12, left: 12 }} />
+        )}
         <TouchableOpacity style={styles.gearBtn} onPress={handleGearPress}>
           <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
             <Ionicons name="settings-outline" size={22} color="#fff" />
           </Animated.View>
         </TouchableOpacity>
-      </LinearGradient>
+      </TouchableOpacity>
 
       <View style={styles.avatarRow}>
         <View style={[styles.avatarWrapper, { borderColor: T.bg }]}>
@@ -281,7 +334,14 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.bg },
-    cover: { height: COVER_HEIGHT },
+    cover: { height: COVER_HEIGHT, overflow: 'hidden' },
+    coverTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.18)' } as any,
+    coverCameraHint: {
+      position: 'absolute', bottom: 10, left: 12,
+      width: 32, height: 32, borderRadius: 16,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      alignItems: 'center', justifyContent: 'center',
+    },
     gearBtn: { position: 'absolute', top: 16, right: 16, padding: 8, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 20 },
     avatarRow: { paddingLeft: 20, marginTop: -AVATAR_OVERLAP, marginBottom: 8 },
     avatarWrapper: { borderWidth: 4, borderRadius: (AVATAR_SIZE + 8) / 2, alignSelf: 'flex-start' },

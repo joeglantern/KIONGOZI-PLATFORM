@@ -76,7 +76,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   };
 
   const uploadMedia = async (): Promise<{ uploaded: Array<{ url: string; storage_path: string; media_type: string }>; lastError?: string }> => {
-    const uploaded: Array<{ url: string; storage_path: string; media_type: string }> = [];
+    const uploaded: Array<{ url: string; storage_path: string; media_type: string; width?: number; height?: number }> = [];
     let lastError: string | undefined;
     setUploading(true);
 
@@ -196,22 +196,26 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 
             {/* Media previews */}
             {media.length > 0 && (
-              <View style={styles.mediaGrid}>
-                {media.map((m, i) => (
-                  <View key={i} style={styles.mediaItem}>
-                    {m.type === 'video' ? (
-                      <View style={[styles.mediaThumb, styles.videoThumb]}>
-                        <Ionicons name="play-circle" size={36} color="#fff" />
-                        <Text style={styles.videoLabel}>Video</Text>
-                      </View>
-                    ) : (
-                      <Image source={{ uri: m.uri }} style={styles.mediaThumb} resizeMode="cover" />
-                    )}
-                    <TouchableOpacity style={styles.removeMedia} onPress={() => removeMedia(i)}>
-                      <Ionicons name="close-circle" size={22} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
+              <View style={media.length === 1 ? styles.mediaSingle : styles.mediaGrid}>
+                {media.map((m, i) => {
+                  const isSingle = media.length === 1;
+                  const ratio = (m.width && m.height) ? Math.min(Math.max(m.width / m.height, 0.56), 1.91) : 1;
+                  return (
+                    <View key={i} style={[styles.mediaItem, isSingle && { width: '100%', aspectRatio: ratio }]}>
+                      {m.type === 'video' ? (
+                        <View style={[isSingle ? styles.mediaThumbFull : styles.mediaThumb, styles.videoThumb]}>
+                          <Ionicons name="play-circle" size={36} color="#fff" />
+                          <Text style={styles.videoLabel}>Video</Text>
+                        </View>
+                      ) : (
+                        <Image source={{ uri: m.uri }} style={isSingle ? styles.mediaThumbFull : styles.mediaThumb} resizeMode="cover" />
+                      )}
+                      <TouchableOpacity style={styles.removeMedia} onPress={() => removeMedia(i)}>
+                        <Ionicons name="close-circle" size={22} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -294,9 +298,11 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     body: { flex: 1 },
     row: { flexDirection: 'row', padding: 16, gap: 12 },
     inputContainer: { flex: 1 },
+    mediaSingle: { marginTop: 8 },
     mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
     mediaItem: { position: 'relative' },
     mediaThumb: { width: 100, height: 100, borderRadius: 8 },
+    mediaThumbFull: { width: '100%', height: '100%', borderRadius: 12 },
     videoThumb: { backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', gap: 4 },
     videoLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
     removeMedia: { position: 'absolute', top: -6, right: -6 },

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   View, Text, TextInput, StyleSheet, FlatList,
   TouchableOpacity, ActivityIndicator, RefreshControl,
-  ScrollView, Dimensions,
+  ScrollView, Dimensions, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -225,28 +225,34 @@ export default function ExploreScreen() {
             />
           }
           ListHeaderComponent={DefaultHeader}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.gridCard}
-              onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
-              activeOpacity={0.82}
-            >
-              <View style={styles.gridCardGradient}>
-                <LinearGradient
-                  colors={[T.surface2, T.surface]}
-                  style={StyleSheet.absoluteFillObject}
-                />
-              </View>
-              <View style={styles.gridCardBody}>
-                <Text style={styles.gridContent} numberOfLines={3}>{item.content}</Text>
-                <View style={styles.gridMeta}>
-                  <UserAvatar avatarUrl={item.profiles?.avatar_url} size={18} />
-                  <Ionicons name="heart-outline" size={12} color={T.textMuted} />
-                  <Text style={styles.gridMetaText}>{item.like_count ?? 0}</Text>
+          renderItem={({ item }) => {
+            const firstImage = item.post_media?.find((m: any) => m.media_type === 'image');
+            return (
+              <TouchableOpacity
+                style={styles.gridCard}
+                onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+                activeOpacity={0.82}
+              >
+                {firstImage ? (
+                  <View style={styles.gridCardImage}>
+                    <Image source={{ uri: firstImage.url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                    <LinearGradient
+                      colors={['transparent', 'rgba(0,0,0,0.45)']}
+                      style={[StyleSheet.absoluteFillObject, { top: '40%' }]}
+                    />
+                  </View>
+                ) : null}
+                <View style={[styles.gridCardBody, !firstImage && styles.gridCardBodyOnly]}>
+                  <Text style={styles.gridContent} numberOfLines={firstImage ? 2 : 4}>{item.content}</Text>
+                  <View style={styles.gridMeta}>
+                    <UserAvatar avatarUrl={item.profiles?.avatar_url} size={18} />
+                    <Ionicons name="heart-outline" size={12} color={T.textMuted} />
+                    <Text style={styles.gridMetaText}>{item.like_count ?? 0}</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          )}
+              </TouchableOpacity>
+            );
+          }}
           ListFooterComponent={exploreLoading && gridPosts.length > 0 ? <ActivityIndicator style={{ margin: 16 }} color={T.accent} /> : null}
         />
       )}
@@ -300,8 +306,9 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     gridContainer: { paddingHorizontal: 16, paddingBottom: 20 },
     gridRow: { gap: CARD_GAP, marginBottom: CARD_GAP },
     gridCard: { width: CARD_W, borderRadius: 16, borderWidth: 1, borderColor: T.borderLight, backgroundColor: T.card, overflow: 'hidden' },
-    gridCardGradient: { height: 72, overflow: 'hidden' },
+    gridCardImage: { height: 90, overflow: 'hidden' },
     gridCardBody: { padding: 10 },
+    gridCardBodyOnly: { paddingVertical: 14 },
     gridContent: { fontSize: 13, color: T.text, lineHeight: 18, marginBottom: 8 },
     gridMeta: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     gridMetaText: { fontSize: 11, color: T.textMuted },

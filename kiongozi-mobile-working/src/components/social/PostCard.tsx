@@ -27,6 +27,30 @@ interface PostCardProps {
   onReportPress?: (postId: string) => void;
 }
 
+function SmartImage({ url, style, onPress }: { url: string; style?: any; onPress: () => void }) {
+  const T = useTheme();
+  const [ratio, setRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    Image.getSize(url, (w, h) => {
+      if (w > 0 && h > 0) {
+        // Clamp: min 0.56 (tall portrait ~9:16), max 1.91 (landscape ~16:9)
+        setRatio(Math.min(Math.max(w / h, 0.56), 1.91));
+      }
+    }, () => {});
+  }, [url]);
+
+  const dynamicStyle = ratio !== null
+    ? { width: '100%' as const, aspectRatio: ratio }
+    : style;
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={[{ borderRadius: 12, overflow: 'hidden', backgroundColor: T.surface2 }, dynamicStyle]}>
+      <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+    </TouchableOpacity>
+  );
+}
+
 function VideoThumbnail({ url, style, onPress }: { url: string; style?: any; onPress: () => void }) {
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
   const T = useTheme();
@@ -379,23 +403,33 @@ export function PostCard({
             {activePost.post_media && activePost.post_media.length > 0 && (
               <View style={styles.mediaContainer}>
                 {activePost.post_media.slice(0, 4).map((media, index) => {
-                  const mediaStyle = [
-                    styles.mediaImage,
-                    activePost.post_media!.length === 1 ? styles.singleImage : styles.gridImage,
-                  ];
-                  return media.media_type === 'video' ? (
-                    <VideoThumbnail
-                      key={media.id}
-                      url={media.url}
-                      style={mediaStyle}
-                      onPress={() => openViewer(index)}
-                    />
-                  ) : (
+                  const isSingle = activePost.post_media!.length === 1;
+                  if (media.media_type === 'video') {
+                    return (
+                      <VideoThumbnail
+                        key={media.id}
+                        url={media.url}
+                        style={[styles.mediaImage, isSingle ? styles.singleImage : styles.gridImage]}
+                        onPress={() => openViewer(index)}
+                      />
+                    );
+                  }
+                  if (isSingle) {
+                    return (
+                      <SmartImage
+                        key={media.id}
+                        url={media.url}
+                        style={styles.singleImage}
+                        onPress={() => openViewer(index)}
+                      />
+                    );
+                  }
+                  return (
                     <TouchableOpacity
                       key={media.id}
                       onPress={() => openViewer(index)}
                       activeOpacity={0.9}
-                      style={mediaStyle}
+                      style={[styles.mediaImage, styles.gridImage]}
                     >
                       <Image source={{ uri: media.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                     </TouchableOpacity>
@@ -591,7 +625,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     singleImage: {
       width: '100%',
-      height: 200,
+      minHeight: 120,
     },
     gridImage: {
       width: '48%',

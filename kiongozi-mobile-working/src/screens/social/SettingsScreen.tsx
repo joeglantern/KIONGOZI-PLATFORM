@@ -13,6 +13,7 @@ import {
   Platform,
   Linking,
   Animated,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -252,7 +253,12 @@ export default function SettingsScreen() {
             {privacyLoading ? (
               <ActivityIndicator size="small" color="#5CB85C" />
             ) : (
-              <AnimatedToggle value={privateAccount} onValueChange={handlePrivateToggle} />
+              <Switch
+                value={privateAccount}
+                onValueChange={handlePrivateToggle}
+                trackColor={{ false: '#767577', true: T.accent }}
+                thumbColor="#FFFFFF"
+              />
             )}
           </View>
           <SettingsRow
@@ -281,7 +287,12 @@ export default function SettingsScreen() {
             {pushLoading ? (
               <ActivityIndicator size="small" color="#5CB85C" />
             ) : (
-              <AnimatedToggle value={pushEnabled} onValueChange={handlePushToggle} />
+              <Switch
+                value={pushEnabled}
+                onValueChange={handlePushToggle}
+                trackColor={{ false: '#767577', true: T.accent }}
+                thumbColor="#FFFFFF"
+              />
             )}
           </View>
         </View>
