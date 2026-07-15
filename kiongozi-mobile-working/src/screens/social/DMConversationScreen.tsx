@@ -176,12 +176,23 @@ export default function DMConversationScreen() {
   );
 
   useEffect(() => {
-    fetchMessages(conversationId, true);
+    // Only do a blocking full-reload when the conversation has never been opened
+    // before (no cached messages). The realtime subscription's SUBSCRIBED callback
+    // handles catching any messages that arrived while we were away.
+    const hasCached = (messages[conversationId]?.length ?? 0) > 0;
+    if (!hasCached) {
+      fetchMessages(conversationId, true);
+    }
     markRead(conversationId);
     apiClient.markDMRead(conversationId);
   }, [conversationId]);
 
-  // Realtime: append incoming messages
+  // Keep a ref to current messages for dedup checks inside the realtime callback
+  // (avoids stale closure over `conversationMessages`)
+  const msgsRef = useRef<DMMessage[]>([]);
+  useEffect(() => { msgsRef.current = conversationMessages; }, [conversationMessages]);
+
+  // Realtime: append incoming messages + re-fetch on subscription to catch any missed messages
   useEffect(() => {
     if (!conversationId || !user?.id) return;
     const channel = supabase
@@ -190,14 +201,29 @@ export default function DMConversationScreen() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'dm_messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
-          if (payload.new && payload.new.sender_id !== user.id) {
-            // User is actively viewing — skip unread increment, mark read immediately
-            appendMessage(conversationId, payload.new as any, true);
-            apiClient.markDMRead(conversationId);
-          }
+          if (!payload.new) return;
+          const msg = payload.new as DMMessage;
+
+          // Skip own messages — already added optimistically in handleSend
+          if (msg.sender_id === user.id) return;
+
+          // Dedup: skip if we already have this message in the list
+          if (msgsRef.current.some(m => m.id === msg.id)) return;
+
+          appendMessage(conversationId, msg, true);
+          apiClient.markDMRead(conversationId);
+          // Scroll to reveal the new incoming message
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
         }
       )
-      .subscribe();
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          // Re-fetch on subscription connect to catch any messages
+          // that arrived between the initial load and the subscription being established
+          await fetchMessages(conversationId, true);
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 120);
+        }
+      });
     return () => { supabase.removeChannel(channel); };
   }, [conversationId, user?.id]);
 

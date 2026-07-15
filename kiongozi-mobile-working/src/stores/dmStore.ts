@@ -73,7 +73,10 @@ export const useDMStore = create<DMState>((set, get) => ({
   showArchived: false,
 
   fetchConversations: async () => {
-    set({ conversationsLoading: true });
+    // Only show the loading spinner on the very first fetch (no cached data yet).
+    // Subsequent refreshes happen silently in the background.
+    const hasCached = get().conversations.length > 0;
+    if (!hasCached) set({ conversationsLoading: true });
     try {
       const res = await apiClient.getDMConversations();
       if (res.success && res.data) {

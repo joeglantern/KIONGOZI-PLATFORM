@@ -58,7 +58,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const state = get();
     if (state.isLoading) return;
     if (!refresh && !state.hasMore) return;
-    set({ isLoading: true });
+    // Only show loading indicator when there's nothing cached yet
+    if (state.notifications.length === 0) set({ isLoading: true });
     try {
       const offset = refresh ? 0 : state.notifications.length;
       const res = await apiClient.getNotifications({ limit: 30, offset }) as any;

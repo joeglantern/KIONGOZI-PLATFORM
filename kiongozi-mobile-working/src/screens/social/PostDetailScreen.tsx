@@ -8,8 +8,10 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../../components/social/PostCard';
 import { EditPostModal } from '../../components/social/EditPostModal';
+import { UserAvatar } from '../../components/social/UserAvatar';
 import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
@@ -20,6 +22,7 @@ export default function PostDetailScreen() {
   const { postId, focusReply } = route.params || {};
   const { user } = useAuthStore();
   const { deletePost } = useSocialStore();
+  const { currentUserProfile } = useProfileStore();
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
 
@@ -254,12 +257,13 @@ export default function PostDetailScreen() {
 
         {/* Reply compose bar */}
         <View style={styles.replyBar}>
+          <UserAvatar avatarUrl={currentUserProfile?.avatar_url} size={28} />
           <View style={styles.replyInputWrap}>
             <TextInput
               ref={replyInputRef}
               style={styles.replyInput}
               placeholder={`Reply to @${parentAuthor || 'post'}…`}
-              placeholderTextColor="#555555"
+              placeholderTextColor={T.textMuted}
               value={replyText}
               onChangeText={setReplyText}
               multiline
@@ -275,7 +279,7 @@ export default function PostDetailScreen() {
             >
               {sending
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 2 }} />}
+                : <Ionicons name="send" size={14} color="#fff" style={{ marginLeft: 2 }} />}
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -305,9 +309,25 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: T.accent, borderRadius: 20 },
     retryText: { color: '#fff', fontWeight: '700' },
     noReplies: { padding: 28, textAlign: 'center', color: T.textMuted, fontSize: 14 },
-    replyBar: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 28 : 12, backgroundColor: T.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.borderLight, gap: 8, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 6 },
-    replyInputWrap: { flex: 1, backgroundColor: T.inputBg, borderRadius: 22, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 10 : 6, minHeight: 42, justifyContent: 'center' },
-    replyInput: { fontSize: 15, color: T.text, maxHeight: 100, padding: 0 },
-    sendBtn: { backgroundColor: T.accent, width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', shadowColor: T.accent, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 5 },
+    replyBar: {
+      flexDirection: 'row', alignItems: 'flex-end',
+      paddingHorizontal: 12, paddingTop: 8,
+      paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+      backgroundColor: T.bg,
+      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.borderLight,
+      gap: 8,
+    },
+    replyInputWrap: {
+      flex: 1, backgroundColor: T.inputBg,
+      borderRadius: 20, borderWidth: 1, borderColor: T.border,
+      paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 7 : 5,
+      minHeight: 36, justifyContent: 'center',
+    },
+    replyInput: { fontSize: 14, color: T.text, maxHeight: 90, padding: 0 },
+    sendBtn: {
+      backgroundColor: T.accent, width: 34, height: 34, borderRadius: 17,
+      justifyContent: 'center', alignItems: 'center',
+      shadowColor: T.accent, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 4,
+    },
   });
 }

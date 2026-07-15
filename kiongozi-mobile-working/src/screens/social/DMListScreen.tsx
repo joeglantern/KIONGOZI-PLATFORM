@@ -219,7 +219,7 @@ export default function DMListScreen() {
         )}
       </View>
 
-      {conversationsLoading ? (
+      {conversationsLoading && conversations.length === 0 ? (
         <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
       ) : (
         <FlatList
