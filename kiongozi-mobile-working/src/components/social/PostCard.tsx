@@ -27,46 +27,72 @@ interface PostCardProps {
   onReportPress?: (postId: string) => void;
 }
 
-function SmartImage({ url, style, onPress }: { url: string; style?: any; onPress: () => void }) {
+function SmartImage({ url, onPress }: { url: string; onPress: () => void }) {
   const T = useTheme();
-  const [ratio, setRatio] = useState<number | null>(null);
+  // Default 4:3 landscape while dimensions load — prevents zero-height container
+  const [ratio, setRatio] = useState(1.33);
 
   useEffect(() => {
-    Image.getSize(url, (w, h) => {
-      if (w > 0 && h > 0) {
-        // Clamp: min 0.56 (tall portrait ~9:16), max 1.91 (landscape ~16:9)
-        setRatio(Math.min(Math.max(w / h, 0.56), 1.91));
-      }
-    }, () => {});
+    Image.getSize(
+      url,
+      (w, h) => {
+        if (w > 0 && h > 0) {
+          // Clamp between 9:16 portrait (0.56) and 16:9 landscape (1.78)
+          setRatio(Math.min(Math.max(w / h, 0.56), 1.78));
+        }
+      },
+      () => {}
+    );
   }, [url]);
 
-  const dynamicStyle = ratio !== null
-    ? { width: '100%' as const, aspectRatio: ratio }
-    : style;
-
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={[{ borderRadius: 12, overflow: 'hidden', backgroundColor: T.surface2 }, dynamicStyle]}>
-      <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.9}
+      style={{
+        width: '100%',
+        aspectRatio: ratio,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: T.surface2,
+        marginTop: 4,
+      }}
+    >
+      <Image
+        source={{ uri: url }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode="cover"
+      />
     </TouchableOpacity>
   );
 }
 
-function VideoThumbnail({ url, style, onPress }: { url: string; style?: any; onPress: () => void }) {
+function VideoThumbnail({ url, style, isSingle, onPress }: { url: string; style?: any; isSingle?: boolean; onPress: () => void }) {
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+  const [ratio, setRatio] = useState(1.33);
   const T = useTheme();
 
   useEffect(() => {
     VideoThumbnails.getThumbnailAsync(url, { time: 0 })
-      .then(t => setThumbnailUri(t.uri))
+      .then(t => {
+        setThumbnailUri(t.uri);
+        if (isSingle && t.width && t.height) {
+          setRatio(Math.min(Math.max(t.width / t.height, 0.56), 1.78));
+        }
+      })
       .catch(() => {});
   }, [url]);
 
+  const containerStyle = isSingle
+    ? { width: '100%' as const, aspectRatio: ratio, borderRadius: 12, overflow: 'hidden' as const, backgroundColor: T.surface, marginTop: 4 }
+    : [{ overflow: 'hidden', backgroundColor: T.surface, borderRadius: 8 }, style];
+
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[{ overflow: 'hidden', backgroundColor: T.surface, borderRadius: 8 }, style]}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={containerStyle}>
       {thumbnailUri ? (
-        <Image source={{ uri: thumbnailUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Image source={{ uri: thumbnailUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: T.surface }]} />
+        <View style={{ flex: 1, backgroundColor: T.surface }} />
       )}
       <View style={StyleSheet.absoluteFillObject as any}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -409,7 +435,8 @@ export function PostCard({
                       <VideoThumbnail
                         key={media.id}
                         url={media.url}
-                        style={[styles.mediaImage, isSingle ? styles.singleImage : styles.gridImage]}
+                        isSingle={isSingle}
+                        style={[styles.mediaImage, styles.gridImage]}
                         onPress={() => openViewer(index)}
                       />
                     );
@@ -419,7 +446,6 @@ export function PostCard({
                       <SmartImage
                         key={media.id}
                         url={media.url}
-                        style={styles.singleImage}
                         onPress={() => openViewer(index)}
                       />
                     );
@@ -431,7 +457,7 @@ export function PostCard({
                       activeOpacity={0.9}
                       style={[styles.mediaImage, styles.gridImage]}
                     >
-                      <Image source={{ uri: media.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                      <Image source={{ uri: media.url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     </TouchableOpacity>
                   );
                 })}
@@ -619,13 +645,9 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       overflow: 'hidden',
     },
     mediaImage: {
-      borderRadius: 8,
+      borderRadius: 10,
       backgroundColor: T.surface2,
       overflow: 'hidden',
-    },
-    singleImage: {
-      width: '100%',
-      minHeight: 120,
     },
     gridImage: {
       width: '48%',
