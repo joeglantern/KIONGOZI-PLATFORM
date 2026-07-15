@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';
+import { formatKesCurrency } from '@/lib/format';
 import ImageUpload from '@/components/ui/ImageUpload';
 import DeliberationPanel from '@/components/social/DeliberationPanel';
 
@@ -38,7 +39,7 @@ const UPDATE_TYPE_STYLES: Record<string, string> = {
 
 function fmt(n: number | null, currency = 'KES') {
     if (!n) return null;
-    return new Intl.NumberFormat('en-KE', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
+    return formatKesCurrency(n, currency);
 }
 
 export default function ProjectDetailClient({ project, updates: initialUpdates, media: initialMedia, user, isFollowing: initFollowing, currentUserProfile }: {

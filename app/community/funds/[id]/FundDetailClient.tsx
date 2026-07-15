@@ -21,10 +21,11 @@ import { formatDistanceToNow, format } from 'date-fns';
 import DeliberationPanel from '@/components/social/DeliberationPanel';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { formatKesCurrency } from '@/lib/format';
 
 function fmt(amount: number | null, currency = 'KES', fallback = 'Not disclosed') {
     if (amount == null || amount === 0) return fallback;
-    return new Intl.NumberFormat('en-KE', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+    return formatKesCurrency(amount, currency);
 }
 
 const STATUS_STYLES: Record<string, string> = {

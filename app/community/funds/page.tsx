@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlusCircle, DollarSign } from 'lucide-react';
 import Link from 'next/link';
+import { formatKesCurrency } from '@/lib/format';
 
 function formatCurrency(amount: number, currency = 'KES') {
-    return new Intl.NumberFormat('en-KE', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+    return formatKesCurrency(amount, currency);
 }
 
 export default async function FundsPage() {

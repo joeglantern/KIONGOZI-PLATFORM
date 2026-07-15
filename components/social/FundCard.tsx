@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { DollarSign, ArrowRight, Building2 } from 'lucide-react';
 import Link from 'next/link';
+import { formatKesCurrency } from '@/lib/format';
 
 const STATUS_STYLES: Record<string, string> = {
     active: 'bg-green-100 text-green-800',
@@ -22,7 +23,7 @@ const SECTOR_COLORS: Record<string, string> = {
 
 function formatCurrency(amount: number | null, currency = 'KES') {
     if (!amount) return 'Not recorded';
-    return new Intl.NumberFormat('en-KE', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+    return formatKesCurrency(amount, currency);
 }
 
 export default function FundCard({ fund }: { fund: any }) {
