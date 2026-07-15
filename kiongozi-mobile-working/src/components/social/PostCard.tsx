@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Alert, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -11,6 +11,108 @@ import { MediaViewerModal, MediaItem, PostContext } from './MediaViewerModal';
 import QuotePostModal from './QuotePostModal';
 import apiClient from '../../utils/apiClient';
 import { useSocialStore } from '../../stores/socialStore';
+
+// ─── Reusable action sheet — replaces all native Alert dialogs ───────────────
+
+interface SheetItem {
+  label: string;
+  icon: string;
+  color?: string;
+  onPress: () => void;
+}
+
+function ActionSheet({
+  visible,
+  title,
+  description,
+  items,
+  onClose,
+}: {
+  visible: boolean;
+  title?: string;
+  description?: string;
+  items: SheetItem[];
+  onClose: () => void;
+}) {
+  const T = useTheme();
+  const sheetY = useRef(new Animated.Value(300)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      sheetY.setValue(300);
+      backdropOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }),
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const close = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(sheetY, { toValue: 300, duration: 180, useNativeDriver: true }),
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+    ]).start(() => onClose());
+  }, [onClose]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal transparent animationType="none" onRequestClose={close}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <Animated.View style={[asSheet.backdrop, { opacity: backdropOpacity }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={close} activeOpacity={1} />
+        </Animated.View>
+        <Animated.View style={[asSheet.sheet, { backgroundColor: T.surface, transform: [{ translateY: sheetY }] }]}>
+          <View style={[asSheet.handle, { backgroundColor: T.border }]} />
+          {(title || description) && (
+            <View style={asSheet.titleBlock}>
+              {title && <Text style={[asSheet.title, { color: T.text }]}>{title}</Text>}
+              {description && <Text style={[asSheet.desc, { color: T.textSub }]}>{description}</Text>}
+            </View>
+          )}
+          {items.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={asSheet.item}
+              onPress={() => { close(); setTimeout(() => item.onPress(), 220); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={item.icon as any} size={22} color={item.color ?? T.text} />
+              <Text style={[asSheet.itemText, { color: item.color ?? T.text }]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+          <View style={[asSheet.divider, { backgroundColor: T.border }]} />
+          <TouchableOpacity style={asSheet.item} onPress={close} activeOpacity={0.7}>
+            <Ionicons name="close-outline" size={22} color={T.textSub} />
+            <Text style={[asSheet.itemText, { color: T.textSub }]}>Cancel</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const asSheet = StyleSheet.create({
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.52)' },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 18, paddingTop: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.18, shadowRadius: 14, elevation: 24,
+  },
+  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 14 },
+  titleBlock: { paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(128,128,128,0.2)', marginBottom: 4 },
+  title: { fontSize: 15, fontWeight: '700', marginBottom: 3 },
+  desc: { fontSize: 13, lineHeight: 18 },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 16 },
+  itemText: { fontSize: 16, fontWeight: '500' },
+  divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 16, marginVertical: 4 },
+});
+
+// ─── PostCard ─────────────────────────────────────────────────────────────────
 
 interface PostCardProps {
   post: Post;
@@ -133,7 +235,9 @@ export function PostCard({
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
   const repostScale = useRef(new Animated.Value(1)).current;
-  const [repostTip, setRepostTip] = useState(false);
+  const [repostSheetOpen, setRepostSheetOpen] = useState(false);
+  const [optionsSheetOpen, setOptionsSheetOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Double-tap to like
   const lastTapRef = useRef(0);
@@ -220,32 +324,31 @@ export function PostCard({
     } finally { setTranslating(false); }
   }, [activePost.content, showTranslation, translatedText]);
 
-  const handleRepost = useCallback(async () => {
-    if (isReposted) {
-      setRepostTip(true);
-      setTimeout(() => setRepostTip(false), 2000);
-      return;
-    }
-    Alert.alert('Repost', undefined, [
-      {
-        text: 'Repost',
-        onPress: async () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          Animated.sequence([
-            Animated.spring(repostScale, { toValue: 1.5, useNativeDriver: true, damping: 6, stiffness: 300 }),
-            Animated.spring(repostScale, { toValue: 1,   useNativeDriver: true, damping: 10, stiffness: 200 }),
-          ]).start();
-          toggleRepost(activePost.id, 1);
-          try {
-            const res = await apiClient.repostPost(activePost.id);
-            if (!res.success) toggleRepost(activePost.id, -1);
-          } catch { toggleRepost(activePost.id, -1); }
-        },
-      },
-      { text: 'Quote Post', onPress: () => setQuoteVisible(true) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [activePost.id, isReposted, toggleRepost, repostScale]);
+  const doRepost = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.sequence([
+      Animated.spring(repostScale, { toValue: 1.5, useNativeDriver: true, damping: 6, stiffness: 300 }),
+      Animated.spring(repostScale, { toValue: 1, useNativeDriver: true, damping: 10, stiffness: 200 }),
+    ]).start();
+    toggleRepost(activePost.id, 1);
+    try {
+      const res = await apiClient.repostPost(activePost.id);
+      if (!res.success) toggleRepost(activePost.id, -1);
+    } catch { toggleRepost(activePost.id, -1); }
+  }, [activePost.id, toggleRepost, repostScale]);
+
+  const doUnrepost = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleRepost(activePost.id, -1);
+    try {
+      await apiClient.unrepostPost(activePost.id);
+    } catch { toggleRepost(activePost.id, 1); }
+  }, [activePost.id, toggleRepost]);
+
+  const handleRepost = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRepostSheetOpen(true);
+  }, []);
 
   const handleShare = useCallback(async () => {
     try {
@@ -264,44 +367,8 @@ export function PostCard({
   const isOwnPost = !!(currentUserId && currentUserId === activePost.user_id);
 
   const handleOptions = useCallback(() => {
-    if (isOwnPost) {
-      Alert.alert(
-        'Post Options',
-        undefined,
-        [
-          {
-            text: 'Edit Post',
-            onPress: () => onEditPress?.(activePost.id, activePost.content, activePost.visibility ?? 'public'),
-          },
-          {
-            text: 'Delete Post',
-            style: 'destructive',
-            onPress: () => Alert.alert(
-              'Delete Post',
-              'Are you sure you want to delete this post?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: onDeletePress },
-              ]
-            ),
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-    } else {
-      Alert.alert(
-        'Post Options',
-        undefined,
-        [
-          {
-            text: 'Report Post',
-            onPress: () => onReportPress?.(activePost.id),
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-    }
-  }, [activePost.id, activePost.content, activePost.visibility, onEditPress, onDeletePress, onReportPress, isOwnPost]);
+    setOptionsSheetOpen(true);
+  }, []);
 
   // Build media items array for the viewer
   const mediaItems: MediaItem[] = (activePost.post_media ?? []).slice(0, 4).map(m => ({
@@ -337,7 +404,7 @@ export function PostCard({
 
   return (
     <View style={[styles.container, style]}>
-      <View style={[styles.inner, { paddingBottom: hasConnectorBelow ? 0 : 12 }]}>
+      <View style={styles.inner}>
         {/* Left column: avatar + optional connector line */}
         <View style={styles.leftCol}>
           <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
@@ -390,6 +457,12 @@ export function PostCard({
               )}
               <Text style={styles.dot}>·</Text>
               <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
+              {/* Options ⋯ lives in the header row, right-aligned */}
+              {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
+                <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}>
+                  <Ionicons name="ellipsis-horizontal" size={16} color={T.textMuted} />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Content with Read more */}
@@ -425,50 +498,31 @@ export function PostCard({
                 </TouchableOpacity>
             }
 
-            {/* Media grid */}
+            {/* Media */}
             {activePost.post_media && activePost.post_media.length > 0 && (
-              <View style={styles.mediaContainer}>
-                {activePost.post_media.slice(0, 4).map((media, index) => {
-                  const isSingle = activePost.post_media!.length === 1;
-                  if (media.media_type === 'video') {
-                    return (
-                      <VideoThumbnail
-                        key={media.id}
-                        url={media.url}
-                        isSingle={isSingle}
-                        style={[styles.mediaImage, styles.gridImage]}
-                        onPress={() => openViewer(index)}
-                      />
-                    );
-                  }
-                  if (isSingle) {
-                    return (
-                      <SmartImage
-                        key={media.id}
-                        url={media.url}
-                        onPress={() => openViewer(index)}
-                      />
-                    );
-                  }
-                  return (
-                    <TouchableOpacity
-                      key={media.id}
-                      onPress={() => openViewer(index)}
-                      activeOpacity={0.9}
-                      style={[styles.mediaImage, styles.gridImage]}
-                    >
-                      <Image source={{ uri: media.url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              activePost.post_media.length === 1 ? (
+                <View style={{ marginTop: 6, marginBottom: 10 }}>
+                  {activePost.post_media[0].media_type === 'video' ? (
+                    <VideoThumbnail
+                      url={activePost.post_media[0].url}
+                      isSingle
+                      style={styles.mediaImage}
+                      onPress={() => openViewer(0)}
+                    />
+                  ) : (
+                    <SmartImage url={activePost.post_media[0].url} onPress={() => openViewer(0)} />
+                  )}
+                </View>
+              ) : (
+                <PostMediaCarousel media={activePost.post_media} onOpenViewer={openViewer} />
+              )
             )}
           </Pressable>
 
-          {/* Actions */}
+          {/* Actions — order and sizes match the design: comment · repost · like · bookmark · share (no ⋯ here — moved to header) */}
           <View style={styles.actions}>
             <TouchableOpacity style={styles.action} onPress={onReplyPress}>
-              <Ionicons name="chatbubble-outline" size={18} color={T.textMuted} />
+              <Ionicons name="chatbubble-outline" size={19} color={T.textMuted} />
               {activePost.comment_count > 0 && <Text style={styles.actionCount}>{activePost.comment_count}</Text>}
             </TouchableOpacity>
 
@@ -476,8 +530,8 @@ export function PostCard({
               <Animated.View style={{ transform: [{ scale: repostScale }] }}>
                 <Ionicons
                   name={isReposted ? 'repeat' : 'repeat-outline'}
-                  size={18}
-                  color={isReposted ? T.accent : T.textSub}
+                  size={19}
+                  color={isReposted ? T.accent : T.textMuted}
                 />
               </Animated.View>
               <RepostStack reposters={activePost.recentReposters ?? []} count={activePost.repost_count} />
@@ -486,8 +540,8 @@ export function PostCard({
             <TouchableOpacity style={styles.action} onPress={handleLike}>
               <Ionicons
                 name={isLiked ? 'heart' : 'heart-outline'}
-                size={18}
-                color={isLiked ? '#e53e3e' : T.textSub}
+                size={19}
+                color={isLiked ? '#e53e3e' : T.textMuted}
               />
               {likeCount > 0 && (
                 <Text style={[styles.actionCount, isLiked && styles.likedCount]}>
@@ -499,22 +553,16 @@ export function PostCard({
             <TouchableOpacity style={styles.action} onPress={handleBookmark}>
               <Ionicons
                 name={activePost.isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                size={18}
+                size={19}
                 color={activePost.isBookmarked ? T.accent : T.textMuted}
               />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.action} onPress={handleShare}>
-              <Ionicons name="share-outline" size={18} color={T.textMuted} />
+            {/* Share is pushed to the far right — matches the design's margin-left:auto */}
+            <TouchableOpacity style={[styles.action, { marginLeft: 'auto' }]} onPress={handleShare}>
+              <Ionicons name="share-outline" size={19} color={T.textMuted} />
             </TouchableOpacity>
-
-            {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
-              <TouchableOpacity style={styles.action} onPress={handleOptions}>
-                <Ionicons name="ellipsis-horizontal" size={18} color={T.textMuted} />
-              </TouchableOpacity>
-            )}
           </View>
-          {repostTip && <Text style={styles.repostTip}>Already reposted</Text>}
         </View>
       </View>
 
@@ -534,6 +582,42 @@ export function PostCard({
         post={activePost}
         onClose={() => setQuoteVisible(false)}
         onPosted={() => { setQuoteVisible(false); toggleRepost(activePost.id, 1); }}
+      />
+
+      {/* Repost / Undo-repost sheet */}
+      <ActionSheet
+        visible={repostSheetOpen}
+        onClose={() => setRepostSheetOpen(false)}
+        items={isReposted ? [
+          { label: 'Undo Repost', icon: 'repeat-outline', color: T.error, onPress: doUnrepost },
+          { label: 'Quote Post',  icon: 'create-outline',  onPress: () => setQuoteVisible(true) },
+        ] : [
+          { label: 'Repost',     icon: 'repeat-outline',  onPress: doRepost },
+          { label: 'Quote Post', icon: 'create-outline',  onPress: () => setQuoteVisible(true) },
+        ]}
+      />
+
+      {/* Post options sheet */}
+      <ActionSheet
+        visible={optionsSheetOpen}
+        onClose={() => setOptionsSheetOpen(false)}
+        items={isOwnPost ? [
+          ...(onEditPress ? [{ label: 'Edit Post',   icon: 'pencil-outline', onPress: () => onEditPress(activePost.id, activePost.content, activePost.visibility ?? 'public') }] : []),
+          ...(onDeletePress ? [{ label: 'Delete Post', icon: 'trash-outline',  color: T.error, onPress: () => setDeleteConfirmOpen(true) }] : []),
+        ] : [
+          ...(onReportPress ? [{ label: 'Report Post', icon: 'flag-outline', color: T.error, onPress: () => onReportPress!(activePost.id) }] : []),
+        ]}
+      />
+
+      {/* Delete confirmation sheet */}
+      <ActionSheet
+        visible={deleteConfirmOpen}
+        title="Delete this post?"
+        description="This can't be undone. The post will be removed for everyone."
+        onClose={() => setDeleteConfirmOpen(false)}
+        items={onDeletePress ? [
+          { label: 'Delete', icon: 'trash-outline', color: T.error, onPress: onDeletePress },
+        ] : []}
       />
 
       {/* Double-tap heart burst */}
@@ -603,13 +687,17 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      flexWrap: 'wrap',
       marginBottom: 4,
+    },
+    optionsBtn: {
+      marginLeft: 'auto' as any,
+      padding: 2,
     },
     name: {
       fontWeight: '700',
       fontSize: 15,
       color: T.text,
+      flexShrink: 1,
     },
     username: {
       fontSize: 14,
@@ -655,13 +743,15 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     actions: {
       flexDirection: 'row',
-      gap: 20,
-      marginTop: 4,
+      alignItems: 'center',
+      gap: 26,
+      marginTop: 8,
+      paddingBottom: 12,
     },
     action: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 5,
     },
     actionCount: {
       fontSize: 13,
@@ -673,11 +763,80 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     repostStack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     repostAvatarWrap: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: T.bg, overflow: 'hidden' },
     repostAvatarImg: { width: 16, height: 16 },
-    repostTip: { fontSize: 11, color: T.accent, marginLeft: 48, marginTop: -6, marginBottom: 2 },
     translateLink: { fontSize: 12, color: T.accent, marginTop: 2, marginBottom: 4 },
     translatedText: { fontSize: 15, color: T.textSub, lineHeight: 22, marginTop: 4, marginBottom: 2, fontStyle: 'italic' },
     translateSpinner: { alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
   });
+}
+
+function PostMediaCarousel({
+  media,
+  onOpenViewer,
+}: {
+  media: NonNullable<Post['post_media']>;
+  onOpenViewer: (index: number) => void;
+}) {
+  const T = useTheme();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const ITEM_RATIO = 0.88;
+  const ITEM_GAP = 8;
+  const itemWidth = containerWidth > 0 ? containerWidth * ITEM_RATIO : 0;
+
+  return (
+    <View
+      style={{ marginTop: 6, marginBottom: 10 }}
+      onLayout={e => setContainerWidth(e.nativeEvent.layout.width)}
+    >
+      {containerWidth > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={itemWidth + ITEM_GAP}
+          snapToAlignment="start"
+          contentContainerStyle={{ gap: ITEM_GAP, paddingRight: containerWidth - itemWidth }}
+          onScroll={e => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / (itemWidth + ITEM_GAP));
+            setCurrentIndex(Math.max(0, Math.min(idx, media.length - 1)));
+          }}
+          scrollEventThrottle={16}
+        >
+          {media.slice(0, 4).map((m, index) => (
+            <TouchableOpacity
+              key={m.id}
+              activeOpacity={0.92}
+              onPress={() => onOpenViewer(index)}
+              style={{ width: itemWidth, height: 220, borderRadius: 14, overflow: 'hidden', backgroundColor: T.surface2 }}
+            >
+              {m.media_type === 'video' ? (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.surface2 }}>
+                  <Ionicons name="play-circle" size={44} color="rgba(255,255,255,0.85)" />
+                </View>
+              ) : (
+                <Image source={{ uri: m.url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+      {media.length > 1 && containerWidth > 0 && (
+        <View style={{ position: 'absolute', bottom: 10, right: 10, flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+          {media.slice(0, 4).map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: i === currentIndex ? 16 : 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: i === currentIndex ? '#fff' : 'rgba(255,255,255,0.5)',
+              }}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
 }
 
 function RepostStack({ reposters, count }: { reposters: any[]; count: number }) {

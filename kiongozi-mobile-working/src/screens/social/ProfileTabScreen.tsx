@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  Animated, ActivityIndicator, RefreshControl, Dimensions, Image, Alert,
+  Animated, ActivityIndicator, RefreshControl, Dimensions, Image, Alert, Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,6 +35,9 @@ export default function ProfileTabScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Per-tab post cache: show immediately on tab switch, refresh silently in background
+  const postsCache = useRef<Partial<Record<Tab, any[]>>>({});
+  const savedCache = useRef<any[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
@@ -55,18 +58,40 @@ export default function ProfileTabScreen() {
     }
   }, [activeTab, currentUserProfile?.username]);
 
-  const fetchSaved = async () => {
-    setLoading(true);
+  const fetchSaved = async (forceRefresh = false) => {
+    const hasCached = savedCache.current.length > 0;
+    if (hasCached && !forceRefresh) {
+      setSavedPosts(savedCache.current);
+      setLoading(false);
+      // Refresh silently in background
+    } else {
+      setLoading(true);
+    }
     try {
       const res = await apiClient.getBookmarks();
-      if (res.success && res.data) setSavedPosts(res.data as any[]);
+      if (res.success && res.data) {
+        savedCache.current = res.data as any[];
+        setSavedPosts(res.data as any[]);
+      }
     } catch {}
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  const fetchPosts = useCallback(async (reset = false) => {
+  const fetchPosts = useCallback(async (reset = false, forceRefresh = false) => {
     if (!currentUserProfile?.username) return;
-    if (reset) { setLoading(true); setCursor(null); setPosts([]); setHasMore(true); }
+    if (reset) {
+      const cached = postsCache.current[activeTab];
+      if (cached && cached.length > 0 && !forceRefresh) {
+        // Show cached data immediately — only spinner on first visit to this tab
+        setPosts(cached);
+        setLoading(false);
+      } else {
+        setLoading(true);
+        setPosts([]);
+      }
+      setCursor(null);
+      setHasMore(true);
+    }
     try {
       const res = await apiClient.getUserPostsByType(
         currentUserProfile.username, 'posts',
@@ -75,6 +100,7 @@ export default function ProfileTabScreen() {
       if (res.success && res.data) {
         let newPosts = res.data as any[];
         if (activeTab === 'reposts') newPosts = newPosts.filter((p: any) => p.repost_of_id);
+        if (reset) postsCache.current[activeTab] = newPosts;
         setPosts(prev => (reset ? newPosts : [...prev, ...newPosts]));
         const nc = (res as any).nextCursor ?? null;
         setCursor(nc);
@@ -91,9 +117,12 @@ export default function ProfileTabScreen() {
 
   const handleRefresh = () => {
     setRefreshing(true);
+    // Clear cache so pull-to-refresh always fetches fresh data
+    postsCache.current = {};
+    savedCache.current = [];
     fetchCurrentUserProfile();
-    if (activeTab === 'saved') fetchSaved();
-    else fetchPosts(true);
+    if (activeTab === 'saved') fetchSaved(true);
+    else fetchPosts(true, true);
   };
   const handleLoadMore = () => {
     if (!loadingMore && hasMore && !loading && activeTab !== 'saved') {
@@ -105,6 +134,17 @@ export default function ProfileTabScreen() {
   const handleTabPress = (tab: Tab) => {
     setActiveTab(tab);
   };
+
+  const handleShareProfile = useCallback(async () => {
+    const profile = currentUserProfile;
+    if (!profile) return;
+    try {
+      await Share.share({
+        message: `Check out ${profile.full_name ?? profile.username}'s profile on Kiongozi!\nhttps://kiongozi.app/profile/${profile.username}`,
+        url: `https://kiongozi.app/profile/${profile.username}`,
+      });
+    } catch {}
+  }, [currentUserProfile]);
 
   const handleGearPress = () => {
     Animated.timing(spinAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start(() => {
@@ -261,8 +301,11 @@ export default function ProfileTabScreen() {
           <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('EditProfile')}>
             <Text style={styles.actionBtnText}>Edit Profile</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => {}}>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleShareProfile}>
             <Text style={styles.actionBtnText}>Share Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('FindFriends')}>
+            <Ionicons name="person-add-outline" size={20} color={T.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -357,12 +400,17 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     statNum: { fontSize: 19, fontWeight: '700', color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
     statLabel: { fontSize: 12, color: T.textSub, marginTop: 2 },
     statDivider: { width: 1, height: 28, backgroundColor: T.border },
-    actionRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+    actionRow: { flexDirection: 'row', gap: 10, marginTop: 16, alignItems: 'center' },
     actionBtn: {
       flex: 1, paddingVertical: 9, alignItems: 'center',
       borderRadius: 22, borderWidth: 1, borderColor: T.border,
     },
     actionBtnText: { fontSize: 14, fontWeight: '700', color: T.text },
+    iconBtn: {
+      width: 40, height: 40, borderRadius: 20,
+      borderWidth: 1, borderColor: T.border,
+      alignItems: 'center', justifyContent: 'center',
+    },
     tabBar: {
       flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12,
       backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
