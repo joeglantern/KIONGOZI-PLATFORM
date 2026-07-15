@@ -192,7 +192,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={26} color={T.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 40 }} />

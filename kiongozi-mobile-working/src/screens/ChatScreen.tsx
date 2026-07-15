@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   FlatList,
+  SectionList,
   StyleSheet,
   Platform,
   Alert,
@@ -24,12 +25,13 @@ import * as Clipboard from 'expo-clipboard';
 import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
 import apiClient from '../utils/apiClient';
-import LoadingDots from '../components/LoadingDots';
 import { TypingDots } from '../components/social/TypingDots';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(300, SCREEN_WIDTH * 0.78);
-const EDGE_HIT = 30; // px from left edge that starts the open gesture
+const EDGE_HIT = 30;
+
+// ─── Glowing logo ────────────────────────────────────────────────────────────
 
 function GlowingLogo() {
   const isDark = useThemeStore(s => s.isDark);
@@ -51,7 +53,13 @@ function GlowingLogo() {
   return (
     <Animated.View style={[
       glowStyles.circle,
-      { backgroundColor: isDark ? '#0D1F0D' : '#EAF6EA', shadowRadius, shadowColor: '#5CB85C', shadowOpacity: 1, shadowOffset: { width: 0, height: 0 } },
+      {
+        backgroundColor: isDark ? '#0D1F0D' : '#EAF6EA',
+        shadowRadius,
+        shadowColor: '#5CB85C',
+        shadowOpacity: 1,
+        shadowOffset: { width: 0, height: 0 },
+      },
     ]}>
       <Image source={require('../../assets/kchat-logo.png')} style={glowStyles.logo} resizeMode="contain" />
     </Animated.View>
@@ -59,9 +67,15 @@ function GlowingLogo() {
 }
 
 const glowStyles = StyleSheet.create({
-  circle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2A3A2A' },
+  circle: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#2A3A2A',
+  },
   logo: { width: 26, height: 26 },
 });
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Message {
   id: number;
@@ -77,6 +91,13 @@ interface Conversation {
   created_at: string;
 }
 
+interface ConvSection {
+  title: string;
+  data: Conversation[];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function timeLabel(dateStr: string) {
   const d = new Date(dateStr);
   const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
@@ -85,6 +106,31 @@ function timeLabel(dateStr: string) {
   if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'long' });
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+function groupConversations(conversations: Conversation[]): ConvSection[] {
+  const now = Date.now();
+  const today: Conversation[] = [];
+  const yesterday: Conversation[] = [];
+  const thisWeek: Conversation[] = [];
+  const older: Conversation[] = [];
+
+  for (const c of conversations) {
+    const diffDays = Math.floor((now - new Date(c.updated_at).getTime()) / 86400000);
+    if (diffDays === 0) today.push(c);
+    else if (diffDays === 1) yesterday.push(c);
+    else if (diffDays < 7) thisWeek.push(c);
+    else older.push(c);
+  }
+
+  const sections: ConvSection[] = [];
+  if (today.length) sections.push({ title: 'Today', data: today });
+  if (yesterday.length) sections.push({ title: 'Yesterday', data: yesterday });
+  if (thisWeek.length) sections.push({ title: 'This Week', data: thisWeek });
+  if (older.length) sections.push({ title: 'Older', data: older });
+  return sections;
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 interface ChatScreenProps {
   onClose?: () => void;
@@ -95,129 +141,94 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const isDark = useThemeStore(s => s.isDark);
   const insets = useSafeAreaInsets();
 
-  // ─── Theme tokens ────────────────────────────────────────────────────────────
   const C = {
     bg:         isDark ? '#000000' : '#FFFFFF',
     surface:    isDark ? '#111111' : '#F2F2F7',
     surface2:   isDark ? '#1C1C1E' : '#E5E5EA',
     border:     isDark ? '#2C2C2E' : '#D1D1D6',
+    borderLight: isDark ? '#222222' : '#E9E9EE',
     text:       isDark ? '#FFFFFF' : '#000000',
     textSub:    isDark ? '#8E8E93' : '#6C6C70',
+    textMuted:  isDark ? '#636366' : '#9A9AA0',
     userBubble: isDark ? '#1C1C1E' : '#E9E9EB',
     accent:     '#5CB85C',
     sidebar:    isDark ? '#0D0D0D' : '#F8F8F8',
   };
 
-  // ─── Chat state ───────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const conversationIdRef = useRef<string | null>(null);
 
-  // ─── Sidebar state ────────────────────────────────────────────────────────────
-  // sidebarAnim 0 = closed, 1 = open
+  // Keep ref in sync so async callbacks have the latest id
+  useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
+
+  // ─── Sidebar ───────────────────────────────────────────────────────────────
   const sidebarAnim = useRef(new Animated.Value(0)).current;
-  // Tracks current value without triggering re-renders — used inside PanResponder
   const sidebarVal = useRef(0);
-  // Boolean state used to conditionally render the tap-to-close overlay
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const id = sidebarAnim.addListener(({ value }) => {
-      sidebarVal.current = value;
-    });
+    const id = sidebarAnim.addListener(({ value }) => { sidebarVal.current = value; });
     return () => sidebarAnim.removeListener(id);
   }, []);
 
   const openSidebar = useCallback((velocity = 0) => {
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSidebarOpen(true); // show overlay immediately so tap-to-close works
-    Animated.spring(sidebarAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      velocity,
-      tension: 65,
-      friction: 11,
-    }).start();
+    setSidebarOpen(true);
+    Animated.spring(sidebarAnim, { toValue: 1, useNativeDriver: true, velocity, tension: 65, friction: 11 }).start();
   }, [sidebarAnim]);
 
   const closeSidebar = useCallback((velocity = 0) => {
-    Animated.spring(sidebarAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      velocity,
-      tension: 65,
-      friction: 11,
-    }).start(({ finished }) => {
-      if (finished) setSidebarOpen(false); // hide overlay only after animation ends
-    });
+    Animated.spring(sidebarAnim, { toValue: 0, useNativeDriver: true, velocity, tension: 65, friction: 11 })
+      .start(({ finished }) => { if (finished) setSidebarOpen(false); });
   }, [sidebarAnim]);
 
-  // Sidebar slides in from left; main content slides right by same amount (push effect)
-  const sidebarTranslateX = sidebarAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-SIDEBAR_WIDTH, 0],
-  });
-  const contentTranslateX = sidebarAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, SIDEBAR_WIDTH],
-  });
-  const overlayOpacity = sidebarAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0.45],
-  });
+  const sidebarTranslateX = sidebarAnim.interpolate({ inputRange: [0, 1], outputRange: [-SIDEBAR_WIDTH, 0] });
+  const contentTranslateX = sidebarAnim.interpolate({ inputRange: [0, 1], outputRange: [0, SIDEBAR_WIDTH] });
+  const overlayOpacity = sidebarAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] });
 
-  // ─── PanResponder ─────────────────────────────────────────────────────────────
-  // Attached to the root so both edge-drag (open) and content-drag (close) work.
-  // The sidebar FlatList handles its own vertical scrolls independently.
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gs) => {
         const { dx, dy } = gs;
-        // Must be clearly more horizontal than vertical
         if (Math.abs(dx) < Math.abs(dy) * 1.4 || Math.abs(dx) < 6) return false;
         const isOpen = sidebarVal.current > 0.3;
-        // Opening: swipe right starting from left edge, sidebar currently closed
         if (!isOpen && dx > 0 && evt.nativeEvent.pageX < EDGE_HIT) return true;
-        // Closing: swipe left anywhere when sidebar is open
         if (isOpen && dx < 0) return true;
         return false;
       },
       onPanResponderGrant: () => {
         sidebarAnim.stopAnimation();
-        // If just opening we need the overlay tap target to exist
         if (sidebarVal.current > 0.05) setSidebarOpen(true);
       },
       onPanResponderMove: (_, gs) => {
         const base = sidebarVal.current > 0.5 ? 1 : 0;
         const next = Math.max(0, Math.min(1, base + gs.dx / SIDEBAR_WIDTH));
         sidebarAnim.setValue(next);
-        // setSidebarOpen(true) is a no-op when already true (hooks bail out on same value)
         if (next > 0.05) setSidebarOpen(true);
       },
       onPanResponderRelease: (_, gs) => {
         const cur = sidebarVal.current;
         const shouldOpen = gs.vx > 0.3 || (gs.vx >= -0.3 && cur > 0.4);
-        if (shouldOpen) openSidebar(gs.vx);
-        else closeSidebar(-gs.vx);
+        if (shouldOpen) openSidebar(gs.vx); else closeSidebar(-gs.vx);
       },
       onPanResponderTerminate: (_, gs) => {
-        if (sidebarVal.current > 0.5) openSidebar(gs.vx);
-        else closeSidebar(-gs.vx);
+        if (sidebarVal.current > 0.5) openSidebar(gs.vx); else closeSidebar(-gs.vx);
       },
     })
   ).current;
 
-  // ─── Data loading ─────────────────────────────────────────────────────────────
+  // ─── Data loading ─────────────────────────────────────────────────────────
   const loadConversations = useCallback(async () => {
     if (!user) return;
     setLoadingConversations(true);
@@ -240,12 +251,11 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
       if (res.success && Array.isArray(res.data)) {
         const formatted: Message[] = res.data.map((m: any, i: number) => ({
           id: m.id || Date.now() + i,
-          text: m.text || m.content || '',
-          isUser: m.is_user === true,
+          text: m.text || m.content || m.message || '',
+          isUser: m.is_user === true || m.role === 'user' || m.sender === 'user',
         }));
         setMessages(formatted);
         setConversationId(convId);
-        setCurrentConversation(conversations.find(c => c.id === convId) || null);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
       }
     } finally {
@@ -257,7 +267,6 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     closeSidebar();
     setMessages([]);
     setConversationId(null);
-    setCurrentConversation(null);
     setInputText('');
   };
 
@@ -275,7 +284,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     ]);
   };
 
-  // ─── Send message ─────────────────────────────────────────────────────────────
+  // ─── Send message ─────────────────────────────────────────────────────────
   const sendMessage = async () => {
     const text = inputText.trim();
     if (!text || isGenerating) return;
@@ -297,12 +306,13 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
 
     try {
-      const savePromise = apiClient.sendMessage(text, conversationId || undefined);
+      const currentConvId = conversationIdRef.current;
+      const savePromise = apiClient.sendMessage(text, currentConvId || undefined);
       let fullText = '';
 
       apiClient.generateAIResponseStream(
         text,
-        conversationId || '',
+        currentConvId || '',
         'chat',
         (chunk: string) => {
           fullText += chunk;
@@ -316,11 +326,22 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
             prev.map(m => m.id === aiId ? { ...m, text: fullText, isLoading: false } : m)
           );
           setIsGenerating(false);
+
           const saved = await savePromise;
-          if (saved.success && !conversationId) {
+          let activeConvId = conversationIdRef.current;
+          if (saved.success && !activeConvId) {
             const newId = (saved.data as any)?.conversation_id;
-            if (newId) setConversationId(newId);
+            if (newId) {
+              setConversationId(newId);
+              activeConvId = newId;
+            }
           }
+
+          // Persist AI response so it loads when returning to this conversation
+          if (fullText && activeConvId) {
+            apiClient.saveAssistantMessage(fullText, activeConvId, 'chat').catch(() => {});
+          }
+
           loadConversations();
         },
         () => {
@@ -331,7 +352,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
         abortControllerRef.current?.signal
       );
     } catch {
-      setMessages(prev => prev.filter(m => m.id !== aiId));
+      setMessages(prev => prev.filter(m => m.isLoading !== true));
       setIsGenerating(false);
     }
   };
@@ -347,7 +368,10 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  // ─── Renderers ────────────────────────────────────────────────────────────────
+  // ─── Grouped sidebar sections ─────────────────────────────────────────────
+  const sidebarSections = useMemo(() => groupConversations(conversations), [conversations]);
+
+  // ─── Renderers ────────────────────────────────────────────────────────────
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     if (item.isUser) {
       return (
@@ -385,14 +409,14 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     );
   }, [C]);
 
-  const renderConversation = useCallback(({ item }: { item: Conversation }) => (
+  const renderConversationItem = useCallback(({ item }: { item: Conversation }) => (
     <TouchableOpacity
       style={[styles.convItem, item.id === conversationId && { backgroundColor: C.surface2 }]}
       onPress={() => loadConversationMessages(item.id)}
       onLongPress={() => deleteConversation(item.id)}
       activeOpacity={0.65}
     >
-      <Ionicons name="chatbubble-outline" size={15} color={C.textSub} style={{ marginTop: 2 }} />
+      <Ionicons name="chatbubble-ellipses-outline" size={15} color={C.textSub} style={{ marginTop: 2 }} />
       <View style={{ flex: 1 }}>
         <Text style={[styles.convTitle, { color: C.text }]} numberOfLines={1}>
           {item.title || 'New conversation'}
@@ -402,12 +426,18 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     </TouchableOpacity>
   ), [conversationId, C]);
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
+  const renderSectionHeader = useCallback(({ section }: { section: ConvSection }) => (
+    <Text style={[styles.sectionHeader, { color: C.textMuted, backgroundColor: C.sidebar }]}>
+      {section.title.toUpperCase()}
+    </Text>
+  ), [C]);
+
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <View style={[styles.root, { backgroundColor: C.sidebar }]} {...panResponder.panHandlers}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
-      {/* ── Sidebar (fixed, slides from left) ──────────────────────── */}
+      {/* Sidebar */}
       <Animated.View
         style={[
           styles.sidebar,
@@ -421,46 +451,49 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           },
         ]}
       >
+        {/* Sidebar header */}
         <View style={[styles.sidebarHeader, { borderBottomColor: C.border }]}>
-          <Image source={require('../../assets/kchat-logo.png')} style={styles.sidebarLogo} resizeMode="contain" />
-          <Text style={[styles.sidebarHeading, { color: C.text }]}>Chats</Text>
+          <View style={styles.sidebarLogoWrap}>
+            <Image source={require('../../assets/kchat-logo.png')} style={styles.sidebarLogoImg} resizeMode="contain" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sidebarHeading, { color: C.text }]}>Kiongozi AI</Text>
+            <Text style={[styles.sidebarSubheading, { color: C.textSub }]}>Chat history</Text>
+          </View>
+          <TouchableOpacity
+            onPress={startNewChat}
+            style={[styles.newChatIconBtn, { borderColor: C.border, backgroundColor: C.surface }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="create-outline" size={18} color={C.accent} />
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={[styles.newChatBtn, { borderColor: C.border }]}
-          onPress={startNewChat}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={18} color={C.accent} />
-          <Text style={[styles.newChatText, { color: C.accent }]}>New Chat</Text>
-        </TouchableOpacity>
 
         {loadingConversations ? (
           <ActivityIndicator color={C.accent} style={{ marginTop: 28 }} />
+        ) : sidebarSections.length === 0 ? (
+          <View style={styles.noChatsWrap}>
+            <Ionicons name="chatbubble-ellipses-outline" size={36} color={C.border} />
+            <Text style={[styles.noChats, { color: C.textSub }]}>No chats yet</Text>
+            <Text style={[styles.noChatsHint, { color: C.textMuted }]}>Start a new conversation</Text>
+          </View>
         ) : (
-          <FlatList
-            data={conversations}
+          <SectionList
+            sections={sidebarSections}
             keyExtractor={c => c.id}
-            renderItem={renderConversation}
+            renderItem={renderConversationItem}
+            renderSectionHeader={renderSectionHeader}
             contentContainerStyle={{ paddingBottom: 24 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              <Text style={[styles.noChats, { color: C.textSub }]}>No chats yet</Text>
-            }
+            stickySectionHeadersEnabled={false}
           />
         )}
       </Animated.View>
 
-      {/* ── Main content (pushed right when sidebar opens) ────────── */}
+      {/* Main content */}
       <Animated.View
-        style={[
-          styles.main,
-          {
-            backgroundColor: C.bg,
-            transform: [{ translateX: contentTranslateX }],
-          },
-        ]}
+        style={[styles.main, { backgroundColor: C.bg, transform: [{ translateX: contentTranslateX }] }]}
       >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: C.border, paddingTop: insets.top + 6 }]}>
@@ -469,15 +502,13 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
             style={styles.headerBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="menu-outline" size={26} color={C.text} />
+            <Ionicons name="albums-outline" size={24} color={C.text} />
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
             <GlowingLogo />
             <View style={styles.headerTitleBlock}>
-              <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>
-                Kiongozi AI
-              </Text>
+              <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>Kiongozi AI</Text>
               <Text style={styles.headerSub}>Green &amp; Digital Transition</Text>
             </View>
           </View>
@@ -543,11 +574,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           <View
             style={[
               styles.inputWrap,
-              {
-                backgroundColor: C.bg,
-                borderTopColor: C.border,
-                paddingBottom: Math.max(insets.bottom, 12),
-              },
+              { backgroundColor: C.bg, borderTopColor: C.border, paddingBottom: Math.max(insets.bottom, 12) },
             ]}
           >
             <TouchableOpacity
@@ -590,18 +617,14 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           </View>
         </KeyboardAvoidingView>
 
-        {/* Tap-to-close overlay — rendered inside main content so it never covers the sidebar */}
+        {/* Tap-to-close overlay */}
         {sidebarOpen && (
           <>
             <Animated.View
               style={[StyleSheet.absoluteFill, { backgroundColor: '#000000', opacity: overlayOpacity }]}
               pointerEvents="none"
             />
-            <TouchableOpacity
-              style={StyleSheet.absoluteFill}
-              onPress={() => closeSidebar()}
-              activeOpacity={1}
-            />
+            <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => closeSidebar()} activeOpacity={1} />
           </>
         )}
       </Animated.View>
@@ -616,81 +639,57 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
 const styles = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden' },
 
-  // Sidebar — absolute so it sits behind the translated main content
+  // Sidebar
   sidebar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    zIndex: 10,
+    position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 10,
     borderRightWidth: StyleSheet.hairlineWidth,
   },
   sidebarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  sidebarLogo: { width: 26, height: 18 },
-  sidebarHeading: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
-  newChatBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 4,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
+  sidebarLogoWrap: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: '#0D1F0D', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#2A3A2A',
   },
-  newChatText: { fontSize: 15, fontWeight: '600' },
+  sidebarLogoImg: { width: 22, height: 22 },
+  sidebarHeading: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
+  sidebarSubheading: { fontSize: 12, marginTop: 1 },
+  newChatIconBtn: {
+    width: 34, height: 34, borderRadius: 10,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+  },
+  sectionHeader: {
+    fontSize: 10, fontWeight: '800', letterSpacing: 0.8,
+    paddingHorizontal: 14, paddingTop: 16, paddingBottom: 6,
+  },
   convItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    marginHorizontal: 6,
-    marginVertical: 1,
-    borderRadius: 10,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 11,
+    marginHorizontal: 6, marginVertical: 1, borderRadius: 10,
   },
   convTitle: { fontSize: 14, fontWeight: '500', marginBottom: 2 },
-  convTime: { fontSize: 12 },
-  noChats: { textAlign: 'center', marginTop: 28, fontSize: 14 },
+  convTime: { fontSize: 11 },
+  noChatsWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60, gap: 8 },
+  noChats: { fontSize: 15, fontWeight: '600' },
+  noChatsHint: { fontSize: 13 },
 
-  // Main content — fills screen, pushed right by sidebar
-  main: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 20,
-  },
+  // Main
+  main: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 },
 
   // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 8, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
   headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 8,
   },
-  headerLogo: { width: 26, height: 18 },
   headerTitleBlock: { flexDirection: 'column', alignItems: 'center', flexShrink: 1 },
   headerTitle: { fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold', flexShrink: 1 },
   headerSub: { fontSize: 11.5, fontWeight: '600', color: '#5CB85C', marginTop: 1 },
@@ -705,55 +704,29 @@ const styles = StyleSheet.create({
   copyBtn: { marginTop: 8 },
   userRow: { alignItems: 'flex-end', marginBottom: 22 },
   userBubble: {
-    maxWidth: '80%',
-    borderRadius: 20,
-    borderBottomRightRadius: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    maxWidth: '80%', borderRadius: 20, borderBottomRightRadius: 5,
+    paddingHorizontal: 14, paddingVertical: 10,
   },
   userText: { fontSize: 15, lineHeight: 22 },
 
   // Empty state
   emptyWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 36,
-    paddingBottom: 60,
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 36, paddingBottom: 60,
   },
   emptyLogo: { width: 72, height: 50, marginBottom: 22, opacity: 0.6 },
   emptyTitle: { fontSize: 22, fontWeight: '600', marginBottom: 10, textAlign: 'center', letterSpacing: -0.4 },
   emptySub: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
 
   // Input
-  inputWrap: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  inputWrap: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    borderRadius: 26,
-    borderWidth: 1,
-    paddingLeft: 16,
-    paddingRight: 6,
-    paddingVertical: 5,
-    gap: 6,
+    flexDirection: 'row', alignItems: 'flex-end', borderRadius: 26,
+    borderWidth: 1, paddingLeft: 16, paddingRight: 6, paddingVertical: 5, gap: 6,
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    maxHeight: 130,
-    paddingVertical: 7,
-    lineHeight: 22,
-  },
+  input: { flex: 1, fontSize: 16, maxHeight: 130, paddingVertical: 7, lineHeight: 22 },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 1,
+    width: 40, height: 40, borderRadius: 20,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 1,
   },
 });
