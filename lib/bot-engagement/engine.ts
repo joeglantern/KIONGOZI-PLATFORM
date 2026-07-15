@@ -1,100 +1,21 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-
-type BotMode = 'draft' | 'auto_publish' | 'publish_approved';
-type QueueStatus = 'pending' | 'drafted' | 'approved' | 'published' | 'rejected' | 'failed' | 'skipped';
-type ActionType = 'social_comment' | 'poll_comment' | 'fund_comment' | 'project_update';
-type TargetTable = 'social_posts' | 'policy_polls' | 'public_funds' | 'public_projects';
-
-interface BotPersona {
-    id: string;
-    full_name: string | null;
-    username: string | null;
-    county: string | null;
-    bio: string | null;
-    learning_interests: string[] | null;
-    focus_path: string | null;
-}
-
-interface QueueItem {
-    id: string;
-    persona_user_id: string | null;
-    target_table: TargetTable;
-    target_record_id: string;
-    action_type: ActionType;
-    status: QueueStatus;
-    draft_content: string | null;
-    metadata: Record<string, any>;
-}
-
-interface TargetContext {
-    id: string;
-    table: TargetTable;
-    title: string;
-    body: string;
-    county?: string | null;
-    extra?: Record<string, any>;
-}
-
-interface RunOptions {
-    mode?: BotMode;
-    limit?: number;
-    planIfEmpty?: boolean;
-}
-
-interface RunResult {
-    runId: string;
-    mode: BotMode;
-    plannedCount: number;
-    draftedCount: number;
-    publishedCount: number;
-    failedCount: number;
-    skippedCount: number;
-}
+import type {
+    BotMode,
+    QueueStatus,
+    ActionType,
+    TargetTable,
+    BotPersona,
+    QueueItem,
+    TargetContext,
+    RunOptions,
+    RunResult,
+} from './types';
+import { clampLimit, pick, randomishOffset, sanitizeContent } from './text';
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const AUTO_BATCH_ID = process.env.BOT_ENGAGEMENT_BATCH_ID || 'bot-engagement-auto';
-const TYPO_PAIRS: Array<[RegExp, string]> = [
-    [/\binformation\b/i, 'infomation'],
-    [/\bprocess\b/i, 'proccess'],
-    [/\bactually\b/i, 'actully'],
-    [/\bsupport\b/i, 'suport'],
-    [/\btimeline\b/i, 'timline'],
-    [/\bclearer\b/i, 'cleaer'],
-    [/\bcommunity\b/i, 'commuity'],
-    [/\bimplementation\b/i, 'implemetation'],
-    [/\bbecause\b/i, 'becuase'],
-    [/\bpeople\b/i, 'ppl'],
-];
-
-function clampLimit(limit?: number) {
-    if (!limit || Number.isNaN(limit)) return 5;
-    return Math.max(1, Math.min(Math.floor(limit), 20));
-}
-
-function pick<T>(items: T[], index: number, offset = 0): T {
-    return items[(index + offset) % items.length];
-}
-
-function randomishOffset() {
-    return new Date().getUTCMinutes() + new Date().getUTCHours() * 7;
-}
-
-function sanitizeContent(content: string) {
-    const cleaned = content
-        .replace(/^```(?:json)?/i, '')
-        .replace(/```$/g, '')
-        .replace(/^["']|["']$/g, '')
-        .replace(/\./g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 600);
-
-    if (cleaned.length % 3 !== 1) return cleaned;
-    const typoPair = TYPO_PAIRS.find(([pattern]) => pattern.test(cleaned));
-    return typoPair ? cleaned.replace(typoPair[0], typoPair[1]) : `${cleaned} bana`;
-}
 
 function buildFallbackDraft(item: QueueItem, persona: BotPersona | null, target: TargetContext | null) {
     const county = persona?.county || target?.county || 'my county';
