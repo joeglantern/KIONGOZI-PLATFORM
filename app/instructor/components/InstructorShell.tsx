@@ -39,11 +39,11 @@ export function InstructorShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+            <div className="flex-1 lg:ml-64 flex flex-col h-screen min-h-0">
                 <ErrorBoundary fallbackMessage="Navbar Error">
                     <InstructorNavbar onMenuClick={() => setSidebarOpen(true)} />
                 </ErrorBoundary>
-                <main className="flex-1 p-4 lg:p-8">
+                <main className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-8">
                     <ErrorBoundary>
                         {children}
                     </ErrorBoundary>
