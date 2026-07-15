@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/app/utils/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
+import { callAnthropicMessage } from '@/lib/ai/anthropic';
 
 const MAX_TEXT_LENGTH = 5000;
 
@@ -40,32 +41,15 @@ export async function POST(req: NextRequest) {
 Translate the user's text to ${targetLanguage || 'English'}. 
 Preserve the youth advocate tone, meaning, and emotional urgency. Do not include any introductory remarks, explanations, or metadata. Output ONLY the translated text.`;
 
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: 'claude-3-haiku-20240307',
-                max_tokens: 1000,
-                temperature: 0.2,
-                system: systemPrompt,
-                messages: [
-                    { role: 'user', content: text }
-                ]
-            })
-        });
-
-        if (!response.ok) {
-            const errBody = await response.text();
-            console.error("Anthropic API translation failure:", errBody);
-            throw new Error(`Anthropic HTTP error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const translatedText = data.content?.[0]?.text?.trim() ?? '';
+        const translatedText = (await callAnthropicMessage({
+            apiKey,
+            model: 'claude-3-haiku-20240307',
+            maxTokens: 1000,
+            temperature: 0.2,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: text }],
+            errorLabel: 'Anthropic API translation failure:',
+        })).trim();
 
         return NextResponse.json({ translatedText });
     } catch (err: any) {

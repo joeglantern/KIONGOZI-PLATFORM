@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/app/utils/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
+import { callAnthropicMessage } from '@/lib/ai/anthropic';
 
 const CACHE_TTL_MS = 30_000;
 
@@ -178,30 +179,15 @@ IMPORTANT GUIDELINES:
     }
 
     try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: 'claude-3-5-sonnet-20241022',
-                max_tokens: 1800,
-                temperature: 0.5,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: prompt }]
-            })
+        const insights = await callAnthropicMessage({
+            apiKey,
+            model: 'claude-3-5-sonnet-20241022',
+            maxTokens: 1800,
+            temperature: 0.5,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: prompt }],
+            errorLabel: 'Anthropic API programme analysis failure:',
         });
-
-        if (!response.ok) {
-            const errBody = await response.text();
-            console.error('Anthropic API programme analysis failure:', errBody);
-            throw new Error(`Anthropic HTTP error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const insights = data.content?.[0]?.text ?? '';
 
         await supabase.from('programme_briefs').insert({
             programme_id: programme.id,
