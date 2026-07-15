@@ -165,6 +165,7 @@ export default function QuizPlayer({ quizId, courseId, returnHref, onComplete }:
         }
     }, [courseId, onComplete, questions, quizId, submitted, userAnswers]);
 
+    const hasTimer = timeLeft !== null;
     useEffect(() => {
         if (timeLeft === null || submitted) return;
         if (timeLeft === 0) { handleSubmit(); return; }
@@ -172,10 +173,11 @@ export default function QuizPlayer({ quizId, courseId, returnHref, onComplete }:
             setTimeLeft(prev => (prev !== null ? prev - 1 : null));
         }, 1000);
         return () => clearInterval(timer);
-    // Only restart the interval when submitted changes or timeLeft hits 0 —
-    // not on every tick, which was causing the whole page to re-render each second.
+    // Restart when the timer arms (null -> number), on each submitted change,
+    // and when timeLeft hits exactly 0 — not on every tick (which caused a
+    // whole-page re-render every second).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [submitted, timeLeft === 0]);
+    }, [hasTimer, submitted, timeLeft === 0]);
 
     if (loading) {
         return (
