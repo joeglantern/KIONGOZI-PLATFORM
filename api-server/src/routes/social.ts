@@ -610,13 +610,52 @@ router.get('/posts/:id/replies', optionalAuth, async (req: Request, res: Respons
 router.get('/trending', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const privateUserIds = await getPrivateUserIds();
+    const HASHTAG_RE = /#([a-zA-Z0-9_]+)/g;
 
-    const { data: hashtags, error: hErr } = await supabaseServiceClient
-      .from('hashtags')
-      .select('id, tag, use_count')
-      .order('use_count', { ascending: false })
-      .limit(10);
+    // ── Trending hashtags: count usage in recent posts (last 30 days) ──────
+    const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
+    let recentPostsQuery = supabaseServiceClient
+      .from('posts')
+      .select('content')
+      .eq('visibility', 'public')
+      .gte('created_at', cutoff30d)
+      .limit(300);
+
+    if (privateUserIds.length > 0) {
+      recentPostsQuery = recentPostsQuery.not('user_id', 'in', `(${privateUserIds.join(',')})`);
+    }
+
+    const { data: recentPosts } = await recentPostsQuery;
+
+    const tagCounts: Record<string, number> = {};
+    for (const p of recentPosts || []) {
+      const matches = [...(p.content || '').matchAll(HASHTAG_RE)];
+      for (const m of matches) {
+        const tag = m[1].toLowerCase();
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      }
+    }
+
+    let hashtags: { id: string; tag: string; use_count: number }[] = Object.entries(tagCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([tag, count]) => ({ id: tag, tag, use_count: count }));
+
+    // Fall back to all-time use_count when there's little recent activity
+    if (hashtags.length < 3) {
+      const { data: fallbackTags } = await supabaseServiceClient
+        .from('hashtags')
+        .select('id, tag, use_count')
+        .gt('use_count', 0)
+        .order('use_count', { ascending: false })
+        .limit(10);
+      if ((fallbackTags?.length ?? 0) > hashtags.length) {
+        hashtags = (fallbackTags || []) as typeof hashtags;
+      }
+    }
+
+    // ── Trending posts: top liked in last 48 hours ──────────────────────────
     let postsQuery = supabaseServiceClient
       .from('posts')
       .select(`
@@ -624,7 +663,7 @@ router.get('/trending', optionalAuth, async (req: Request, res: Response): Promi
         profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified)
       `)
       .eq('visibility', 'public')
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .gte('created_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
       .order('like_count', { ascending: false })
       .limit(10);
 
@@ -634,7 +673,7 @@ router.get('/trending', optionalAuth, async (req: Request, res: Response): Promi
 
     const { data: posts, error: pErr } = await postsQuery;
 
-    if (hErr || pErr) {
+    if (pErr) {
       res.status(500).json({ success: false, error: 'Failed to fetch trending' });
       return;
     }
