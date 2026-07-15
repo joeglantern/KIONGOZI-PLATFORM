@@ -34,7 +34,7 @@
       "package": "com.kiongozi.chat",
       "versionCode": 11,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/kchat-logo.png",
+        "foregroundImage": "./assets/adaptive-icon-fg.png",
         "backgroundColor": "#000000"
       },
       "usesCleartextTraffic": true,
