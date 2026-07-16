@@ -452,21 +452,26 @@ export function PostCard({
           >
             {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
-                <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
-              </TouchableOpacity>
-              {activePost.profiles?.is_verified && <VerifiedBadge size={15} />}
-              {activePost.profiles?.username && (
-                <Text style={styles.username}>@{activePost.profiles.username}</Text>
-              )}
-              <Text style={styles.dot}>·</Text>
-              <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
-              {/* Options ⋯ lives in the header row, right-aligned */}
-              {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
-                <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}>
-                  <Ionicons name="ellipsis-horizontal" size={16} color={T.textMuted} />
-                </TouchableOpacity>
-              )}
+              <View style={{ flex: 1 }}>
+                {/* Row 1: name + badge + time + options */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
+                    <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
+                  </TouchableOpacity>
+                  {activePost.profiles?.is_verified && <VerifiedBadge size={15} />}
+                  <Text style={styles.dot}>·</Text>
+                  <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
+                  {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
+                    <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}>
+                      <Ionicons name="ellipsis-horizontal" size={16} color={T.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {/* Row 2: @username below the name */}
+                {activePost.profiles?.username && (
+                  <Text style={styles.username}>@{activePost.profiles.username}</Text>
+                )}
+              </View>
             </View>
 
             {/* Content with Read more */}
@@ -688,9 +693,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       fontWeight: '500',
     },
     header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 3,
       marginBottom: 4,
     },
     optionsBtn: {
@@ -704,8 +706,9 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       flexShrink: 1,
     },
     username: {
-      fontSize: 14,
+      fontSize: 13,
       color: T.textSub,
+      marginTop: 1,
     },
     dot: {
       color: T.textMuted,
