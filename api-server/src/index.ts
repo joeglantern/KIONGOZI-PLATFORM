@@ -143,6 +143,102 @@ app.get('/', (req, res) => {
   });
 });
 
+// ─── Deep link support ───────────────────────────────────────────────────────
+
+// Apple Universal Links verification file
+app.get('/.well-known/apple-app-site-association', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.json({
+    applinks: {
+      details: [
+        {
+          appIDs: ['365BL78M2N.com.kiongozi.chat'],
+          components: [{ '/': '/posts/*' }],
+        },
+      ],
+    },
+  });
+});
+
+// Android App Links verification file
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.json([
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'com.kiongozi.mobile',
+        // Get fingerprint from: eas credentials --platform android
+        // or Play Console → App Integrity → App signing certificate
+        sha256_cert_fingerprints: [
+          process.env.ANDROID_SHA256_FINGERPRINT || 'REPLACE_WITH_SHA256_FINGERPRINT',
+        ],
+      },
+    },
+  ]);
+});
+
+// Web fallback for shared post links — tries to open app, falls back to stores
+app.get('/posts/:id', (req, res) => {
+  const postId = req.params.id;
+  const ua = req.headers['user-agent'] || '';
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const isAndroid = /android/i.test(ua);
+
+  const appStoreUrl = 'https://apps.apple.com/app/id6789518676';
+  const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile';
+  const deepLink = `kiongozi://posts/${postId}`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiongozi — View Post</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+  .logo { width: 72px; height: 72px; border-radius: 20px; background: #1a1a1a; border: 1px solid #2a2a2a; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 36px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  p { color: #888; font-size: 15px; text-align: center; max-width: 280px; margin-bottom: 32px; line-height: 1.5; }
+  .btn { display: block; width: 100%; max-width: 300px; padding: 15px 24px; border-radius: 14px; text-decoration: none; font-size: 16px; font-weight: 600; text-align: center; margin-bottom: 12px; transition: opacity 0.15s; }
+  .btn:active { opacity: 0.75; }
+  .btn-primary { background: #5CB85C; color: #fff; }
+  .btn-secondary { background: #1a1a1a; color: #fff; border: 1px solid #333; }
+  .divider { color: #444; font-size: 13px; margin: 8px 0 20px; }
+</style>
+</head>
+<body>
+<div class="logo">🇰🇪</div>
+<h1>Open in Kiongozi</h1>
+<p>Kenya's civic social network. Download the app to view and join the conversation.</p>
+${isIOS ? `
+<a href="${deepLink}" class="btn btn-primary" id="openBtn">Open in App</a>
+<div class="divider">— or download —</div>
+<a href="${appStoreUrl}" class="btn btn-secondary">Download on App Store</a>
+` : isAndroid ? `
+<a href="${deepLink}" class="btn btn-primary" id="openBtn">Open in App</a>
+<div class="divider">— or download —</div>
+<a href="${playStoreUrl}" class="btn btn-secondary">Get it on Play Store</a>
+` : `
+<a href="${appStoreUrl}" class="btn btn-primary">Download on App Store</a>
+<a href="${playStoreUrl}" class="btn btn-secondary">Get it on Play Store</a>
+`}
+<script>
+  var btn = document.getElementById('openBtn');
+  if (btn) {
+    // After 1.5s with no app response, the button is already clicked; page stays visible
+    setTimeout(function() {
+      btn.textContent = 'App not installed?';
+    }, 2000);
+  }
+</script>
+</body>
+</html>`);
+});
+
 // Error handling middleware
 app.use(notFoundHandler);
 app.use(errorHandler);
