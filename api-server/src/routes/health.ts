@@ -72,7 +72,7 @@ router.get('/app-config', (_req, res) => {
     data: {
       android: {
         min_version_code: 11,
-        store_url: 'https://play.google.com/store/apps/details?id=com.kiongozi.chat',
+        store_url: 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile',
       },
       ios: {
         min_build_number: 9,

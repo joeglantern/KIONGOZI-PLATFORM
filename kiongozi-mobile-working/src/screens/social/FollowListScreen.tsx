@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator,
-  ScrollView, Animated, Dimensions
+  ScrollView, Animated, Dimensions, Image,
 } from 'react-native';
+
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -116,7 +118,12 @@ export default function FollowListScreen() {
     >
       <UserAvatar avatarUrl={item.avatar_url} size={46} isVerified={item.is_verified} />
       <View style={styles.userInfo}>
-        <Text style={styles.fullName} numberOfLines={1}>{item.full_name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+          <Text style={styles.fullName} numberOfLines={1}>{item.full_name}</Text>
+          {item.is_verified && (
+            <VerifiedBadge size={15} />
+          )}
+        </View>
         <Text style={styles.handle}>@{item.username}</Text>
         {item.bio ? <Text style={styles.bio} numberOfLines={1}>{item.bio}</Text> : null}
       </View>
@@ -134,7 +141,12 @@ export default function FollowListScreen() {
       >
         <UserAvatar avatarUrl={item.avatar_url} size={46} isVerified={item.is_verified} />
         <View style={styles.userInfo}>
-          <Text style={styles.fullName} numberOfLines={1}>{item.full_name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Text style={styles.fullName} numberOfLines={1}>{item.full_name}</Text>
+            {item.is_verified && (
+              <VerifiedBadge size={15} />
+            )}
+          </View>
           <Text style={styles.handle}>@{item.username}</Text>
           {item.bio ? <Text style={styles.bio} numberOfLines={1}>{item.bio}</Text> : null}
         </View>

@@ -11,6 +11,7 @@ import { MediaViewerModal, MediaItem, PostContext } from './MediaViewerModal';
 import QuotePostModal from './QuotePostModal';
 import apiClient from '../../utils/apiClient';
 import { useSocialStore } from '../../stores/socialStore';
+import { VerifiedBadge } from './VerifiedBadge';
 
 // ─── Reusable action sheet — replaces all native Alert dialogs ───────────────
 
@@ -454,6 +455,7 @@ export function PostCard({
               <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
                 <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
               </TouchableOpacity>
+              {activePost.profiles?.is_verified && <VerifiedBadge size={15} />}
               {activePost.profiles?.username && (
                 <Text style={styles.username}>@{activePost.profiles.username}</Text>
               )}
@@ -688,7 +690,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 3,
       marginBottom: 4,
     },
     optionsBtn: {

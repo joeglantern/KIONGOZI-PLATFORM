@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { PostCard } from '../../components/social/PostCard';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -270,7 +271,12 @@ export default function ProfileTabScreen() {
       </View>
 
       <View style={styles.bioSection}>
-        <Text style={styles.displayName}>{profile?.full_name || user?.user_metadata?.full_name || 'Your Profile'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <Text style={styles.displayName}>{profile?.full_name || user?.user_metadata?.full_name || 'Your Profile'}</Text>
+          {profile?.is_verified && (
+            <VerifiedBadge size={18} />
+          )}
+        </View>
         <Text style={styles.handle}>
           @{profile?.username || '—'}
           {'  ·  '}

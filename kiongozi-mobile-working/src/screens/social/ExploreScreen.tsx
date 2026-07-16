@@ -2,11 +2,13 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   View, Text, TextInput, StyleSheet, FlatList,
   TouchableOpacity, ActivityIndicator, RefreshControl,
-  ScrollView,
+  ScrollView, Image,
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { PostCard } from '../../components/social/PostCard';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useSocialStore } from '../../stores/socialStore';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import apiClient from '../../utils/apiClient';
@@ -220,7 +222,12 @@ export default function ExploreScreen() {
                 >
                   <UserAvatar avatarUrl={item.avatar_url} size={46} isVerified={item.is_verified} isBot={item.is_bot} />
                   <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{item.full_name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                      <Text style={styles.userName}>{item.full_name}</Text>
+                      {item.is_verified && (
+                        <VerifiedBadge size={15} />
+                      )}
+                    </View>
                     <Text style={styles.userHandle}>@{item.username}</Text>
                     {item.bio ? <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text> : null}
                   </View>

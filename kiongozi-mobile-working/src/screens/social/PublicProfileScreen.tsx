@@ -6,6 +6,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { PostCard } from '../../components/social/PostCard';
 import { useProfileStore } from '../../stores/profileStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -395,7 +396,12 @@ export default function PublicProfileScreen() {
                 </View>
               </View>
 
-              <Text style={styles.fullName}>{profile?.full_name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Text style={styles.fullName}>{profile?.full_name}</Text>
+                {profile?.is_verified && (
+                  <VerifiedBadge size={18} />
+                )}
+              </View>
               <Text style={styles.username}>@{profile?.username}</Text>
               {profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 

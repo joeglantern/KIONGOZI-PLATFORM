@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Modal, TextInput,
+  ActivityIndicator, Modal, TextInput, Image,
 } from 'react-native';
+
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useDMStore } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
@@ -160,6 +162,7 @@ export default function DMListScreen() {
           participantName: other?.full_name,
           participantUsername: other?.username,
           participantAvatar: other?.avatar_url,
+          participantIsVerified: other?.is_verified,
         })}
         onLongPress={() => handleLongPress(item.id, isArchived)}
         delayLongPress={400}
@@ -168,6 +171,7 @@ export default function DMListScreen() {
         <View style={styles.convInfo}>
           <View style={styles.convHeader}>
             <Text style={styles.convName}>{other?.full_name}</Text>
+            {other?.is_verified && <VerifiedBadge size={15} />}
             <Text style={styles.convTime}>{timeAgo(item.last_message_at)}</Text>
           </View>
           <View style={styles.convPreview}>
@@ -300,7 +304,12 @@ export default function DMListScreen() {
                   >
                     <UserAvatar avatarUrl={item.avatar_url} size={44} isVerified={item.is_verified} isBot={item.is_bot} />
                     <View style={styles.userInfo}>
-                      <Text style={styles.userName}>{item.full_name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <Text style={styles.userName}>{item.full_name}</Text>
+                        {item.is_verified && (
+                          <VerifiedBadge size={15} />
+                        )}
+                      </View>
                       <Text style={styles.userHandle}>@{item.username}</Text>
                     </View>
                     {startingFor === item.id
@@ -372,7 +381,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     archivedRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.surface },
     archivedIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: T.surface2, justifyContent: 'center', alignItems: 'center' },
     archivedLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: T.textSub },
-    archivedRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    archivedRight: { flexDirection: 'row', alignItems: 'center', gap: 3 },
     archivedCount: { fontSize: 14, color: T.textMuted, fontWeight: '500' },
     convRow: { flexDirection: 'row', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
     convInfo: { flex: 1 },

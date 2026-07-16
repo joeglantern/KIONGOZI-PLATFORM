@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { DMBubble } from '../../components/social/DMBubble';
 import { MediaViewerModal } from '../../components/social/MediaViewerModal';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useDMStore, DMMessage } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
@@ -80,7 +81,7 @@ function buildList(messages: DMMessage[], myId: string): ListItem[] {
 export default function DMConversationScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { conversationId, participantName, participantUsername, participantAvatar } = route.params || {};
+  const { conversationId, participantName, participantUsername, participantAvatar, participantIsVerified } = route.params || {};
   const { user } = useAuthStore();
   const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, unsendMessage, updateMessageContent, markRead } = useDMStore();
   useHideTabBar();
@@ -370,7 +371,10 @@ export default function DMConversationScreen() {
             >
               <UserAvatar avatarUrl={participantAvatar} size={36} />
               <View style={styles.headerNames}>
-                <Text style={styles.headerName} numberOfLines={1}>{participantName || 'Message'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Text style={styles.headerName} numberOfLines={1}>{participantName || 'Message'}</Text>
+                  {participantIsVerified && <VerifiedBadge size={15} />}
+                </View>
                 {participantUsername ? (
                   <Text style={styles.headerHandle}>@{participantUsername}</Text>
                 ) : null}

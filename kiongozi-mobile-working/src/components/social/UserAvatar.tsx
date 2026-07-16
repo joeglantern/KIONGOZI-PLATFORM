@@ -56,19 +56,10 @@ export function UserAvatar({
         </View>
       )}
 
-      {/* Bot / verified badge */}
-      {(isBot || isVerified) && !editable && (
+      {/* Bot badge only — verified badge renders next to the name, not on the avatar */}
+      {isBot && !editable && (
         <View style={[styles.badge, { bottom: -2, right: -2 }]}>
-          {isBot ? (
-            <Ionicons name="hardware-chip" size={size * 0.35} color="#805ad5" />
-          ) : (
-            <Image
-              source={VERIFIED_BADGE}
-              style={{ width: size * 0.38, height: size * 0.38 }}
-              resizeMode="contain"
-              fadeDuration={0}
-            />
-          )}
+          <Ionicons name="hardware-chip" size={size * 0.35} color="#805ad5" />
         </View>
       )}
     </View>

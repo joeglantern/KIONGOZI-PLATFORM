@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, FlatList,
-  TouchableOpacity, RefreshControl,
+  TouchableOpacity, RefreshControl, Image,
 } from 'react-native';
+
 import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
@@ -120,7 +122,12 @@ export default function FindFriendsScreen() {
           isBot={item.is_bot}
         />
         <View style={styles.userInfo}>
-          <Text style={styles.userName} numberOfLines={1}>{item.full_name || item.username}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Text style={styles.userName} numberOfLines={1}>{item.full_name || item.username}</Text>
+            {item.is_verified && (
+              <VerifiedBadge size={15} />
+            )}
+          </View>
           <Text style={styles.userHandle}>@{item.username}</Text>
           {item.bio ? <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text> : null}
         </View>
