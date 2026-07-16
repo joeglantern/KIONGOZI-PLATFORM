@@ -31,7 +31,7 @@
       }
     },
     "android": {
-      "package": "com.kiongozi.chat",
+      "package": "com.kiongozi.mobile",
       "versionCode": 12,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-party-fg.png",
