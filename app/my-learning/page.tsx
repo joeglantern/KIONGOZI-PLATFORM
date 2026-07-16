@@ -26,7 +26,7 @@ const ITEMS_PER_PAGE = 6;
 
 export default function MyLearningPage() {
     const { user } = useUser();
-    // Stable client — never re-created on re-render
+    // Stable client, never re-created on re-render
     const supabase = useMemo(() => createClient(), []);
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -233,7 +233,7 @@ export default function MyLearningPage() {
                                                                             <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
                                                                                 <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
                                                                             </div>
-                                                                            <span>{course?.estimated_duration_hours || '—'}h Total</span>
+                                                                            <span>{course?.estimated_duration_hours || ', '}h Total</span>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
                                                                             <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">

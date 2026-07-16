@@ -21,7 +21,7 @@ function deriveLessonStatus(cmiData: Record<string, string>) {
   return 'incomplete';
 }
 
-// POST — save CMI data from SCORM LMSCommit / LMSFinish
+// POST, save CMI data from SCORM LMSCommit / LMSFinish
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ packageId: string }> }

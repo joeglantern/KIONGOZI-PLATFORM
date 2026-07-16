@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         if (optionRows.length > 0) {
             const { error: optErr } = await auth.supabase.from('poll_options').insert(optionRows);
             if (optErr) {
-                // Compensating delete — don't leave a question with no options.
+                // Compensating delete, don't leave a question with no options.
                 await auth.supabase.from('poll_questions').delete().eq('id', question.id);
                 return NextResponse.json({ error: optErr.message }, { status: 400 });
             }

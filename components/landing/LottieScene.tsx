@@ -5,14 +5,14 @@ import { useReducedMotion } from "framer-motion";
 import dynamic from "next/dynamic";
 
 // Defer the player library to its own async chunk. It needs the DOM/canvas, so
-// it never runs on the server — keeping it out of the initial JS payload.
+// it never runs on the server, keeping it out of the initial JS payload.
 const DotLottieReact = dynamic(
   () => import("@lottiefiles/dotlottie-react").then((m) => m.DotLottieReact),
   { ssr: false }
 );
 
 /**
- * LottieScene — reduced-motion-aware dotLottie player.
+ * LottieScene, reduced-motion-aware dotLottie player.
  *
  * - Loads Lottie JSON from /public at runtime via `src` (not bundled).
  * - The player library is dynamically imported, so it lands in a separate chunk

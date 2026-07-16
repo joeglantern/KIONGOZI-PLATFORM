@@ -8,7 +8,7 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-// Explicit ID whitelist — verified manually as garbage test entries.
+// Explicit ID whitelist, verified manually as garbage test entries.
 // Titles for reference; we soft-delete by ID only to avoid title-match accidents.
 const GARBAGE = [
   { title: 'bbbbbbbb',                                                  why: 'random keysmash' },
@@ -19,7 +19,7 @@ const GARBAGE = [
   { title: 'Lorem Ipsum',                                               why: 'placeholder content' },
 ];
 // Note: there are TWO "Lorem Ipsum" rows (one draft, one published with 1 module).
-// We'll soft-delete both — they're clearly placeholders.
+// We'll soft-delete both, they're clearly placeholders.
 
 // Resolve IDs from titles + verify state
 const { data: existing, error } = await supabase

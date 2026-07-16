@@ -47,7 +47,7 @@ export default function SignupContent({ next, path, mission, answer }: SignupCon
     ? !profile.username || !(profile.first_name?.trim() || profile.full_name?.trim())
     : false;
 
-  // Wait for profile before redirecting — prevents double redirect
+  // Wait for profile before redirecting, prevents double redirect
   useEffect(() => {
     if (authLoading || !user || !profile) return;
     router.replace(getPostSignupPath(next, profile.role, profileIsIncomplete));

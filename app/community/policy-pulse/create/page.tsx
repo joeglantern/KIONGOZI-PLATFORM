@@ -29,15 +29,15 @@ const defaultQuestion = (): Question => ({
     expectedAction: '',
 });
 
-// The fixed "Youth Policy Pulse" template — 5 themed questions anchored to
+// The fixed "Youth Policy Pulse" template, 5 themed questions anchored to
 // the Finance Bill 2026 / green & digital transition agenda. Loaded on demand
 // via the "Use Youth Policy Pulse Template" button rather than hardcoded as
 // the only option, so custom deliberative polls remain fully supported.
 const YOUTH_POLICY_PULSE_TEMPLATE = {
     title: 'Youth Policy Pulse (AI Policy Dialogue)',
-    description: "An AI-powered policy conversation gathering youth experiences and recommendations on green finance, digital inclusion, and green jobs — to inform Parliament and County Governments ahead of Finance Bill 2026 implementation.",
+    description: "An AI-powered policy conversation gathering youth experiences and recommendations on green finance, digital inclusion, and green jobs, to inform Parliament and County Governments ahead of Finance Bill 2026 implementation.",
     category: 'economy',
-    whatContext: 'A structured dialogue asking young Kenyans about barriers to green finance, the impact of digital transformation, and skills gaps in the green economy — feeding directly into an AI-generated, advocacy-ready policy brief for Finance Bill 2026.',
+    whatContext: 'A structured dialogue asking young Kenyans about barriers to green finance, the impact of digital transformation, and skills gaps in the green economy, feeding directly into an AI-generated, advocacy-ready policy brief for Finance Bill 2026.',
     whyContext: 'Finance Bill 2026 and current national/county investments determine how green funds, innovation grants, and digital business opportunities reach young people. Closed-ended polls cannot capture the lived experience needed to shape that implementation.',
     howContext: 'Youth submit open-ended written answers to five themed questions. AI clusters responses into emerging themes, frequently mentioned barriers, and regional differences, then generates recommendations for Parliament and County Governments.',
     impactContext: 'Findings become an advocacy-ready policy brief that can be shared directly with Parliament and County Governments to improve youth access to green funds, innovation grants, and digital business opportunities.',

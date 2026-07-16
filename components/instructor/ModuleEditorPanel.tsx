@@ -455,7 +455,7 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
                     <div className="space-y-2">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                             Learning Objectives
-                            <span className="text-gray-300 font-normal normal-case tracking-normal text-xs">(optional — one per line)</span>
+                            <span className="text-gray-300 font-normal normal-case tracking-normal text-xs">(optional, one per line)</span>
                         </label>
                         <textarea
                             rows={3}
@@ -487,7 +487,7 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
                                     <div className="text-center">
                                         {uploadingMedia ? <Loader2 className="w-7 h-7 animate-spin text-orange-500 mx-auto mb-2" /> : <UploadCloud className="w-7 h-7 text-gray-300 mx-auto mb-2" />}
                                         <p className="text-xs font-bold text-gray-500">{uploadingMedia ? 'Uploading…' : `Click to upload ${form.media_type}`}</p>
-                                        <p className="text-[10px] text-gray-400 mt-0.5">Large files (500 MB+) supported — resumes on interruption</p>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">Large files (500 MB+) supported, resumes on interruption</p>
                                     </div>
                                 )}
                             </div>
@@ -509,7 +509,7 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
                     <div className="space-y-2">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest">
                             Lesson Content
-                            {form.media_type === 'text' ? <span className="text-orange-500 ml-1">*</span> : <span className="text-gray-300 font-normal normal-case tracking-normal text-xs ml-2">(optional — shown alongside media)</span>}
+                            {form.media_type === 'text' ? <span className="text-orange-500 ml-1">*</span> : <span className="text-gray-300 font-normal normal-case tracking-normal text-xs ml-2">(optional, shown alongside media)</span>}
                         </label>
 
                         <div className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm bg-white dark:bg-gray-900">
@@ -605,7 +605,7 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
                         <div className="space-y-2">
                             <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 Transcript
-                                <span className="text-gray-300 font-normal normal-case tracking-normal text-xs">(optional — shown below media)</span>
+                                <span className="text-gray-300 font-normal normal-case tracking-normal text-xs">(optional, shown below media)</span>
                             </label>
                             <textarea
                                 rows={6}

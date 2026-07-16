@@ -43,7 +43,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
 import { ClientOnlyWidgets } from '@/components/layout/ClientOnlyWidgets';
 
-// Footer is SSR-safe but non-critical — defer past initial paint
+// Footer is SSR-safe but non-critical, defer past initial paint
 const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })), {
   ssr: true,
   loading: () => null,

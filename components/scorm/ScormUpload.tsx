@@ -117,7 +117,7 @@ export default function ScormUpload({ courseId, onPackageLinked }: ScormUploadPr
 
     // Upload sequentially to avoid overwhelming the server
     for (let i = 0; i < arr.length; i++) {
-      // index relative to current jobs state — use functional update offset
+      // index relative to current jobs state, use functional update offset
       await uploadOne(arr[i], i);
     }
   };

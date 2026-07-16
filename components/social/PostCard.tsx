@@ -19,7 +19,7 @@ interface PostProps {
 
 export default function PostCard({ post, currentUserId }: PostProps) {
     const [likesCount, setLikesCount] = useState(post.likes_count || 0);
-    // Seed from server-resolved prop — eliminates the per-card useEffect query
+    // Seed from server-resolved prop, eliminates the per-card useEffect query
     const [isLiked, setIsLiked] = useState(post.is_liked_by_user ?? false);
     const [isLiking, setIsLiking] = useState(false);
     const { toast } = useToast();

@@ -1,27 +1,27 @@
-# Kiongozi LMS — UX Audit Fixes Implementation Plan
+# Kiongozi LMS, UX Audit Fixes Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix the 178 findings from the 2026-07-16 UX/UI audit (14 Critical, 47 High, 78 Medium, 39 Low) so the student journey (landing → signup → onboarding → dashboard → discover → enroll → learn → assess → complete) and the instructor tools work end to end with no dead ends, silent failures, or fabricated data.
 
-**Architecture:** No redesign, no new frameworks. Every fix is scoped to existing files using the existing stack (Next.js 15 App Router, Supabase, TailwindCSS, shadcn/ui, React Query). Phase 1 tasks below are fully specified with verified current code. Phase 2 is organized into concrete task clusters by subsystem. Phases 3–4 are a prioritized backlog — generate follow-up plans for those with this same skill once Phase 1–2 land, since the codebase will have moved.
+**Architecture:** No redesign, no new frameworks. Every fix is scoped to existing files using the existing stack (Next.js 15 App Router, Supabase, TailwindCSS, shadcn/ui, React Query). Phase 1 tasks below are fully specified with verified current code. Phase 2 is organized into concrete task clusters by subsystem. Phases 3 to 4 are a prioritized backlog, generate follow-up plans for those with this same skill once Phase 1 to 2 land, since the codebase will have moved.
 
 **Tech Stack:** Next.js 15, TypeScript, TailwindCSS, shadcn/ui, Supabase (`@supabase/ssr`), React Query, Vitest.
 
 ## Global Constraints
 
-- Branch: `kiongozi-web-platform-v2` (disconnected history from `main` — no PR-to-main; push the branch directly when ready).
-- Before editing any file listed below, **re-read its current content first** — line numbers may have drifted since the audit.
+- Branch: `kiongozi-web-platform-v2` (disconnected history from `main`, no PR-to-main; push the branch directly when ready).
+- Before editing any file listed below, **re-read its current content first**, line numbers may have drifted since the audit.
 - Verification gate before every commit: `npm run typecheck && npm run lint && npm run build` (add `npm test` for any task touching `lib/*`).
-- This codebase has a Vitest harness covering pure `lib/` helpers only — **no component/page test harness yet**. Tasks that fix React component/page behavior use manual verification steps (exact repro + expected result) instead of fabricated component tests. Tasks that touch `lib/` logic use real Vitest TDD.
+- This codebase has a Vitest harness covering pure `lib/` helpers only, **no component/page test harness yet**. Tasks that fix React component/page behavior use manual verification steps (exact repro + expected result) instead of fabricated component tests. Tasks that touch `lib/` logic use real Vitest TDD.
 - One task = one commit. Do not bundle unrelated fixes into the same commit.
-- Never weaken auth, RLS, or role gating while fixing a bug — a fix must not reduce the current security posture.
-- Preserve the existing visual language of whatever file you're touching (don't redesign a page while fixing a bug in it — visual consistency is its own Phase 3 workstream).
+- Never weaken auth, RLS, or role gating while fixing a bug, a fix must not reduce the current security posture.
+- Preserve the existing visual language of whatever file you're touching (don't redesign a page while fixing a bug in it, visual consistency is its own Phase 3 workstream).
 - No new dependencies without checking `package.json` first and confirming with the user.
 
 ---
 
-## Phase 1 — Stop the Bleeding (Critical, do first)
+## Phase 1, Stop the Bleeding (Critical, do first)
 
 These are the issues that strand a student or instructor completely, or represent a real security exposure. Each task below was verified against the actual current source during planning.
 
@@ -127,7 +127,7 @@ const finish = async () => {
   };
 ```
 
-This closes the hang for every step in the chain (`profiles.update`, `findStartingCourseIdForPath`, `course_enrollments.upsert`, `refreshProfile`) with one wrapper — any thrown exception now lands in `catch`, resets `saving`, and shows a recoverable error instead of a permanent spinner.
+This closes the hang for every step in the chain (`profiles.update`, `findStartingCourseIdForPath`, `course_enrollments.upsert`, `refreshProfile`) with one wrapper, any thrown exception now lands in `catch`, resets `saving`, and shows a recoverable error instead of a permanent spinner.
 
 - [ ] **Step 3: Manual verification**
 
@@ -218,11 +218,11 @@ Change line 42's wrapper and line 46's `<main>`:
 
 - [ ] **Step 3: Verify the course editor still works**
 
-`app/instructor/courses/[id]/edit/EditCourseClient.tsx` compensates for today's non-scrolling shell with negative margins and a fixed height (per the audit: `-m-4 lg:-m-8` + `calc(100vh - 64px)`). Open that page after the change and confirm it doesn't now have double scrollbars or clipped content — if it does, remove its compensating negative-margin/height overrides so it inherits the shell's new scroll behavior instead of fighting it.
+`app/instructor/courses/[id]/edit/EditCourseClient.tsx` compensates for today's non-scrolling shell with negative margins and a fixed height (per the audit: `-m-4 lg:-m-8` + `calc(100vh - 64px)`). Open that page after the change and confirm it doesn't now have double scrollbars or clipped content, if it does, remove its compensating negative-margin/height overrides so it inherits the shell's new scroll behavior instead of fighting it.
 
 - [ ] **Step 4: Manual verification**
 
-At 390×844 viewport (or real phone), open `/instructor/dashboard`, `/instructor/courses`, `/instructor/students`, `/instructor/settings` — confirm you can scroll to and interact with the last element on each page (e.g. the Settings save button).
+At 390×844 viewport (or real phone), open `/instructor/dashboard`, `/instructor/courses`, `/instructor/students`, `/instructor/settings`, confirm you can scroll to and interact with the last element on each page (e.g. the Settings save button).
 
 - [ ] **Step 5: Commit**
 
@@ -238,7 +238,7 @@ git commit -m "fix(instructor): make shell content scrollable on mobile and smal
 **Files:**
 - Modify: `app/courses/[id]/modules/[moduleId]/ModuleViewerClient.tsx:468-497` (autosave effect) and `:1039-1061` (indicator + textarea)
 
-**Problem:** The autosave catch-block only logs to console; the indicator is a binary `isSavingNotes ? "Saving…" : "Saved"` with no success check — a failed write still shows "Saved."
+**Problem:** The autosave catch-block only logs to console; the indicator is a binary `isSavingNotes ? "Saving…" : "Saved"` with no success check, a failed write still shows "Saved."
 
 - [ ] **Step 1: Confirm current code** (verified during planning):
 
@@ -305,7 +305,7 @@ and the indicator/textarea:
 
 - [ ] **Step 2: Find the `isSavingNotes` state declaration**
 
-Search the file for `const [isSavingNotes` and note its location — you'll add a sibling state next to it.
+Search the file for `const [isSavingNotes` and note its location, you'll add a sibling state next to it.
 
 - [ ] **Step 3: Add a real save-status enum next to `isSavingNotes`**
 
@@ -315,7 +315,7 @@ Replace the boolean with a status union (find the existing `useState` line and c
     const [notesSaveStatus, setNotesSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 ```
 
-Remove the old `isSavingNotes` state declaration and every other reference to `isSavingNotes`/`setIsSavingNotes` in this file (grep the file for both identifiers first — there should be exactly the two spots shown above).
+Remove the old `isSavingNotes` state declaration and every other reference to `isSavingNotes`/`setIsSavingNotes` in this file (grep the file for both identifiers first, there should be exactly the two spots shown above).
 
 - [ ] **Step 4: Rewrite the autosave effect to only claim success on success**
 
@@ -387,7 +387,7 @@ Remove the old `isSavingNotes` state declaration and every other reference to `i
                                                                         onClick={retryNotesSave}
                                                                         className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 hover:text-red-600"
                                                                     >
-                                                                        <span className="uppercase tracking-wider">Not saved — retry</span>
+                                                                        <span className="uppercase tracking-wider">Not saved, retry</span>
                                                                     </button>
                                                                 )}
                                                             </div>
@@ -404,7 +404,7 @@ Remove the old `isSavingNotes` state declaration and every other reference to `i
                                                             />
 ```
 
-(Also fixes the invisible-textarea bug from the same finding: `bg-gray-55` → `bg-gray-50`, added `border` + `border-gray-200`, added `focus:ring-2` — the old classes emitted no background/border/ring because those Tailwind shades/utilities don't exist.)
+(Also fixes the invisible-textarea bug from the same finding: `bg-gray-55` → `bg-gray-50`, added `border` + `border-gray-200`, added `focus:ring-2`, the old classes emitted no background/border/ring because those Tailwind shades/utilities don't exist.)
 
 - [ ] **Step 6: Retry automatically when connectivity returns**
 
@@ -422,7 +422,7 @@ Add next to the other effects in the component:
 
 - [ ] **Step 7: Manual verification**
 
-Open a lesson's summary slide, type in the notes field, and confirm "Saving…" → "Saved" appears normally. Then open browser devtools, go offline (Network tab → Offline), type again, and confirm the indicator shows "Not saved — retry" instead of "Saved." Go back online and click "Not saved — retry"; confirm it flips to "Saved."
+Open a lesson's summary slide, type in the notes field, and confirm "Saving…" → "Saved" appears normally. Then open browser devtools, go offline (Network tab → Offline), type again, and confirm the indicator shows "Not saved, retry" instead of "Saved." Go back online and click "Not saved, retry"; confirm it flips to "Saved."
 
 - [ ] **Step 8: Commit**
 
@@ -471,7 +471,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
 node -e "console.log(require('./package.json').dependencies['isomorphic-dompurify'] || 'NOT INSTALLED')"
 ```
 
-If not installed, do not add a new dependency without checking with the user first — use the window-guard approach in Step 3 instead (no new dependency).
+If not installed, do not add a new dependency without checking with the user first, use the window-guard approach in Step 3 instead (no new dependency).
 
 - [ ] **Step 3: Guard the sanitize call so SSR never calls into DOMPurify**
 
@@ -505,11 +505,11 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: Mark
     }
 ```
 
-`suppressHydrationWarning` is required here because the server output (empty string) and first client render (real sanitized HTML) intentionally differ for this one node — without it React logs a hydration mismatch warning even though the behavior is correct.
+`suppressHydrationWarning` is required here because the server output (empty string) and first client render (real sanitized HTML) intentionally differ for this one node, without it React logs a hydration mismatch warning even though the behavior is correct.
 
 - [ ] **Step 4: Manual verification**
 
-Find or create a lesson slide containing a raw HTML tag (e.g. `<br>` or `<strong>test</strong>` mixed into the content). Load the module page with a **hard refresh** (not client navigation) and confirm the page renders instead of crashing to `app/courses/error.tsx`. Confirm the HTML content appears correctly once the client hydrates (may show blank for a frame, then populate — that's expected and correct).
+Find or create a lesson slide containing a raw HTML tag (e.g. `<br>` or `<strong>test</strong>` mixed into the content). Load the module page with a **hard refresh** (not client navigation) and confirm the page renders instead of crashing to `app/courses/error.tsx`. Confirm the HTML content appears correctly once the client hydrates (may show blank for a frame, then populate, that's expected and correct).
 
 - [ ] **Step 5: Commit**
 
@@ -525,7 +525,7 @@ git commit -m "fix(learning): guard DOMPurify against server-side rendering cras
 **Files:**
 - Modify: `app/contexts/UserContext.tsx:60-83`
 
-**Problem:** The global profile-completion interceptor redirects any signed-in "user" account without `onboarding_completed_at` away from every route except `/complete-profile` and `/onboarding`. `/reset-password` is not exempt, so opening a recovery link gets the student bounced into onboarding before they can type a new password — consuming the single-use link.
+**Problem:** The global profile-completion interceptor redirects any signed-in "user" account without `onboarding_completed_at` away from every route except `/complete-profile` and `/onboarding`. `/reset-password` is not exempt, so opening a recovery link gets the student bounced into onboarding before they can type a new password, consuming the single-use link.
 
 - [ ] **Step 1: Confirm current code** (verified during planning, lines 60-83):
 
@@ -559,7 +559,7 @@ git commit -m "fix(learning): guard DOMPurify against server-side rendering cras
 - [ ] **Step 2: Add an exempt-paths check before either redirect**
 
 ```tsx
-  // Routes where the profile-completion/onboarding gate must never fire —
+  // Routes where the profile-completion/onboarding gate must never fire, 
   // primarily auth flows the user may reach mid-recovery with an incomplete profile.
   const AUTH_EXEMPT_PATHS = ['/reset-password', '/forgot-password', '/auth/callback', '/auth/auth-code-error'];
 
@@ -594,11 +594,11 @@ git commit -m "fix(learning): guard DOMPurify against server-side rendering cras
   }, [loading, user, profile, pathname, router]);
 ```
 
-Place the `AUTH_EXEMPT_PATHS` constant at module scope (outside `UserProvider`), not inside the component, since it's a static list — put it near the top of the file next to the other module-level constants/types.
+Place the `AUTH_EXEMPT_PATHS` constant at module scope (outside `UserProvider`), not inside the component, since it's a static list, put it near the top of the file next to the other module-level constants/types.
 
 - [ ] **Step 3: Manual verification**
 
-Create a test account and stop right after email confirmation, before doing onboarding (so `onboarding_completed_at` is null). Trigger a password-reset email for that account, open the reset link, and confirm you land on and stay on `/reset-password` — not redirected to `/onboarding`. Complete the reset and confirm normal onboarding still triggers on the *next* page you visit that isn't exempt (e.g. `/dashboard`).
+Create a test account and stop right after email confirmation, before doing onboarding (so `onboarding_completed_at` is null). Trigger a password-reset email for that account, open the reset link, and confirm you land on and stay on `/reset-password`, not redirected to `/onboarding`. Complete the reset and confirm normal onboarding still triggers on the *next* page you visit that isn't exempt (e.g. `/dashboard`).
 
 - [ ] **Step 4: Commit**
 
@@ -614,11 +614,11 @@ git commit -m "fix(auth): exempt password-recovery routes from the onboarding in
 **Files:**
 - Modify: `components/dashboard/CategoryBarChart.tsx:22-32`
 - Modify: `components/dashboard/XPLineChart.tsx:22-33`
-- Modify: `app/dashboard/page.tsx` (wherever these two components are rendered — grep for `<CategoryBarChart` and `<XPLineChart`)
+- Modify: `app/dashboard/page.tsx` (wherever these two components are rendered, grep for `<CategoryBarChart` and `<XPLineChart`)
 
-**Problem:** Both charts fall back to `Math.random()`-generated values whenever their `data` prop is empty — which is every time for a brand-new student. The category chart even invents category names ("Ops," "Tech") that don't exist in the platform's taxonomy.
+**Problem:** Both charts fall back to `Math.random()`-generated values whenever their `data` prop is empty, which is every time for a brand-new student. The category chart even invents category names ("Ops," "Tech") that don't exist in the platform's taxonomy.
 
-- [ ] **Step 1: Confirm current code — `CategoryBarChart.tsx`** (verified during planning, lines 22-32):
+- [ ] **Step 1: Confirm current code, `CategoryBarChart.tsx`** (verified during planning, lines 22-32):
 
 ```tsx
 export function CategoryBarChart({ data, loading }: CategoryBarChartProps) {
@@ -664,9 +664,9 @@ export function CategoryBarChart({ data, loading }: CategoryBarChartProps) {
     return (
 ```
 
-(delete the old `if (loading) { ... }` block further down in the file since it's now handled above the empty-state check — search for the duplicate and remove it, keeping only the JSX return that renders the actual `<ResponsiveContainer>` chart.)
+(delete the old `if (loading) { ... }` block further down in the file since it's now handled above the empty-state check, search for the duplicate and remove it, keeping only the JSX return that renders the actual `<ResponsiveContainer>` chart.)
 
-- [ ] **Step 3: Confirm current code — `XPLineChart.tsx`** (verified during planning, lines 22-33):
+- [ ] **Step 3: Confirm current code, `XPLineChart.tsx`** (verified during planning, lines 22-33):
 
 ```tsx
 export function XPLineChart({ data, loading }: XPLineChartProps) {
@@ -717,11 +717,11 @@ Again, remove the now-duplicated `if (loading)` block later in the file.
 
 - [ ] **Step 5: Make sure the dashboard actually passes `loading` through**
 
-Open `app/dashboard/page.tsx`, find where `<CategoryBarChart` and `<XPLineChart` are rendered, and confirm each receives a `loading={...}` prop tied to the page's real fetch-loading state (per the audit, the page's `loading` flag was not being passed through — check and add `loading={loading}`, matching whatever the page's existing loading-state variable is named, if it's missing).
+Open `app/dashboard/page.tsx`, find where `<CategoryBarChart` and `<XPLineChart` are rendered, and confirm each receives a `loading={...}` prop tied to the page's real fetch-loading state (per the audit, the page's `loading` flag was not being passed through, check and add `loading={loading}`, matching whatever the page's existing loading-state variable is named, if it's missing).
 
 - [ ] **Step 6: Manual verification**
 
-Sign in as a brand-new student with zero enrollments and zero XP. Confirm both dashboard charts show the new empty-state copy — not a chart with invented numbers. Then, as a student with real enrollment/XP history, confirm both charts render their real data as before.
+Sign in as a brand-new student with zero enrollments and zero XP. Confirm both dashboard charts show the new empty-state copy, not a chart with invented numbers. Then, as a student with real enrollment/XP history, confirm both charts render their real data as before.
 
 - [ ] **Step 7: Commit**
 
@@ -773,7 +773,7 @@ And the enrollment card's className:
 
 - [ ] **Step 3: Manual verification**
 
-At a 360×800 viewport, open any course detail page and confirm the "Enroll Now" / "Continue Learning" card renders full-width below the title/description block with no horizontal clipping, and confirm the desktop layout (≥1024px) is visually unchanged from before — enrollment card still sits to the right of the title.
+At a 360×800 viewport, open any course detail page and confirm the "Enroll Now" / "Continue Learning" card renders full-width below the title/description block with no horizontal clipping, and confirm the desktop layout (≥1024px) is visually unchanged from before, enrollment card still sits to the right of the title.
 
 - [ ] **Step 4: Commit**
 
@@ -789,7 +789,7 @@ git commit -m "fix(courses): stack course header on mobile so Enroll card isn't 
 **Files:**
 - Modify: `components/quiz/QuizPlayer.tsx:168-178`
 
-**Problem:** The timer effect's dependency array is `[submitted, timeLeft === 0]`. On mount `timeLeft` is `null`, so the effect returns early without creating an interval. When `fetchQuizData` later calls `setTimeLeft(minutes * 60)`, the dependency value `timeLeft === 0` is still `false` before and after, so the effect never re-runs and no interval is ever created — the countdown is purely decorative and the badge shows a permanently frozen time.
+**Problem:** The timer effect's dependency array is `[submitted, timeLeft === 0]`. On mount `timeLeft` is `null`, so the effect returns early without creating an interval. When `fetchQuizData` later calls `setTimeLeft(minutes * 60)`, the dependency value `timeLeft === 0` is still `false` before and after, so the effect never re-runs and no interval is ever created, the countdown is purely decorative and the badge shows a permanently frozen time.
 
 - [ ] **Step 1: Confirm current code** (verified during planning, lines 168-178):
 
@@ -801,7 +801,7 @@ git commit -m "fix(courses): stack course header on mobile so Enroll card isn't 
             setTimeLeft(prev => (prev !== null ? prev - 1 : null));
         }, 1000);
         return () => clearInterval(timer);
-    // Only restart the interval when submitted changes or timeLeft hits 0 —
+    // Only restart the interval when submitted changes or timeLeft hits 0, 
     // not on every tick, which was causing the whole page to re-render each second.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [submitted, timeLeft === 0]);
@@ -819,13 +819,13 @@ git commit -m "fix(courses): stack course header on mobile so Enroll card isn't 
         }, 1000);
         return () => clearInterval(timer);
     // Restart when the timer arms (null -> number), on each submitted change,
-    // and when timeLeft hits exactly 0 — not on every tick (which caused a
+    // and when timeLeft hits exactly 0, not on every tick (which caused a
     // whole-page re-render every second).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hasTimer, submitted, timeLeft === 0]);
 ```
 
-`hasTimer` flips from `false` to `true` exactly once, the moment `fetchQuizData` sets a real `timeLeft` value — that transition now correctly re-runs the effect and creates the interval. Subsequent per-second ticks still don't re-run it, preserving the original performance fix's intent.
+`hasTimer` flips from `false` to `true` exactly once, the moment `fetchQuizData` sets a real `timeLeft` value, that transition now correctly re-runs the effect and creates the interval. Subsequent per-second ticks still don't re-run it, preserving the original performance fix's intent.
 
 - [ ] **Step 3: Manual verification**
 
@@ -845,7 +845,7 @@ git commit -m "fix(quiz): countdown timer now actually starts (stale dependency 
 **Files:**
 - Modify: `components/dashboard/DashboardTour.tsx`
 
-**Problem:** `DashboardTour` gates itself purely on a `localStorage` flag (`kiongozi_dashboard_tour_completed`) with zero awareness of the `/onboarding` wizard or `profile.onboarding_completed_at`. A student who lands on `/dashboard` before or without finishing the real onboarding wizard sees this second, unrelated "welcome tour" — live-reproduced during the audit.
+**Problem:** `DashboardTour` gates itself purely on a `localStorage` flag (`kiongozi_dashboard_tour_completed`) with zero awareness of the `/onboarding` wizard or `profile.onboarding_completed_at`. A student who lands on `/dashboard` before or without finishing the real onboarding wizard sees this second, unrelated "welcome tour", live-reproduced during the audit.
 
 - [ ] **Step 1: Confirm current code** (verified during planning, lines 60-70):
 
@@ -904,11 +904,11 @@ to:
 <DashboardTour onboardingCompleted={Boolean(profile?.onboarding_completed_at)} />
 ```
 
-using whatever the page's existing `profile` variable is named (it already fetches the profile elsewhere on this page per the audit — reuse that, don't add a new fetch).
+using whatever the page's existing `profile` variable is named (it already fetches the profile elsewhere on this page per the audit, reuse that, don't add a new fetch).
 
 - [ ] **Step 5: Manual verification**
 
-Sign up a new account and, without completing the 5-step `/onboarding` wizard, navigate directly to `/dashboard` via URL. Confirm the "Habari! Welcome to Kiongozi!" tour does **not** appear. Then complete onboarding normally and confirm arriving at `/dashboard?welcome=1` afterward **does** show the tour (first time only — verify it doesn't reappear on a second visit).
+Sign up a new account and, without completing the 5-step `/onboarding` wizard, navigate directly to `/dashboard` via URL. Confirm the "Habari! Welcome to Kiongozi!" tour does **not** appear. Then complete onboarding normally and confirm arriving at `/dashboard?welcome=1` afterward **does** show the tour (first time only, verify it doesn't reappear on a second visit).
 
 - [ ] **Step 6: Commit**
 
@@ -923,11 +923,11 @@ git commit -m "fix(dashboard): don't show the dashboard welcome tour before onbo
 
 **Files:**
 - Create: `app/messages/page.tsx`
-- Modify: `middleware.ts` (add `/messages` to the matcher if not already present — it is already listed, confirm) and `app/utils/supabase/middleware.ts` `PROTECTED_PREFIXES` (add `/messages` if missing)
+- Modify: `middleware.ts` (add `/messages` to the matcher if not already present, it is already listed, confirm) and `app/utils/supabase/middleware.ts` `PROTECTED_PREFIXES` (add `/messages` if missing)
 
-**Problem:** The student sidebar's `Messages` link and the course page's "Message Instructor" button both point at `/messages`. No page exists there — only the instructor-only inbox at `/instructor/messages` does.
+**Problem:** The student sidebar's `Messages` link and the course page's "Message Instructor" button both point at `/messages`. No page exists there, only the instructor-only inbox at `/instructor/messages` does.
 
-- [ ] **Step 1: Confirm the instructor inbox pattern to mirror** (verified during planning — `app/instructor/messages/page.tsx` in full):
+- [ ] **Step 1: Confirm the instructor inbox pattern to mirror** (verified during planning, `app/instructor/messages/page.tsx` in full):
 
 ```tsx
 "use client";
@@ -1136,15 +1136,15 @@ export default function MessagesPage() {
 }
 ```
 
-Note the empty-state copy is changed from "Choose a student from the list" (instructor framing) to explain how a student's first conversation gets created, since — per the audit — `RoomList` has no "start a new conversation" compose entry point yet; a student can only see rooms that already exist (created via "Message Instructor" on a course page). That gap is tracked as a Phase 2 follow-up (see Task cluster G below), not solved here — this task's scope is closing the 404.
+Note the empty-state copy is changed from "Choose a student from the list" (instructor framing) to explain how a student's first conversation gets created, since, per the audit, `RoomList` has no "start a new conversation" compose entry point yet; a student can only see rooms that already exist (created via "Message Instructor" on a course page). That gap is tracked as a Phase 2 follow-up (see Task cluster G below), not solved here, this task's scope is closing the 404.
 
 - [ ] **Step 3: Confirm middleware protects the new route**
 
-Read `middleware.ts` and confirm `/messages/:path*` is already in the `matcher` array (it is, per the audit). Read `app/utils/supabase/middleware.ts` and confirm `/messages` is in `PROTECTED_PREFIXES` (it is). No changes needed here if both already list it — just verify, don't skip this step.
+Read `middleware.ts` and confirm `/messages/:path*` is already in the `matcher` array (it is, per the audit). Read `app/utils/supabase/middleware.ts` and confirm `/messages` is in `PROTECTED_PREFIXES` (it is). No changes needed here if both already list it, just verify, don't skip this step.
 
 - [ ] **Step 4: Manual verification**
 
-As a logged-in student, click "Messages" in the dashboard sidebar and confirm it loads the new page instead of 404ing. From a course page, use "Message Instructor" and confirm it lands here with a room created/selected (if that flow already creates a room server-side per the audit's chat findings — if it doesn't, note that as a separate bug for Task cluster G, don't try to fix room-creation logic in this task).
+As a logged-in student, click "Messages" in the dashboard sidebar and confirm it loads the new page instead of 404ing. From a course page, use "Message Instructor" and confirm it lands here with a room created/selected (if that flow already creates a room server-side per the audit's chat findings, if it doesn't, note that as a separate bug for Task cluster G, don't try to fix room-creation logic in this task).
 
 - [ ] **Step 5: Commit**
 
@@ -1164,19 +1164,19 @@ git commit -m "feat(messages): add student-facing /messages page (was a 404)"
 
 **Problem:** SCORM packages are served same-origin with sandbox `allow-scripts allow-same-origin` together, and the session cookie is scoped to `.kiongozi.org` (not host-only). Untrusted HTML/JS inside an uploaded SCORM zip can read `document.cookie` and call any same-origin API route with the logged-in user's credentials.
 
-This is a real security exposure, not a simple prop change — treat it as a scoped spike-then-fix, and **get a second pair of eyes (or the `/security-review` skill) on the diff before merging**, since sandbox/cookie changes are easy to get subtly wrong.
+This is a real security exposure, not a simple prop change, treat it as a scoped spike-then-fix, and **get a second pair of eyes (or the `/security-review` skill) on the diff before merging**, since sandbox/cookie changes are easy to get subtly wrong.
 
 - [ ] **Step 1: Read the three files above in full** to confirm the current sandbox string, the serve route's headers, and the cookie domain logic exactly as they exist today (do not assume the audit's quoted lines are still current).
 
 - [ ] **Step 2: Confirm the SCORM runtime API bridge mechanism**
 
-Read how `window.parent.API` / `window.parent.API_1484_11` are wired in `ScormPlayer.tsx` — the serve route's own comment says same-origin is used specifically "so `window.parent.API` is accessible." Understand this dependency before changing origin, since removing `allow-same-origin` naively will break the SCORM runtime shim unless the API bridge is reworked.
+Read how `window.parent.API` / `window.parent.API_1484_11` are wired in `ScormPlayer.tsx`, the serve route's own comment says same-origin is used specifically "so `window.parent.API` is accessible." Understand this dependency before changing origin, since removing `allow-same-origin` naively will break the SCORM runtime shim unless the API bridge is reworked.
 
 - [ ] **Step 3: Choose one of these two fixes and implement it**
 
-**Option A (preferred, larger): Cookieless subdomain.** Serve SCORM content from a separate origin (e.g. `scorm-content.<domain>`) that never receives the session cookie, and replace the direct `window.parent.API` access with a `postMessage`-based bridge (the SCORM shim posts LMSGetValue/LMSSetValue calls to the parent frame, which listens via `window.addEventListener('message', ...)` with an origin check, instead of reading `window.parent.API` directly). This requires DNS/hosting changes — confirm with the user before implementing, since it may need infrastructure outside this repo.
+**Option A (preferred, larger): Cookieless subdomain.** Serve SCORM content from a separate origin (e.g. `scorm-content.<domain>`) that never receives the session cookie, and replace the direct `window.parent.API` access with a `postMessage`-based bridge (the SCORM shim posts LMSGetValue/LMSSetValue calls to the parent frame, which listens via `window.addEventListener('message', ...)` with an origin check, instead of reading `window.parent.API` directly). This requires DNS/hosting changes, confirm with the user before implementing, since it may need infrastructure outside this repo.
 
-**Option B (smaller, interim mitigation): Drop `allow-same-origin`, keep `allow-scripts`.** This alone breaks direct `window.parent.API` access from inside the iframe (cross-origin-like isolation even though it's still same-origin URL-wise, sandboxed content without `allow-same-origin` is treated as opaque-origin). You would then need the `postMessage` bridge from Option A regardless for the SCORM shim to keep functioning — so Option B is really "Option A's bridge, without the subdomain migration." Discuss with the user which to do given timeline; Option A is the complete fix, Option B is not shippable alone without the same bridge work.
+**Option B (smaller, interim mitigation): Drop `allow-same-origin`, keep `allow-scripts`.** This alone breaks direct `window.parent.API` access from inside the iframe (cross-origin-like isolation even though it's still same-origin URL-wise, sandboxed content without `allow-same-origin` is treated as opaque-origin). You would then need the `postMessage` bridge from Option A regardless for the SCORM shim to keep functioning, so Option B is really "Option A's bridge, without the subdomain migration." Discuss with the user which to do given timeline; Option A is the complete fix, Option B is not shippable alone without the same bridge work.
 
 Given both viable options require the same `postMessage` bridge work, recommend defaulting to implementing the bridge first (which fixes the vulnerability regardless of origin), and treating the subdomain move as a fast-follow infrastructure task.
 
@@ -1188,7 +1188,7 @@ After the fix, manually craft a test SCORM package whose `imsmanifest.xml` entry
 
 ```bash
 git add components/scorm/ScormPlayer.tsx "app/api/scorm/[packageId]/serve/[...path]/route.ts"
-git commit -m "fix(scorm): close session-hijack vector — postMessage bridge replaces direct window.parent.API access"
+git commit -m "fix(scorm): close session-hijack vector, postMessage bridge replaces direct window.parent.API access"
 ```
 
 ---
@@ -1199,7 +1199,7 @@ git commit -m "fix(scorm): close session-hijack vector — postMessage bridge re
 - Investigate: current Supabase RLS policies on `chat_participants`, `chat_rooms`, `chat_messages`
 - Modify (if confirmed vulnerable): a new migration file under `supabase/migrations/`
 
-**Problem:** A legacy migration (`migrations/fix_all_issues.sql:164-165`, not the canonical `supabase/migrations/` folder) defines `CREATE POLICY "Participants management" ON chat_participants FOR ALL USING (auth.role() = 'authenticated')`, which — combined with `SECURITY DEFINER` room-lookup RPCs — may let any authenticated user self-insert into any room's participants, bypassing UI-level enrollment gating. This was **not** live-verified against the actual current database; do that first.
+**Problem:** A legacy migration (`migrations/fix_all_issues.sql:164-165`, not the canonical `supabase/migrations/` folder) defines `CREATE POLICY "Participants management" ON chat_participants FOR ALL USING (auth.role() = 'authenticated')`, which, combined with `SECURITY DEFINER` room-lookup RPCs, may let any authenticated user self-insert into any room's participants, bypassing UI-level enrollment gating. This was **not** live-verified against the actual current database; do that first.
 
 - [ ] **Step 1: List current migrations and policies**
 
@@ -1221,7 +1221,7 @@ order by tablename, policyname;
 
 - [ ] **Step 2: Determine if the vulnerable policy is actually live**
 
-Compare the output against the legacy migration text. If the canonical `supabase/migrations/` folder has since superseded it with a tighter policy, mark this finding as resolved/stale in the audit tracking checklist and stop here — no code change needed, just document the verification.
+Compare the output against the legacy migration text. If the canonical `supabase/migrations/` folder has since superseded it with a tighter policy, mark this finding as resolved/stale in the audit tracking checklist and stop here, no code change needed, just document the verification.
 
 - [ ] **Step 3: If confirmed vulnerable, write a migration that scopes the policy**
 
@@ -1240,7 +1240,7 @@ create policy "Users can join rooms via the enrollment-gated RPC only"
   with check (auth.uid() = user_id);
 ```
 
-(Exact policy shape depends on Step 1's real output — this is a starting point, not a copy-paste-final answer. Cross-check against `get_course_chat_room`/`get_private_chat_room` RPC definitions from the same migration file to make sure the RPCs' own enrollment checks are preserved as the actual gate, and that this policy doesn't block legitimate inserts those RPCs perform.)
+(Exact policy shape depends on Step 1's real output, this is a starting point, not a copy-paste-final answer. Cross-check against `get_course_chat_room`/`get_private_chat_room` RPC definitions from the same migration file to make sure the RPCs' own enrollment checks are preserved as the actual gate, and that this policy doesn't block legitimate inserts those RPCs perform.)
 
 - [ ] **Step 4: Apply and verify**
 
@@ -1259,16 +1259,16 @@ git commit -m "fix(chat): restrict chat_participants RLS to enrollment-gated joi
 
 Before moving to Phase 2, confirm all of:
 - [ ] `npm run typecheck && npm run lint && npm run build` pass cleanly
-- [ ] A fresh signup can complete onboarding and reach the dashboard reliably (repeat 3x, not just once — Task 1's bug was intermittent-looking until reproduced twice)
+- [ ] A fresh signup can complete onboarding and reach the dashboard reliably (repeat 3x, not just once, Task 1's bug was intermittent-looking until reproduced twice)
 - [ ] `/instructor/*` pages are usable end-to-end on a 390px viewport
 - [ ] `/messages` no longer 404s for a student account
 - [ ] Task 11 (SCORM) and Task 12 (RLS) each have either a merged fix or an explicit written decision with the user on timeline/scope
 
 ---
 
-## Phase 2 — Close the Dead Ends (High severity)
+## Phase 2, Close the Dead Ends (High severity)
 
-Organize as task clusters by subsystem. Each cluster below lists the specific audit findings it covers with file targets and the required fix — **read the current file before editing every one; exact lines were not re-verified for Phase 2 the way Phase 1 was.** Use the manual-verification pattern from Phase 1 (repro steps + expected result) unless the fix is inside `lib/*`, in which case write a real Vitest test first.
+Organize as task clusters by subsystem. Each cluster below lists the specific audit findings it covers with file targets and the required fix, **read the current file before editing every one; exact lines were not re-verified for Phase 2 the way Phase 1 was.** Use the manual-verification pattern from Phase 1 (repro steps + expected result) unless the fix is inside `lib/*`, in which case write a real Vitest test first.
 
 ### Cluster A: Auth & recovery gaps
 **Files:** `app/signup/SignupContent.tsx`, `app/login/LoginContent.tsx`
@@ -1286,8 +1286,8 @@ Organize as task clusters by subsystem. Each cluster below lists the specific au
 
 ### Cluster C: Dashboard & My Learning fetch-error handling
 **Files:** `app/dashboard/page.tsx`, `app/my-learning/page.tsx`, `app/courses/page.tsx`, `components/dashboard/ContinueLearningBanner.tsx`
-- [ ] Add a real `fetchError`/`isError` state to each page's data-fetch, rendering the existing error-card pattern (dashboard already has one built in `app/dashboard/error.tsx` — reuse its copy/design inline rather than only relying on the route-level boundary) with a Retry action.
-- [ ] Distinguish "no results" from "fetch failed" in every empty-state branch touched (`/courses`, `/my-learning`) — different copy, and only the fetch-failed case gets a Retry button.
+- [ ] Add a real `fetchError`/`isError` state to each page's data-fetch, rendering the existing error-card pattern (dashboard already has one built in `app/dashboard/error.tsx`, reuse its copy/design inline rather than only relying on the route-level boundary) with a Retry action.
+- [ ] Distinguish "no results" from "fetch failed" in every empty-state branch touched (`/courses`, `/my-learning`), different copy, and only the fetch-failed case gets a Retry button.
 - [ ] Verify: throw a forced error in each fetch (temporarily) and confirm the new error UI appears instead of a misleading empty/zero state; remove the forced throw before committing.
 
 ### Cluster D: Course player resilience
@@ -1302,16 +1302,16 @@ Organize as task clusters by subsystem. Each cluster below lists the specific au
 
 ### Cluster E: Quiz integrity & resilience
 **Files:** `components/quiz/QuizPlayer.tsx`, `app/api/courses/[courseId]/quizzes/[quizId]/route.ts`
-- [ ] Add a distinct "grading" interstitial between submit-click and the response resolving; only render pass/fail after the response returns (currently `setSubmitted(true)` fires before the network call, showing a false "0% — Failed" during the request).
+- [ ] Add a distinct "grading" interstitial between submit-click and the response resolving; only render pass/fail after the response returns (currently `setSubmitted(true)` fires before the network call, showing a false "0%, Failed" during the request).
 - [ ] Persist `userAnswers` to `sessionStorage` keyed by quiz id; rehydrate on mount; clear on successful submit. Add a `beforeunload` guard while an attempt is in progress and unsubmitted.
 - [ ] Add `role="radiogroup"`/`role="radio"`/`aria-checked` to the answer option buttons.
 - [ ] Add a pre-quiz intro screen showing question count, time limit, and attempt policy before the timer arms; render the quiz's `description` field (currently fetched, never shown).
-- [ ] On a failed attempt, withhold `correct_option_id` from the API response (`route.ts`) until a pass or a configured attempt count — currently every failed attempt reveals the full answer key.
+- [ ] On a failed attempt, withhold `correct_option_id` from the API response (`route.ts`) until a pass or a configured attempt count, currently every failed attempt reveals the full answer key.
 - [ ] Verify: submit a quiz on throttled network (Chrome devtools "Slow 3G") and confirm no false-failure flash; refresh mid-quiz and confirm answers survive; inspect a failed-attempt API response and confirm no `correct_option_id` leaks.
 
 ### Cluster F: Community dead ends
 **Files:** `components/social/PostCard.tsx`, `app/community/petitions/create/page.tsx` (+ the 5 sibling `create` pages), `app/community/events/create/page.tsx`, `app/community/town-halls/page.tsx`
-- [ ] Build `app/community/profile/[id]/page.tsx` (or repoint every author link to the existing `/profile/[id]` route if it already supports viewing other users — check first) so author taps stop 404ing.
+- [ ] Build `app/community/profile/[id]/page.tsx` (or repoint every author link to the existing `/profile/[id]` route if it already supports viewing other users, check first) so author taps stop 404ing.
 - [ ] In all six `community/*/create` pages, check auth on page load (server-wrapped redirect to `/login?next=<path>`) instead of only inside the submit handler, so a logged-out visitor never fills out a form that then discards itself.
 - [ ] Wire the four "TODO: redirect to login" engagement handlers (post like, petition sign, event RSVP, poll vote) to `router.push('/login?next=' + pathname)` instead of a dead-end toast.
 - [ ] Read the `type` query param in `events/create/page.tsx` via `useSearchParams` and pre-select the event type so "Host Town Hall" events actually appear back on `/community/town-halls`.
@@ -1321,7 +1321,7 @@ Organize as task clusters by subsystem. Each cluster below lists the specific au
 **Files:** `components/chat/ChatWindow.tsx`, `components/chat/RoomList.tsx`
 - [ ] Change the message insert to `.insert(...).select().single()` and reconcile the optimistic temp message with the returned row (fixes the permanent single-checkmark-on-your-own-messages bug).
 - [ ] Add a refetch on `visibilitychange`/`online` (or handle the realtime channel's reconnect status) so messages sent during a dropped connection aren't silently lost.
-- [ ] Add a minimal "start a new conversation" entry point to `RoomList` (a button that lets a student pick an instructor from their enrolled courses and creates/opens a private room) — this closes the gap noted in Phase 1 Task 10 where students could only reply, never initiate.
+- [ ] Add a minimal "start a new conversation" entry point to `RoomList` (a button that lets a student pick an instructor from their enrolled courses and creates/opens a private room), this closes the gap noted in Phase 1 Task 10 where students could only reply, never initiate.
 - [ ] Verify: send a message and confirm the checkmark updates from "sent" to "delivered/read" appropriately; toggle network off/on mid-conversation and confirm no messages are lost; as a student, start a new conversation from `/messages` without going through a course page first.
 
 ### Cluster H: Certificates & completion moment
@@ -1334,23 +1334,23 @@ Organize as task clusters by subsystem. Each cluster below lists the specific au
 ### Cluster I: Instructor tooling dead controls
 **Files:** `app/instructor/students/page.tsx`, `app/instructor/settings/page.tsx`, `app/instructor/courses/[id]/edit/EditCourseClient.tsx`
 - [ ] Wire "Message All" and the per-row action menu on `/instructor/students` to create/open a chat room with the selected student(s) (reuses the chat infra from Cluster G).
-- [ ] Wire or remove the three dead `/instructor/settings` controls (notification toggles, "Change Password," "Discard") — persist toggles to a real column, wire password-change to `supabase.auth.updateUser`/existing reset flow, wire Discard to reset the form from `profile`.
+- [ ] Wire or remove the three dead `/instructor/settings` controls (notification toggles, "Change Password," "Discard"), persist toggles to a real column, wire password-change to `supabase.auth.updateUser`/existing reset flow, wire Discard to reset the form from `profile`.
 - [ ] Make `handleDeleteModule` a single transaction (or sequential-with-rollback) that also deletes/reassigns the attached quiz and warns about shared-module or existing-student-progress consequences before confirming.
 - [ ] Verify: each control now does what its label says, or is removed; deleting a lesson with an attached quiz no longer leaves an invisible orphan blocking publish.
 
 ---
 
-## Phase 3 & 4 — Backlog (Medium/Low, consistency & polish)
+## Phase 3 & 4, Backlog (Medium/Low, consistency & polish)
 
-These 117 remaining findings (78 Medium, 39 Low) are lower urgency — none of them strand a user completely. Rather than pre-specify exact diffs now (the codebase will have shifted after Phases 1–2 land, and several of these are genuine design decisions, not mechanical fixes), generate a fresh follow-up plan per group below using this same `superpowers:writing-plans` skill once Phase 1–2 are merged. Suggested grouping, in priority order:
+These 117 remaining findings (78 Medium, 39 Low) are lower urgency, none of them strand a user completely. Rather than pre-specify exact diffs now (the codebase will have shifted after Phases 1 to 2 land, and several of these are genuine design decisions, not mechanical fixes), generate a fresh follow-up plan per group below using this same `superpowers:writing-plans` skill once Phase 1 to 2 are merged. Suggested grouping, in priority order:
 
-1. **Visual design-system reconciliation** — landing/onboarding "cream + sticker" system vs. plain-gray auth/dashboard/courses vs. course-detail's own fourth style. Needs a design decision first (which system wins, or do sections stay intentionally distinct) — brainstorm before planning.
-2. **Discussion/comment component consolidation** — three divergent patterns (threaded comments, real-time chat, poll voting/mentions) for "discussion." Needs a product decision on whether course discussion should be chat-shaped or thread-shaped.
-3. **Bot-engagement disclosure** — decide and implement a visible "Community Guide" badge on `is_bot` content across every surface that renders authors.
-4. **Community sub-navigation** — 13 sub-areas, only 6 linked from the sidebar; needs an IA pass, not just a fix.
-5. **Dark-mode parity sweep** — dashboard, `/instructor/courses`, and the landing page all lack `dark:` variants despite the app fully supporting the toggle elsewhere.
-6. **Pagination sweep** — unbounded queries across community feed/topic/impact pages, admin dashboard tabs, catalog, chat/comment history.
-7. **Accessibility sweep** — `role="alert"` on auth error banners, skip-to-content link, captions/transcript rendering for video lessons.
-8. **Remaining Low-severity copy/link/icon polish** — dead social links, invalid Tailwind classes elsewhere, duplicate stat tiles, OG image, etc. — can be done as a single low-risk cleanup PR once someone greps the full audit checklist for remaining unchecked Low items.
+1. **Visual design-system reconciliation**, landing/onboarding "cream + sticker" system vs. plain-gray auth/dashboard/courses vs. course-detail's own fourth style. Needs a design decision first (which system wins, or do sections stay intentionally distinct), brainstorm before planning.
+2. **Discussion/comment component consolidation**, three divergent patterns (threaded comments, real-time chat, poll voting/mentions) for "discussion." Needs a product decision on whether course discussion should be chat-shaped or thread-shaped.
+3. **Bot-engagement disclosure**, decide and implement a visible "Community Guide" badge on `is_bot` content across every surface that renders authors.
+4. **Community sub-navigation**, 13 sub-areas, only 6 linked from the sidebar; needs an IA pass, not just a fix.
+5. **Dark-mode parity sweep**, dashboard, `/instructor/courses`, and the landing page all lack `dark:` variants despite the app fully supporting the toggle elsewhere.
+6. **Pagination sweep**, unbounded queries across community feed/topic/impact pages, admin dashboard tabs, catalog, chat/comment history.
+7. **Accessibility sweep**, `role="alert"` on auth error banners, skip-to-content link, captions/transcript rendering for video lessons.
+8. **Remaining Low-severity copy/link/icon polish**, dead social links, invalid Tailwind classes elsewhere, duplicate stat tiles, OG image, etc. can be done as a single low-risk cleanup PR once someone greps the full audit checklist for remaining unchecked Low items.
 
-For each, open with `superpowers:brainstorming` if a product/design decision is implied (items 1–4), or go straight to `superpowers:writing-plans` if it's mechanical (items 5–8).
+For each, open with `superpowers:brainstorming` if a product/design decision is implied (items 1 to 4), or go straight to `superpowers:writing-plans` if it's mechanical (items 5 to 8).

@@ -85,7 +85,7 @@ export default function CreateProjectPage() {
                         </div>
                         <div className="space-y-2">
                             <Label>Description</Label>
-                            <Textarea placeholder="Describe the project — what it aims to achieve, who it benefits…" value={form.description} onChange={e => set('description', e.target.value)} className="min-h-[100px]" />
+                            <Textarea placeholder="Describe the project, what it aims to achieve, who it benefits…" value={form.description} onChange={e => set('description', e.target.value)} className="min-h-[100px]" />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">

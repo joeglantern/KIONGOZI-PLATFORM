@@ -48,12 +48,12 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// Routes where the profile-completion/onboarding gate must never fire —
+// Routes where the profile-completion/onboarding gate must never fire, 
 // primarily auth flows the user may reach mid-recovery with an incomplete profile.
 const AUTH_EXEMPT_PATHS = ['/reset-password', '/forgot-password', '/auth/callback', '/auth/auth-code-error'];
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  // Stable client reference — never re-created on re-render
+  // Stable client reference, never re-created on re-render
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const pathname = usePathname();

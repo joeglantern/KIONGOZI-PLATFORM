@@ -2,8 +2,8 @@
 -- Fix event RLS policies
 -- Problems fixed:
 --   1. "Anyone can view rsvps" leaks attendance lists (privacy risk for protests etc.)
---   2. No UPDATE/DELETE policy on social_event_rsvps — users couldn't un-RSVP or change status
---   3. No UPDATE/DELETE policy on social_events — creators couldn't edit/delete their events
+--   2. No UPDATE/DELETE policy on social_event_rsvps, users couldn't un-RSVP or change status
+--   3. No UPDATE/DELETE policy on social_events, creators couldn't edit/delete their events
 -- ============================================================
 
 -- ── social_event_rsvps ──────────────────────────────────────

@@ -8,7 +8,7 @@ interface ShareEventButtonProps {
     eventId: string;
     eventTitle: string;
     isInternalStage: boolean;
-    /** Renders as a single icon button — used inline next to the title */
+    /** Renders as a single icon button, used inline next to the title */
     iconOnly?: boolean;
 }
 
@@ -16,7 +16,7 @@ export default function ShareEventButton({ eventId, eventTitle, isInternalStage,
     const [copiedEvent, setCopiedEvent] = useState(false);
     const [copiedRoom, setCopiedRoom] = useState(false);
 
-    // Compute URLs inside handlers only — window is not available during SSR
+    // Compute URLs inside handlers only, window is not available during SSR
     const getEventUrl = () => `${window.location.origin}/community/events/${eventId}`;
     const getRoomUrl = () => `${window.location.origin}/community/events/${eventId}/live`;
 

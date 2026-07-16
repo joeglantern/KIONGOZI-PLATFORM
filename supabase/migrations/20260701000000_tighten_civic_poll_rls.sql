@@ -1,5 +1,5 @@
 -- Tighten civic RLS: poll questions and options may only be created, updated or
--- deleted by the OWNER of the parent poll — not by any authenticated user, as
+-- deleted by the OWNER of the parent poll, not by any authenticated user, as
 -- the original crowd-sourced policies allowed.
 --
 -- Scope: LMS-owned civic tables only. No table drops (the database is shared

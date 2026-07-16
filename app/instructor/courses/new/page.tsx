@@ -391,7 +391,7 @@ export default function CreateCoursePage() {
                                         </div>
                                         <div>
                                             <p className="text-sm font-black text-gray-700 dark:text-gray-200">Add a quiz after this lesson</p>
-                                            <p className="text-xs text-gray-400">Optional — test comprehension before moving on</p>
+                                            <p className="text-xs text-gray-400">Optional, test comprehension before moving on</p>
                                         </div>
                                     </div>
                                     {lesson.addQuiz
@@ -424,7 +424,7 @@ export default function CreateCoursePage() {
                                 onClick={handleSkipToEditor}
                                 className="text-xs font-bold text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
                             >
-                                {lessonCount === 0 ? 'Skip — go straight to editor' : 'Finish — open editor'}
+                                {lessonCount === 0 ? 'Skip, go straight to editor' : 'Finish, open editor'}
                             </button>
 
                             <div className="flex items-center gap-3">
@@ -451,7 +451,7 @@ export default function CreateCoursePage() {
 
                         {lessonCount > 0 && (
                             <p className="text-center text-xs text-gray-400">
-                                {lessonCount} lesson{lessonCount === 1 ? '' : 's'} added so far — all saved automatically
+                                {lessonCount} lesson{lessonCount === 1 ? '' : 's'} added so far, all saved automatically
                             </p>
                         )}
                     </div>

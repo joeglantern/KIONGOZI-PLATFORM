@@ -398,7 +398,7 @@ export default function EditCourseClient({
         scheduleMetadataRefresh();
     }, [loadData, scheduleMetadataRefresh, supabase, toast]);
 
-    // Initial data comes from server — only fetch validation & revisions on mount
+    // Initial data comes from server, only fetch validation & revisions on mount
     useEffect(() => {
         void Promise.all([
             loadValidationData(modules, quizzes),
@@ -667,7 +667,7 @@ export default function EditCourseClient({
                     thumbnail_url: snapshot.thumbnail_url || null,
                 };
                 // Only restore course-level media when the snapshot recorded it
-                // (older snapshots predate these fields — don't null them out).
+                // (older snapshots predate these fields, don't null them out).
                 if ('slides_url' in snapshot)  updatePayload.slides_url  = snapshot.slides_url  || null;
                 if ('slides_type' in snapshot) updatePayload.slides_type = snapshot.slides_type || null;
                 if ('video_url' in snapshot)   updatePayload.video_url   = snapshot.video_url   || null;
@@ -916,7 +916,7 @@ export default function EditCourseClient({
                             <div className="pt-4">
                                 <div className="px-3 mb-2">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Final Quiz</span>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">Optional — appears at end of course</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">Optional, appears at end of course</p>
                                 </div>
                                 {(() => {
                                     const courseQuiz = quizzes.find(q => q.module_id === null);
@@ -942,7 +942,7 @@ export default function EditCourseClient({
                                 })()}
                             </div>
 
-                            {/* ── SCORM Package — prominent card ── */}
+                            {/* ── SCORM Package, prominent card ── */}
                             <div className="pt-4 pb-2">
                                 <button
                                     onClick={() => setSelection({ type: 'scorm' })}
@@ -959,7 +959,7 @@ export default function EditCourseClient({
                                         <span className="text-xs font-black text-white uppercase tracking-wide">SCORM Package</span>
                                     </div>
                                     <p className="text-[11px] text-orange-100 font-medium leading-snug pl-9.5">
-                                        Upload an e-learning package (.zip) — replaces manual lessons
+                                        Upload an e-learning package (.zip), replaces manual lessons
                                     </p>
                                 </button>
                             </div>
@@ -1041,8 +1041,8 @@ export default function EditCourseClient({
                                         <p className="text-xs font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">How it works</p>
                                         <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1.5 list-decimal list-inside">
                                             <li>Export your course as SCORM 1.2 from Articulate or Captivate</li>
-                                            <li>Upload the .zip file above — all files are extracted and stored securely</li>
-                                            <li>Students launch the content from within this course — progress and scores sync automatically</li>
+                                            <li>Upload the .zip file above, all files are extracted and stored securely</li>
+                                            <li>Students launch the content from within this course, progress and scores sync automatically</li>
                                             <li>All interactions are tracked via xAPI statements in the Kiongozi LRS</li>
                                         </ol>
                                     </div>

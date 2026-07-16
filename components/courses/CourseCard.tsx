@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 
-// Hoisted outside component — no re-allocation on every render
+// Hoisted outside component, no re-allocation on every render
 const DIFFICULTY_COLORS: Record<string, string> = {
     beginner: 'bg-orange-100 text-orange-700 border-orange-300',
     intermediate: 'bg-blue-100 text-blue-700 border-blue-300',

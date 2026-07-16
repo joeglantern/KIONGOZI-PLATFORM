@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const buf = await entry.async('nodebuffer'); // Node.js Buffer — most reliable
+        const buf = await entry.async('nodebuffer'); // Node.js Buffer, most reliable
         totalUncompressed += buf.length;
         if (totalUncompressed > MAX_TOTAL_UNCOMPRESSED_BYTES) {
           return NextResponse.json(
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Abort if majority failed — avoids creating a broken package record
+    // Abort if majority failed, avoids creating a broken package record
     if (uploadErrors.length > zipFiles.length / 2) {
       console.error('SCORM upload failed:', uploadErrors.slice(0, 5));
       return NextResponse.json(

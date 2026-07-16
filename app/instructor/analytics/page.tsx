@@ -130,7 +130,7 @@ export default function InstructorAnalyticsPage() {
                     return {
                         id: pkg.id,
                         title: pkg.title,
-                        course_title: courseMap.get(pkg.course_id) ?? '—',
+                        course_title: courseMap.get(pkg.course_id) ?? ', ',
                         launches: regs.length,
                         completions: completed,
                         avg_score: avg,
@@ -343,7 +343,7 @@ export default function InstructorAnalyticsPage() {
                                                                 <span className="text-xs font-bold text-gray-500">{stat.avg_score}%</span>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-xs text-gray-400">—</span>
+                                                            <span className="text-xs text-gray-400">, </span>
                                                         )}
                                                     </td>
                                                 </tr>

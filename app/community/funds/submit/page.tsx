@@ -140,7 +140,7 @@ export default function SubmitFundPage() {
                         </div>
                         <div className="space-y-2">
                             <Label>Target Beneficiaries</Label>
-                            <Input placeholder="E.g., Youth aged 18–35, Small businesses" value={form.target_beneficiaries} onChange={e => set('target_beneficiaries', e.target.value)} />
+                            <Input placeholder="E.g., Youth aged 18 to 35, Small businesses" value={form.target_beneficiaries} onChange={e => set('target_beneficiaries', e.target.value)} />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">

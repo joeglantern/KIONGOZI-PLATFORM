@@ -15,7 +15,7 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-// Find an eligible poll (response_count >= 3) — try the TVET poll if available
+// Find an eligible poll (response_count >= 3), try the TVET poll if available
 const { data: candidates } = await supabase
   .from('policy_polls')
   .select('id, title, response_count, ai_insights')
@@ -63,7 +63,7 @@ for (const q of questions) {
     sections.push(`*(${totalVotes} responses)*`, '');
     for (const opt of opts.sort((a, b) => (b.vote_count ?? 0) - (a.vote_count ?? 0))) {
       const pct = totalVotes > 0 ? ((opt.vote_count / totalVotes) * 100).toFixed(1) : '0.0';
-      sections.push(`- **"${opt.option_text}"** — ${pct}% (${opt.vote_count ?? 0} votes)`);
+      sections.push(`- **"${opt.option_text}"**, ${pct}% (${opt.vote_count ?? 0} votes)`);
     }
   } else if (q.question_type === 'scale') {
     const values = qResponses.map(r => r.scale_value).filter(v => v != null);

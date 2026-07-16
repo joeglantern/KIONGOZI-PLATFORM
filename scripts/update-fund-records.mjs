@@ -1,6 +1,6 @@
 /**
  * Data corrections to existing fund records in /community/funds.
- * Touches text fields only — total_amount, amount_disbursed, currency are NOT modified.
+ * Touches text fields only, total_amount, amount_disbursed, currency are NOT modified.
  */
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
@@ -26,8 +26,8 @@ const updates = [
     label: 'Youth Enterprise Development Fund (YEDF)',
     patch: {
       description:
-        'Government revolving fund providing affordable credit to youth-owned enterprises and supporting business development services. Operates through constituency offices countrywide. Targets youth aged 18–34. Offers 10+ loan products including Stawi, Agri-Biz (up to KES 2M), E-Yes, Asset Finance, and LPO/LSO loans. Applied through constituency YEDF offices or financial intermediaries.',
-      target_beneficiaries: 'Youth entrepreneurs aged 18–34 across Kenya',
+        'Government revolving fund providing affordable credit to youth-owned enterprises and supporting business development services. Operates through constituency offices countrywide. Targets youth aged 18 to 34. Offers 10+ loan products including Stawi, Agri-Biz (up to KES 2M), E-Yes, Asset Finance, and LPO/LSO loans. Applied through constituency YEDF offices or financial intermediaries.',
+      target_beneficiaries: 'Youth entrepreneurs aged 18 to 34 across Kenya',
     },
   },
   {
@@ -43,13 +43,13 @@ const updates = [
     id: '318ea7f4-7aea-4162-8b9b-fe413fa65a06',
     label: 'KYEOP → NYOTA (Option A: replace in place)',
     patch: {
-      title: 'NYOTA — National Youth Opportunities Towards Advancement',
+      title: 'NYOTA, National Youth Opportunities Towards Advancement',
       managing_body:
         'State Department for Youth Affairs and Creative Economy / Micro and Small Enterprise Authority (MSEA)',
       description:
         'World Bank-financed five-year programme (successor to KYEOP) providing skills training, entrepreneurship grants, apprenticeships, and savings support to vulnerable youth. Each beneficiary receives a KES 50,000 business grant (paid in two tranches linked to training attendance). Targets 820,000 unemployed youth across all 47 counties.',
       target_beneficiaries:
-        'Unemployed or underemployed youth aged 18–29 (up to 35 for PWDs), with Form 4 education or below. Must not have defaulted on the Hustler Fund.',
+        'Unemployed or underemployed youth aged 18 to 29 (up to 35 for PWDs), with Form 4 education or below. Must not have defaulted on the Hustler Fund.',
       official_url: 'https://nyotaproject.go.ke',
       status: 'active',
     },

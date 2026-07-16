@@ -24,7 +24,7 @@ interface SaveQuizBody {
     questions: QuestionPayload[];
 }
 
-// POST — create a new quiz with all questions and options in one request
+// POST, create a new quiz with all questions and options in one request
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ courseId: string }> }

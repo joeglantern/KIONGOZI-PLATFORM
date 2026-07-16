@@ -35,8 +35,8 @@ def clean(text: object) -> str:
         return ""
     value = str(text)
     replacements = {
-        "—": "-",
-        "–": "-",
+        ", ": "-",
+        ", ": "-",
         "→": "->",
         "×": "x",
         "≥": ">=",

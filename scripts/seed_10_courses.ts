@@ -523,7 +523,7 @@ const generatedCourses = [
                 estimated_duration_minutes: 140,
                 media_type: "video",
                 media_url: getRandVideo(),
-                content: "## Runaway Warming\n\nAs ice melts, less sunlight is reflected back to space (Albedo effect), leading to more warming and more melting—a positive feedback loop.\n\n![Melting Ice](https://picsum.photos/seed/35picsum/1200/600)",
+                content: "## Runaway Warming\n\nAs ice melts, less sunlight is reflected back to space (Albedo effect), leading to more warming and more melting, a positive feedback loop.\n\n![Melting Ice](https://picsum.photos/seed/35picsum/1200/600)",
                 quiz: {
                     title: "Feedback Loops",
                     questions: [{ text: "The Albedo effect involves exactly what phenomenon?", options: [{ text: "Reflection of sunlight by light surfaces like ice", is_correct: true }, { text: "Carbon capture", is_correct: false }] }]

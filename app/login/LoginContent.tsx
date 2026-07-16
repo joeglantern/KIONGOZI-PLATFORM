@@ -77,7 +77,7 @@ export default function LoginContent({ next }: LoginContentProps) {
     }
   };
 
-  // Already authenticated — show spinner while redirect fires
+  // Already authenticated, show spinner while redirect fires
   if (user && profile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">

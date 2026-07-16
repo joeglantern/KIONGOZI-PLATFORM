@@ -23,7 +23,7 @@ export default function DashboardError({
                 </div>
                 <h2 className="text-2xl font-black text-gray-900 mb-2">Dashboard failed to load</h2>
                 <p className="text-gray-500 text-sm mb-8">
-                    We couldn't load your dashboard data. Your progress is safe — please try again.
+                    We couldn't load your dashboard data. Your progress is safe, please try again.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <button

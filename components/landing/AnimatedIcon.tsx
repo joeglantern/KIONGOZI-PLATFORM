@@ -11,7 +11,7 @@ const UseAnimations = dynamic(() => import("react-useanimations"), { ssr: false 
 type IconAnimation = ComponentProps<typeof UseAnimations>["animation"];
 
 /**
- * AnimatedIcon — thin wrapper around react-useanimations (MIT license).
+ * AnimatedIcon, thin wrapper around react-useanimations (MIT license).
  *
  * - SSR-safe: react-useanimations renders via lottie-web (needs `window`), so we
  *   only mount it client-side and reserve the box to avoid layout shift (CLS).

@@ -1,4 +1,4 @@
--- Community Project Monitoring Tool — pivot to Kenya's named green/digital
+-- Community Project Monitoring Tool, pivot to Kenya's named green/digital
 -- transition programmes, additive to the existing generic public_projects
 -- system (which stays as-is for freeform community-submitted projects).
 
@@ -58,11 +58,11 @@ CREATE INDEX IF NOT EXISTS idx_programme_briefs_programme ON public.programme_br
 -- Seed the 4 named programmes.
 INSERT INTO public.civic_programmes (slug, name, category, icon_name, overview, why_monitor, sort_order) VALUES
 ('climateworx-mtaani', 'ClimateWorX Mtaani Programme', 'Green Jobs', 'leaf',
-    'A national green jobs programme recruiting young people into climate and environmental work in their local wards — the most relatable green project for youth today.',
-    'Thousands of young people have already interacted with ClimateWorX or know someone who has. Public conversation already covers recruitment transparency, payment delays, political interference, selection criteria, working conditions, and inclusion of women and persons with disabilities — youth already discuss this extensively on social media, making citizen-generated accountability especially powerful here.',
+    'A national green jobs programme recruiting young people into climate and environmental work in their local wards, the most relatable green project for youth today.',
+    'Thousands of young people have already interacted with ClimateWorX or know someone who has. Public conversation already covers recruitment transparency, payment delays, political interference, selection criteria, working conditions, and inclusion of women and persons with disabilities, youth already discuss this extensively on social media, making citizen-generated accountability especially powerful here.',
     1),
 ('ajira-digital', 'Ajira Digital Programme', 'Digital Skills', 'laptop',
-    'A government initiative that equips young people with digital skills and connects them to online work — freelancing, digital marketing, data entry, content creation, virtual assistance, and other digital jobs.',
+    'A government initiative that equips young people with digital skills and connects them to online work, freelancing, digital marketing, data entry, content creation, virtual assistance, and other digital jobs.',
     'Although thousands of youth have been trained, many report challenges transitioning from training to earning a sustainable income. Monitoring community experiences can help improve programme effectiveness and accountability.',
     2),
 ('kjet', 'Kenya Jobs and Economic Transformation (KJET) Project', 'Economic Transformation', 'briefcase-business',

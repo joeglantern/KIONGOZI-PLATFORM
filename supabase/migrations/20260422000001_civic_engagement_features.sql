@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS poll_options (
     vote_count int DEFAULT 0
 );
 
--- NOTE: No UNIQUE on (question_id, user_id) — multi_choice questions allow multiple rows per user.
+-- NOTE: No UNIQUE on (question_id, user_id), multi_choice questions allow multiple rows per user.
 -- One-response-per-user-per-poll uniqueness is enforced by poll_submissions instead.
 CREATE TABLE IF NOT EXISTS poll_responses (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -325,7 +325,7 @@ CREATE POLICY "Authenticated create polls" ON policy_polls FOR INSERT WITH CHECK
 DROP POLICY IF EXISTS "Owner update polls" ON policy_polls;
 CREATE POLICY "Owner update polls" ON policy_polls FOR UPDATE USING (auth.uid() = created_by);
 
--- Poll questions/options — any authenticated user can contribute (crowd-sourced)
+-- Poll questions/options, any authenticated user can contribute (crowd-sourced)
 ALTER TABLE poll_questions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read questions" ON poll_questions;
 CREATE POLICY "Public read questions" ON poll_questions FOR SELECT USING (true);

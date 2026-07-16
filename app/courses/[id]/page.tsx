@@ -67,7 +67,7 @@ export default function CourseDetailPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, profile } = useUser();
-    // Stable client — never re-created on re-render
+    // Stable client, never re-created on re-render
     const supabase = useMemo(() => createClient(), []);
 
     const courseId = params.id as string;
@@ -219,14 +219,14 @@ export default function CourseDetailPage() {
     const courseData = courseQuery.data;
     const loading = courseQuery.isLoading;
 
-    // Chat room query is low-priority — fetched separately so it never blocks course content
+    // Chat room query is low-priority, fetched separately so it never blocks course content
     const { data: courseRoomId } = useQuery({
         queryKey: ['course-chat-room', courseId],
         queryFn: async () => {
             return await getCourseChatRoom(supabase, courseId);
         },
         enabled: !!user && !!courseId && activeTab === 'discussion' && (!!courseData?.enrollment || profile?.role === 'admin' || courseData?.course?.author_id === user?.id),
-        staleTime: 1000 * 60 * 10, // 10 minutes — room ID rarely changes
+        staleTime: 1000 * 60 * 10, // 10 minutes, room ID rarely changes
     });
 
     const course = courseData?.course;

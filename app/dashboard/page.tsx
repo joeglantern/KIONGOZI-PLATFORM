@@ -196,7 +196,7 @@ export default function DashboardPage() {
 
             // --- Real Data Processing for Charts ---
 
-            // 1. XP History — real per-day XP from the reward_claims ledger.
+            // 1. XP History, real per-day XP from the reward_claims ledger.
             const last7Days = Array.from({ length: 7 }, (_, i) => {
                 const d = new Date();
                 d.setDate(d.getDate() - (6 - i));

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeScormPackageAccess } from '@/lib/scorm/access';
 
-// Proxy SCORM package files from Supabase Storage — keeps everything same-origin
+// Proxy SCORM package files from Supabase Storage, keeps everything same-origin
 // so window.parent.API is accessible from the SCORM iframe content.
 //
-// SECURITY (tracked — Kiongozi UX audit 2026-07-16, Critical #11): serving
+// SECURITY (tracked, Kiongozi UX audit 2026-07-16, Critical #11): serving
 // untrusted instructor-uploaded content from the app's own origin, combined
 // with the iframe's `allow-same-origin` sandbox flag (see ScormPlayer.tsx), is
 // a session-hijack vector. The full fix moves this to a cookieless subdomain +

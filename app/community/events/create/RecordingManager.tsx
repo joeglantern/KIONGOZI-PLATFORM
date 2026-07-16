@@ -57,7 +57,7 @@ export default function RecordingManager({ eventId, initialRecordingUrl }: Recor
         toast({ description: "Recording link copied to clipboard." });
     };
 
-    // Saved state — show the URL with copy + open buttons
+    // Saved state, show the URL with copy + open buttons
     if (!isEditing && savedUrl) {
         return (
             <div className="p-3 bg-civic-green/10 border border-civic-green/20 rounded-lg space-y-2">
@@ -109,7 +109,7 @@ export default function RecordingManager({ eventId, initialRecordingUrl }: Recor
                 </Button>
             </div>
             <p className="text-[10px] text-muted-foreground italic leading-tight">
-                Paste the recording URL once the session is over — attendees will see a "Watch Recording" button.
+                Paste the recording URL once the session is over, attendees will see a "Watch Recording" button.
             </p>
         </div>
     );

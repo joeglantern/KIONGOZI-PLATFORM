@@ -1,4 +1,4 @@
-/* Font loaded via next/font in layout.tsx — no render-blocking @import */
+/* Font loaded via next/font in layout.tsx, no render-blocking @import */
 
 @tailwind base;
 @tailwind components;
@@ -955,7 +955,7 @@ h6 {
   will-change: transform;
 }
 
-/* Nav links — smooth underline slide */
+/* Nav links, smooth underline slide */
 .nav-link-hover {
   position: relative;
   transition: color 0.15s ease;
@@ -976,7 +976,7 @@ h6 {
   width: 100%;
 }
 
-/* Button focus ring — accessible, branded */
+/* Button focus ring, accessible, branded */
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid #FF6633;
@@ -1003,14 +1003,14 @@ a:focus-visible {
   animation: card-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Scrollbar — custom thin style for news/opportunity lists */
+/* Scrollbar, custom thin style for news/opportunity lists */
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 9999px; }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
 
 /* ─── Responsive Typography Scale ─────────────────────────────────────────── */
-/* Fluid hero heading — ensures readability across breakpoints */
+/* Fluid hero heading, ensures readability across breakpoints */
 .hero-headline {
   font-size: clamp(1.75rem, 5.5vw, 4rem);
   line-height: 1.06;
@@ -1068,7 +1068,7 @@ img {
   max-width: 100%;
   height: auto;
 }
-/* Hero background image — prevent distortion */
+/* Hero background image, prevent distortion */
 .hero-bg-image {
   object-fit: cover;
   object-position: center top;
@@ -1146,9 +1146,9 @@ img {
 textarea.input-base { resize: vertical; min-height: 8rem; }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   ROOT SQUARE–INSPIRED LANDING SYSTEM
+   ROOT SQUARE, INSPIRED LANDING SYSTEM
    Warm serif headlines, navy "chalkboard" sections, sticker cards, hand-drawn
-   doodle accents — all built on the existing Kiongozi palette.
+   doodle accents, all built on the existing Kiongozi palette.
    ════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Section backgrounds ───────────────────────────────────────────────────── */

@@ -445,7 +445,7 @@ export default function ModuleViewerClient({
             if (gamificationError) console.error('Gamification RPC error:', gamificationError);
             const xpAwarded = Number((claim as any)?.xp_awarded ?? 0);
 
-            // Update local progress state — no re-fetch needed
+            // Update local progress state, no re-fetch needed
             setProgress(prev => [
                 ...prev.filter(p => p.module_id !== moduleId),
                 { module_id: moduleId, status: 'completed', notes: notes ?? null },
@@ -1083,7 +1083,7 @@ export default function ModuleViewerClient({
                                                                         onClick={retryNotesSave}
                                                                         className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 hover:text-red-600"
                                                                     >
-                                                                        <span className="uppercase tracking-wider">Not saved — retry</span>
+                                                                        <span className="uppercase tracking-wider">Not saved, retry</span>
                                                                     </button>
                                                                 )}
                                                             </div>

@@ -106,7 +106,7 @@ The "Twin Green and Digital Transitions" highlight major transformations. Enviro
             estimated_duration_minutes: 300, // 5 hours
             content: `## MODULE 4: Development of a Business Plan
 
-### Submodule 4.1: Business Planning – Basics of a Business Plan
+### Submodule 4.1: Business Planning, Basics of a Business Plan
 **Duration:** 1 hour  
 **Learning Objectives:** Understand the definition of a business plan, develop skills in business planning, relate business planning to resource allocation.
 **Key Concepts:** Business development, principles of planning, resource allocation and optimization.

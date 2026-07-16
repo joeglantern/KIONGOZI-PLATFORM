@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'publish') {
-        // Read the brief server-side — never trust client-supplied content here.
+        // Read the brief server-side, never trust client-supplied content here.
         const { data: brief, error: readErr } = await auth.supabase
             .from('policy_briefs')
             .select('poll_id, content')

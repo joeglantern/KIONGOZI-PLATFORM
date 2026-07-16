@@ -261,11 +261,11 @@ export default function InstructorCoursesPage() {
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <Star className={`w-4 h-4 ${course.avg_rating > 0 ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
-                                            <span>{course.avg_rating > 0 ? course.avg_rating : '—'}</span>
+                                            <span>{course.avg_rating > 0 ? course.avg_rating : ', '}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <Clock className="w-4 h-4" />
-                                            <span>{course.estimated_duration_hours ? `${course.estimated_duration_hours}h` : '—'}</span>
+                                            <span>{course.estimated_duration_hours ? `${course.estimated_duration_hours}h` : ', '}</span>
                                         </div>
                                     </div>
                                 </div>

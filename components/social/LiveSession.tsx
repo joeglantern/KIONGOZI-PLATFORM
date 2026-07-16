@@ -77,7 +77,7 @@ export default function LiveSession({ roomName, userName, userEmail, isHost = fa
             configOverwrite: {
                 startWithAudioMuted: true,
                 startWithVideoMuted: true,
-                // Host skips the pre-join screen — they created the event and are already confirmed.
+                // Host skips the pre-join screen, they created the event and are already confirmed.
                 // Participants see the pre-join screen to confirm their display name.
                 prejoinPageEnabled: !isHost,
                 requireDisplayName: true,
@@ -148,12 +148,12 @@ export default function LiveSession({ roomName, userName, userEmail, isHost = fa
                     {isHost ? (
                         <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-1 rounded-full">
                             <ShieldCheck className="h-3.5 w-3.5" />
-                            You are the host — you control this room
+                            You are the host, you control this room
                         </span>
                     ) : (
                         <span className="flex items-center gap-1.5 text-xs text-slate-400">
                             {inLobby
-                                ? 'Waiting in lobby — the host will admit you shortly'
+                                ? 'Waiting in lobby, the host will admit you shortly'
                                 : 'You are attending this session'}
                         </span>
                     )}

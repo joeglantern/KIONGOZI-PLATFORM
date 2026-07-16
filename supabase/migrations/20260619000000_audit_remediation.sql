@@ -1,6 +1,6 @@
 -- =====================================================================
--- KIONGOZI LMS — DATABASE AUDIT REMEDIATION
--- Project: jdncfyagppohtksogzkx (Kiongozi Platform — SHARED by LMS + chatbot + social + civic apps)
+-- KIONGOZI LMS, DATABASE AUDIT REMEDIATION
+-- Project: jdncfyagppohtksogzkx (Kiongozi Platform, SHARED by LMS + chatbot + social + civic apps)
 -- Generated: 2026-06-19
 --
 -- This database is SHARED by multiple applications. Review each tier before
@@ -10,7 +10,7 @@
 
 
 -- =====================================================================
--- TIER 1 — ZERO-RISK (advisor-recommended, behavior-preserving). Apply anytime.
+-- TIER 1, ZERO-RISK (advisor-recommended, behavior-preserving). Apply anytime.
 -- =====================================================================
 
 -- 1.1 Drop duplicate indexes/constraints (Supabase advisor: duplicate_index).
@@ -55,12 +55,12 @@ CREATE INDEX IF NOT EXISTS idx_user_activities_conversation_id       ON public.u
 CREATE INDEX IF NOT EXISTS idx_user_notes_module_id                  ON public.user_notes(module_id);
 
 -- NOTE: 96 "unused_index" entries were also reported by the advisor. Do NOT bulk-drop
--- them — several back features that simply have low traffic today. Review individually
+-- them, several back features that simply have low traffic today. Review individually
 -- against pg_stat_user_indexes.idx_scan over a representative period before dropping.
 
 
 -- =====================================================================
--- TIER 2 — SECURITY HARDENING (review impact on sibling apps first).
+-- TIER 2, SECURITY HARDENING (review impact on sibling apps first).
 -- =====================================================================
 
 -- 2.1 CRITICAL: tables with RLS DISABLED in a public (PostgREST-exposed) schema.
@@ -117,7 +117,7 @@ REVOKE EXECUTE ON FUNCTION public.deactivate_user(uuid, uuid)          FROM anon
 
 
 -- =====================================================================
--- TIER 3 — CLEANUP (DESTRUCTIVE — back up first; confirm no sibling app uses them).
+-- TIER 3, CLEANUP (DESTRUCTIVE, back up first; confirm no sibling app uses them).
 -- =====================================================================
 
 -- 3.1 Orphaned / redundant tables (no application code references them; verified

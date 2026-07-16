@@ -14,7 +14,7 @@ interface State {
 }
 
 /**
- * React Error Boundary — catches render errors in child components
+ * React Error Boundary, catches render errors in child components
  * and shows a friendly recovery UI instead of a white screen.
  */
 export class ErrorBoundary extends Component<Props, State> {

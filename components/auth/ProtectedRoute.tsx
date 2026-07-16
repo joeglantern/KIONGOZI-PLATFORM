@@ -18,7 +18,7 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
     const router = useRouter();
     // `loading` is only true during the very first session check.
-    // Once `user` is set, we render immediately — profile can load in background.
+    // Once `user` is set, we render immediately, profile can load in background.
     const { user, profile, loading } = useUser();
 
     useEffect(() => {
@@ -43,7 +43,7 @@ export function ProtectedRoute({
         }
     }, [loading, user, profile, allowedRoles, router]);
 
-    // Only block on the initial session check (very fast — reads from cookie)
+    // Only block on the initial session check (very fast, reads from cookie)
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -52,16 +52,16 @@ export function ProtectedRoute({
         );
     }
 
-    // Not authenticated — return null while redirect fires
+    // Not authenticated, return null while redirect fires
     if (!user) {
         return null;
     }
 
-    // Wrong role — return null while redirect fires
+    // Wrong role, return null while redirect fires
     if (profile && !allowedRoles.includes(profile.role)) {
         return null;
     }
 
-    // ✅ Session confirmed — render immediately, don't wait for profile
+    // ✅ Session confirmed, render immediately, don't wait for profile
     return <>{children}</>;
 }

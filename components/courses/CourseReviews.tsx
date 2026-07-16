@@ -123,7 +123,7 @@ export function CourseReviews({ courseId, canReview = false }: CourseReviewsProp
             {/* Average Rating Summary */}
             <div className="flex items-center gap-4 p-5 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-800/30">
                 <div className="text-center">
-                    <div className="text-3xl font-black text-gray-900 dark:text-white">{avgRating || '—'}</div>
+                    <div className="text-3xl font-black text-gray-900 dark:text-white">{avgRating || ', '}</div>
                     <StarRating rating={avgRating} />
                     <div className="text-xs text-gray-500 mt-1 font-bold">{reviews.length} review{reviews.length !== 1 ? 's' : ''}</div>
                 </div>

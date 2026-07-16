@@ -194,7 +194,7 @@ const faqItems = [
   },
   {
     question: "How long are the missions?",
-    answer: "Most missions take 3–5 minutes. They're designed for mobile-first, short-burst learning you can do between classes, on a matatu, or during breaks.",
+    answer: "Most missions take 3 to 5 minutes. They're designed for mobile-first, short-burst learning you can do between classes, on a matatu, or during breaks.",
   },
   {
     question: "Do I earn real credentials?",
@@ -206,7 +206,7 @@ const faqItems = [
   },
   {
     question: "Can I use Kiongozi on my phone?",
-    answer: "Yes — Kiongozi is built mobile-first. Every mission, quiz, and leaderboard works perfectly on your phone's browser. No app download needed.",
+    answer: "Yes, Kiongozi is built mobile-first. Every mission, quiz, and leaderboard works perfectly on your phone's browser. No app download needed.",
   },
 ];
 
@@ -240,7 +240,7 @@ const cleanFeatureTitle = (title: string) => title.replace(/^[^A-Za-z0-9]+/, "")
    Motion Components (FlowFest-style)
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Infinite scrolling banner band — duplicated content loops seamlessly
+/* Infinite scrolling banner band, duplicated content loops seamlessly
    via the existing `marquee` keyframe (0 → -50%). Reduced-motion safe. */
 function MarqueeStrip({
   items,
@@ -278,7 +278,7 @@ function MarqueeStrip({
   );
 }
 
-/* Magnetic CTA — content springs toward the cursor, settles back on leave. */
+/* Magnetic CTA, content springs toward the cursor, settles back on leave. */
 function MagneticButton({
   children,
   className = "",
@@ -321,7 +321,7 @@ function MagneticButton({
   );
 }
 
-/* Spinning circular sticker badge — disc + curved text rotate, center icon static.
+/* Spinning circular sticker badge, disc + curved text rotate, center icon static.
    The spin uses Tailwind `animate-spin`, which the global reduced-motion rule halts. */
 function SpinningSticker({ className = "" }: { className?: string }) {
   return (
@@ -348,7 +348,7 @@ function SpinningSticker({ className = "" }: { className?: string }) {
   );
 }
 
-/* Static tilted sticker pills — FlowFest "slapped-on sticker" energy, no motion loop. */
+/* Static tilted sticker pills, FlowFest "slapped-on sticker" energy, no motion loop. */
 function StickerRow({ items }: { items: { label: string; bg: string; text?: string; tilt: string }[] }) {
   return (
     <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 px-5 py-10 sm:gap-4 sm:py-12">
@@ -832,7 +832,7 @@ export default function LandingPage() {
               <LottieScene src="/lottie/heart.json" className="h-5 w-5" ariaLabel="Learning paths" /> What you&apos;ll be able to do
             </span>
             <h2 className="mt-4 font-display text-4xl font-black sm:text-5xl text-brand-primary">Four paths. One you.</h2>
-            <p className="mt-4 text-lg font-semibold text-brand-primary/70">Here&apos;s the kind of change you&apos;ll be able to lead in your community — pick the path that fits.</p>
+            <p className="mt-4 text-lg font-semibold text-brand-primary/70">Here&apos;s the kind of change you&apos;ll be able to lead in your community, pick the path that fits.</p>
           </div>
 
           <div className="grid gap-8 md:grid-cols-3">

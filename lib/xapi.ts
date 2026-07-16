@@ -40,7 +40,7 @@ interface EmitOptions {
 
 /**
  * Emit a single xAPI statement to the `xapi_statements` table.
- * This is a fire-and-forget utility — errors are logged but not re-thrown.
+ * This is a fire-and-forget utility, errors are logged but not re-thrown.
  */
 async function emitXapi(opts: EmitOptions): Promise<void> {
   try {

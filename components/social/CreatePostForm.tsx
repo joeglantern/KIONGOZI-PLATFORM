@@ -86,7 +86,7 @@ export default function CreatePostForm({ topics: initialTopics, user }: CreatePo
                 .single();
 
             if (error) {
-                // Unique constraint — topic already exists
+                // Unique constraint, topic already exists
                 if (error.code === '23505') {
                     toast({ title: 'Topic exists', description: `"${name}" already exists. Select it from the list.`, variant: 'destructive' });
                 } else {

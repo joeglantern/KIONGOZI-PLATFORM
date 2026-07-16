@@ -16,7 +16,7 @@ export default async function ModuleViewerPage({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect(`/login?next=/courses/${courseId}/modules/${moduleId}`);
 
-    // Profile + course + membership check — all in parallel
+    // Profile + course + membership check, all in parallel
     const [{ data: profile }, { data: course }, { data: courseModule }] = await Promise.all([
         supabase.from('profiles').select('role').eq('id', user.id).maybeSingle(),
         supabase.from('courses').select('id, title, author_id, slides_url, slides_type, video_url').eq('id', courseId).maybeSingle(),
@@ -47,7 +47,7 @@ export default async function ModuleViewerPage({
         if (!enrollment) redirect(`/courses/${courseId}`);
     }
 
-    // Module content + sidebar list + progress + quiz — all in parallel
+    // Module content + sidebar list + progress + quiz, all in parallel
     const [
         { data: moduleData },
         { data: courseModuleLinks },

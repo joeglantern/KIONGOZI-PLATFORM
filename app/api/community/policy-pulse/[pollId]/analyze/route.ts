@@ -213,7 +213,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
             const isMultiple = q.question_type === 'multiple_choice';
 
             sections.push(isMultiple
-                ? `*(Multiple choice — respondents could select several options; ${totalVotes} total selections from ${qResponses.length} responses)*`
+                ? `*(Multiple choice, respondents could select several options; ${totalVotes} total selections from ${qResponses.length} responses)*`
                 : `*(${totalVotes} responses)*`
             );
             sections.push('');
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
                 const count = opt.vote_count ?? 0;
                 const pct = totalVotes > 0 ? ((count / totalVotes) * 100).toFixed(1) : '0.0';
                 const bar = '█'.repeat(Math.round(Number(pct) / 10)).padEnd(10, '░');
-                sections.push(`- **"${opt.option_text}"** — ${pct}% (${count} votes) ${bar}`);
+                sections.push(`- **"${opt.option_text}"**, ${pct}% (${count} votes) ${bar}`);
             }
 
             if (sortedOpts.length >= 2 && totalVotes > 0) {
@@ -232,9 +232,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
                 const topPct = ((top.vote_count / totalVotes) * 100).toFixed(0);
                 const secPct = ((second.vote_count / totalVotes) * 100).toFixed(0);
                 sections.push('');
-                sections.push(`> **Dominant:** "${top.option_text}" (${topPct}%) — runner-up "${second.option_text}" (${secPct}%)`);
+                sections.push(`> **Dominant:** "${top.option_text}" (${topPct}%), runner-up "${second.option_text}" (${secPct}%)`);
                 if (Math.abs(top.vote_count - second.vote_count) <= 1 && totalVotes > 2) {
-                    sections.push(`> ⚠️ *Near tie — opinion is divided*`);
+                    sections.push(`> ⚠️ *Near tie, opinion is divided*`);
                 }
             }
 
@@ -285,7 +285,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
         sections.push('');
     }
 
-    // Regional (county) distribution — county is sourced from the respondent's
+    // Regional (county) distribution, county is sourced from the respondent's
     // profile at submission time, so anonymous respondents (no profile) are
     // excluded from this breakdown.
     const countyBreakdown = buildCountyBreakdown(responses, r => r.user_id ?? r.anon_session_id ?? r.id);
@@ -323,7 +323,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pol
 
     const systemPrompt = `You are a senior policy analyst specialising in African youth governance. You produce rigorous, evidence-based policy briefs. You write with authority and precision, citing specific data. You never produce vague or generic output.`;
 
-    const prompt = `You are a senior youth policy analyst with deep expertise in East African governance, civic engagement, and youth development. You have just received structured survey data from a youth policy poll run on the Kiongozi civic platform — a platform empowering African youth to engage with public policy.
+    const prompt = `You are a senior youth policy analyst with deep expertise in East African governance, civic engagement, and youth development. You have just received structured survey data from a youth policy poll run on the Kiongozi civic platform, a platform empowering African youth to engage with public policy.
 
 Analyze this data and produce a **compelling, rigorous, and publication-ready policy insights brief**. Your audience includes policymakers, civil society leaders, and youth advocacy organisations. Write with authority, precision, and genuine analytical depth.
 
@@ -331,18 +331,18 @@ ${dataSummary}
 
 ---
 
-Produce a structured markdown report using EXACTLY this format. Be specific, cite the data, and write like a professional analyst — not a chatbot summarising bullet points.
+Produce a structured markdown report using EXACTLY this format. Be specific, cite the data, and write like a professional analyst, not a chatbot summarising bullet points.
 
 ---
 
 ## Executive Summary
-*2–3 punchy sentences. What is the single most important thing a policymaker should know from this poll? Be bold and direct.*
+*2 to 3 punchy sentences. What is the single most important thing a policymaker should know from this poll? Be bold and direct.*
 
 ---
 
 ## Key Findings
 
-For each major finding, write a bold headline followed by 1–2 sentences of analysis. Cite specific percentages. Aim for 3–5 findings ranked by significance. Example format:
+For each major finding, write a bold headline followed by 1 to 2 sentences of analysis. Cite specific percentages. Aim for 3 to 5 findings ranked by significance. Example format:
 
 **Finding 1: [Headline]**
 [Analysis sentence with data.]
@@ -356,19 +356,19 @@ For each major finding, write a bold headline followed by 1–2 sentences of ana
 
 ## Emerging Themes
 
-Read every open-ended (text) response above and cluster them into named themes (e.g. "Access to Startup Capital", "Skills Gap", "Distrust of Application Process"). For each theme, give a short label, the approximate share of respondents who raised it, and 1 sentence of what respondents are actually saying. If there are no open-ended responses, write: *"No open-ended responses were collected — themes could not be extracted from closed-ended data alone."* and stop this section there.
+Read every open-ended (text) response above and cluster them into named themes (e.g. "Access to Startup Capital", "Skills Gap", "Distrust of Application Process"). For each theme, give a short label, the approximate share of respondents who raised it, and 1 sentence of what respondents are actually saying. If there are no open-ended responses, write: *"No open-ended responses were collected, themes could not be extracted from closed-ended data alone."* and stop this section there.
 
 ---
 
 ## Frequently Mentioned Barriers
 
-From the open-ended responses only, list the specific obstacles, blockers, or frustrations that came up repeatedly (e.g. collateral requirements, bureaucratic delays, lack of information). Rank by how often they appear. If there are no open-ended responses, write: *"No open-ended responses were collected — barriers could not be extracted from closed-ended data alone."* and stop this section there.
+From the open-ended responses only, list the specific obstacles, blockers, or frustrations that came up repeatedly (e.g. collateral requirements, bureaucratic delays, lack of information). Rank by how often they appear. If there are no open-ended responses, write: *"No open-ended responses were collected, barriers could not be extracted from closed-ended data alone."* and stop this section there.
 
 ---
 
 ## Youth Sentiment Profile
 
-Rate overall youth sentiment on a spectrum and explain it. Use one of: *Strongly Supportive / Cautiously Optimistic / Divided / Sceptical / Deeply Concerned / Opposed*. Then write 2–3 sentences explaining what's driving the dominant emotion.
+Rate overall youth sentiment on a spectrum and explain it. Use one of: *Strongly Supportive / Cautiously Optimistic / Divided / Sceptical / Deeply Concerned / Opposed*. Then write 2 to 3 sentences explaining what's driving the dominant emotion.
 
 **Sentiment:** [Label]
 
@@ -378,49 +378,49 @@ Rate overall youth sentiment on a spectrum and explain it. Use one of: *Strongly
 
 ## Surprising Signals
 
-What did the data reveal that is *unexpected*, *counter-intuitive*, or *particularly striking*? What patterns or tensions emerge across questions? Write 2–3 observations that a surface-level reading would miss. If opinions are divided, say so explicitly and explain why that matters.
+What did the data reveal that is *unexpected*, *counter-intuitive*, or *particularly striking*? What patterns or tensions emerge across questions? Write 2 to 3 observations that a surface-level reading would miss. If opinions are divided, say so explicitly and explain why that matters.
 
 ---
 
 ## Regional Differences
 
-If a "Regional Distribution" data section appears above with 2 or more counties represented, compare how sentiment, themes, or barriers differ across those counties — name the counties explicitly. If only one county (or zero) is represented, write: *"Insufficient regional data — responses came from too few distinct counties to compare."* and stop this section there.
+If a "Regional Distribution" data section appears above with 2 or more counties represented, compare how sentiment, themes, or barriers differ across those counties, name the counties explicitly. If only one county (or zero) is represented, write: *"Insufficient regional data, responses came from too few distinct counties to compare."* and stop this section there.
 
 ---
 
 ## Suggested Actions for Parliament
 
-Give 2–3 specific, actionable recommendations aimed at the National Parliament (legislation, national budget lines, national programme design). Each as: **Title** — one or two sentences on what should be done and why the data justifies it.
+Give 2 to 3 specific, actionable recommendations aimed at the National Parliament (legislation, national budget lines, national programme design). Each as: **Title**, one or two sentences on what should be done and why the data justifies it.
 
 ---
 
 ## Suggested Actions for County Governments
 
-Give 2–3 specific, actionable recommendations aimed at County Governments (devolved budget allocation, local implementation, county-level oversight). Each as: **Title** — one or two sentences on what should be done and why the data justifies it.
+Give 2 to 3 specific, actionable recommendations aimed at County Governments (devolved budget allocation, local implementation, county-level oversight). Each as: **Title**, one or two sentences on what should be done and why the data justifies it.
 
 ---
 
 ## Suggested Legislative & Policy Amendments
 
-Look at the poll's "What / Why / How / Expected Impact" context above. If it names a specific bill, act, or policy instrument (e.g. "Finance Bill 2026"), propose 1–3 concrete textual or implementation amendments to it, justified by the response data. If no specific legislative instrument is named in the poll context, write: *"No specific legislative instrument was named for this poll — recommendations above apply to general policy design."* and stop this section there.
+Look at the poll's "What / Why / How / Expected Impact" context above. If it names a specific bill, act, or policy instrument (e.g. "Finance Bill 2026"), propose 1 to 3 concrete textual or implementation amendments to it, justified by the response data. If no specific legislative instrument is named in the poll context, write: *"No specific legislative instrument was named for this poll, recommendations above apply to general policy design."* and stop this section there.
 
 ---
 
 ## Risks and Watchpoints
 
-What should policymakers be cautious about? Are there gaps in the data, risks of misinterpreting these results, or concerns about policy backlash? 2–3 watchpoints.
+What should policymakers be cautious about? Are there gaps in the data, risks of misinterpreting these results, or concerns about policy backlash? 2 to 3 watchpoints.
 
 ---
 
 ## Curated Youth Voices
 
-Select the 3–5 most revealing open-text responses and group them under the theme they best represent (from "Emerging Themes" above). Quote them verbatim, attributed only as "[Theme name]". If no open-text responses, skip this section entirely (do not include the heading).
+Select the 3 to 5 most revealing open-text responses and group them under the theme they best represent (from "Emerging Themes" above). Quote them verbatim, attributed only as "[Theme name]". If no open-text responses, skip this section entirely (do not include the heading).
 
 ---
 
 ## Research Gaps
 
-What does this poll *not* tell us that decision-makers need to know before acting? Identify 2–3 specific questions that need further research.
+What does this poll *not* tell us that decision-makers need to know before acting? Identify 2 to 3 specific questions that need further research.
 
 ---
 
@@ -432,8 +432,8 @@ IMPORTANT GUIDELINES:
 - Write in English. Be direct and analytical, not generic.
 - Cite actual percentages and numbers from the data wherever possible.
 - Acknowledge limitations if sample size is small (under 20 respondents).
-- If the data shows a divided community, say so explicitly — don't paper over it.
-- Keep the entire report between 650–950 words of prose (excluding headers/labels).
+- If the data shows a divided community, say so explicitly, don't paper over it.
+- Keep the entire report between 650 to 950 words of prose (excluding headers/labels).
 - Do NOT add commentary outside the template structure above.`;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;

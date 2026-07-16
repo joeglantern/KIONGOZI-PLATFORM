@@ -312,7 +312,7 @@ export default function ScormPlayer({ packageId, preview = false }: ScormPlayerP
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-blue-900/60 border-b border-blue-800/50">
           <div className="flex items-center gap-2 text-sm text-blue-200">
             <RotateCcw className="w-4 h-4 text-blue-400 flex-shrink-0" />
-            <span>Resuming where you left off — your progress has been saved.</span>
+            <span>Resuming where you left off, your progress has been saved.</span>
           </div>
           <button
             onClick={() => setShowResumeBanner(false)}
@@ -325,21 +325,21 @@ export default function ScormPlayer({ packageId, preview = false }: ScormPlayerP
 
       {/* SCORM iframe */}
       {/*
-        SECURITY (tracked — Kiongozi UX audit 2026-07-16, Critical #11): this
+        SECURITY (tracked, Kiongozi UX audit 2026-07-16, Critical #11): this
         iframe runs instructor-uploaded SCORM content with `allow-scripts` AND
         `allow-same-origin` from the app's OWN origin (see the serve route). That
         combination lets untrusted package JS read the same-origin session cookie
         (`.kiongozi.org`, cookie-domain.ts) and call any authenticated API route
-        with `credentials: 'include'` — i.e. act as the logged-in user. Threat
+        with `credentials: 'include'`, i.e. act as the logged-in user. Threat
         model is a malicious/compromised INSTRUCTOR account (upload is
         privileged), not an anonymous attacker, but it is still a real
         account-takeover vector.
 
-        COMPLETE FIX (deliberately NOT applied blind — requires verification we
+        COMPLETE FIX (deliberately NOT applied blind, requires verification we
         cannot do in an automated pass):
           1. Serve SCORM content from a separate, cookieless origin
              (e.g. scorm-content.kiongozi.org) so the session cookie never
-             reaches it — needs DNS/hosting changes outside this repo.
+             reaches it, needs DNS/hosting changes outside this repo.
           2. Drop `allow-same-origin` and replace the current direct
              `window.parent.API` / `window.API_1484_11` access with a
              postMessage bridge: inject a shim into served HTML that seeds a

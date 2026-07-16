@@ -340,7 +340,7 @@ export function buildCourseReadiness(params: {
             passed: modules.length > 0 && !issues.some((issue) => issue.id.startsWith('module-') && issue.level === 'blocking'),
             blocking: true,
         },
-        // Only show quiz check when quizzes actually exist — no quizzes means nothing to validate
+        // Only show quiz check when quizzes actually exist, no quizzes means nothing to validate
         ...(quizzes.length > 0 ? [{
             id: 'check-quizzes',
             label: 'Quizzes are valid',

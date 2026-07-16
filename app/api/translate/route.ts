@@ -7,7 +7,7 @@ const MAX_TEXT_LENGTH = 5000;
 
 export async function POST(req: NextRequest) {
     try {
-        // Require auth — the endpoint spends money on every call.
+        // Require auth, the endpoint spends money on every call.
         const gate = await requireUser();
         if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
         const { user } = gate;

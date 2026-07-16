@@ -89,13 +89,13 @@ export function parseManifest(xmlContent: string): ScormManifest {
     ),
   }));
 
-  // Entry point — first SCO resource href
+  // Entry point, first SCO resource href
   const sco = resources.find(
     (r) => r.scormType.toLowerCase() === 'sco' && r.href
   );
   const entryPoint = sco?.href || resources.find((r) => r.href)?.href || 'index.html';
 
-  // Title — from default org or first org
+  // Title, from default org or first org
   const defaultOrgData =
     organizations.find((o) => o.identifier === defaultOrg) || organizations[0];
   const title = defaultOrgData?.title || 'Untitled Course';

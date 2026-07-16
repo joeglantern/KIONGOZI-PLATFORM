@@ -1,7 +1,7 @@
 // Scenario checkpoint questions for lesson modules.
 //
 // NOTE: this is currently a hardcoded fallback bank keyed off the course/module
-// title. It is a stepping stone toward admin/DB-managed checkpoints — keeping it
+// title. It is a stepping stone toward admin/DB-managed checkpoints, keeping it
 // isolated here makes that migration a drop-in replacement of this one function.
 
 export interface ScenarioQuestion {

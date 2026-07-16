@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
  *
  * Suitable for single-instance / low-scale protection against abuse of costly
  * endpoints (AI calls, transactional email). For multi-instance deployments,
- * swap the store for Upstash/Redis — the `rateLimit()` signature stays the same.
+ * swap the store for Upstash/Redis, the `rateLimit()` signature stays the same.
  */
 
 type Bucket = { count: number; resetAt: number };

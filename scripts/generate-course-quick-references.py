@@ -29,8 +29,8 @@ CORAL = colors.HexColor("#F97364")
 def clean(text: object) -> str:
     value = "" if text is None else str(text)
     for old, new in {
-        "—": "-",
-        "–": "-",
+        ", ": "-",
+        ", ": "-",
         "→": "->",
         "×": "x",
         "“": '"',

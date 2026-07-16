@@ -1,4 +1,4 @@
--- Leaderboard RPCs — replace client-side aggregation that pulled every user's
+-- Leaderboard RPCs, replace client-side aggregation that pulled every user's
 -- email/total_xp to the browser. These SECURITY DEFINER functions return only
 -- safe display fields (no email) and support all-time and weekly scopes.
 -- Weekly XP is summed from the reward_claims ledger over the trailing 7 days.

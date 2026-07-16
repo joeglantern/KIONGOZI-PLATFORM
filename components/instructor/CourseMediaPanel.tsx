@@ -154,7 +154,7 @@ export default function CourseMediaPanel({
             <div>
                 <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Course-Level Slides & Video</label>
                 <p className="text-xs text-gray-400 mt-1">
-                    Optional. Upload one slide deck (PDF or PPTX) and one walkthrough video (MP4) — students choose Text, Slides, or Video mode on the course page.
+                    Optional. Upload one slide deck (PDF or PPTX) and one walkthrough video (MP4), students choose Text, Slides, or Video mode on the course page.
                 </p>
             </div>
 
@@ -212,7 +212,7 @@ export default function CourseMediaPanel({
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-4 text-center">
                                 <UploadCloud className="w-8 h-8 text-gray-300" />
                                 <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Click to upload slides</p>
-                                <p className="text-[10px] text-gray-400">PDF or PPTX — up to 500 MB</p>
+                                <p className="text-[10px] text-gray-400">PDF or PPTX, up to 500 MB</p>
                             </div>
                         )}
                     </div>
@@ -278,7 +278,7 @@ export default function CourseMediaPanel({
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-4 text-center">
                                 <UploadCloud className="w-8 h-8 text-gray-300" />
                                 <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Click to upload video</p>
-                                <p className="text-[10px] text-gray-400">MP4 / WebM / MOV — up to 500 MB</p>
+                                <p className="text-[10px] text-gray-400">MP4 / WebM / MOV, up to 500 MB</p>
                             </div>
                         )}
                     </div>

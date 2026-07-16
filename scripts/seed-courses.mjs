@@ -1,6 +1,6 @@
 /**
  * Seeds 4 mega-courses (text + slides + video delivery) and 3 text-only standalones
- * for instructor ledeve5997@fermiro.com. Idempotent — if a course with the same title
+ * for instructor ledeve5997@fermiro.com. Idempotent, if a course with the same title
  * (and matching author + non-deleted) already exists, it's skipped.
  *
  * Run: node scripts/seed-courses.mjs
@@ -47,12 +47,12 @@ const COURSES = [
       'Apply the E.E.T. Engine (Education, Training, Empowerment) to your own build',
       'Plot a venture inside the Zone of Execution and exit Hobby / Grind / Dead zones',
       'Run a DFV stress test (Desirability, Feasibility, Viability) on any idea in 60 minutes',
-      'Ship an MVP using Build–Measure–Learn loops',
+      'Ship an MVP using Build, Measure, Learn loops',
       'Pitch through the 4-stage narrative arc using the 3 C\'s',
     ],
     modules: [
       {
-        title: 'Mindset Reset — Myths vs. Reality of Building',
+        title: 'Mindset Reset, Myths vs. Reality of Building',
         description: 'Unlearn the lone-founder fairy tale. Replace it with the reality: collaborative, iterative, evidence-based building.',
         minutes: 90,
         objectives: [
@@ -61,21 +61,21 @@ const COURSES = [
           'Identify the three identity shifts required to build seriously',
         ],
         keywords: ['mindset', 'myths', 'iteration', 'youth-builder'],
-        content: `# Mindset Reset — Myths vs. Reality of Building
+        content: `# Mindset Reset, Myths vs. Reality of Building
 
 ## Why this matters
 
 Most youth entrepreneurship content sells **fairy tales dressed in suits**. The Lone Genius. The Overnight Exit. The Pitch That Changed Everything. None of these survive contact with Nairobi traffic, a stubborn licensing officer, or the moment your co-founder ghosts your group chat.
 
-Before frameworks, before pitch decks, before Sheria ya Vijana — your **operating system** has to be right. This module rewires it.
+Before frameworks, before pitch decks, before Sheria ya Vijana, your **operating system** has to be right. This module rewires it.
 
 ## The 5 Myths You Inherited
 
-1. **"You need a big, original idea."** — No. You need a *specific, observed* problem and the patience to sit with it. Originality is the by-product, not the input.
-2. **"Founders are born, not made."** — Born founders make great LinkedIn posts and broke companies. Made founders read, ship, get feedback, repeat.
-3. **"Real entrepreneurs don't need help."** — Every venture that survived the first 24 months had a brain trust. You will too.
-4. **"Move fast and break things."** — Move *deliberately* and learn things. Breaking things in a low-income community is somebody's rent.
-5. **"Funding is the milestone."** — Funding is the *fuel*. The milestone is paying customers, a moved policy, or a community that defends your service when you go down for maintenance.
+1. **"You need a big, original idea."**, No. You need a *specific, observed* problem and the patience to sit with it. Originality is the by-product, not the input.
+2. **"Founders are born, not made."**, Born founders make great LinkedIn posts and broke companies. Made founders read, ship, get feedback, repeat.
+3. **"Real entrepreneurs don't need help."**, Every venture that survived the first 24 months had a brain trust. You will too.
+4. **"Move fast and break things."**, Move *deliberately* and learn things. Breaking things in a low-income community is somebody's rent.
+5. **"Funding is the milestone."**, Funding is the *fuel*. The milestone is paying customers, a moved policy, or a community that defends your service when you go down for maintenance.
 
 ## The Reality
 
@@ -84,7 +84,7 @@ Before frameworks, before pitch decks, before Sheria ya Vijana — your **operat
 You are not chasing inspiration. You are running a structured search. Three identity shifts make this possible:
 
 ### Shift 1: From "Founder" to **Investigator**
-You are not the hero of this story. The community you serve is. You investigate their problem until you understand it better than they do — then you propose, test, retract, propose again.
+You are not the hero of this story. The community you serve is. You investigate their problem until you understand it better than they do, then you propose, test, retract, propose again.
 
 ### Shift 2: From "Idea" to **Hypothesis**
 Ideas are precious. Hypotheses are disposable. Stop saying "I have an idea." Start saying "I have a hypothesis I want to test cheaply this week."
@@ -94,13 +94,13 @@ You are not building a product. You are building a *learning loop* that happens 
 
 ## Sheng Reality Check
 
-> *Kuanza biz si "vibe" — ni decision to be wrong publicly, on schedule, until you're right.*
+> *Kuanza biz si "vibe", ni decision to be wrong publicly, on schedule, until you're right.*
 
 If you can't be embarrassed by your last version, you weren't learning fast enough. Welcome to the work.
 
 ## Action Item
 
-Write down — in one paragraph — the **last three "ideas"** you've had in the past six months. For each, answer:
+Write down, in one paragraph, the **last three "ideas"** you've had in the past six months. For each, answer:
 
 - What *problem* was I solving?
 - *Who* told me it was a problem (not just my own assumption)?
@@ -110,11 +110,11 @@ If you can't answer cleanly, you weren't building. You were daydreaming with a N
 
 ## What's Next
 
-Module 2 introduces the **E.E.T. Engine** — the three-fuel system (Education, Training, Empowerment) that powers every serious youth builder. We'll diagnose which fuel you're starved of right now.
+Module 2 introduces the **E.E.T. Engine**, the three-fuel system (Education, Training, Empowerment) that powers every serious youth builder. We'll diagnose which fuel you're starved of right now.
 `,
       },
       {
-        title: 'The E.E.T. Engine — Education, Training, Empowerment',
+        title: 'The E.E.T. Engine, Education, Training, Empowerment',
         description: 'The three fuels every young builder runs on. Diagnose which one you\'re starved of and patch it.',
         minutes: 105,
         objectives: [
@@ -123,7 +123,7 @@ Module 2 introduces the **E.E.T. Engine** — the three-fuel system (Education, 
           'Build a 30-day plan to top up your weakest pillar',
         ],
         keywords: ['EET', 'education', 'training', 'empowerment', 'capacity'],
-        content: `# The E.E.T. Engine — Education, Training, Empowerment
+        content: `# The E.E.T. Engine, Education, Training, Empowerment
 
 ## The thesis
 
@@ -139,11 +139,11 @@ The E.E.T. Engine balances all three.
 
 This is the **macro literacy** layer. You should be able to speak fluently about:
 
-- The **market** you operate in — its size, its players, its margins, its informalities
-- The **legal frame**, especially *Sheria ya Vijana* — what protects you, what limits you, what funds you missed because you didn't read it
-- The **frameworks** that systematize thinking (Lean Startup, JTBD, RCA — we cover all of these)
+- The **market** you operate in, its size, its players, its margins, its informalities
+- The **legal frame**, especially *Sheria ya Vijana*, what protects you, what limits you, what funds you missed because you didn't read it
+- The **frameworks** that systematize thinking (Lean Startup, JTBD, RCA, we cover all of these)
 
-You don't memorize education. You *metabolize* it — until you can apply it to a stranger's problem at 11pm without slides.
+You don't memorize education. You *metabolize* it, until you can apply it to a stranger's problem at 11pm without slides.
 
 ## Pillar 2: Training (the Hard Skills)
 
@@ -151,9 +151,9 @@ This is what your hands can do. Concretely:
 
 - **Wireframing** a screen or a service flow
 - **Financial modeling** at a depth where a banker stops smirking
-- **Pitch deck** construction — visual, narrative, defensible
+- **Pitch deck** construction, visual, narrative, defensible
 - **User interviews** that surface truth, not flattery
-- **Operational ops** — accounting, payroll, M-Pesa reconciliations, contracts
+- **Operational ops**, accounting, payroll, M-Pesa reconciliations, contracts
 
 Training is the difference between *understanding* and *doing*. Without it, the Education pillar becomes a coffee-shop hobby.
 
@@ -163,13 +163,13 @@ This is the hardest to teach because it lives in the gut. Empowerment is the int
 
 It is **not** confidence. Confidence is a feeling. Empowerment is a **stance**:
 
-> "I have the right to attempt this. I will be wrong loudly. I will adjust. The community I serve deserves a serious attempt — even an imperfect one — more than they deserve another talking head."
+> "I have the right to attempt this. I will be wrong loudly. I will adjust. The community I serve deserves a serious attempt, even an imperfect one, more than they deserve another talking head."
 
 Without empowerment, training collapses into impostor syndrome the moment a stakeholder pushes back.
 
 ## The Audit (Do This Now)
 
-Score yourself 1–10 on each pillar — but **with evidence**, not vibes:
+Score yourself 1 to 10 on each pillar, but **with evidence**, not vibes:
 
 | Pillar | Your score | The evidence (be specific) |
 |---|---|---|
@@ -199,24 +199,24 @@ Module 3 introduces the **Root vs. Fruit** model. We stop diagnosing surface sym
 `,
       },
       {
-        title: 'Root vs. Fruit — Surface Symptoms vs. Systemic Drivers',
+        title: 'Root vs. Fruit, Surface Symptoms vs. Systemic Drivers',
         description: 'Stop treating leaves. Trace any community problem down its trunk to the systemic roots.',
         minutes: 100,
         objectives: [
           'Distinguish symptoms, mid-tier problems, and root drivers',
-          'Map any local issue into the Root–Trunk–Fruit tree',
+          'Map any local issue into the Root, Trunk, Fruit tree',
           'Pick an intervention level appropriate to your resources',
         ],
         keywords: ['root-cause', 'systems-thinking', 'diagnosis'],
-        content: `# Root vs. Fruit — Surface vs. Systemic Drivers
+        content: `# Root vs. Fruit, Surface vs. Systemic Drivers
 
 ## The Tree
 
 Imagine the problem you want to solve as a tree. Three layers:
 
-- **Fruit** — the visible, daily symptoms. "Youth unemployment is high in my area."
-- **Trunk** — the specific community problem. "There are no formal pathways from secondary school into local SMEs that hire."
-- **Roots** — the systemic drivers. "Licensing fees price out new SMEs; the few that survive can't afford structured hiring; the curriculum doesn't track local industry."
+- **Fruit**, the visible, daily symptoms. "Youth unemployment is high in my area."
+- **Trunk**, the specific community problem. "There are no formal pathways from secondary school into local SMEs that hire."
+- **Roots**, the systemic drivers. "Licensing fees price out new SMEs; the few that survive can't afford structured hiring; the curriculum doesn't track local industry."
 
 Most founders pick a piece of **fruit**, paint it green, and call it impact. The fruit grows back next season because the roots are untouched.
 
@@ -227,14 +227,14 @@ To work at the right altitude, you must answer three questions in order:
 ### 1. What is the visible symptom?
 Describe it concretely. Numbers if you have them. *"In my ward, 7 out of 10 youth I interviewed last month are not engaged in formal work or training."*
 
-### 2. What is the trunk — the specific local mechanism?
+### 2. What is the trunk, the specific local mechanism?
 This is where most founders skip. Force yourself to spend a week on this. Examples:
 
 - "School-to-work info gap" (no career counsellors)
 - "Capital exclusion" (no collateral, no formal credit history)
 - "Licensing chokepoint" (the kiosk-permit costs 3x what an unemployed youth has)
 
-### 3. What are the roots — the policy / structural drivers?
+### 3. What are the roots, the policy / structural drivers?
 Now you go upstream:
 
 - The Constitution, *Sheria ya Vijana*, county finance acts
@@ -263,7 +263,7 @@ You just moved from fruit → trunk → root in three sentences. That's the move
 | Trunk | Service redesign, structured programme | Months, mid budget |
 | Root | Policy advocacy, regulatory reform | Years, coalitions |
 
-You can intervene at any level — but you must be **honest** about which.
+You can intervene at any level, but you must be **honest** about which.
 
 ## Sheng Reality Check
 
@@ -285,16 +285,16 @@ Then ask three trusted people if your trunk and roots match what they observe. *
 
 ## What's Next
 
-Module 4 introduces the **Zone of Execution** — the only 2x2 you'll need to decide whether to actually attempt the venture. Plus the **DFV Stress-Test** to interrogate any idea in under 60 minutes.
+Module 4 introduces the **Zone of Execution**, the only 2x2 you'll need to decide whether to actually attempt the venture. Plus the **DFV Stress-Test** to interrogate any idea in under 60 minutes.
 `,
       },
       {
         title: 'Zone of Execution + The DFV Stress-Test',
-        description: 'Find the Sweet Spot at the intersection of market need and founder skill — and pass the Desirability/Feasibility/Viability gates.',
+        description: 'Find the Sweet Spot at the intersection of market need and founder skill, and pass the Desirability/Feasibility/Viability gates.',
         minutes: 95,
         objectives: [
           'Plot any idea on the Market Need × Founder Passion/Skill matrix',
-          'Recognize Hobby, Grind, and Dead zones — and exit them quickly',
+          'Recognize Hobby, Grind, and Dead zones, and exit them quickly',
           'Run a DFV stress-test on a candidate idea in one sitting',
         ],
         keywords: ['zone-of-execution', 'DFV', 'desirability', 'feasibility', 'viability'],
@@ -344,28 +344,28 @@ The trap: founders confuse **familiarity** with **passion**, and **friend feedba
 - Is there an existing market category, or am I inventing demand?
 - If I disappeared, would the customer notice within 30 days?
 
-If your skill axis is high but your market check fails — you're in Hobby. Don't quit, but don't bet your rent.
+If your skill axis is high but your market check fails, you're in Hobby. Don't quit, but don't bet your rent.
 
 ## The DFV Stress-Test
 
-Once you're plotting somewhere in the Sweet Spot, the next gate is **D.F.V.** — three independent questions, each capable of killing the idea on its own.
+Once you're plotting somewhere in the Sweet Spot, the next gate is **D.F.V.**, three independent questions, each capable of killing the idea on its own.
 
-### D — Desirability
+### D, Desirability
 *Do real users actually want this, enough to change a behaviour?*
 
 Test: 10 problem interviews with target users. Not "would you use this?" but "tell me about the last time this problem hurt you. What did you do? What did it cost you?"
 
 If you can't get a 10-minute story out of someone, the problem isn't acute enough.
 
-### F — Feasibility
+### F, Feasibility
 *Can we actually build this with the team, budget, and time we have?*
 
 Test: write the technical / operational spec on one page. Show it to one expert in that domain. If they laugh, you're not feasible yet. If they nod and add 2 risks, you might be.
 
-### V — Viability
+### V, Viability
 *Can the unit economics work? Does it survive at scale?*
 
-Test: a back-of-envelope on (revenue per customer) – (cost to serve per customer) > 0 within 18 months. If the answer is "yes, but only if a grant subsidizes us indefinitely," you don't have a business. You have a project. (Projects are valid! But name it correctly.)
+Test: a back-of-envelope on (revenue per customer), (cost to serve per customer) > 0 within 18 months. If the answer is "yes, but only if a grant subsidizes us indefinitely," you don't have a business. You have a project. (Projects are valid! But name it correctly.)
 
 ## Pass Rules
 
@@ -380,12 +380,12 @@ You only proceed if **all three** stress-tests pass. One No kills the round. Don
 For your current top idea:
 
 1. **Plot it** on the 2×2 with evidence.
-2. **Run DFV.** Write 3 short paragraphs — one per letter — with evidence and a verdict.
+2. **Run DFV.** Write 3 short paragraphs, one per letter, with evidence and a verdict.
 3. **Verdict:** Proceed / Pivot / Park. Be honest. Bring it to your brain trust.
 
 ## What's Next
 
-Module 5 closes the course with the **MVP Loop** (Build → Measure → Learn) and the **Pitch Pillar** — the 4-stage narrative arc through which you sell what you've built to investors, partners, and policymakers.
+Module 5 closes the course with the **MVP Loop** (Build → Measure → Learn) and the **Pitch Pillar**, the 4-stage narrative arc through which you sell what you've built to investors, partners, and policymakers.
 `,
       },
       {
@@ -394,7 +394,7 @@ Module 5 closes the course with the **MVP Loop** (Build → Measure → Learn) a
         minutes: 110,
         objectives: [
           'Design the smallest possible MVP that still tests your riskiest assumption',
-          'Run a Build–Measure–Learn cycle in under 14 days',
+          'Run a Build, Measure, Learn cycle in under 14 days',
           'Structure a pitch through the 4-stage arc using the 3 C\'s (Clear, Concise, Confident)',
         ],
         keywords: ['MVP', 'build-measure-learn', 'pitch', 'narrative'],
@@ -422,7 +422,7 @@ It **isn't**:
 - A beta you only show your cousins
 - A polished v1 that took 9 months
 
-### The Build–Measure–Learn Loop
+### The Build, Measure, Learn Loop
 
 \`\`\`
    BUILD ─────────► MEASURE ─────────► LEARN
@@ -451,28 +451,28 @@ You will pitch dozens of times. To investors. To grant officers. To policymakers
 
 ### The 4-Stage Narrative Arc
 
-#### Stage 1 — Status Quo (Pain)
+#### Stage 1, Status Quo (Pain)
 Open with the world as it is today. Concrete. Painful. Specific.
 
 > *"In Kibera last quarter, 73% of youth-led kiosks closed within 90 days. We followed 12 of them. The number-one reason: they couldn't get a permit fast enough to survive their first dry-season cashflow gap."*
 
 This is not "Africa's youth unemployment is a crisis." That's a lecture. This is **one room, one number, one quarter, one cause.**
 
-#### Stage 2 — Catalyst (The MVP Solution)
+#### Stage 2, Catalyst (The MVP Solution)
 What did you build, and why does it shift the status quo?
 
 > *"We built a 48-hour permit advisory bot. It takes a kiosk owner from registration to permit-ready paperwork in two days, not two months."*
 
-Be specific. Show the thing. Don't promise — demonstrate.
+Be specific. Show the thing. Don't promise, demonstrate.
 
-#### Stage 3 — Proof (Traction)
+#### Stage 3, Proof (Traction)
 Numbers that defend the catalyst. If you ran the MVP loop, you have data:
 
 > *"Across 28 pilot kiosks, the average permit time dropped from 47 days to 5. 82% are still operating 6 months later, versus the 27% baseline."*
 
 If you don't have data yet, say so honestly: *"We're three weeks in. Here's what we're tracking."* Honesty defeats fluff every time.
 
-#### Stage 4 — Vision / Ask
+#### Stage 4, Vision / Ask
 Now you zoom out. **What does the world look like in 3 years if this works?** And **what do you need to get there?**
 
 > *"In 3 years, every youth-led kiosk in our county is permit-ready in under 7 days. To pilot county-wide for 12 months, we need $48k and a partnership with the county licensing office."*
@@ -483,13 +483,13 @@ Vision → Ask. In that order. Never lead with the ask. Always close with it.
 
 Layered over the 4 stages:
 
-- **Clear** — a 10-year-old could repeat your pitch. Cut jargon. Cut acronyms unless you define them.
-- **Concise** — total pitch ≤ 3 minutes. The 4 stages: 45 seconds each.
-- **Confident** — you don't apologize for being early. You don't oversell either. You speak from inside the work.
+- **Clear**, a 10-year-old could repeat your pitch. Cut jargon. Cut acronyms unless you define them.
+- **Concise**, total pitch ≤ 3 minutes. The 4 stages: 45 seconds each.
+- **Confident**, you don't apologize for being early. You don't oversell either. You speak from inside the work.
 
 ## Sheng Reality Check
 
-> *Skateboard kwanza, gari baadaye. Na unapopitch — story ndo currency, sio slides.*
+> *Skateboard kwanza, gari baadaye. Na unapopitch, story ndo currency, sio slides.*
 
 ## Capstone Action Item
 
@@ -499,14 +499,14 @@ You're done with Course 1. Final task:
 2. **Write your 4-stage pitch** in 4 paragraphs, 200 words total. Read it out loud. Time it.
 3. **Pitch it to one person who will push back hard.** Take notes. Revise.
 
-Bring the revised pitch to Course 2 (Leadership) — we'll use it as a working artifact.
+Bring the revised pitch to Course 2 (Leadership), we'll use it as a working artifact.
 
 ## You've completed The Youth Builder Blueprint
 
 You now have:
 - A working mindset (Investigator, Hypothesis, Loop)
 - A diagnostic engine (E.E.T. audit + Root/Fruit + Zone of Execution + DFV)
-- A delivery loop (MVP Build–Measure–Learn)
+- A delivery loop (MVP Build, Measure, Learn)
 - A narrative structure (4-stage arc, 3 C's)
 
 This is the operating system. Now go run it.
@@ -520,12 +520,12 @@ This is the operating system. Now go run it.
   // =========================================================================
   {
     title: 'The Youth Leadership Blueprint',
-    description: 'Personal growth scaling outward to system-level advocacy. Lead Self, then Lead Others, then Lead Systems — without skipping a step.',
-    overview: 'A five-module leadership stack. We start where every honest leader starts — inside your own head — and scale outward through interpersonal calibration into systems-level advocacy. Tools you can deploy on Monday morning, not after a retreat in Naivasha.',
+    description: 'Personal growth scaling outward to system-level advocacy. Lead Self, then Lead Others, then Lead Systems, without skipping a step.',
+    overview: 'A five-module leadership stack. We start where every honest leader starts, inside your own head, and scale outward through interpersonal calibration into systems-level advocacy. Tools you can deploy on Monday morning, not after a retreat in Naivasha.',
     category: 'Leadership',
     difficulty_level: 'intermediate',
     estimated_duration_hours: 14,
-    prerequisites: ['You lead something — a team, a chama, a campaign, a project', 'Willingness to receive uncomfortable feedback'],
+    prerequisites: ['You lead something, a team, a chama, a campaign, a project', 'Willingness to receive uncomfortable feedback'],
     learning_outcomes: [
       'Run Personal Root-Cause Analysis on your own patterns',
       'Operate the Continuous Growth Loop instead of waiting for annual reviews',
@@ -536,20 +536,20 @@ This is the operating system. Now go run it.
     ],
     modules: [
       {
-        title: 'Leading Self — Internal Operating System + Personal RCA',
+        title: 'Leading Self, Internal Operating System + Personal RCA',
         description: 'Before you lead anyone else, audit the operating system you run on. Personal Root-Cause Analysis on your own patterns.',
         minutes: 100,
         objectives: [
           'Map your own internal operating system (defaults, triggers, recovery patterns)',
           'Run a Personal Root-Cause Analysis on one recurring failure',
-          'Identify your "leadership tax" — the cost you pay when your OS misfires',
+          'Identify your "leadership tax", the cost you pay when your OS misfires',
         ],
         keywords: ['self-leadership', 'self-awareness', 'personal-RCA'],
-        content: `# Leading Self — Your Internal Operating System
+        content: `# Leading Self, Your Internal Operating System
 
 ## The premise
 
-You cannot out-skill your operating system. If you yell when stressed, you will yell at your team when stressed — no matter how many "active listening" workshops you attend. The skill layer is downstream of the OS layer.
+You cannot out-skill your operating system. If you yell when stressed, you will yell at your team when stressed, no matter how many "active listening" workshops you attend. The skill layer is downstream of the OS layer.
 
 This module is uncomfortable on purpose.
 
@@ -561,13 +561,13 @@ Four components that shape *every* leadership action you take:
 When you have no time to think, what do you do? Some leaders default to **action** (decide fast, ask forgiveness). Some default to **consensus** (delay, gather). Neither is right. Knowing yours is right.
 
 ### 2. Triggers
-The conditions that make you smaller — short-tempered, defensive, controlling. Common ones: feeling stupid in a meeting, having a parent figure question you, money stress, being out of sleep.
+The conditions that make you smaller, short-tempered, defensive, controlling. Common ones: feeling stupid in a meeting, having a parent figure question you, money stress, being out of sleep.
 
 ### 3. Recovery Patterns
 After a hit (failed pitch, bad meeting, public mistake), how long until you're functional? 10 minutes? 10 days? Until you measure it, you cannot shorten it.
 
 ### 4. Energy Sources
-What actually refills you — not what you *think* should, but what does. Time alone? A specific friend? Movement? A specific kind of work?
+What actually refills you, not what you *think* should, but what does. Time alone? A specific friend? Movement? A specific kind of work?
 
 ## The Self-Audit
 
@@ -576,7 +576,7 @@ Spend 30 minutes. Answer in writing:
 1. **My default when stressed is to:** ____________
 2. **The three things that reliably make me smaller are:** ____________
 3. **After a real setback, I'm functional again within:** ____________
-4. **The thing that refills me — and that I systematically under-do — is:** ____________
+4. **The thing that refills me, and that I systematically under-do, is:** ____________
 
 You cannot lead well until you've answered these clearly.
 
@@ -620,13 +620,13 @@ Once you can see the tax in cash terms, you stop romanticizing the misfire as "p
 
 1. Complete the Self-Audit (above).
 2. Pick **one** recurring leadership failure pattern. Run the 5 Whys on it.
-3. Write **one concrete experiment** for the next 30 days targeting the actual root — not the symptom.
+3. Write **one concrete experiment** for the next 30 days targeting the actual root, not the symptom.
 
 Bring the experiment back at the end of the course.
 
 ## What's Next
 
-Module 2 introduces the **Continuous Growth Loop** — the system that turns every action (good or bad) into structured calibration. We replace the annual review with a weekly one.
+Module 2 introduces the **Continuous Growth Loop**, the system that turns every action (good or bad) into structured calibration. We replace the annual review with a weekly one.
 `,
       },
       {
@@ -653,11 +653,11 @@ Annual reviews are too slow, too political, and too late. A leader who only cali
 
 ## Stage 1: Action
 
-You did something — ran a meeting, sent a message, made a call. The action is over. The data is the residue.
+You did something, ran a meeting, sent a message, made a call. The action is over. The data is the residue.
 
 ## Stage 2: Reception
 
-This is where 90% of leaders fail. They wait passively for feedback to arrive on its own — and it never does.
+This is where 90% of leaders fail. They wait passively for feedback to arrive on its own, and it never does.
 
 **You must solicit it.** And the way you ask determines what you get.
 
@@ -684,7 +684,7 @@ Don't just ask your friends. Stratify:
 | The person who pushed back | Where your logic broke |
 | Yourself (in writing) | What you knew and didn't say |
 
-## Stage 3: Calibration — Separating Ego from Data
+## Stage 3: Calibration, Separating Ego from Data
 
 The hardest stage. When feedback arrives, your ego will categorize it before your mind does:
 
@@ -700,9 +700,9 @@ The discipline:
 2. **Write it down verbatim.** The exact words. Not your interpretation.
 3. **Wait 24 hours.** Re-read the words. Now ask: *what would be true about this feedback if I were not the one being criticized?*
 4. **Separate into three buckets:**
-   - **Signal** — true, useful, actionable
-   - **Noise** — context the giver lacked
-   - **Style** — about how it was delivered, separable from whether it's true
+   - **Signal**, true, useful, actionable
+   - **Noise**, context the giver lacked
+   - **Style**, about how it was delivered, separable from whether it's true
 
 You don't have to accept all feedback. You have to *process* all of it before deciding.
 
@@ -738,12 +738,12 @@ Track it. Was it done? What was the effect? Loop closes. New action. Loop reopen
 
 ## What's Next
 
-Module 3 introduces the **Empathy × Clarity Matrix** and the **Escalation Curve** — for when you're leading *other people* and the friction is interpersonal, not just internal.
+Module 3 introduces the **Empathy × Clarity Matrix** and the **Escalation Curve**, for when you're leading *other people* and the friction is interpersonal, not just internal.
 `,
       },
       {
-        title: 'Leading Others — Empathy × Clarity Matrix + The Escalation Curve',
-        description: 'The 2×2 of interpersonal calibration, plus how to intervene on conflict early — before it peaks.',
+        title: 'Leading Others, Empathy × Clarity Matrix + The Escalation Curve',
+        description: 'The 2×2 of interpersonal calibration, plus how to intervene on conflict early, before it peaks.',
         minutes: 95,
         objectives: [
           'Place every leadership interaction on the Empathy × Clarity matrix',
@@ -751,14 +751,14 @@ Module 3 introduces the **Empathy × Clarity Matrix** and the **Escalation Curve
           'Use the Escalation Curve to intervene on conflict early',
         ],
         keywords: ['empathy', 'clarity', 'conflict', 'de-escalation'],
-        content: `# Leading Others — Empathy × Clarity Matrix + The Escalation Curve
+        content: `# Leading Others, Empathy × Clarity Matrix + The Escalation Curve
 
 ## Part 1: The Empathy × Clarity Matrix
 
 Every interpersonal interaction you have as a leader can be plotted on two axes:
 
-- **Empathy** — how well you understand and acknowledge what the other person is experiencing
-- **Clarity** — how unambiguous you are about expectations, decisions, and consequences
+- **Empathy**, how well you understand and acknowledge what the other person is experiencing
+- **Clarity**, how unambiguous you are about expectations, decisions, and consequences
 
 \`\`\`
                 Clarity →
@@ -796,7 +796,7 @@ You'll find a pattern. Most leaders default to Friend (especially with people th
 
 Two moves:
 
-1. **Add empathy without losing clarity:** Before delivering hard news, *name* what's hard about it. *"I know this contract not getting renewed is going to hit your projects in Q3 — that's real, and I want to talk about it."* Then deliver the decision cleanly.
+1. **Add empathy without losing clarity:** Before delivering hard news, *name* what's hard about it. *"I know this contract not getting renewed is going to hit your projects in Q3, that's real, and I want to talk about it."* Then deliver the decision cleanly.
 2. **Add clarity without losing empathy:** After listening fully, *summarize what you heard* and then say: *"Here's what I'm going to decide and why."* No mush.
 
 ## Part 2: The Escalation Curve
@@ -813,7 +813,7 @@ Two moves:
      └───────────────────────────────────────► Time
 \`\`\`
 
-Conflict has a curve. Most leaders intervene at the peak — when emotions are loudest and reasoning is impossible. By then, damage is done.
+Conflict has a curve. Most leaders intervene at the peak, when emotions are loudest and reasoning is impossible. By then, damage is done.
 
 The discipline: **intervene on the ascent.**
 
@@ -839,7 +839,7 @@ Not a confrontation. An opening. Often that's all that's needed.
 
 **Move 2: The Reframe**
 When you see two people drifting into opposition, name it before they entrench:
-*"I want to make sure I understand — are we disagreeing on **what** to do, or on **how** to do it? Because those are different conversations."*
+*"I want to make sure I understand, are we disagreeing on **what** to do, or on **how** to do it? Because those are different conversations."*
 
 **Move 3: The Time-Out**
 If something is starting to heat in a meeting, pause it: *"Let's take 15 minutes. We'll come back at the half-hour."* Don't apologize for the pause. It's leadership.
@@ -853,7 +853,7 @@ If conflict has peaked, you cannot win it. You can only contain it and return to
 
 ## Sheng Reality Check
 
-> *Empathy bila clarity ni story tu. Clarity bila empathy ni tyranny. Lazima mbili. And usisubiri conflict ipande peak before you act — kazi ya leader ni kuintervene mapema.*
+> *Empathy bila clarity ni story tu. Clarity bila empathy ni tyranny. Lazima mbili. And usisubiri conflict ipande peak before you act, kazi ya leader ni kuintervene mapema.*
 
 ## Action Item
 
@@ -863,12 +863,12 @@ If conflict has peaked, you cannot win it. You can only contain it and return to
 
 ## What's Next
 
-Module 4 introduces the **3 Whys Diagnostic** — when team friction shows up, it's almost always one of three things: Capacity, Clarity, or Motivation. We learn to diagnose which.
+Module 4 introduces the **3 Whys Diagnostic**, when team friction shows up, it's almost always one of three things: Capacity, Clarity, or Motivation. We learn to diagnose which.
 `,
       },
       {
-        title: 'The 3 Whys Diagnostic — Capacity / Clarity / Motivation',
-        description: 'When team friction shows up, it\'s almost always one of three things. Diagnose which — and stop applying the wrong fix.',
+        title: 'The 3 Whys Diagnostic, Capacity / Clarity / Motivation',
+        description: 'When team friction shows up, it\'s almost always one of three things. Diagnose which, and stop applying the wrong fix.',
         minutes: 75,
         objectives: [
           'Run the 3 Whys Diagnostic on any team friction',
@@ -876,7 +876,7 @@ Module 4 introduces the **3 Whys Diagnostic** — when team friction shows up, i
           'Avoid the most common error: treating a motivation problem with a training fix',
         ],
         keywords: ['team-diagnostics', 'capacity', 'clarity', 'motivation'],
-        content: `# The 3 Whys Diagnostic — Capacity / Clarity / Motivation
+        content: `# The 3 Whys Diagnostic, Capacity / Clarity / Motivation
 
 ## The premise
 
@@ -884,20 +884,20 @@ When a team member underperforms, the leader's instinct is to assume **motivatio
 
 In reality, underperformance has three possible roots:
 
-1. **Capacity** — they don't yet have the *skill or resources* to do it
-2. **Clarity** — they don't actually understand what "it" is, by when, to what standard
-3. **Motivation** — they understand and could do it, but choose not to
+1. **Capacity**, they don't yet have the *skill or resources* to do it
+2. **Clarity**, they don't actually understand what "it" is, by when, to what standard
+3. **Motivation**, they understand and could do it, but choose not to
 
 Each root needs a completely different response. The wrong fix makes the problem worse.
 
 ## How to diagnose
 
-Sit down with the person. Ask three questions, in order. Note the answer to each — your diagnosis lives in *which question fails first*.
+Sit down with the person. Ask three questions, in order. Note the answer to each, your diagnosis lives in *which question fails first*.
 
 ### Why 1: Clarity
-> *"Walk me through exactly what you understood the task to be — what done looks like, by when, and why it matters."*
+> *"Walk me through exactly what you understood the task to be, what done looks like, by when, and why it matters."*
 
-If they can't articulate the task crisply, the root is **Clarity**. (And it's your fault as much as theirs — you didn't communicate it well.)
+If they can't articulate the task crisply, the root is **Clarity**. (And it's your fault as much as theirs, you didn't communicate it well.)
 
 ### Why 2: Capacity
 > *"Of the steps to do this, which ones feel hard for you? Where would you get stuck?"*
@@ -907,7 +907,7 @@ If the person *can* describe the task but identifies a real skill gap or resourc
 ### Why 3: Motivation
 > *"If everything were easy and you had infinite resources, would you want to do this?"*
 
-If they can articulate the task and have the capacity, but they hesitate here — the root is **Motivation**.
+If they can articulate the task and have the capacity, but they hesitate here, the root is **Motivation**.
 
 ## Matching fix to root
 
@@ -915,18 +915,18 @@ If they can articulate the task and have the capacity, but they hesitate here �
 |---|---|---|
 | **Clarity** | Send them on more training | Re-state the task, in writing, with deadline + standard. Confirm understanding. |
 | **Capacity** | Get angry | Pair them with a senior person; resource the gap; create a learning runway with a deadline. |
-| **Motivation** | Send them on more training | A direct, structured conversation about what's blocking them — and what changes if it continues. |
+| **Motivation** | Send them on more training | A direct, structured conversation about what's blocking them, and what changes if it continues. |
 
-The single most common error: applying a **training fix** (Capacity) to a **motivation problem**. The person is bored, demoralized, or in the wrong role — and you give them a course. They get more demoralized. They quit, often poorly.
+The single most common error: applying a **training fix** (Capacity) to a **motivation problem**. The person is bored, demoralized, or in the wrong role, and you give them a course. They get more demoralized. They quit, often poorly.
 
 ## What "Motivation" actually means
 
 When a competent person under-delivers, the motivation root is rarely "they're lazy." It's usually one of:
 
-- **Misalignment** — their values diverged from the org's recent decisions
-- **Burnout** — they've been giving 110% with no recovery and they're done
-- **Wrong role** — their actual strengths don't match what you're asking
-- **Trust break** — something happened (a decision, a passed-over promotion, a public correction) that broke their commitment quietly
+- **Misalignment**, their values diverged from the org's recent decisions
+- **Burnout**, they've been giving 110% with no recovery and they're done
+- **Wrong role**, their actual strengths don't match what you're asking
+- **Trust break**, something happened (a decision, a passed-over promotion, a public correction) that broke their commitment quietly
 
 Each of these is a *real* problem with a *specific* intervention. None of them are fixed by "try harder."
 
@@ -934,13 +934,13 @@ Each of these is a *real* problem with a *specific* intervention. None of them a
 
 If the diagnostic points to motivation, you don't ambush. You schedule a one-hour conversation. Three parts:
 
-**Part 1 — Name the gap (5 min)**
-*"I've noticed [specific behaviour]. I want to understand it. I'm not in a hurry — I want to listen."*
+**Part 1, Name the gap (5 min)**
+*"I've noticed [specific behaviour]. I want to understand it. I'm not in a hurry, I want to listen."*
 
-**Part 2 — Listen (40 min)**
+**Part 2, Listen (40 min)**
 Mostly silent. Ask "and what else?" three times before you respond.
 
-**Part 3 — Decide together (15 min)**
+**Part 3, Decide together (15 min)**
 *"Here's what I heard. Here's what I'm willing to change. Here's what would need to change on your side. Do we have a path?"*
 
 If there's a path: write it down, set a check-in date, both sign.
@@ -962,12 +962,12 @@ Either is a leadership outcome. Pretending nothing is wrong is not.
 
 ## What's Next
 
-Module 5 — the final module of Leading — scales up from interpersonal to systemic. When the friction in your community is structural, not personal, you need the **Advocacy Funnel**. We close the course there.
+Module 5, the final module of Leading, scales up from interpersonal to systemic. When the friction in your community is structural, not personal, you need the **Advocacy Funnel**. We close the course there.
 `,
       },
       {
-        title: 'Leading Systems — The Advocacy Funnel + Sheria ya Vijana',
-        description: 'When the friction is structural, not personal — convert local pain into a targeted advocacy strategy.',
+        title: 'Leading Systems, The Advocacy Funnel + Sheria ya Vijana',
+        description: 'When the friction is structural, not personal, convert local pain into a targeted advocacy strategy.',
         minutes: 100,
         objectives: [
           'Move from "local friction" to "policy diagnosis" to "advocacy strategy"',
@@ -975,11 +975,11 @@ Module 5 — the final module of Leading — scales up from interpersonal to sys
           'Build a one-page advocacy plan with stakeholders, tactics, and milestones',
         ],
         keywords: ['advocacy', 'policy', 'systems', 'Sheria-ya-Vijana'],
-        content: `# Leading Systems — The Advocacy Funnel + Sheria ya Vijana
+        content: `# Leading Systems, The Advocacy Funnel + Sheria ya Vijana
 
 ## The transition
 
-You can run Self perfectly (Module 1), calibrate weekly (Module 2), be a Youth Advocate (Module 3), and diagnose your team flawlessly (Module 4) — and *still* be defeated by the structure your community operates in.
+You can run Self perfectly (Module 1), calibrate weekly (Module 2), be a Youth Advocate (Module 3), and diagnose your team flawlessly (Module 4), and *still* be defeated by the structure your community operates in.
 
 When the problem is **structural**, the answer is **advocacy**. Not a hashtag. Not a townhall. A funnel.
 
@@ -1003,15 +1003,15 @@ You observe a recurring pain in your community. Specific. Repeatable. Numbered.
 Not "youth are struggling." Specific friction.
 
 ### Stage 2: Root-Cause Synthesis
-Apply Course 1 Module 3 — the Root/Fruit tree — at community scale. What's the trunk? What's the root?
+Apply Course 1 Module 3, the Root/Fruit tree, at community scale. What's the trunk? What's the root?
 
 > *Trunk: The county sanitation-permit pathway has no fast-track for low-risk food businesses.*
-> *Root: The county finance act treats all food businesses identically — a tea kiosk faces the same review depth as a hotel.*
+> *Root: The county finance act treats all food businesses identically, a tea kiosk faces the same review depth as a hotel.*
 
 You now know what kind of intervention will work and what won't. A training programme on hygiene won't fix this. A policy amendment to the county finance act might.
 
 ### Stage 3: Targeted Advocacy Strategy
-This is where most well-intentioned campaigns fail. They have a problem and outrage — but no **target**, no **vehicle**, and no **timeline**.
+This is where most well-intentioned campaigns fail. They have a problem and outrage, but no **target**, no **vehicle**, and no **timeline**.
 
 A targeted strategy answers:
 
@@ -1026,22 +1026,22 @@ If you can't fill all five, you don't have a strategy. You have a feeling.
 ### Stage 4: Policy Motion
 Execution. The campaign runs. You measure. You adapt. Real campaigns take 6 months to 3 years. Pace yourself.
 
-## Sheria ya Vijana — the legal scaffolding
+## Sheria ya Vijana, the legal scaffolding
 
-You cannot lead youth systems work without knowing the legal frame. Sheria ya Vijana isn't a single act — it's the constellation of laws and policies that shape youth life:
+You cannot lead youth systems work without knowing the legal frame. Sheria ya Vijana isn't a single act, it's the constellation of laws and policies that shape youth life:
 
-- **The Constitution (2010)** — Article 55 explicitly directs the State to take measures to ensure youth access to relevant education and training, employment opportunities, political participation, and protection from harmful cultural practices.
-- **The Youth Enterprise Development Fund Act** — defines a financing pathway specifically for youth.
-- **Access to Government Procurement Opportunities (AGPO)** — reserves 30% of all public procurement for youth, women, and persons with disabilities.
-- **County Youth Policies** — most counties have one; few have implementation budgets. This gap is the advocacy frontier.
-- **Sectoral acts** — Labour, Public Health, Trade Licensing, County Finance Acts — these are where most actual frictions sit.
+- **The Constitution (2010)**, Article 55 explicitly directs the State to take measures to ensure youth access to relevant education and training, employment opportunities, political participation, and protection from harmful cultural practices.
+- **The Youth Enterprise Development Fund Act**, defines a financing pathway specifically for youth.
+- **Access to Government Procurement Opportunities (AGPO)**, reserves 30% of all public procurement for youth, women, and persons with disabilities.
+- **County Youth Policies**, most counties have one; few have implementation budgets. This gap is the advocacy frontier.
+- **Sectoral acts**, Labour, Public Health, Trade Licensing, County Finance Acts, these are where most actual frictions sit.
 
 ### The literacy test
-Can you, right now, name the law or policy provision that is **load-bearing** for your work? If your venture or campaign quietly depends on AGPO 30%, you should be able to recite that provision. If you can't, you don't own your work yet — you're being carried by something you can't name.
+Can you, right now, name the law or policy provision that is **load-bearing** for your work? If your venture or campaign quietly depends on AGPO 30%, you should be able to recite that provision. If you can't, you don't own your work yet, you're being carried by something you can't name.
 
 ## The "Kapanga" Move
 
-In Kenyan political shorthand, *Kapanga* refers to operators who hold quiet influence over outcomes — chiefs of staff, committee clerks, senior advisors, the *Kapanga* who decides whose memo reaches the principal's desk.
+In Kenyan political shorthand, *Kapanga* refers to operators who hold quiet influence over outcomes, chiefs of staff, committee clerks, senior advisors, the *Kapanga* who decides whose memo reaches the principal's desk.
 
 Serious advocacy targets the *Kapanga* as much as the principal. A 15-minute briefing with the right *Kapanga* can move a policy faster than three years of public campaigning.
 
@@ -1066,7 +1066,7 @@ After this course, write a one-page plan with these sections:
 9. LEGAL ANCHOR (which Sheria ya Vijana provision is your scaffolding): ____________
 \`\`\`
 
-Bring it to Course 3 — we'll deepen it.
+Bring it to Course 3, we'll deepen it.
 
 ## Sheng Reality Check
 
@@ -1089,7 +1089,7 @@ You now have:
 - A diagnostic for team friction (Module 4)
 - A funnel for systemic friction (Module 5)
 
-The next course — **The Advocacy Impact Engine** — goes deep on Stage 3 of the funnel. We'll turn that one-page plan into a multi-phase campaign.
+The next course, **The Advocacy Impact Engine**, goes deep on Stage 3 of the funnel. We'll turn that one-page plan into a multi-phase campaign.
 `,
       },
     ],
@@ -1101,7 +1101,7 @@ The next course — **The Advocacy Impact Engine** — goes deep on Stage 3 of t
   {
     title: 'The Advocacy Impact Engine',
     description: 'A master framework that bridges business innovation with systemic policy influence. Use your venture as empirical proof to policymakers.',
-    overview: 'Four phases for serious advocacy that gets policy moved. We diagnose hidden policy failures, assemble the human engine, build a stakeholder playbook (lawmakers, Kapanga), and execute through a five-step chronological pipeline. The output is regulatory change — not awareness.',
+    overview: 'Four phases for serious advocacy that gets policy moved. We diagnose hidden policy failures, assemble the human engine, build a stakeholder playbook (lawmakers, Kapanga), and execute through a five-step chronological pipeline. The output is regulatory change, not awareness.',
     category: 'Civic Participation',
     difficulty_level: 'advanced',
     estimated_duration_hours: 16,
@@ -1116,7 +1116,7 @@ The next course — **The Advocacy Impact Engine** — goes deep on Stage 3 of t
     ],
     modules: [
       {
-        title: 'Phase 1 — Diagnosis & Ideation: Symptoms to Underground Policy Failures',
+        title: 'Phase 1, Diagnosis & Ideation: Symptoms to Underground Policy Failures',
         description: 'Surface market friction is the tip of the iceberg. Trace it down to the policy mechanism that caused it.',
         minutes: 105,
         objectives: [
@@ -1125,11 +1125,11 @@ The next course — **The Advocacy Impact Engine** — goes deep on Stage 3 of t
           'Identify which specific clauses are load-bearing in your problem',
         ],
         keywords: ['diagnosis', 'policy-failure', 'stakeholder-mapping'],
-        content: `# Phase 1 — Diagnosis & Ideation
+        content: `# Phase 1, Diagnosis & Ideation
 
 ## The principle
 
-Markets don't fail because of "the economy." They fail because of **specific policy mechanisms** — clauses, fee schedules, licensing chokepoints, enforcement asymmetries — that nobody talks about because they're three layers below the visible problem.
+Markets don't fail because of "the economy." They fail because of **specific policy mechanisms**, clauses, fee schedules, licensing chokepoints, enforcement asymmetries, that nobody talks about because they're three layers below the visible problem.
 
 This module trains the discipline of **drilling down**.
 
@@ -1153,7 +1153,7 @@ For your chosen friction, drill in five questions:
 Be specific. *"Of 30 youth-led food businesses in my ward, 21 closed in 18 months. Average reason: cashflow gap during permit renewal."*
 
 ### Q2: What is the immediate operational cause?
-*"Permit renewal takes 4–6 months and costs KES 22,000."*
+*"Permit renewal takes 4 to 6 months and costs KES 22,000."*
 
 ### Q3: What regulation governs that operation?
 *"The County Trade Licensing Act, Section 7, sub-3."*
@@ -1170,10 +1170,10 @@ Now you have a **diagnosis precise enough to advocate around**. Not "youth need 
 
 Every venture or campaign operates in a stack. Know all four layers:
 
-1. **Constitutional** — what the Constitution requires (e.g., Article 55 on youth)
-2. **National statute** — Acts of Parliament (e.g., Public Procurement Act → AGPO 30%)
-3. **Sectoral regulation** — sector ministries' regulations (Trade, Health, Labour, ICT)
-4. **County instruments** — Finance Acts, County Trade Licensing Acts, County Youth Policies
+1. **Constitutional**, what the Constitution requires (e.g., Article 55 on youth)
+2. **National statute**, Acts of Parliament (e.g., Public Procurement Act → AGPO 30%)
+3. **Sectoral regulation**, sector ministries' regulations (Trade, Health, Labour, ICT)
+4. **County instruments**, Finance Acts, County Trade Licensing Acts, County Youth Policies
 
 Most live frictions sit in layers 3 and 4. Most attention goes to layer 2. **The advocacy edge is in being literate at layer 3 and 4 while your peers are still arguing about layer 2.**
 
@@ -1198,7 +1198,7 @@ A founder who knows only Art. 55 will fundraise on rhetoric. A founder who knows
 
 For your chosen friction:
 
-1. Walk through Q1–Q5.
+1. Walk through Q1, Q5.
 2. Map the policy stack: which clause in which act in which layer is load-bearing?
 3. Draft the **minimum sufficient policy change** as a single sentence.
 
@@ -1206,11 +1206,11 @@ This sentence is the seed of your advocacy strategy. We carry it through the res
 
 ## What's Next
 
-Phase 2 — The Human Engine. The strategy is only as good as the team running it. We turn the EET framework into an *operational matrix* for advocacy work.
+Phase 2, The Human Engine. The strategy is only as good as the team running it. We turn the EET framework into an *operational matrix* for advocacy work.
 `,
       },
       {
-        title: 'Phase 2 — The Human Engine: Internal Leadership + EET Matrix',
+        title: 'Phase 2, The Human Engine: Internal Leadership + EET Matrix',
         description: 'Strategy is downstream of team. Run the EET framework as an operational matrix for your advocacy crew.',
         minutes: 90,
         objectives: [
@@ -1219,7 +1219,7 @@ Phase 2 — The Human Engine. The strategy is only as good as the team running i
           'Define ecosystem influence rings (Core / Allies / Witnesses)',
         ],
         keywords: ['team-building', 'EET-matrix', 'ecosystem'],
-        content: `# Phase 2 — The Human Engine
+        content: `# Phase 2, The Human Engine
 
 ## The premise
 
@@ -1227,7 +1227,7 @@ Advocacy strategies don't fail from bad logic. They fail from bad teams. The wro
 
 ## The four roles every advocacy team needs
 
-You don't need four people. You need four roles **assigned and accountable** — sometimes overlapping in a small team. But every role must exist.
+You don't need four people. You need four roles **assigned and accountable**, sometimes overlapping in a small team. But every role must exist.
 
 ### 1. The Diagnostician
 Owns the policy stack. Reads acts, regulations, gazette notices. Can articulate the load-bearing clause and the minimum sufficient change.
@@ -1236,7 +1236,7 @@ Owns the policy stack. Reads acts, regulations, gazette notices. Can articulate 
 Owns the human network. Knows who to call. Builds the coalition. Manages the *Kapanga* relationships from Module 5 of the Leadership Blueprint.
 
 ### 3. The Storyteller
-Owns the narrative. Translates the diagnosis into language that moves rooms — testimony, op-eds, social, briefings. Without this person, the diagnosis dies on a Notion page.
+Owns the narrative. Translates the diagnosis into language that moves rooms, testimony, op-eds, social, briefings. Without this person, the diagnosis dies on a Notion page.
 
 ### 4. The Operator
 Owns the execution rhythm. Tracks deadlines, follows up, confirms attendance, captures decisions in writing. Without this person, the strategy melts on contact with reality.
@@ -1263,7 +1263,7 @@ In Course 1 we treated E.E.T. (Education, Training, Empowerment) as a personal a
 
 Audit your team weekly: where's the weakest cell in the matrix? That's your hiring or training priority for the month.
 
-## Ecosystem influence — the three rings
+## Ecosystem influence, the three rings
 
 \`\`\`
        ┌───────────────────────┐
@@ -1286,13 +1286,13 @@ Audit your team weekly: where's the weakest cell in the matrix? That's your hiri
        └───────────────────────┘
 \`\`\`
 
-### Core (3–7 people)
+### Core (3 to 7 people)
 The people who hold the strategy, the secrets, the calendar. Total trust. Meets weekly. Decisions live here.
 
-### Allies (15–50 people)
+### Allies (15 to 50 people)
 Coalition members. Funders. Domain experts. They lend reputation, budget, or expertise. Meet monthly. They get briefed, not consulted on every decision.
 
-### Witnesses (hundreds–thousands)
+### Witnesses (hundreds, thousands)
 The public who will notice when the campaign breaks through. They're not strategy partners. They're the audience. They get the *outputs* (op-ed, social, public hearing testimony).
 
 ### The error
@@ -1312,7 +1312,7 @@ This document prevents 80% of the relational fractures that kill campaigns.
 
 ## Sheng Reality Check
 
-> *Strategy bila team ni planning fiction. Team bila roles wazi ni group chat ya stress. Define wapi kila mtu yuko, na rings za influence — Core, Allies, Witnesses.*
+> *Strategy bila team ni planning fiction. Team bila roles wazi ni group chat ya stress. Define wapi kila mtu yuko, na rings za influence, Core, Allies, Witnesses.*
 
 ## Action Item
 
@@ -1323,12 +1323,12 @@ This document prevents 80% of the relational fractures that kill campaigns.
 
 ## What's Next
 
-Phase 3 — The Playbook. Now that we have a diagnosis and a team, we build the actual stakeholder map and tactical playbook. This is where Sheria ya Vijana, lawmakers, and Kapanga relationships become a *plan*, not a hope.
+Phase 3, The Playbook. Now that we have a diagnosis and a team, we build the actual stakeholder map and tactical playbook. This is where Sheria ya Vijana, lawmakers, and Kapanga relationships become a *plan*, not a hope.
 `,
       },
       {
-        title: 'Phase 3 — The Playbook: Lawmakers, Sheria ya Vijana, "Kapanga" Stakeholders',
-        description: 'Convert diagnosis + team into a stakeholder map and tactical plan. Move lawmakers — and the Kapanga who guard the door.',
+        title: 'Phase 3, The Playbook: Lawmakers, Sheria ya Vijana, "Kapanga" Stakeholders',
+        description: 'Convert diagnosis + team into a stakeholder map and tactical plan. Move lawmakers, and the Kapanga who guard the door.',
         minutes: 110,
         objectives: [
           'Build a Power × Interest stakeholder matrix for your campaign',
@@ -1337,7 +1337,7 @@ Phase 3 — The Playbook. Now that we have a diagnosis and a team, we build the 
           'Sequence outreach to maximize movement and minimize wasted asks',
         ],
         keywords: ['stakeholder-mapping', 'lawmakers', 'Kapanga', 'tactics'],
-        content: `# Phase 3 — The Playbook
+        content: `# Phase 3, The Playbook
 
 ## The matrix
 
@@ -1358,17 +1358,17 @@ Power ↑       │ (don't       │  (your primary  │
               └──────────────┴─────────────────┘
 \`\`\`
 
-### Engage Closely — your primary targets
+### Engage Closely, your primary targets
 High power, high interest. They can move the policy AND they already care. Pour your energy here. Build the deepest relationships. Provide the highest-quality briefings.
 
-### Keep Satisfied — defensive engagement
+### Keep Satisfied, defensive engagement
 High power, low interest. They could veto. Don't antagonize. Brief them lightly. Make sure they hear your story from you, not from your opponents.
 
-### Keep Informed — your base
+### Keep Informed, your base
 Low power, high interest. The CSOs, the affected community, the sympathetic press. They amplify your story. Give them content they can use. Don't ask them for things they can't deliver.
 
-### Monitor — light touch
-Low power, low interest. Light periodic touch. Don't waste your time, but don't disappear either — interest can change.
+### Monitor, light touch
+Low power, low interest. Light periodic touch. Don't waste your time, but don't disappear either, interest can change.
 
 ## Mapping Sheria ya Vijana to levers
 
@@ -1378,22 +1378,22 @@ Examples from the Kenyan stack:
 
 | Sheria ya Vijana provision | Lever it unlocks |
 |---|---|
-| Constitution Art. 55 (youth) | Constitutional duty argument — high in courts, medium in committees |
-| Public Procurement Act §157 (AGPO 30%) | Procurement reservation enforcement — county-by-county leverage |
-| Youth Enterprise Development Fund Act | Direct financing channel — affects programme design |
-| County Youth Policy (where it exists) | Budget allocation argument — Finance Act amendments |
-| County Trade Licensing Acts | Direct regulatory amendment — fastest local wins |
+| Constitution Art. 55 (youth) | Constitutional duty argument, high in courts, medium in committees |
+| Public Procurement Act §157 (AGPO 30%) | Procurement reservation enforcement, county-by-county leverage |
+| Youth Enterprise Development Fund Act | Direct financing channel, affects programme design |
+| County Youth Policy (where it exists) | Budget allocation argument, Finance Act amendments |
+| County Trade Licensing Acts | Direct regulatory amendment, fastest local wins |
 
 **Question for every campaign:** if you got a court ruling, would that move it? If you got a committee chair, would that move it? If you got a county Finance Act amendment, would that move it? The answer tells you which level to anchor.
 
 ## The Kapanga doctrine
 
-(*Kapanga* is shorthand for the operators who quietly control access and pace — chiefs of staff, committee clerks, senior advisors.)
+(*Kapanga* is shorthand for the operators who quietly control access and pace, chiefs of staff, committee clerks, senior advisors.)
 
 ### Why Kapanga matter
 A senator who supports your cause but whose Kapanga has never heard your name will... eventually get to your memo. Maybe. After the budget passes. After the recess.
 
-A Kapanga who has been briefed, who trusts you, who knows your stat — moves your file to the top of the principal's pile. Quietly. Reliably.
+A Kapanga who has been briefed, who trusts you, who knows your stat, moves your file to the top of the principal's pile. Quietly. Reliably.
 
 ### Approaching Kapanga correctly
 
@@ -1406,8 +1406,8 @@ A Kapanga who has been briefed, who trusts you, who knows your stat — moves yo
 **Do:**
 - Build the relationship before you have an ask
 - Treat them as the substantive expert they often are (Kapanga frequently know the policy stack better than the principal)
-- Bring them quality work — briefs, data, drafts — so they can look good when they brief up
-- Acknowledge their work. *"Senator Z mentioned the report you put together last quarter — that framing helped us think."*
+- Bring them quality work, briefs, data, drafts, so they can look good when they brief up
+- Acknowledge their work. *"Senator Z mentioned the report you put together last quarter, that framing helped us think."*
 
 ### The Kapanga ladder
 
@@ -1427,15 +1427,15 @@ Map, for every primary target, the Kapanga chain:
 
 Build relationships at each rung. The Personal Assistant gets you on the calendar. The Policy Advisor decides whether your briefing reaches the principal's reading pile. The Committee Clerk decides whether your draft language survives mark-up.
 
-## Sequencing — the order matters
+## Sequencing, the order matters
 
 Don't approach in random order. The right sequence:
 
-1. **Witnesses first** — build a base of evidence and sympathetic public visibility. This is what serious targets check before agreeing to meet.
-2. **Allies next** — secure coalition. A campaign with one founder is a complaint. A campaign with 12 organizations is a movement.
-3. **Kapanga at primary targets** — substantive briefings. Build trust, not asks.
-4. **Primary targets** — the formal meeting with the principal. By this point, the Kapanga has already pre-sold your story.
-5. **Defensive engagement** — Keep Satisfied stakeholders briefed so they aren't surprised when the principal moves.
+1. **Witnesses first**, build a base of evidence and sympathetic public visibility. This is what serious targets check before agreeing to meet.
+2. **Allies next**, secure coalition. A campaign with one founder is a complaint. A campaign with 12 organizations is a movement.
+3. **Kapanga at primary targets**, substantive briefings. Build trust, not asks.
+4. **Primary targets**, the formal meeting with the principal. By this point, the Kapanga has already pre-sold your story.
+5. **Defensive engagement**, Keep Satisfied stakeholders briefed so they aren't surprised when the principal moves.
 
 Most amateur campaigns reverse this order. They go straight to the principal. They get a polite meeting. Nothing moves.
 
@@ -1447,16 +1447,16 @@ Most amateur campaigns reverse this order. They go straight to the principal. Th
 
 1. List **all stakeholders** for your campaign. Plot each on the Power × Interest matrix.
 2. For each primary target, **map the Kapanga ladder**.
-3. Identify your **legal anchor** — which Sheria ya Vijana provision is your scaffolding?
+3. Identify your **legal anchor**, which Sheria ya Vijana provision is your scaffolding?
 4. Write your **sequencing plan** for the next 90 days.
 
 ## What's Next
 
-Phase 4 — Execution & Evolution. We turn the plan into a campaign that uses your live product or service as **empirical proof** to policymakers. This is what separates serious advocacy from awareness work.
+Phase 4, Execution & Evolution. We turn the plan into a campaign that uses your live product or service as **empirical proof** to policymakers. This is what separates serious advocacy from awareness work.
 `,
       },
       {
-        title: 'Phase 4 — Execution & Evolution: Business-as-Proof',
+        title: 'Phase 4, Execution & Evolution: Business-as-Proof',
         description: 'Launch the campaign. Use your live venture as empirical proof to policymakers. Adapt as evidence accumulates.',
         minutes: 95,
         objectives: [
@@ -1465,7 +1465,7 @@ Phase 4 — Execution & Evolution. We turn the plan into a campaign that uses yo
           'Adapt the campaign without losing strategic coherence',
         ],
         keywords: ['execution', 'business-as-proof', 'campaigning'],
-        content: `# Phase 4 — Execution & Evolution
+        content: `# Phase 4, Execution & Evolution
 
 ## The doctrine: business as empirical proof
 
@@ -1497,26 +1497,26 @@ The Core meets. Reviews the past 14 days: what was the diagnostic update, who di
 ### Loop 3: Strategic (Quarterly)
 The Core + key Allies meet. Step back. Is the diagnosis still right? Is the policy window still open? Has the stakeholder landscape shifted? Do we pivot tactics or hold?
 
-Most failed campaigns run only Loop 2 — they're tactically busy and strategically blind.
+Most failed campaigns run only Loop 2, they're tactically busy and strategically blind.
 
 ## Tactical moves and when to use them
 
 | Tactic | When it works | When it backfires |
 |---|---|---|
 | **Memorandum / Policy Brief** | When you need to get on the formal record and arm Kapanga with a citable document | When the team isn't fluent enough to defend it in committee |
-| **Op-ed** | Public visibility moment — early in the campaign or just before a key decision | When the principal hates being pressured in public |
-| **Public Hearing Testimony** | When a committee is taking submissions and you have a tight, evidence-loaded 3-minute statement | When the hearing is performative — wastes the team's best moment |
+| **Op-ed** | Public visibility moment, early in the campaign or just before a key decision | When the principal hates being pressured in public |
+| **Public Hearing Testimony** | When a committee is taking submissions and you have a tight, evidence-loaded 3-minute statement | When the hearing is performative, wastes the team's best moment |
 | **Direct Briefing** | When you have the relationship and the principal has decision authority | If you skip it and rely on op-eds only |
-| **Court Action** | When the policy violates a clear constitutional or statutory provision and political channels are closed | As a first move — burns relationships permanently |
-| **Coalition Letter** | To prove breadth of support; signed by 8–20 orgs | If signed by people who haven't actually read it |
+| **Court Action** | When the policy violates a clear constitutional or statutory provision and political channels are closed | As a first move, burns relationships permanently |
+| **Coalition Letter** | To prove breadth of support; signed by 8 to 20 orgs | If signed by people who haven't actually read it |
 
 ## Evolving the campaign
 
 Evidence accumulates. The landscape moves. The discipline is to **adapt tactics while preserving strategic intent**.
 
 What you don't change mid-campaign:
-- The diagnosis (Phase 1) — unless you genuinely got it wrong
-- The minimum sufficient policy change — unless a new pathway opens
+- The diagnosis (Phase 1), unless you genuinely got it wrong
+- The minimum sufficient policy change, unless a new pathway opens
 
 What you do change:
 - Tactics that aren't producing movement
@@ -1526,7 +1526,7 @@ What you do change:
 
 ### The "kill criterion"
 
-Before you launch, define a **kill criterion** — what would tell you the campaign isn't working and you should redirect?
+Before you launch, define a **kill criterion**, what would tell you the campaign isn't working and you should redirect?
 
 Examples:
 - "After 6 months of engagement, no scheduled meeting with the Committee Chair → we shift to coalition + court route."
@@ -1538,27 +1538,27 @@ Without a kill criterion, you'll run a dying campaign for two extra years.
 
 If the policy moves, two final disciplines:
 
-1. **Implementation watch.** Most policy wins are paper wins. The County Finance Act amendment passes — and the county licensing office doesn't update its workflow for 18 months. Your campaign isn't done. You shift from advocacy to implementation monitoring.
+1. **Implementation watch.** Most policy wins are paper wins. The County Finance Act amendment passes, and the county licensing office doesn't update its workflow for 18 months. Your campaign isn't done. You shift from advocacy to implementation monitoring.
 2. **Capture the playbook.** Write down what worked, what didn't, who moved when, what evidence was decisive. This is your contribution to the next generation of youth advocates. Many won't write it. You will.
 
 ## Sheng Reality Check
 
-> *Hatuandiki memos bure. Tunatumia biz yetu as the proof. Real numbers, real customers, real cost. Policy makers wanachoka na "surveys" — wanaheshimu data ya operations.*
+> *Hatuandiki memos bure. Tunatumia biz yetu as the proof. Real numbers, real customers, real cost. Policy makers wanachoka na "surveys", wanaheshimu data ya operations.*
 
 ## Action Item
 
-1. Define the **3–5 operational metrics** from your venture that double as advocacy evidence. Begin tracking them deliberately if you aren't already.
+1. Define the **3 to 5 operational metrics** from your venture that double as advocacy evidence. Begin tracking them deliberately if you aren't already.
 2. Choose **three tactics** appropriate to your current campaign stage (early / mid / late).
 3. Write your **kill criterion** in one sentence.
 4. Sketch the **three loops** (Operational / Campaign / Strategic) with cadence and owner.
 
 ## What's Next
 
-Final module — the five-step **Chronological Pipeline** that ties Phases 1–4 into a deployable sequence you can run, in order, the moment this course ends.
+Final module, the five-step **Chronological Pipeline** that ties Phases 1 to 4 into a deployable sequence you can run, in order, the moment this course ends.
 `,
       },
       {
-        title: 'The Chronological Pipeline — A 5-Step Deployment Sequence',
+        title: 'The Chronological Pipeline, A 5-Step Deployment Sequence',
         description: 'Synthesis. Tie the four phases into a single deployable pipeline you can run from Monday morning.',
         minutes: 80,
         objectives: [
@@ -1615,21 +1615,21 @@ You translated diagnosis into language for three audiences:
 ### 04. Tactic Deployment
 *(Course 3 Phase 4 execution)*
 
-You ran the campaign rhythm — Operational / Campaign / Strategic loops. You deployed memos, briefings, hearings, op-eds in the right sequence for the right audiences.
+You ran the campaign rhythm, Operational / Campaign / Strategic loops. You deployed memos, briefings, hearings, op-eds in the right sequence for the right audiences.
 
-**Done when:** you hit a defined milestone — a meeting confirmed, a clause amended, a regulation issued — *or* your kill criterion triggers.
+**Done when:** you hit a defined milestone, a meeting confirmed, a clause amended, a regulation issued, *or* your kill criterion triggers.
 
 ### 05. Review & Adapt
 *(closes the loop)*
 
-The campaign generated outcomes — wins, losses, or stalemates. The Core sits down and runs a **structured retrospective**:
+The campaign generated outcomes, wins, losses, or stalemates. The Core sits down and runs a **structured retrospective**:
 
 - What worked, and why?
 - What didn't, and why?
 - What did we learn about the stakeholder landscape we didn't know going in?
 - Should we return to Step 01 (the diagnosis was incomplete) or Step 03 (the diagnosis was right, the message wasn't landing)?
 
-The pipeline doesn't end. It cycles. **The most experienced youth advocates have run this pipeline 4–6 times across different issues by the time they're 30.** Each cycle they get faster.
+The pipeline doesn't end. It cycles. **The most experienced youth advocates have run this pipeline 4 to 6 times across different issues by the time they're 30.** Each cycle they get faster.
 
 ## The campaign canvas (one page)
 
@@ -1657,9 +1657,9 @@ LEAD: _______________________   CORE TEAM: _____________________
    For public (250w):    ____________________________________
 
 04 TACTICS (sequenced, next 90 days)
-   Week 1–2:   __________________________________________
-   Week 3–6:   __________________________________________
-   Week 7–12:  __________________________________________
+   Week 1 to 2:   __________________________________________
+   Week 3 to 6:   __________________________________________
+   Week 7 to 12:  __________________________________________
 
 05 REVIEW
    Next review date: _________________
@@ -1676,7 +1676,7 @@ Set three time-bound checkpoints:
 - **90 days:** First evidence package delivered. Coalition signed up. Primary target meeting confirmed.
 - **180 days:** First public moment (hearing testimony, op-ed, or briefing). Decision window analysed. Kill criterion not yet triggered.
 
-If you're significantly behind any milestone, you have a structural problem — not a pace problem. Stop. Review. Adapt.
+If you're significantly behind any milestone, you have a structural problem, not a pace problem. Stop. Review. Adapt.
 
 ## Sheng Reality Check
 
@@ -1693,22 +1693,22 @@ If you're significantly behind any milestone, you have a structural problem — 
 
 You now have:
 - A diagnostic engine for surfacing underground policy mechanisms (Phase 1)
-- A human engine — roles, EET matrix, rings of influence (Phase 2)
+- A human engine, roles, EET matrix, rings of influence (Phase 2)
 - A stakeholder playbook with Sheria ya Vijana anchors and Kapanga ladders (Phase 3)
 - An execution rhythm using business-as-proof (Phase 4)
 - A deployable five-step pipeline (this module)
 
-Now the work begins. The next course — **Diagnosing Impact** — gives you the M&E discipline to prove your cure with empirical, unassailable data.
+Now the work begins. The next course, **Diagnosing Impact**, gives you the M&E discipline to prove your cure with empirical, unassailable data.
 `,
       },
     ],
   },
 
   // =========================================================================
-  // COURSE 4: Diagnosing Impact — Proving the Cure
+  // COURSE 4: Diagnosing Impact, Proving the Cure
   // =========================================================================
   {
-    title: 'Diagnosing Impact — Proving the Cure',
+    title: 'Diagnosing Impact, Proving the Cure',
     description: 'Evidence-based project design. Transform messy qualitative field realities into empirical, unassailable data.',
     overview: 'Five modules of M&E discipline for serious youth changemakers. We use the Iceberg of Visibility, run the 5 Whys descent, sort failures with Fishbone, design the Results Chain, pick signal-over-noise KPIs, and close the feedback loop. The output is a project that can defend its own claims to a sceptical funder, regulator, or community.',
     category: 'Climate Advocacy',
@@ -1720,7 +1720,7 @@ Now the work begins. The next course — **Diagnosing Impact** — gives you the
       'Run a 5 Whys descent to find the Core Intervention Point',
       'Sort failure vectors using the Fishbone (Ishikawa) diagram',
       'Build a Results Chain from Inputs to Impact',
-      'Select 3–5 signal-over-noise KPIs that survive scrutiny',
+      'Select 3 to 5 signal-over-noise KPIs that survive scrutiny',
       'Close the loop with structured end-line evaluation that seeds the next cycle',
     ],
     modules: [
@@ -1756,19 +1756,19 @@ Now the work begins. The next course — **Diagnosing Impact** — gives you the
       ╱           │           ╲
 \`\`\`
 
-90% of what determines outcomes is below the water. Most M&E and most journalism live at the Events tip. Most policy lives at the Structures depth. Most useful intervention thinking lives at the Patterns layer — where you can still act, but you're not chasing every wave.
+90% of what determines outcomes is below the water. Most M&E and most journalism live at the Events tip. Most policy lives at the Structures depth. Most useful intervention thinking lives at the Patterns layer, where you can still act, but you're not chasing every wave.
 
 ## Events
 
 A single observation. *"Three youth-led businesses closed in our ward last month."*
 
-Events feel urgent. They drive reactive intervention. They're often misleading because they're random sampling — sometimes you happened to look during a bad month.
+Events feel urgent. They drive reactive intervention. They're often misleading because they're random sampling, sometimes you happened to look during a bad month.
 
 **Diagnostic question:** *Is this a one-off, or have I seen this before?*
 
 ## Patterns
 
-A repeated observation over time. *"Youth-led food businesses in our ward have a 6-month survival rate of 27%, against a sector average of 60% — consistent over 18 months."*
+A repeated observation over time. *"Youth-led food businesses in our ward have a 6-month survival rate of 27%, against a sector average of 60%, consistent over 18 months."*
 
 Patterns are where M&E earns its keep. You stop reacting to events and start *measuring* the recurring shape of reality.
 
@@ -1778,7 +1778,7 @@ Patterns are where M&E earns its keep. You stop reacting to events and start *me
 
 The underlying mechanics that *generate* the patterns. *"County-level permit costs are flat-rate regardless of business size; combined with cash-on-hand operations, this means small food businesses can't absorb permit renewal during dry-season cashflow gaps."*
 
-Structures are slow to move but high-leverage. You don't intervene here every day; you intervene here once per campaign — but the intervention rewrites many future patterns.
+Structures are slow to move but high-leverage. You don't intervene here every day; you intervene here once per campaign, but the intervention rewrites many future patterns.
 
 **Diagnostic question:** *What rule, norm, or incentive guarantees this pattern keeps appearing?*
 
@@ -1817,11 +1817,11 @@ If you only answer Question 1, you're a news anchor. If you answer 1 and 2, you'
 
 ## What's Next
 
-Module 2 introduces the **5 Whys Descent** — a more rigorous, surgical way to drill from any observation down to its actionable root.
+Module 2 introduces the **5 Whys Descent**, a more rigorous, surgical way to drill from any observation down to its actionable root.
 `,
       },
       {
-        title: 'The 5 Whys Descent — Finding the Core Intervention Point',
+        title: 'The 5 Whys Descent, Finding the Core Intervention Point',
         description: 'A rigorous root-cause descent. Stop at the level where action becomes possible.',
         minutes: 80,
         objectives: [
@@ -1848,7 +1848,7 @@ Originally from Toyota Production System. Deceptively simple: when you encounter
 
 You've descended from "people don't show up" to "our funder's contract structure is shaping our schedule wrong."
 
-**The Core Intervention Point** — where action becomes possible — is at *Why 4 or 5* here. Renegotiate the facilitator contract clause OR run a parallel evening cohort with a different staffing model.
+**The Core Intervention Point**, where action becomes possible, is at *Why 4 or 5* here. Renegotiate the facilitator contract clause OR run a parallel evening cohort with a different staffing model.
 
 If you'd stopped at Why 1 ("attendance falls"), your intervention would have been "send more reminders." Useless.
 
@@ -1861,14 +1861,14 @@ The descent isn't infinite. Stop at the level where:
 
 If "Why" #6 takes you into "the global geopolitical order," you've gone too deep. Back up one level.
 
-If "Why" #2 already names something you can change — fine. Stop there. The discipline isn't to take exactly 5 steps. It's to stop at the **core intervention point**.
+If "Why" #2 already names something you can change, fine. Stop there. The discipline isn't to take exactly 5 steps. It's to stop at the **core intervention point**.
 
 ## Common errors
 
 ### Error 1: Asking "Why" without evidence
 "Why?" demands an *answer with evidence*, not a guess. If you can't cite an interview, a metric, or a documented observation, your Why is speculation and the whole descent corrupts.
 
-**Fix:** every Why answer should reference a source. *"Because attendance falls during daytime — per our last 8 weeks of attendance logs."*
+**Fix:** every Why answer should reference a source. *"Because attendance falls during daytime, per our last 8 weeks of attendance logs."*
 
 ### Error 2: Asking "Why is X happening?" instead of "What causes X?"
 The first invites a story. The second invites a mechanism. Aim for mechanism.
@@ -1877,11 +1877,11 @@ The first invites a story. The second invites a mechanism. Aim for mechanism.
 You can't run 5 Whys with a thesis. If you already "know" the answer is "funding," you'll force every Why to land there. Run the descent honestly. Sometimes it leads somewhere you didn't expect.
 
 ### Error 4: Doing it alone
-A solo 5 Whys becomes confirmation bias. Run it with at least one other person — ideally someone from outside your team.
+A solo 5 Whys becomes confirmation bias. Run it with at least one other person, ideally someone from outside your team.
 
 ## The 5 Whys + Sheng
 
-Local context check: at each layer, ask *"would someone living this problem describe it this way?"* If your answer to Why 3 sounds like a McKinsey memo, your descent has gone abstract — drag it back to language a participant would actually use.
+Local context check: at each layer, ask *"would someone living this problem describe it this way?"* If your answer to Why 3 sounds like a McKinsey memo, your descent has gone abstract, drag it back to language a participant would actually use.
 
 ## Compounding with the Iceberg
 
@@ -1892,7 +1892,7 @@ The 5 Whys and the Iceberg are companion tools.
 
 Use Iceberg when you're surveying the field. Use 5 Whys when you've picked a specific problem to dissect.
 
-## Worked example #2 — climate advocacy
+## Worked example #2, climate advocacy
 
 **Problem:** *Our smallholder farmer adaptation programme has lower female participation than designed.*
 
@@ -1902,28 +1902,28 @@ Use Iceberg when you're surveying the field. Use 5 Whys when you've picked a spe
 > **Why?** Because there's only one shared meeting space in the village.
 > **Why?** Because under the County Devolution Allocation, this ward's community-infrastructure line has been unfunded for 3 years.
 
-The Core Intervention Point: *Why 3 or 4* (find or build an alternative meeting space, or rearrange morning use) — OR — *Why 5* (advocate for the devolution allocation, a longer-term play).
+The Core Intervention Point: *Why 3 or 4* (find or build an alternative meeting space, or rearrange morning use), OR, *Why 5* (advocate for the devolution allocation, a longer-term play).
 
 You now have a tactical option (alternative space) AND a strategic option (allocation advocacy). The 5 Whys gave you both.
 
 ## Sheng Reality Check
 
-> *5 Whys si swali tu. Ni descent. Each Why lazima iwe na ushahidi. Hapo ndo "Why" inakua silaha — sio storo.*
+> *5 Whys si swali tu. Ni descent. Each Why lazima iwe na ushahidi. Hapo ndo "Why" inakua silaha, sio storo.*
 
 ## Action Item
 
 1. Pick one **operational problem** in your current work.
-2. Run a **disciplined 5 Whys** — with at least one external partner, and with evidence cited at each layer.
+2. Run a **disciplined 5 Whys**, with at least one external partner, and with evidence cited at each layer.
 3. Identify your **Core Intervention Point**.
 4. Distinguish tactical and strategic intervention options. Pick which you'll act on this quarter.
 
 ## What's Next
 
-Module 3 introduces the **Fishbone Diagram** — when the problem isn't linear (which 5 Whys assumes) but instead involves multiple parallel causes feeding the same failure.
+Module 3 introduces the **Fishbone Diagram**, when the problem isn't linear (which 5 Whys assumes) but instead involves multiple parallel causes feeding the same failure.
 `,
       },
       {
-        title: 'Fishbone Categorization — Sorting Failure Vectors',
+        title: 'Fishbone Categorization, Sorting Failure Vectors',
         description: 'When failures have multiple parallel causes, the 5 Whys isn\'t enough. Sort them with the Ishikawa diagram.',
         minutes: 85,
         objectives: [
@@ -1932,11 +1932,11 @@ Module 3 introduces the **Fishbone Diagram** — when the problem isn't linear (
           'Combine Fishbone with 5 Whys for hybrid root-cause analysis',
         ],
         keywords: ['fishbone', 'ishikawa', 'root-cause', 'M&E'],
-        content: `# Fishbone Categorization — Sorting Failure Vectors
+        content: `# Fishbone Categorization, Sorting Failure Vectors
 
 ## When linear isn't enough
 
-The 5 Whys assumes a chain — one cause, deeper cause, deepest cause. Real-world failures often have **multiple parallel causes** that converge on a single failure. For these, you need a different shape: the Fishbone.
+The 5 Whys assumes a chain, one cause, deeper cause, deepest cause. Real-world failures often have **multiple parallel causes** that converge on a single failure. For these, you need a different shape: the Fishbone.
 
 ## The structure
 
@@ -1992,7 +1992,7 @@ How is the work done? Operational workflows, data systems, communication pattern
    POLICY                                       │
       • Committee operates under draft rules    │
         that don't allow externally-drafted     │
-        clauses — only formal Committee staff   │
+        clauses, only formal Committee staff   │
         drafts                                  │
       • Our memo referenced a competing         │
         sectoral act creating jurisdictional    │
@@ -2017,10 +2017,10 @@ Now you can see: this wasn't *one* failure. Five or six contributors stacked. **
 ## How to run it
 
 1. **Write the problem** crisply in the head of the fish.
-2. **Brainstorm causes** — not as a list, but sorted into the four bones as you go.
+2. **Brainstorm causes**, not as a list, but sorted into the four bones as you go.
 3. **Push for specifics.** "Bad communication" isn't a Procedure cause. "Updates went via email, but the chair only reads WhatsApp" is.
 4. **Combine with 5 Whys** on the highest-impact bone. For each major contributor, ask "Why?" twice to surface the deeper driver.
-5. **Score for leverage.** Of all the causes mapped, which 2–3 would, if changed, prevent recurrence? Those are your interventions.
+5. **Score for leverage.** Of all the causes mapped, which 2 to 3 would, if changed, prevent recurrence? Those are your interventions.
 
 ## Why this is harder than 5 Whys
 
@@ -2028,7 +2028,7 @@ Fishbone forces you to **see complexity you'd otherwise reduce away**. Most team
 
 This is uncomfortable. It also produces more durable interventions.
 
-## A second example — programme design
+## A second example, programme design
 
 **Problem:** *Our coastal adaptation training programme had only 30% completion.*
 
@@ -2045,22 +2045,22 @@ Same problem (low completion). Multiple compounding causes. Multiple interventio
 
 ## Sheng Reality Check
 
-> *Si kila failure ni "one big thing." Sometimes ni vitu tano vimekutana mahali pamoja. Fishbone inakulazimisha uone zote. Mtu mwenye anasema "the problem was X" before he's drawn the bones — wakili wa moja, sio M&E officer.*
+> *Si kila failure ni "one big thing." Sometimes ni vitu tano vimekutana mahali pamoja. Fishbone inakulazimisha uone zote. Mtu mwenye anasema "the problem was X" before he's drawn the bones, wakili wa moja, sio M&E officer.*
 
 ## Action Item
 
 1. Pick a **recent failure** (project, campaign, programme).
 2. Draw the Fishbone. Fill all four bones with specific contributors.
 3. Run **2-Why descents** on the top 2 contributors.
-4. Identify the **2–3 highest-leverage interventions** to prevent recurrence.
+4. Identify the **2 to 3 highest-leverage interventions** to prevent recurrence.
 
 ## What's Next
 
-Module 4 introduces the **Results Chain Blueprint** — the chronological model that turns Inputs into Impact. It's the spine of any M&E framework worth its name.
+Module 4 introduces the **Results Chain Blueprint**, the chronological model that turns Inputs into Impact. It's the spine of any M&E framework worth its name.
 `,
       },
       {
-        title: 'The Results Chain — Inputs → Activities → Outputs → Outcomes → Impact',
+        title: 'The Results Chain, Inputs → Activities → Outputs → Outcomes → Impact',
         description: 'The spine of any serious M&E framework. Chronological flow from resources to systemic shift.',
         minutes: 100,
         objectives: [
@@ -2090,7 +2090,7 @@ What you *do* with the inputs. Trainings delivered, memos drafted, meetings conv
 ### Outputs
 What the activities **immediately produce**. The countable, deliverable artifacts. "73 youth trained," "5 policy briefs published," "12 community dialogues held," "1 mobile app shipped."
 
-Outputs are NOT impact. They are the **evidence that the activity happened** — nothing more.
+Outputs are NOT impact. They are the **evidence that the activity happened**, nothing more.
 
 ### Outcomes
 The **behavioural or regulatory change** that flows from outputs. Did the trained youth start businesses? Did the briefed committee amend a clause? Did the dialogue lead to a documented community agreement? Did the app users change a behaviour?
@@ -2106,24 +2106,24 @@ This is the single most common M&E failure. **Funder reports are full of Outputs
 
 | Claimed as Outcome | Actually an Output | What the real Outcome would be |
 |---|---|---|
-| "We trained 200 youth" | Output — the training happened | "180 of 200 changed a measured workplace behaviour, sustained at 6 months" |
-| "We published 5 policy briefs" | Output — the briefs exist | "3 of the 5 briefs were cited in committee proceedings or led to a clause-level engagement" |
-| "We held 12 community dialogues" | Output — the dialogues happened | "Of the 12 dialogues, 8 produced a documented community-led agreement that was acted on within 90 days" |
+| "We trained 200 youth" | Output, the training happened | "180 of 200 changed a measured workplace behaviour, sustained at 6 months" |
+| "We published 5 policy briefs" | Output, the briefs exist | "3 of the 5 briefs were cited in committee proceedings or led to a clause-level engagement" |
+| "We held 12 community dialogues" | Output, the dialogues happened | "Of the 12 dialogues, 8 produced a documented community-led agreement that was acted on within 90 days" |
 
-Outputs are within your control. Outcomes require behaviour from people you don't control. That's why they're so much harder to claim — and so much more valuable when you can.
+Outputs are within your control. Outcomes require behaviour from people you don't control. That's why they're so much harder to claim, and so much more valuable when you can.
 
 ## Building a Results Chain
 
 Start at either end. Both directions work, but each catches different errors.
 
 ### Top-down (start at Impact)
-*"What systemic shift do I want in 3–5 years?"*
+*"What systemic shift do I want in 3 to 5 years?"*
 *"What Outcomes (behaviours, regulations) must occur for that Impact to be plausible?"*
 *"What Outputs would generate those Outcomes?"*
 *"What Activities produce those Outputs?"*
 *"What Inputs do those Activities require?"*
 
-Catches **vision drift** — the temptation to claim Impact you have no theory for.
+Catches **vision drift**, the temptation to claim Impact you have no theory for.
 
 ### Bottom-up (start at Inputs)
 *"Here's what I have: 3 staff, KES 2M, 6 months."*
@@ -2132,7 +2132,7 @@ Catches **vision drift** — the temptation to claim Impact you have no theory f
 *"What Outcomes would those Outputs plausibly drive?"*
 *"What Impact would those Outcomes contribute to?"*
 
-Catches **scope inflation** — the temptation to promise Outcomes your Inputs can't support.
+Catches **scope inflation**, the temptation to promise Outcomes your Inputs can't support.
 
 ## A worked example
 
@@ -2155,7 +2155,7 @@ OUTPUTS
   • 80 youth receive 1:1 permit-readiness clinic
   • 60 ventures formally registered
 
-OUTCOMES (target, 6–12 months)
+OUTCOMES (target, 6 to 12 months)
   • 65% of registered ventures still operating at 6 months
         (county baseline: 27%)
   • 50% of operating ventures meeting payroll for at least 2 employees
@@ -2181,7 +2181,7 @@ Naming the breakages is the discipline. Hoping no one notices is the failure mod
 
 ## Sheng Reality Check
 
-> *Funders wanasema "show us impact." Hatuwezi show impact in year 1. Tunashow Outputs honestly, Outcomes with evidence, and Impact as the medium-term theory. Mtu anayeahidi Impact ndani ya 12 months ni anajidanganya — au anakudanganya.*
+> *Funders wanasema "show us impact." Hatuwezi show impact in year 1. Tunashow Outputs honestly, Outcomes with evidence, and Impact as the medium-term theory. Mtu anayeahidi Impact ndani ya 12 months ni anajidanganya, au anakudanganya.*
 
 ## Action Item
 
@@ -2192,26 +2192,26 @@ Naming the breakages is the discipline. Hoping no one notices is the failure mod
 
 ## What's Next
 
-Module 5 closes the course: how to pick the **3–5 high-leverage KPIs** that survive scrutiny, and how to close the loop so end-line evaluation feeds back into the next cycle's diagnosis.
+Module 5 closes the course: how to pick the **3 to 5 high-leverage KPIs** that survive scrutiny, and how to close the loop so end-line evaluation feeds back into the next cycle's diagnosis.
 `,
       },
       {
         title: 'KPI Selection + The Feedback Loop',
-        description: 'Pick the 3–5 metrics that matter. Close the loop so evaluation seeds the next cycle.',
+        description: 'Pick the 3 to 5 metrics that matter. Close the loop so evaluation seeds the next cycle.',
         minutes: 85,
         objectives: [
-          'Select 3–5 signal-over-noise KPIs aligned to your Results Chain',
+          'Select 3 to 5 signal-over-noise KPIs aligned to your Results Chain',
           'Avoid the vanity metric trap',
           'Design an end-line evaluation that feeds back into the next cycle\'s diagnosis',
         ],
         keywords: ['KPIs', 'metrics', 'evaluation', 'feedback-loop'],
         content: `# KPI Selection + The Feedback Loop
 
-## Why 3–5, not 30
+## Why 3 to 5, not 30
 
 Funders ask for everything. Programme managers oblige. M&E plans balloon. By year two, the team is spending 40% of capacity feeding the metrics machine and 60% running the programme. Nothing learns from anything.
 
-The discipline: **3–5 KPIs**. Not 8. Not 15. The team must be able to recite all of them from memory. If they can't, the KPI list is broken.
+The discipline: **3 to 5 KPIs**. Not 8. Not 15. The team must be able to recite all of them from memory. If they can't, the KPI list is broken.
 
 ## What makes a KPI worth keeping
 
@@ -2221,15 +2221,15 @@ Every KPI you keep must pass four tests:
 Does it measure an Output, Outcome, or Impact you defined? If it doesn't map to a link, drop it.
 
 ### Test 2: Actually changeable by your work
-If the metric will move (or not) regardless of what you do — drop it. It's a context indicator, not a KPI.
+If the metric will move (or not) regardless of what you do, drop it. It's a context indicator, not a KPI.
 
 ### Test 3: Sensitive on the right timescale
-If the metric only moves over 5 years, but you're reviewing quarterly — you need a closer proxy. If it twitches daily, it's noise.
+If the metric only moves over 5 years, but you're reviewing quarterly, you need a closer proxy. If it twitches daily, it's noise.
 
 ### Test 4: Affordable to collect cleanly
 A metric that requires a 2-day field visit per data point will be collected once and then faked. Better to pick a slightly less precise metric you can actually maintain.
 
-## Output / Outcome / Impact KPIs — examples
+## Output / Outcome / Impact KPIs, examples
 
 For the worked example from Module 4:
 
@@ -2248,7 +2248,7 @@ A metric is vanity when it goes up *but doesn't tell you anything actionable*.
 | Vanity | Why it's vanity |
 |---|---|
 | Total reach / impressions | You can't tell who acted; usually grows with money spent on promotion |
-| "Lives touched" | Undefined — could be anything from "saw a poster" to "completed a programme" |
+| "Lives touched" | Undefined, could be anything from "saw a poster" to "completed a programme" |
 | Aggregate spend | Bigger budget ≠ better outcomes |
 | Number of stakeholders engaged | Engagement quality matters more than quantity |
 
@@ -2270,7 +2270,7 @@ You should be able to read your KPIs on one page, monthly. Like this:
 
 Five lines. Targets, current, trend, note. **This is what M&E delivers.** Not a 40-page report.
 
-## The Feedback Loop — closing the cycle
+## The Feedback Loop, closing the cycle
 
 End-line evaluation is where most M&E projects go to die. The team writes a report. The funder reads the executive summary. Nobody changes anything. The next cohort is designed identically to the last.
 
@@ -2278,11 +2278,11 @@ The discipline: **every end-line evaluation must seed the next cycle's diagnosis
 
 ### Three questions every end-line must answer
 
-1. **Where did our Outputs miss?** (And why? — Fishbone or 5 Whys it.)
+1. **Where did our Outputs miss?** (And why? Fishbone or 5 Whys it.)
 2. **Where did our Outputs land but our Outcomes didn't follow?** (This breaks your Output → Outcome assumption. Re-examine it.)
 3. **Where did our context change in ways our chain didn't anticipate?** (New policy, new entrants, exogenous events.)
 
-The answers go directly into the **Diagnosis** phase of the next cycle — replacing assumptions with evidence.
+The answers go directly into the **Diagnosis** phase of the next cycle, replacing assumptions with evidence.
 
 ### The loop in practice
 
@@ -2326,15 +2326,15 @@ What did we observe in the field that didn't make it into a metric? Stories, edg
 **Section 3 (30 min): What changes for next cycle?**
 Specific design changes. Specific KPI changes. Specific assumption updates. Captured in writing. Owned by named people.
 
-If you don't capture it in writing with owners — it didn't happen.
+If you don't capture it in writing with owners, it didn't happen.
 
 ## Sheng Reality Check
 
-> *Vanity metrics ni vibrations tu. Pick 3-5 KPIs ambazo zikiwa za uongo, the whole programme inakuwa uongo — ndo unajua ni real. Na bila feedback loop, kila cohort ni Cohort 1. Hutalearn kitu.*
+> *Vanity metrics ni vibrations tu. Pick 3-5 KPIs ambazo zikiwa za uongo, the whole programme inakuwa uongo, ndo unajua ni real. Na bila feedback loop, kila cohort ni Cohort 1. Hutalearn kitu.*
 
 ## Capstone Action Item
 
-1. Distil your current intervention into **3–5 KPIs** that pass all four tests.
+1. Distil your current intervention into **3 to 5 KPIs** that pass all four tests.
 2. Build the **one-page dashboard** template.
 3. Schedule the **first end-line retrospective** before your next cycle starts.
 4. Identify **two assumptions** from your Results Chain that the next cycle's evaluation will explicitly test.
@@ -2348,7 +2348,7 @@ You now have the full M&E spine:
 - The **Results Chain** to structure your theory of change
 - **KPI selection + the Feedback Loop** to keep the cycle learning
 
-Combined with Courses 1–3, you have the operating system, the leadership stack, the advocacy engine, and the M&E discipline of a serious youth changemaker. **The next decade of your work is to use them.**
+Combined with Courses 1 to 3, you have the operating system, the leadership stack, the advocacy engine, and the M&E discipline of a serious youth changemaker. **The next decade of your work is to use them.**
 `,
       },
     ],
@@ -2359,7 +2359,7 @@ Combined with Courses 1–3, you have the operating system, the leadership stack
   // =========================================================================
   {
     title: 'Product Development Essentials',
-    description: 'A pragmatic, 3-module primer on how to take an idea from a back-of-napkin sketch through wireframe, prototype, and launch — for youth founders who can\'t afford a 12-month roadmap.',
+    description: 'A pragmatic, 3-module primer on how to take an idea from a back-of-napkin sketch through wireframe, prototype, and launch, for youth founders who can\'t afford a 12-month roadmap.',
     overview: 'Drawn from the Product Development toolkit. Three short modules: defining the user problem with rigour, designing the minimum-viable interaction loop, and shipping iteratively without losing your sanity.',
     category: 'Business',
     difficulty_level: 'beginner',
@@ -2373,12 +2373,12 @@ Combined with Courses 1–3, you have the operating system, the leadership stack
     ],
     modules: [
       {
-        title: 'Define the Problem — User-Centred From Day One',
+        title: 'Define the Problem, User-Centred From Day One',
         description: 'Most product failures are problem-definition failures in disguise. Get this right and the rest follows.',
         minutes: 80,
         objectives: ['Write a one-sentence user problem statement', 'Conduct 5 problem interviews that surface real pain', 'Distinguish user need from user request'],
         keywords: ['product-discovery', 'user-research', 'problem-definition'],
-        content: `# Define the Problem — User-Centred From Day One
+        content: `# Define the Problem, User-Centred From Day One
 
 ## The most common product failure
 
@@ -2404,15 +2404,15 @@ If you can't write that sentence, you don't have a product yet. You have a vibe.
 - **Specific friction.** The actual mechanism getting in the way.
 - **Quantified cost.** What does this friction cost them in time, money, or opportunity?
 
-If your sentence has "people," "improve," "enable," or "empower" — rewrite it. Those words mean nothing.
+If your sentence has "people," "improve," "enable," or "empower", rewrite it. Those words mean nothing.
 
 ## The 5 problem interviews
 
 Before a single line of code or a single wireframe, do five problem interviews.
 
 ### Rules
-- **Talk to the user type, not your friends.** If your friends are the users, fine. Otherwise, this is harder than you think — recruit deliberately.
-- **Ask about the past, not the future.** "Tell me about the last time you renewed your permit. What did you do? Where did you get stuck?" — NOT "Would you use a permit-renewal app?"
+- **Talk to the user type, not your friends.** If your friends are the users, fine. Otherwise, this is harder than you think, recruit deliberately.
+- **Ask about the past, not the future.** "Tell me about the last time you renewed your permit. What did you do? Where did you get stuck?", NOT "Would you use a permit-renewal app?"
 - **Listen 80% of the time.** If you're talking more than the user, you're conducting a sales pitch, not an interview.
 - **Take notes verbatim.** Not your interpretation. Their exact words. (You'll see why later.)
 
@@ -2420,11 +2420,11 @@ Before a single line of code or a single wireframe, do five problem interviews.
 
 | Minutes | Section | Sample prompts |
 |---|---|---|
-| 0–5 | Context | "Tell me a bit about your work. How long have you been doing this?" |
-| 5–25 | Story | "Walk me through the last time [the problem] happened. From the very beginning. Don't skip steps." |
-| 25–35 | Cost | "What did this cost you? Time? Money? Anything else?" |
-| 35–40 | Workarounds | "How are you handling this today? What's working? What isn't?" |
-| 40–45 | Wishlist (carefully) | "If you could change one thing about this, what would it be?" |
+| 0 to 5 | Context | "Tell me a bit about your work. How long have you been doing this?" |
+| 5 to 25 | Story | "Walk me through the last time [the problem] happened. From the very beginning. Don't skip steps." |
+| 25 to 35 | Cost | "What did this cost you? Time? Money? Anything else?" |
+| 35 to 40 | Workarounds | "How are you handling this today? What's working? What isn't?" |
+| 40 to 45 | Wishlist (carefully) | "If you could change one thing about this, what would it be?" |
 
 That last question is **dangerous**. Users will invent features. Take the answers as raw material, not gospel.
 
@@ -2440,18 +2440,18 @@ The need is more durable than the request. Solve at the need level.
 
 ## After the 5 interviews
 
-You should be able to write — with evidence — answers to:
+You should be able to write, with evidence, answers to:
 
 1. What does the user actually do today? (their workaround)
 2. What does this cost them today? (in their own words / numbers)
 3. What's the single biggest source of friction? (cited in 3+ interviews)
-4. What language do they use about it? (not your jargon — theirs)
+4. What language do they use about it? (not your jargon, theirs)
 
 If three or more interviews didn't surface the same kind of pain, **your problem statement is wrong**. Rewrite it. Run five more. This is not optional.
 
 ## Sheng Reality Check
 
-> *Founder akianza coding kabla ya interviews tano — anajenga jiko ya hawa watu hajui kama wanapenda chai au coffee.*
+> *Founder akianza coding kabla ya interviews tano, anajenga jiko ya hawa watu hajui kama wanapenda chai au coffee.*
 
 ## Action Item
 
@@ -2462,7 +2462,7 @@ If three or more interviews didn't surface the same kind of pain, **your problem
 
 ## What's Next
 
-Module 2: with the problem clear, we design the minimum-viable interaction loop — the smallest possible flow that solves the real pain.
+Module 2: with the problem clear, we design the minimum-viable interaction loop, the smallest possible flow that solves the real pain.
 `,
       },
       {
@@ -2475,13 +2475,13 @@ Module 2: with the problem clear, we design the minimum-viable interaction loop 
 
 ## The one-moment principle
 
-Every product has a single **moment of value** — the instant where the user's pain is reduced and they think *"oh, this is useful."*
+Every product has a single **moment of value**, the instant where the user's pain is reduced and they think *"oh, this is useful."*
 
 For a permit-renewal app, the moment might be: *the user opens it, sees their renewal date and exactly the 3 documents required, and submits via the app in 4 taps.*
 
 For a job-matching service, the moment might be: *the user receives a daily SMS with 2 matched opportunities and a one-tap apply.*
 
-**Your v0 has one job: deliver that moment.** Everything else — settings, accounts, analytics, social — comes later.
+**Your v0 has one job: deliver that moment.** Everything else, settings, accounts, analytics, social, comes later.
 
 ## The single-page wireframe
 
@@ -2490,7 +2490,7 @@ Before you open any design tool, do this with paper:
 1. Draw 3 boxes in a row.
 2. Box 1: **Entry** (how does the user arrive?)
 3. Box 2: **The Moment** (what do they see / do at the moment of value?)
-4. Box 3: **What's next** (what comes after the moment? — usually nothing for v0)
+4. Box 3: **What's next** (what comes after the moment? usually nothing for v0)
 
 For your permit-renewal example:
 
@@ -2524,7 +2524,7 @@ Every cut feature is a future feature. You're not deleting forever. You're seque
 
 ## The "concierge" v0
 
-If your one-moment flow is hard to build, **don't build it yet — perform it.**
+If your one-moment flow is hard to build, **don't build it yet, perform it.**
 
 For the permit-renewal example: before building an SMS-app system, **manually** WhatsApp 10 kiosk owners 10 days before their renewal dates with the document list. See if they actually use it. If yes, automate. If no, you saved 3 months.
 
@@ -2534,13 +2534,13 @@ This is the **concierge MVP**. The user gets the experience; you do the back-end
 
 Once you have your three-box wireframe, audit:
 
-1. **Where does the user enter?** Is the entry realistic? (Don't assume people will download an app — what gets them to it?)
+1. **Where does the user enter?** Is the entry realistic? (Don't assume people will download an app, what gets them to it?)
 2. **What's the absolute minimum they need to do at "the moment"?** Tap once? Type one field? Show an ID? Make every step earn its place.
 3. **What's the success signal?** How will they know the moment delivered? (A confirmation. An SMS. A visible status change.)
 
 If any of these three are unclear in your wireframe, you're not ready to build.
 
-## Worked example — youth job matching
+## Worked example, youth job matching
 
 | Box | Content |
 |---|---|
@@ -2563,14 +2563,14 @@ No app. No website. No portal. SMS only. **And v0 is enough to test whether the 
 
 ## What's Next
 
-Module 3 — ship v0 within 14 days, collect the right feedback, iterate. The closing module of this standalone.
+Module 3, ship v0 within 14 days, collect the right feedback, iterate. The closing module of this standalone.
 `,
       },
       {
-        title: 'Ship, Measure, Iterate — Without Losing Your Sanity',
+        title: 'Ship, Measure, Iterate, Without Losing Your Sanity',
         description: 'Get v0 in front of real users within 14 days. Listen with discipline. Iterate without thrashing.',
         minutes: 70,
-        objectives: ['Ship v0 within 14 days of finishing Module 2', 'Define 1–2 metrics you\'ll watch before shipping', 'Iterate without losing strategic direction'],
+        objectives: ['Ship v0 within 14 days of finishing Module 2', 'Define 1 to 2 metrics you\'ll watch before shipping', 'Iterate without losing strategic direction'],
         keywords: ['shipping', 'iteration', 'metrics', 'product'],
         content: `# Ship, Measure, Iterate
 
@@ -2580,11 +2580,11 @@ Once your wireframe is done, you have **14 days** to get v0 in front of real use
 
 Why so tight? Because the longer you spend before shipping, the more attached you become to assumptions you haven't tested. **The work expands to fill the time available.** A 14-day window forces ruthlessness.
 
-If 14 days feels impossible — your v0 is too big. Cut more.
+If 14 days feels impossible, your v0 is too big. Cut more.
 
 ## Pre-ship: define two metrics
 
-Before you ship v0, write down two metrics — only two — that you'll watch.
+Before you ship v0, write down two metrics, only two, that you'll watch.
 
 | Metric type | Example for permit renewal | Example for job match |
 |---|---|---|
@@ -2600,7 +2600,7 @@ Define your **success threshold** before you ship. ("If less than 30% engage, we
 The ship checklist:
 - [ ] Three-box wireframe matches what you built (no scope creep)
 - [ ] Two metrics defined with success threshold
-- [ ] 5–10 real users recruited and ready
+- [ ] 5 to 10 real users recruited and ready
 - [ ] A way for users to give feedback (a phone number, a WhatsApp group, anything)
 - [ ] You're emotionally prepared to hear "this isn't useful"
 
@@ -2610,18 +2610,18 @@ When all five are checked: ship. Don't wait for "perfect." Perfect is a lie foun
 
 In the first 7 days after shipping:
 
-### Day 1–2: Watch the data
+### Day 1 to 2: Watch the data
 Don't interact yet. Watch how users behave when no one is helping them. Are they finding the entry point? Are they completing the moment?
 
-### Day 3–5: Talk to 3 users
+### Day 3 to 5: Talk to 3 users
 Call them. Ask:
 - *"Walk me through what you did when [the situation] happened. Did you remember to use [the product]?"*
 - *"Where did you get stuck? Where did you get confused?"*
 - *"If this disappeared tomorrow, would you notice?"*
 
-That last question is gold. If they wouldn't notice, your product doesn't matter to them yet. Don't take it personally — it's data.
+That last question is gold. If they wouldn't notice, your product doesn't matter to them yet. Don't take it personally, it's data.
 
-### Day 6–7: Synthesize
+### Day 6 to 7: Synthesize
 Write down:
 - What worked (with evidence)
 - What didn't work (with evidence)
@@ -2639,7 +2639,7 @@ If you change v0 every 3 days, you'll never know what worked. Let v0 run for the
 
 ### Rule 2: Distinguish "tweak" from "pivot"
 - **Tweak** = same problem, same user, same flow, different details ("change the SMS wording from formal to casual"). Do this often.
-- **Pivot** = different problem OR different user OR fundamentally different flow ("we thought permit renewal — actually the bigger pain is initial registration"). Do this rarely, and only with strong evidence.
+- **Pivot** = different problem OR different user OR fundamentally different flow ("we thought permit renewal, actually the bigger pain is initial registration"). Do this rarely, and only with strong evidence.
 
 ### Rule 3: Track your assumptions
 Keep a list of every assumption baked into v0. After each iteration, ask: *which assumption did this iteration test? Did it hold or break?*
@@ -2649,29 +2649,29 @@ Tested assumptions are gold. Untested assumptions are landmines.
 ## When to stop iterating on v0
 
 Iterate v0 until either:
-- **Your metrics hit your success threshold** consistently across 3+ cohorts — proceed to v1
-- **Iterations stop moving the metric** — your model has a deeper problem; revisit Module 1 (the problem)
-- **8 weeks have passed without movement** — most likely you mis-defined the problem; restart
+- **Your metrics hit your success threshold** consistently across 3+ cohorts, proceed to v1
+- **Iterations stop moving the metric**, your model has a deeper problem; revisit Module 1 (the problem)
+- **8 weeks have passed without movement**, most likely you mis-defined the problem; restart
 
 Don't iterate forever. Don't pivot at the first sign of friction either. Find the middle.
 
-## When v0 succeeds — what's next
+## When v0 succeeds, what's next
 
 v0 working = you have **proof of value**, not a business. Next steps:
 
-1. **Add the cuts back, slowly.** Onboarding, accounts, settings — re-evaluate each: is it now necessary? (Often the answer is "not yet.")
+1. **Add the cuts back, slowly.** Onboarding, accounts, settings, re-evaluate each: is it now necessary? (Often the answer is "not yet.")
 2. **Plan v1 as the scoot-then-bike progression.** Don't jump straight to the car.
 3. **Talk to the next 10 users.** Are they the same user type as the first 5? If not, you may have a segmentation issue.
 
 ## Sheng Reality Check
 
-> *Ship inakuwa, listen, iterate. Lakini bila metrics + threshold zilizoamuliwa kabla — utajidanganya. "Encouraging" si data.*
+> *Ship inakuwa, listen, iterate. Lakini bila metrics + threshold zilizoamuliwa kabla, utajidanganya. "Encouraging" si data.*
 
 ## Action Item
 
-1. Set a **ship date** — 14 days from completing Module 2.
+1. Set a **ship date**, 14 days from completing Module 2.
 2. Define your **two metrics** + **success threshold** before shipping.
-3. Recruit **5–10 real users** ready to use v0.
+3. Recruit **5 to 10 real users** ready to use v0.
 4. Run the **7-day listening window** post-ship.
 5. Pick **one fix** for iteration 1.
 
@@ -2689,12 +2689,12 @@ Now go build something small that matters to five people. Then ten. Then a hundr
   },
 
   // =========================================================================
-  // TEXT-ONLY STANDALONE 2: Sheria ya Vijana — Entrepreneurship Edition
+  // TEXT-ONLY STANDALONE 2: Sheria ya Vijana, Entrepreneurship Edition
   // =========================================================================
   {
-    title: 'Sheria ya Vijana — Entrepreneurship Edition',
-    description: 'The legal scaffolding every youth founder must know. Constitution, AGPO 30%, Youth Enterprise Fund, county trade licensing — what to invoke, what to avoid, where to push.',
-    overview: 'Three modules of practical legal literacy for youth-led ventures in Kenya. Not a law degree — a working knowledge of the Sheria ya Vijana stack that lets you fundraise, register, contract, and advocate without being intimidated by an act number.',
+    title: 'Sheria ya Vijana, Entrepreneurship Edition',
+    description: 'The legal scaffolding every youth founder must know. Constitution, AGPO 30%, Youth Enterprise Fund, county trade licensing, what to invoke, what to avoid, where to push.',
+    overview: 'Three modules of practical legal literacy for youth-led ventures in Kenya. Not a law degree, a working knowledge of the Sheria ya Vijana stack that lets you fundraise, register, contract, and advocate without being intimidated by an act number.',
     category: 'Digital Entrepreneurship',
     difficulty_level: 'intermediate',
     estimated_duration_hours: 6,
@@ -2707,12 +2707,12 @@ Now go build something small that matters to five people. Then ten. Then a hundr
     ],
     modules: [
       {
-        title: 'The Constitutional Floor — Article 55 and What It Means in Practice',
-        description: 'The constitutional baseline that youth founders rarely cite — and the reason they leave power on the table.',
+        title: 'The Constitutional Floor, Article 55 and What It Means in Practice',
+        description: 'The constitutional baseline that youth founders rarely cite, and the reason they leave power on the table.',
         minutes: 70,
         objectives: ['Quote Article 55 and explain its operative force', 'Recognize when government action falls short of the constitutional duty', 'Use the constitutional anchor in funding and advocacy conversations'],
         keywords: ['Constitution', 'Article-55', 'youth-rights', 'Sheria-ya-Vijana'],
-        content: `# The Constitutional Floor — Article 55
+        content: `# The Constitutional Floor, Article 55
 
 ## The text
 
@@ -2744,7 +2744,7 @@ The constitutional duty cascades through:
 | County instruments | County Youth Policies | Implementation budget allocations |
 | Sector ministries | Ministry of ICT youth programmes, etc. | Programme-specific opportunities |
 
-When a county Finance Act fails to allocate to a County Youth Policy — that's not just a budget oversight. It's a **constitutional shortfall**. You can name it as such.
+When a county Finance Act fails to allocate to a County Youth Policy, that's not just a budget oversight. It's a **constitutional shortfall**. You can name it as such.
 
 ## The operative phrases
 
@@ -2770,7 +2770,7 @@ It does:
 
 ## The court angle
 
-In rare cases, Article 55 has been invoked in court — usually when affirmative-action programmes are challenged or when youth representation is denied in formal bodies. Few founders need this; advocacy campaigners do. Know it exists.
+In rare cases, Article 55 has been invoked in court, usually when affirmative-action programmes are challenged or when youth representation is denied in formal bodies. Few founders need this; advocacy campaigners do. Know it exists.
 
 ## Sheng Reality Check
 
@@ -2780,45 +2780,45 @@ In rare cases, Article 55 has been invoked in court — usually when affirmative
 
 1. **Memorize** the four clauses of Article 55.
 2. In your next funding or advocacy conversation, **invoke Article 55** explicitly. Note how the room shifts.
-3. Identify **one State actor** (national or county) whose mandate touches youth — and **ask them how they're fulfilling Article 55** in their portfolio.
+3. Identify **one State actor** (national or county) whose mandate touches youth, and **ask them how they're fulfilling Article 55** in their portfolio.
 
 ## What's Next
 
-Module 2 — AGPO 30%. The most under-claimed asset in youth entrepreneurship policy. How to access it and how to defend your claim when a procuring entity tries to dodge.
+Module 2, AGPO 30%. The most under-claimed asset in youth entrepreneurship policy. How to access it and how to defend your claim when a procuring entity tries to dodge.
 `,
       },
       {
-        title: 'AGPO 30% — Public Procurement\'s Best-Kept Secret',
+        title: 'AGPO 30%, Public Procurement\'s Best-Kept Secret',
         description: 'Thirty percent of all public procurement is reserved for youth, women, and persons with disabilities. Most youth founders never claim it.',
         minutes: 85,
         objectives: ['Explain AGPO eligibility and the 30% reservation mechanism', 'Register your venture for AGPO certification', 'Identify and respond to procurement opportunities under AGPO', 'Recognize and challenge AGPO violations'],
         keywords: ['AGPO', 'procurement', 'youth-business', 'public-contracts'],
-        content: `# AGPO 30% — Public Procurement's Best-Kept Secret
+        content: `# AGPO 30%, Public Procurement's Best-Kept Secret
 
 ## The provision
 
 Under the Public Procurement and Asset Disposal Act and accompanying AGPO regulations, **30% of all public procurement** (national and county) is reserved for enterprises owned by:
 
-- Youth (18–35)
+- Youth (18 to 35)
 - Women
 - Persons with disabilities
 
-Eligible enterprises register under the **Access to Government Procurement Opportunities (AGPO)** programme. Once certified, they can bid on the reserved 30% — competing only against other AGPO-certified firms, not the open market.
+Eligible enterprises register under the **Access to Government Procurement Opportunities (AGPO)** programme. Once certified, they can bid on the reserved 30%, competing only against other AGPO-certified firms, not the open market.
 
 ## Why this matters
 
 The Kenya government spends **hundreds of billions** annually on procurement. Even fractional access to the 30% reserved share is transformational for a small youth-led venture.
 
-But — and this is the painful part — **AGPO is wildly under-utilized.** Many youth ventures don't know it exists. Many procuring entities exploit the lack of awareness to skip the reservation entirely. Some certified ventures are paper-only and don't actually bid.
+But, and this is the painful part, **AGPO is wildly under-utilized.** Many youth ventures don't know it exists. Many procuring entities exploit the lack of awareness to skip the reservation entirely. Some certified ventures are paper-only and don't actually bid.
 
 The opportunity for the literate youth founder: this is one of the most concrete competitive advantages available to you, and most of your peers haven't claimed it.
 
-## Eligibility — basic test
+## Eligibility, basic test
 
 To be AGPO-eligible (youth category):
 
 - Enterprise is registered (sole prop, partnership, or limited company)
-- At least **70% ownership** is by youth (18–35)
+- At least **70% ownership** is by youth (18 to 35)
 - For limited companies, at least **70% of directors** are youth
 - The enterprise has KRA registration and a valid tax compliance certificate
 - The enterprise has a CR12 (or equivalent ownership confirmation)
@@ -2827,7 +2827,7 @@ The category also accepts women-owned and PWD-owned enterprises under similar 70
 
 ## How to register
 
-The process — as of the current AGPO portal:
+The process, as of the current AGPO portal:
 
 1. Create an account on the AGPO portal (agpo.go.ke).
 2. Upload required documents:
@@ -2836,7 +2836,7 @@ The process — as of the current AGPO portal:
    - Tax compliance certificate
    - National IDs of owners/directors
    - Bank account confirmation
-3. Submit and await certification (typically 14–30 days).
+3. Submit and await certification (typically 14 to 30 days).
 4. Upon certification, you receive an AGPO certificate valid for two years (renewable).
 
 Once certified, your enterprise appears in the AGPO database, and procuring entities are required to include AGPO-reserved tenders in their pipeline.
@@ -2851,50 +2851,50 @@ Procuring entities publish AGPO-reserved tenders through:
 
 A serious AGPO bidder checks weekly. Set a calendar reminder. Many opportunities have 14-day windows; if you check monthly, you miss most.
 
-## Bidding — the discipline
+## Bidding, the discipline
 
 Three errors that disqualify AGPO bids:
 
 1. **Document gaps.** Tax compliance lapsed by a week. CR12 not current. KRA PIN of one director missing. Procuring entities use these to disqualify on technicality.
 2. **Past performance.** If you've never delivered a similar contract, you can't show track record. Start with smaller tenders and build a portfolio.
-3. **Pricing.** AGPO bids are still competitive. You don't win because you're certified — you win because your bid is also competitive against other AGPO bidders.
+3. **Pricing.** AGPO bids are still competitive. You don't win because you're certified, you win because your bid is also competitive against other AGPO bidders.
 
 **Three habits of successful AGPO bidders:**
 - Keep documents perpetually current (set calendar reminders 30 days before any expiry)
 - Build a portfolio of small completed contracts before chasing big ones
-- Network with other AGPO bidders — many opportunities are joint ventures, and consortium bids win contracts solo bids can't
+- Network with other AGPO bidders, many opportunities are joint ventures, and consortium bids win contracts solo bids can't
 
 ## When AGPO is violated
 
-Procuring entities sometimes skip the 30% reservation — either by claiming "no qualified AGPO bidders applied" without genuine outreach, or by bundling contracts so large that no AGPO-eligible firm can credibly bid.
+Procuring entities sometimes skip the 30% reservation, either by claiming "no qualified AGPO bidders applied" without genuine outreach, or by bundling contracts so large that no AGPO-eligible firm can credibly bid.
 
 If you observe this:
 
-1. Document specifics — tender number, dates, contract value, what was skipped.
+1. Document specifics, tender number, dates, contract value, what was skipped.
 2. File a complaint with the **Public Procurement Regulatory Authority (PPRA)**.
 3. Brief CSO partners (Article 19, Mzalendo, others working in procurement transparency).
 4. If your venture has standing (you would have bid), the **Public Procurement Administrative Review Board** is an option.
 
-This is hard work. It's also exactly the kind of advocacy that opens future opportunities — for you and for others.
+This is hard work. It's also exactly the kind of advocacy that opens future opportunities, for you and for others.
 
 ## Sheng Reality Check
 
-> *AGPO ni kibanda kimewekwa specifically for us — 30% ya gov spending. Lakini majority ya youth hawajawahi register. Si ku-complain serikali haiwasaidii kabla ya kushinda hii moja.*
+> *AGPO ni kibanda kimewekwa specifically for us, 30% ya gov spending. Lakini majority ya youth hawajawahi register. Si ku-complain serikali haiwasaidii kabla ya kushinda hii moja.*
 
 ## Action Item
 
 1. **Register your venture for AGPO certification** within 30 days (if eligible and not already done).
-2. **Bookmark tenders.go.ke and the AGPO portal** — set a weekly calendar reminder to scan.
+2. **Bookmark tenders.go.ke and the AGPO portal**, set a weekly calendar reminder to scan.
 3. **Identify 3 small AGPO-reserved tenders** in your sector this month. Even if you don't bid, study the requirements.
 4. Build the discipline of **keeping documents perpetually current.**
 
 ## What's Next
 
-Module 3 — the Youth Enterprise Development Fund and the county trade licensing layer. The financing pathway most youth ventures could access — and the licensing chokepoints worth advocating against.
+Module 3, the Youth Enterprise Development Fund and the county trade licensing layer. The financing pathway most youth ventures could access, and the licensing chokepoints worth advocating against.
 `,
       },
       {
-        title: 'Youth Enterprise Fund + County Trade Licensing — Money and Friction',
+        title: 'Youth Enterprise Fund + County Trade Licensing, Money and Friction',
         description: 'The dedicated financing channel for youth ventures, and the licensing layer where most operational pain actually lives.',
         minutes: 80,
         objectives: ['Access the Youth Enterprise Development Fund', 'Map your county\'s trade licensing pathway', 'Identify the licensing chokepoint most worth advocating against'],
@@ -2922,7 +2922,7 @@ Note: specific terms, ceilings, and rates change. Always confirm current terms o
 ### How to qualify
 
 Baseline requirements:
-- Youth (18–35) for individual products; majority youth for group products
+- Youth (18 to 35) for individual products; majority youth for group products
 - Business is registered (sole prop, partnership, limited company) OR is a registered youth group
 - Active KRA PIN
 - A viable business plan
@@ -2932,7 +2932,7 @@ Baseline requirements:
 
 Three habits of successful YEDF applicants:
 
-1. **The plan is real.** Your business plan should reflect actual operations or a credible launch — not a Word doc downloaded the morning of submission.
+1. **The plan is real.** Your business plan should reflect actual operations or a credible launch, not a Word doc downloaded the morning of submission.
 2. **Numbers match.** Bank statements, KRA filings, and your business plan need to tell the same story.
 3. **The use-of-funds is specific.** "Working capital" is weak. "Inventory purchase of 50 units of X at KES Y, with monthly turnover plan Z" is strong.
 
@@ -2953,25 +2953,25 @@ YEDF can be combined (carefully) with:
 - Bank facilities (YEDF as part of a stack, not the whole stack)
 - Equity from family or co-founders
 
-Avoid combining with other loan products before you've serviced the first cleanly — over-leverage kills more youth ventures than under-funding.
+Avoid combining with other loan products before you've serviced the first cleanly, over-leverage kills more youth ventures than under-funding.
 
-## Part 2: County Trade Licensing — Where Most Pain Lives
+## Part 2: County Trade Licensing, Where Most Pain Lives
 
 National-level instruments (Constitution, AGPO, YEDF) matter strategically. But for most youth ventures, the *daily operational pain* lives at the **county trade licensing** layer.
 
 Each of Kenya's 47 counties operates its own:
-- **County Finance Act** — sets fees, rates, and licensing structures annually
-- **County Trade Licensing Act** (or equivalent) — defines licensing categories, requirements, and processes
-- **Specific sector regulations** — for food, public health, transport, etc.
+- **County Finance Act**, sets fees, rates, and licensing structures annually
+- **County Trade Licensing Act** (or equivalent), defines licensing categories, requirements, and processes
+- **Specific sector regulations**, for food, public health, transport, etc.
 
 ### The common chokepoints
 
 | Chokepoint | What it looks like | Cost to ventures |
 |---|---|---|
 | Flat-rate licensing | A tea kiosk pays the same as a hotel for a category | Pricing out small ventures |
-| Slow renewals | Renewal takes 30–180 days | Trading interruption |
+| Slow renewals | Renewal takes 30 to 180 days | Trading interruption |
 | In-person-only filing | All renewals require multiple visits to county offices | Lost work days |
-| Opaque fee structures | The advertised fee + the "expediting" cost | Real cost is often 2–3× the listed rate |
+| Opaque fee structures | The advertised fee + the "expediting" cost | Real cost is often 2 to 3× the listed rate |
 | Multiple jurisdiction overlap | One business needs national + county + sub-county clearances | Months of cycling between offices |
 
 ### Mapping your county's pathway
@@ -2979,7 +2979,7 @@ Each of Kenya's 47 counties operates its own:
 Before you can advocate, you need to know exactly what *your* county requires:
 
 1. **Get the current County Finance Act.** It's a public document. Read the trade-licensing schedule.
-2. **List every license your venture requires** — by name, fee, and renewal period.
+2. **List every license your venture requires**, by name, fee, and renewal period.
 3. **Document the actual process** for each (steps, offices, typical timeline) versus the official process.
 
 The gap between official and actual is where chokepoints live. That gap is also your **advocacy material** (see Course 3).
@@ -2996,11 +2996,11 @@ Advocate (in parallel with compliance) when:
 - You have evidence (your own + peer ventures)
 - The county is in a budget or policy cycle (best windows for amendments)
 
-**Never** simply ignore licensing — operating without required licenses leaves you exposed to enforcement actions that can destroy a venture overnight.
+**Never** simply ignore licensing, operating without required licenses leaves you exposed to enforcement actions that can destroy a venture overnight.
 
 ### A worked example
 
-> A youth-led food kiosk in a county where the sanitation permit renewal costs KES 22,000 and takes 4–6 months:
+> A youth-led food kiosk in a county where the sanitation permit renewal costs KES 22,000 and takes 4 to 6 months:
 >
 > **Compliance:** Pay the fee. Stay registered. Don't operate without it.
 >
@@ -3010,7 +3010,7 @@ The compliance keeps you operational. The advocacy changes the rules under which
 
 ## Sheng Reality Check
 
-> *Constitution, AGPO, YEDF — these are the macro instruments. County trade licensing — that's where day-to-day pain anaishi. You comply where you must, you advocate where you can. Bila both, the rules will keep biting.*
+> *Constitution, AGPO, YEDF, these are the macro instruments. County trade licensing, that's where day-to-day pain anaishi. You comply where you must, you advocate where you can. Bila both, the rules will keep biting.*
 
 ## Action Item
 
@@ -3019,7 +3019,7 @@ The compliance keeps you operational. The advocacy changes the rules under which
 3. **Map your venture's licensing pathway**: which licenses, what fees, what processes (official vs. actual).
 4. **Identify one chokepoint worth advocating against** over the next 18 months. Note it. Carry it forward to Course 3.
 
-## You've completed Sheria ya Vijana — Entrepreneurship Edition
+## You've completed Sheria ya Vijana, Entrepreneurship Edition
 
 You now have working literacy in:
 - The constitutional floor (Article 55)
@@ -3027,7 +3027,7 @@ You now have working literacy in:
 - The financing pathway (YEDF)
 - The licensing layer (county trade)
 
-This isn't all the law. It's the law that most often determines whether a youth-led venture thrives or stalls. Combine it with Courses 1–4 and you have both the operating system and the legal scaffolding.
+This isn't all the law. It's the law that most often determines whether a youth-led venture thrives or stalls. Combine it with Courses 1 to 4 and you have both the operating system and the legal scaffolding.
 `,
       },
     ],
@@ -3038,8 +3038,8 @@ This isn't all the law. It's the law that most often determines whether a youth-
   // =========================================================================
   {
     title: 'Business Advocacy Strategy in Practice',
-    description: 'For the founder who wants their venture to shape policy — not just survive it. Practical strategy for business-led advocacy from the Business Advocacy Toolkit.',
-    overview: 'Three modules of focused, ground-game advocacy strategy specifically for business operators. We separate this from Course 3 (which is for changemakers running advocacy as primary work) — here, you\'re running a venture and want to shape the rules without abandoning operations.',
+    description: 'For the founder who wants their venture to shape policy, not just survive it. Practical strategy for business-led advocacy from the Business Advocacy Toolkit.',
+    overview: 'Three modules of focused, ground-game advocacy strategy specifically for business operators. We separate this from Course 3 (which is for changemakers running advocacy as primary work), here, you\'re running a venture and want to shape the rules without abandoning operations.',
     category: 'Business',
     difficulty_level: 'intermediate',
     estimated_duration_hours: 7,
@@ -3052,12 +3052,12 @@ This isn't all the law. It's the law that most often determines whether a youth-
     ],
     modules: [
       {
-        title: 'Why a Business Should Advocate — and Where to Draw the Line',
+        title: 'Why a Business Should Advocate, and Where to Draw the Line',
         description: 'Most founders avoid policy work. Smart founders shape it. Here\'s how to do it without becoming a politician.',
         minutes: 80,
         objectives: ['Articulate the business case for advocacy', 'Identify which regulations actually affect your venture', 'Set boundaries: what to advocate on, what to leave alone'],
         keywords: ['business-advocacy', 'strategy', 'positioning'],
-        content: `# Why a Business Should Advocate — and Where to Draw the Line
+        content: `# Why a Business Should Advocate, and Where to Draw the Line
 
 ## The reluctance
 
@@ -3068,20 +3068,20 @@ Most founders avoid policy work because they think:
 - "I don't want to make enemies in government."
 - "It's the role of CSOs, not businesses."
 
-All four are wrong in their absoluteness — but each contains a kernel that matters. This module gets the kernels right and discards the avoidance.
+All four are wrong in their absoluteness, but each contains a kernel that matters. This module gets the kernels right and discards the avoidance.
 
 ## The case for business advocacy
 
 Three reasons a founder *should* engage with policy:
 
 ### Reason 1: Policy directly shapes your unit economics
-The fee schedule, the licensing process, the procurement reservation, the tax regime — these are not abstractions. They determine your margin, your cash conversion cycle, your customer acquisition cost. If you don't shape them, someone shapes them around you.
+The fee schedule, the licensing process, the procurement reservation, the tax regime, these are not abstractions. They determine your margin, your cash conversion cycle, your customer acquisition cost. If you don't shape them, someone shapes them around you.
 
 ### Reason 2: You have evidence others don't
 A think-tank can model the impact of a tiered license fee. You can show 30 kiosks closing because of the current flat rate. **Operational evidence beats modelled evidence in 7 of 10 committee rooms.** You can provide what others can't.
 
 ### Reason 3: Advocacy doubles as positioning
-Done well, advocacy work raises your venture's profile with funders, partners, and customers who care about systemic change. It's marketing in disguise — but only if the substance is real.
+Done well, advocacy work raises your venture's profile with funders, partners, and customers who care about systemic change. It's marketing in disguise, but only if the substance is real.
 
 ## The line: what business advocacy is NOT
 
@@ -3090,11 +3090,11 @@ Business advocacy is not:
 - **Partisan politics.** You don't endorse candidates. You don't take sides in elections.
 - **A primary job.** You are running a venture. Advocacy is a supporting strategy, not the main thing.
 - **Confrontational by default.** Strong relationships with regulators usually serve you better than public fights. Public fights are reserved for moments where everything else has failed.
-- **Lobbying for unfair advantage.** Pushing for a tiered license is fair. Pushing for *your* venture to be exempt from a rule everyone else follows is captive lobbying — short-term win, long-term reputation killer.
+- **Lobbying for unfair advantage.** Pushing for a tiered license is fair. Pushing for *your* venture to be exempt from a rule everyone else follows is captive lobbying, short-term win, long-term reputation killer.
 
 ## What to advocate on (and what to leave alone)
 
-A simple test: would the policy change you're seeking benefit your **whole sector** (or whole class of ventures) — or only you?
+A simple test: would the policy change you're seeking benefit your **whole sector** (or whole class of ventures), or only you?
 
 | Advocate | Leave alone |
 |---|---|
@@ -3106,9 +3106,9 @@ A simple test: would the policy change you're seeking benefit your **whole secto
 
 The first column builds your sector and your reputation. The second column buys you a 12-month advantage and a 10-year liability.
 
-## Time discipline — the 10% rule
+## Time discipline, the 10% rule
 
-Set a **time cap**: no more than 10% of your week on advocacy, except during specific decision-window sprints (where 30% is allowable for 2–4 weeks at a time).
+Set a **time cap**: no more than 10% of your week on advocacy, except during specific decision-window sprints (where 30% is allowable for 2 to 4 weeks at a time).
 
 10% of a 60-hour founder week = 6 hours. That's enough for:
 - One stakeholder meeting per week
@@ -3116,7 +3116,7 @@ Set a **time cap**: no more than 10% of your week on advocacy, except during spe
 - One coalition call bi-weekly
 - One op-ed per quarter
 
-If advocacy is consuming more than 10% of your weeks consistently, the venture is paying for it — and at some point operations break. Watch the budget.
+If advocacy is consuming more than 10% of your weeks consistently, the venture is paying for it, and at some point operations break. Watch the budget.
 
 ## The boundary
 
@@ -3134,18 +3134,18 @@ It fails when:
 
 ## Sheng Reality Check
 
-> *Business advocacy si activism. Ni strategy. You shape the rules that shape your margin. 10% ya wakati wako — sio more. Otherwise unaacha biz kufa ukimsifu policy.*
+> *Business advocacy si activism. Ni strategy. You shape the rules that shape your margin. 10% ya wakati wako, sio more. Otherwise unaacha biz kufa ukimsifu policy.*
 
 ## Action Item
 
 1. List **three policy frictions** affecting your venture or sector.
 2. Apply the "whole-sector vs. self-only" test to each. Drop any that don't pass.
 3. Set your **10% advocacy time budget**. Block it on your calendar.
-4. Identify your **first stakeholder meeting** — who, when, what's the ask.
+4. Identify your **first stakeholder meeting**, who, when, what's the ask.
 
 ## What's Next
 
-Module 2 — building a coalition that doesn't slow you down, and an advocacy strategy that doubles as marketing.
+Module 2, building a coalition that doesn't slow you down, and an advocacy strategy that doubles as marketing.
 `,
       },
       {
@@ -3166,17 +3166,17 @@ But coalitions can also become bureaucracies that consume more capacity than the
 
 | Structure | Pros | Cons | Use when |
 |---|---|---|---|
-| **Loose alliance** (joint memos, shared events) | Low overhead, fast | Limited durability | Specific 3–6 month campaigns |
+| **Loose alliance** (joint memos, shared events) | Low overhead, fast | Limited durability | Specific 3 to 6 month campaigns |
 | **Trade association** (formal, dues-paying) | Sustainable, professional voice | Slow decisions, governance overhead | Long-term sector representation |
 | **Coordinated network** (regular calls, shared positions, no formal structure) | Mid-overhead, flexible | Requires a credible convenor | Multi-year campaigns with stable participants |
 
 Most youth-business advocacy starts as **loose alliance** and graduates to **coordinated network** when the campaign exceeds 6 months. Trade-association formation is appropriate only when you have 12+ months of stable participation and ≥15 active member ventures.
 
-## Building a loose alliance — the practical steps
+## Building a loose alliance, the practical steps
 
-For a 3–6 month campaign:
+For a 3 to 6 month campaign:
 
-### Step 1: Identify 8–15 candidate ventures
+### Step 1: Identify 8 to 15 candidate ventures
 They should:
 - Operate in your sector or be affected by the same policy
 - Be operationally healthy enough to spare 2 hours/month
@@ -3185,10 +3185,10 @@ They should:
 
 ### Step 2: Convene the first call
 60 minutes, structured:
-- 15 min: round-robin — name, venture, what this friction has cost them
+- 15 min: round-robin, name, venture, what this friction has cost them
 - 15 min: shared diagnosis of the policy issue (from Course 3 Module 1)
-- 15 min: shared ask — what would we propose as the policy change?
-- 15 min: who does what — one venture leads, others provide evidence/signatures
+- 15 min: shared ask, what would we propose as the policy change?
+- 15 min: who does what, one venture leads, others provide evidence/signatures
 
 The deliverable from call 1 is a one-page shared position statement. If you can't agree on that one page, you don't have a coalition yet.
 
@@ -3208,7 +3208,7 @@ One venture does all the work; others put their logo on the output. This is fine
 ### Failure 3: Mission creep
 The coalition was formed to advocate on licensing. Six months in, members are pushing for it to also tackle taxation, training, and procurement. Each addition halves the focus. **Charter the coalition narrowly. Add scope only with explicit decision.**
 
-## Advocacy as marketing — the doubling principle
+## Advocacy as marketing, the doubling principle
 
 Every piece of advocacy output should do double duty. Your policy brief is also a credibility artifact. Your op-ed is also a positioning piece. Your coalition signature list is also a partnership announcement.
 
@@ -3241,39 +3241,39 @@ A youth-led agritech operating in Western Kenya. Advocating for the county to re
 - 1 coalition memorandum (8 ventures + 2 CSOs signed)
 
 **Doubling outcomes:**
-- The policy brief gets cited in a regional agricultural policy report — credibility used in their next investor deck
+- The policy brief gets cited in a regional agricultural policy report, credibility used in their next investor deck
 - The op-eds attract two new co-op partnerships
-- The committee testimony is featured in a sector newsletter — small but compounding brand recognition
+- The committee testimony is featured in a sector newsletter, small but compounding brand recognition
 - The coalition memorandum becomes the basis for a joint product launch with two of the signatories
 
 The venture moved policy AND grew the business. Same hours, dual yield.
 
 ## Sheng Reality Check
 
-> *Coalitions ni nguvu lakini also ni overhead. Anza loose, graduate to network when zinakua serious. Kila output ya advocacy lazima ifanye kazi mbili — policy + positioning.*
+> *Coalitions ni nguvu lakini also ni overhead. Anza loose, graduate to network when zinakua serious. Kila output ya advocacy lazima ifanye kazi mbili, policy + positioning.*
 
 ## Action Item
 
-1. Choose your **coalition structure** for the current campaign — loose alliance, network, or association.
-2. Identify **8–15 candidate ventures** to invite.
+1. Choose your **coalition structure** for the current campaign, loose alliance, network, or association.
+2. Identify **8 to 15 candidate ventures** to invite.
 3. For each planned advocacy output in the next 90 days, write **two lines**: what policy effect it pursues, and what positioning effect it could carry.
 
 ## What's Next
 
-Module 3 — sustaining advocacy work over multi-year horizons without burning operational capacity. The endgame discipline.
+Module 3, sustaining advocacy work over multi-year horizons without burning operational capacity. The endgame discipline.
 `,
       },
       {
-        title: 'Sustaining the Effort — Multi-Year Advocacy Without Operational Burnout',
+        title: 'Sustaining the Effort, Multi-Year Advocacy Without Operational Burnout',
         description: 'Most business advocacy dies in year 2 because the founder ran out of capacity. Here\'s how to design for the long run.',
         minutes: 75,
         objectives: ['Build a sustainable cadence for multi-year advocacy', 'Delegate advocacy work without losing strategic control', 'Recognize and recover from advocacy burnout'],
         keywords: ['sustainability', 'capacity', 'multi-year-advocacy', 'business-advocacy'],
-        content: `# Sustaining the Effort — Multi-Year Advocacy Without Operational Burnout
+        content: `# Sustaining the Effort, Multi-Year Advocacy Without Operational Burnout
 
 ## The 2-year wall
 
-Most business advocacy campaigns hit a wall around month 18–24. Three causes:
+Most business advocacy campaigns hit a wall around month 18 to 24. Three causes:
 
 1. **The founder is exhausted.** Carrying advocacy on top of operations finally compounds.
 2. **The coalition has drifted.** Original members have left, new members don't carry institutional memory.
@@ -3284,7 +3284,7 @@ Without explicit design for sustainability, year 2 is where good campaigns die q
 ## Designing for the long run
 
 ### Principle 1: Don't be the sole knowledge holder
-If you're the only person on your team who knows the policy stack, the stakeholder map, and the campaign history — your absence breaks the campaign. Document everything. Onboard a second person within 6 months of starting. Even if that person is part-time.
+If you're the only person on your team who knows the policy stack, the stakeholder map, and the campaign history, your absence breaks the campaign. Document everything. Onboard a second person within 6 months of starting. Even if that person is part-time.
 
 The discipline: write a 5-page **campaign memo** every quarter that summarizes:
 - Current diagnosis
@@ -3293,7 +3293,7 @@ The discipline: write a 5-page **campaign memo** every quarter that summarizes:
 - What's stalled and why
 - Open decisions
 
-Any new joiner should be able to ramp from this memo in 2 hours. Without it, ramp takes 2 months — and you don't have 2 months in year 2.
+Any new joiner should be able to ramp from this memo in 2 hours. Without it, ramp takes 2 months, and you don't have 2 months in year 2.
 
 ### Principle 2: Anchor in operational rhythm, not separate workstreams
 The most sustainable advocacy work is **woven into existing operational practices**, not bolted on.
@@ -3315,26 +3315,26 @@ Most campaigns cultivate stakeholders during the first 6 months. Then go quiet. 
 - Quarterly update note (one paragraph, by email)
 - An invitation to a relevant event you're hosting or attending
 - Forwarding a piece of evidence relevant to their portfolio (no ask attached)
-- A simple "saw your committee just held hearings on X — happy to brief if useful"
+- A simple "saw your committee just held hearings on X, happy to brief if useful"
 
-This is 30 minutes per stakeholder per quarter. For 8 key stakeholders, that's 4 hours/quarter — well within your 10% time budget.
+This is 30 minutes per stakeholder per quarter. For 8 key stakeholders, that's 4 hours/quarter, well within your 10% time budget.
 
 ### Principle 4: Renew the coalition every 12 months
 Coalitions atrophy without renewal. Once a year:
 - Reconfirm participation (who's still in?)
-- Onboard 2–3 new members to replace dropouts
+- Onboard 2 to 3 new members to replace dropouts
 - Refresh the shared position statement
 - Reset the rhythm
 
-If you skip this, the coalition becomes a fiction — a logo list on documents nobody actually represents.
+If you skip this, the coalition becomes a fiction, a logo list on documents nobody actually represents.
 
 ## Recognizing burnout (your own)
 
 Three signs you're burning out on advocacy:
 
-1. **You start dreading the meetings** — even the ones with allies. This is the earliest signal.
-2. **You're skipping the operational rhythm to do advocacy work** — the polarity has inverted dangerously.
-3. **You start framing advocacy as "the real impact," and operations as "the day job"** — a sign you're getting addicted to the public-facing work and avoiding the harder commercial work.
+1. **You start dreading the meetings**, even the ones with allies. This is the earliest signal.
+2. **You're skipping the operational rhythm to do advocacy work**, the polarity has inverted dangerously.
+3. **You start framing advocacy as "the real impact," and operations as "the day job"**, a sign you're getting addicted to the public-facing work and avoiding the harder commercial work.
 
 When you spot any of these:
 - Reduce advocacy hours by half for 30 days. Catch up operationally.
@@ -3356,7 +3356,7 @@ Winding down well:
 - Brief the coalition: here's what we accomplished, here's what's incomplete, here's why we're pausing
 - Document the playbook (so the next founder doesn't restart from zero)
 - Maintain key stakeholder relationships at a lower cadence (don't ghost)
-- Be honest with yourself about why you're stopping — "we won" vs "we're tired" vs "the strategy was wrong"
+- Be honest with yourself about why you're stopping, "we won" vs "we're tired" vs "the strategy was wrong"
 
 A clean wind-down preserves credibility for the next campaign. A ghost-quit destroys it.
 
@@ -3365,10 +3365,10 @@ A clean wind-down preserves credibility for the next campaign. A ghost-quit dest
 The opposite: sometimes the right move is to escalate. The policy window has opened wider than expected; the coalition is humming; the evidence has accumulated; the principal is finally available.
 
 Escalating well:
-- Recognize the moment (this is often instinctive — trust the signal)
+- Recognize the moment (this is often instinctive, trust the signal)
 - Renegotiate operational coverage so you can do the 30% sprint without breaking the venture
 - Brief the coalition explicitly: "the window is open; we have 8 weeks; here's our push"
-- Track the burn — set the explicit end date for the sprint
+- Track the burn, set the explicit end date for the sprint
 
 After the sprint, return to 10%. Always return.
 
@@ -3391,7 +3391,7 @@ You now have the discipline of:
 - Building coalitions and doubling outputs as positioning (Module 2)
 - Sustaining the effort across multi-year horizons (Module 3)
 
-Combine with Courses 1–4 if you're running a venture that also advocates — or stand-alone if your advocacy work has narrower business-specific scope.
+Combine with Courses 1 to 4 if you're running a venture that also advocates, or stand-alone if your advocacy work has narrower business-specific scope.
 
 The work is long. The compound interest is real. Run it well.
 `,

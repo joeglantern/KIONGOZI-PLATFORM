@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeScormPackageAccess } from '@/lib/scorm/access';
 
-// GET — return existing registration (or create one) for the current user
+// GET, return existing registration (or create one) for the current user
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ packageId: string }> }
@@ -15,7 +15,7 @@ export async function GET(
 
     const { serviceClient, user, pkg, isPrivileged } = access;
 
-    // Preview mode: privileged users (author/admin) get a mock registration —
+    // Preview mode: privileged users (author/admin) get a mock registration, 
     // no DB record created, no progress tracked.
     if (request.headers.get('X-SCORM-Preview') === '1') {
       if (!isPrivileged) {

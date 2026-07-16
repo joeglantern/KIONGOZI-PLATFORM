@@ -59,7 +59,7 @@ export async function updateSession(request: NextRequest) {
         }
     );
 
-    // getSession() reads from cookies and refreshes expired tokens locally —
+    // getSession() reads from cookies and refreshes expired tokens locally, 
     // no network call to Supabase, so it never hits the auth rate limit.
     // getUser() (network call) belongs in individual server components/routes
     // that need to verify the token server-side.

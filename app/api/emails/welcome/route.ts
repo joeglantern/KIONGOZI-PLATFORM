@@ -8,7 +8,7 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
 
 export async function POST(request: NextRequest) {
     try {
-        // Require an authenticated session — closes the anonymous mass-mail hole.
+        // Require an authenticated session, closes the anonymous mass-mail hole.
         const gate = await requireUser();
         if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
         const { user } = gate;
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json().catch(() => ({}));
         const { firstName } = body ?? {};
 
-        // Only ever send to the authenticated user's own address — the recipient
+        // Only ever send to the authenticated user's own address, the recipient
         // is never taken from the request body.
         const email = user.email;
         if (!email) {

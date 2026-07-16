@@ -32,7 +32,7 @@ export default function EventActions({ event, currentUser, rsvpStatusProp }: Eve
 
         try {
             if (rsvpStatus === status) {
-                // Toggle off — optimistically clear, roll back on error
+                // Toggle off, optimistically clear, roll back on error
                 setRsvpStatus(null);
                 const { error } = await supabase
                     .from('social_event_rsvps')

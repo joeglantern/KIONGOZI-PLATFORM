@@ -1,10 +1,10 @@
--- Youth Fund Transparency Tracker — citizen accountability layer.
+-- Youth Fund Transparency Tracker, citizen accountability layer.
 -- Adds the 5 fixed accountability questions, response storage, and an
 -- AI-generated accountability brief per fund (mirrors the Policy Pulse
 -- policy_briefs pattern, scoped to funds).
 
 -- Bugfix: the fund comment form has attached an optional evidence photo
--- (image_url) since it was built, but the column was never migrated —
+-- (image_url) since it was built, but the column was never migrated, 
 -- any comment submitted with a photo has been silently failing to insert.
 ALTER TABLE public.fund_comments ADD COLUMN IF NOT EXISTS image_url text;
 

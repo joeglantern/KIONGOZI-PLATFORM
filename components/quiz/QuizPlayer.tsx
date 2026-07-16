@@ -174,7 +174,7 @@ export default function QuizPlayer({ quizId, courseId, returnHref, onComplete }:
         }, 1000);
         return () => clearInterval(timer);
     // Restart when the timer arms (null -> number), on each submitted change,
-    // and when timeLeft hits exactly 0 — not on every tick (which caused a
+    // and when timeLeft hits exactly 0, not on every tick (which caused a
     // whole-page re-render every second).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hasTimer, submitted, timeLeft === 0]);

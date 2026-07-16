@@ -72,7 +72,7 @@ export default async function ProjectsPage({
                         <ShieldCheck className="h-5 w-5" /> National Programmes to Monitor
                     </h2>
                     <p className="text-sm text-muted-foreground -mt-2">
-                        Answer fixed monitoring questions on Kenya's flagship green and digital transition programmes — your responses feed an AI accountability brief for each.
+                        Answer fixed monitoring questions on Kenya's flagship green and digital transition programmes, your responses feed an AI accountability brief for each.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {programmes.map(p => {

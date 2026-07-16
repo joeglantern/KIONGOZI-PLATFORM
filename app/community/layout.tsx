@@ -47,23 +47,23 @@ export default async function CommunityLayout({
                                 <span className="text-civic-green">Your community.</span>
                             </h1>
                             <p className="mt-4 text-white/60 text-base md:text-lg max-w-xl leading-relaxed">
-                                Discuss policy, track public funds, sign petitions, and hold leaders accountable — all in one place.
+                                Discuss policy, track public funds, sign petitions, and hold leaders accountable, all in one place.
                             </p>
 
                             {/* Stats row */}
                             <div className="flex flex-wrap gap-6 mt-8 mb-8">
                                 <div className="text-center">
-                                    <p className="text-2xl font-bold text-white">{postsCount?.toLocaleString() ?? '—'}</p>
+                                    <p className="text-2xl font-bold text-white">{postsCount?.toLocaleString() ?? ', '}</p>
                                     <p className="text-xs text-white/50 mt-0.5">Discussions</p>
                                 </div>
                                 <div className="w-px bg-white/10 self-stretch" />
                                 <div className="text-center">
-                                    <p className="text-2xl font-bold text-white">{petitionsCount?.toLocaleString() ?? '—'}</p>
+                                    <p className="text-2xl font-bold text-white">{petitionsCount?.toLocaleString() ?? ', '}</p>
                                     <p className="text-xs text-white/50 mt-0.5">Active Petitions</p>
                                 </div>
                                 <div className="w-px bg-white/10 self-stretch" />
                                 <div className="text-center">
-                                    <p className="text-2xl font-bold text-white">{membersCount?.toLocaleString() ?? '—'}</p>
+                                    <p className="text-2xl font-bold text-white">{membersCount?.toLocaleString() ?? ', '}</p>
                                     <p className="text-xs text-white/50 mt-0.5">Members</p>
                                 </div>
                             </div>

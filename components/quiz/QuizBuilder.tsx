@@ -253,7 +253,7 @@ export default function QuizBuilder({ courseId, moduleId, quizId, onSave }: Quiz
 
             const payload = { metadata, questions };
 
-            // Single server round-trip — atomic create or update
+            // Single server round-trip, atomic create or update
             const url = quizId
                 ? `/api/courses/${courseId}/quizzes/${quizId}`
                 : `/api/courses/${courseId}/quizzes`;

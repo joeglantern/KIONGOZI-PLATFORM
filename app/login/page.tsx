@@ -1,7 +1,7 @@
 import LoginContent from './LoginContent';
 import { getSafeNext } from '@/lib/auth/redirects';
 
-// Server component — reads searchParams without useSearchParams(),
+// Server component, reads searchParams without useSearchParams(),
 // so LoginContent can render on the server with no Suspense needed.
 export default async function LoginPage({
   searchParams,

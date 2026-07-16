@@ -48,7 +48,7 @@ DROP INDEX IF EXISTS public.idx_social_comments_post_id;
 -- Ordered by query-path criticality.
 -- ============================================================
 
--- Chat (high frequency — every message load and room participant lookup)
+-- Chat (high frequency, every message load and room participant lookup)
 CREATE INDEX IF NOT EXISTS idx_chat_messages_room_id   ON public.chat_messages(room_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_sender_id ON public.chat_messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_chat_participants_room_id  ON public.chat_participants(room_id);
@@ -131,7 +131,7 @@ CREATE INDEX IF NOT EXISTS idx_conversations_archived_by   ON public.conversatio
 
 
 -- ============================================================
--- SECTION 3: Fix views — add security_invoker = true
+-- SECTION 3: Fix views, add security_invoker = true
 -- Without this, views in the public schema run as the definer
 -- and bypass RLS on every underlying table they touch.
 -- Requires Postgres 15+ (this project runs Postgres 17).

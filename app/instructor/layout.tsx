@@ -4,7 +4,7 @@ import { InstructorShell } from './components/InstructorShell';
 
 /**
  * Server-side authoritative guard for the instructor area. Verifies the token
- * and role server-side before rendering the client shell — no content flash,
+ * and role server-side before rendering the client shell, no content flash,
  * nothing a client-only guard could miss. Middleware already handles the
  * unauthenticated redirect; this enforces instructor/admin role.
  */

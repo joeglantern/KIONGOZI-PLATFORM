@@ -1,5 +1,5 @@
 -- ============================================================================
--- PROPOSED (NOT YET APPLIED) — Kiongozi UX audit 2026-07-16, Critical #12
+-- PROPOSED (NOT YET APPLIED), Kiongozi UX audit 2026-07-16, Critical #12
 -- chat_participants RLS hardening
 --
 -- ⚠️  DO NOT `supabase db push` THIS FILE AS-IS. It lives in docs/ (not
@@ -12,7 +12,7 @@
 --     project (oqylcvpkrjcozthdaavr), not Kiongozi (jdncfyagppohtksogzkx). So
 --     the LIVE policy state could not be read and this change could not be
 --     tested. The repo may not match live (someone may have hand-edited
---     policies in the dashboard) — VERIFY FIRST with:
+--     policies in the dashboard), VERIFY FIRST with:
 --         select policyname, cmd, qual, with_check
 --         from pg_policies where tablename = 'chat_participants';
 --
@@ -24,13 +24,13 @@
 --   => ANY authenticated user can INSERT/SELECT/UPDATE/DELETE ANY row, i.e.
 --      self-join ANY room (course or private DM). The message-visibility
 --      policies gate on chat_participants membership, so this makes that gate
---      bypassable — a user can read/post in any room by first inserting
+--      bypassable, a user can read/post in any room by first inserting
 --      themselves as a participant.
 --   Nothing in the canonical supabase/migrations/ folder supersedes this.
 --
 -- KEY FINDING that changes the fix shape (differs from the audit's assumption):
 --   get_course_chat_room(p_course_id) [SECURITY DEFINER, fix_all_issues.sql:118]
---   does NOT insert the caller as a participant and does NOT check enrollment —
+--   does NOT insert the caller as a participant and does NOT check enrollment, 
 --   it only finds/creates the room and returns its id. The course-room JOIN is
 --   therefore a RAW CLIENT-SIDE INSERT into chat_participants (governed by the
 --   permissive policy above). There is NO enrollment gate anywhere today.
@@ -44,7 +44,7 @@
 --   regardless of the tightened policy. Private-DM joins are therefore fine.
 --
 -- ============================================================================
--- OPTION A (pure RLS, no client change) — enrollment-scoped INSERT.
+-- OPTION A (pure RLS, no client change), enrollment-scoped INSERT.
 -- Preferred if verified to not recurse and to match the real schema.
 -- ============================================================================
 
@@ -101,7 +101,7 @@ CREATE POLICY "Leave rooms (delete your own participation)"
   USING (user_id = auth.uid());
 
 -- ============================================================================
--- OPTION B (move the gate into an RPC) — if Option A's INSERT policy proves
+-- OPTION B (move the gate into an RPC), if Option A's INSERT policy proves
 -- awkward or the client insert path is hard to change to satisfy it.
 -- Replace the client's direct `insert into chat_participants` for course rooms
 -- with a SECURITY DEFINER RPC that (1) checks course_enrollments for the caller,
@@ -111,7 +111,7 @@ CREATE POLICY "Leave rooms (delete your own participation)"
 -- ============================================================================
 
 -- VERIFICATION CHECKLIST before promoting to supabase/migrations/ and applying:
---   [ ] Read live pg_policies for chat_participants — confirm the permissive
+--   [ ] Read live pg_policies for chat_participants, confirm the permissive
 --       "Participants management" policy is actually still live.
 --   [ ] Confirm column/type assumptions: chat_rooms(type, course_id),
 --       course_enrollments(user_id, course_id, status enum values).

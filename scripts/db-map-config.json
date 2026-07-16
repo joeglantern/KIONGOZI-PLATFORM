@@ -24,7 +24,7 @@
   },
   "domains": {
     "platform":       { "description": "Core user & platform tables",               "tables": ["profiles","notifications","user_badges","badges","user_login_logs","user_search_history","user_activities","push_tokens","system_logs","system_settings","reports","admin_actions","impact_points"] },
-    "lms-core":       { "description": "Learning management — courses, modules, progress", "tables": ["courses","learning_modules","module_categories","module_tags","course_modules","course_enrollments","course_reviews","course_revisions","course_tags","course_tag_mappings","user_progress","user_bookmarks","user_notes","user_certificates","certificate_templates","learning_sessions"] },
+    "lms-core":       { "description": "Learning management, courses, modules, progress", "tables": ["courses","learning_modules","module_categories","module_tags","course_modules","course_enrollments","course_reviews","course_revisions","course_tags","course_tag_mappings","user_progress","user_bookmarks","user_notes","user_certificates","certificate_templates","learning_sessions"] },
     "quiz":           { "description": "Quiz & assessment",                         "tables": ["quizzes","quiz_questions","quiz_options","quiz_attempts","quiz_answer_options","quiz_user_answers"] },
     "scorm":          { "description": "SCORM e-learning packages",                 "tables": ["scorm_packages","scorm_registrations","xapi_statements"] },
     "social-mobile":  { "description": "X-style microblog, DMs, social graph",      "tables": ["posts","post_media","post_likes","post_interactions","post_hashtags","hashtags","follows","follow_requests","blocks","mutes","mentions","bookmarks","dm_conversations","dm_messages","dm_participants","social_notifications"] },

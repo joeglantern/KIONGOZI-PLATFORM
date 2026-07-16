@@ -324,7 +324,7 @@ export default function PollViewer({ poll, questions, user, hasSubmitted, isClos
                     <Megaphone className="h-5 w-5 shrink-0 mt-0.5" />
                     <div className="text-sm">
                         <p className="font-semibold text-foreground">Vote anonymously</p>
-                        <p className="text-muted-foreground">No account needed — your responses are tied to a private browser token, not to you personally.</p>
+                        <p className="text-muted-foreground">No account needed, your responses are tied to a private browser token, not to you personally.</p>
                     </div>
                 </div>
             )}

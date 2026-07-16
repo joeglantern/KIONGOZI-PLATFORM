@@ -121,7 +121,7 @@ export function Navbar() {
         >
             <nav aria-label="Primary navigation" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
-                    {/* Logo — the image is the full Kiongozi wordmark, so no
+                    {/* Logo, the image is the full Kiongozi wordmark, so no
                         separate text label (that caused a duplicate "Kiongozi"). */}
                     <Link href="/" className="flex items-center group" aria-label="Kiongozi home">
                         <Image

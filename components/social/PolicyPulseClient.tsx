@@ -217,7 +217,7 @@ export default function PolicyPulseClient({ initialPolls, initialRespondedIds }:
               <section>
                 <h2 className="font-display font-black text-xl mb-4 text-brand-primary flex items-center gap-2">
                   Completed Polls
-                  <span className="text-xs font-semibold text-brand-primary/60">— view results & AI insights</span>
+                  <span className="text-xs font-semibold text-brand-primary/60">, view results & AI insights</span>
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {closedPolls.map(poll => (

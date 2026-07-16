@@ -47,7 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ fun
         }
     }
 
-    // Regional (county) distribution — county is sourced from the respondent's
+    // Regional (county) distribution, county is sourced from the respondent's
     // profile at submission time; responses without a county are still used
     // for the questions themselves, just excluded from the geographic breakdown.
     const countyBreakdown = buildCountyBreakdown(responses, r => r.user_id ?? r.id);
@@ -95,18 +95,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ fun
 
     const systemPrompt = `You are a senior public finance accountability analyst specialising in African youth funds and devolved government spending. You produce rigorous, evidence-based accountability briefs. You write with authority and precision, citing specific data. You never produce vague or generic output.`;
 
-    const prompt = `You have just received citizen-submitted accountability data about a youth fund on the Kiongozi civic platform — a platform empowering African youth to investigate whether public funds promised to them actually reach beneficiaries.
+    const prompt = `You have just received citizen-submitted accountability data about a youth fund on the Kiongozi civic platform, a platform empowering African youth to investigate whether public funds promised to them actually reach beneficiaries.
 
 ${dataSummary}
 
 ---
 
-Produce a structured markdown report using EXACTLY this format. Be specific, cite the data, and write like a professional accountability analyst — not a chatbot summarising bullet points.
+Produce a structured markdown report using EXACTLY this format. Be specific, cite the data, and write like a professional accountability analyst, not a chatbot summarising bullet points.
 
 ---
 
 ## Executive Summary
-*2–3 punchy sentences. What is the single most important accountability concern a policymaker or oversight body should know? Be bold and direct.*
+*2 to 3 punchy sentences. What is the single most important accountability concern a policymaker or oversight body should know? Be bold and direct.*
 
 ---
 
@@ -133,7 +133,7 @@ Cluster Q4 responses (delays, irregularities, unfair practices) into named recur
 
 ## Regional Patterns
 
-If a "Regional Distribution" section appears above with 2 or more counties, note whether concerns or experiences differ meaningfully by county — name the counties explicitly. If only one county (or zero) is represented, write: *"Insufficient regional data — responses came from too few distinct counties to compare."* and stop this section there.
+If a "Regional Distribution" section appears above with 2 or more counties, note whether concerns or experiences differ meaningfully by county, name the counties explicitly. If only one county (or zero) is represented, write: *"Insufficient regional data, responses came from too few distinct counties to compare."* and stop this section there.
 
 ---
 
@@ -145,9 +145,9 @@ Synthesise Q5 responses on accessibility for women, persons with disabilities, a
 
 ## Recommendations for Government Agencies
 
-Give 3–4 specific, actionable recommendations to improve transparency and fund delivery. Label each by urgency:
+Give 3 to 4 specific, actionable recommendations to improve transparency and fund delivery. Label each by urgency:
 
-**[Quick Win | Medium-term | Structural Reform]** — *Title*
+**[Quick Win | Medium-term | Structural Reform]**, *Title*
 One or two sentences: what specifically should be done, and why the data justifies it.
 
 ---
@@ -160,8 +160,8 @@ IMPORTANT GUIDELINES:
 - Write in English. Be direct and analytical, not generic.
 - Cite actual numbers and quote fragments from the data wherever possible.
 - Acknowledge limitations if sample size is small (under 10 responses).
-- If the data shows serious irregularities, say so explicitly — don't soften it.
-- Keep the entire report between 600–900 words of prose (excluding headers/labels).
+- If the data shows serious irregularities, say so explicitly, don't soften it.
+- Keep the entire report between 600 to 900 words of prose (excluding headers/labels).
 - Do NOT add commentary outside the template structure above.`;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;

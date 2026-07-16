@@ -200,7 +200,7 @@ export default function InstructorDashboardPage() {
                                     <Star className="w-7 h-7" />
                                 </div>
                                 <div>
-                                    <p className="text-3xl font-black text-gray-900 dark:text-white">{avgRating || '—'}</p>
+                                    <p className="text-3xl font-black text-gray-900 dark:text-white">{avgRating || ', '}</p>
                                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg Rating</p>
                                 </div>
                             </div>

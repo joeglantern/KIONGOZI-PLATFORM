@@ -78,7 +78,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 }
             }
         } catch {
-            // Corrupted data — treat as no consent
+            // Corrupted data, treat as no consent
             localStorage.removeItem(STORAGE_KEY);
         }
         setHydrated(true);

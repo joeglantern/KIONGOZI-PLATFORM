@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const wards = [...new Set(responses.map(r => r.ward).filter(Boolean))];
 
     const sections: string[] = [
-        `# ${programme.name} — Monitoring Data Summary`,
+        `# ${programme.name}, Monitoring Data Summary`,
         `**Category:** ${programme.category}`,
         `**Total Responses:** ${responses.length}`,
         '',
@@ -100,18 +100,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
     const systemPrompt = `You are a senior monitoring & evaluation analyst specialising in Kenyan youth employment and green/digital transition programmes. You produce rigorous, evidence-based monitoring briefs. You write with authority and precision, citing specific data. You never produce vague or generic output.`;
 
-    const prompt = `You have just received citizen-submitted monitoring data about the "${programme.name}" programme on the Kiongozi civic platform — a platform empowering African youth to hold public programmes accountable at the community level.
+    const prompt = `You have just received citizen-submitted monitoring data about the "${programme.name}" programme on the Kiongozi civic platform, a platform empowering African youth to hold public programmes accountable at the community level.
 
 ${dataSummary}
 
 ---
 
-Produce a structured markdown report using EXACTLY this format. Be specific, cite the data, and write like a professional M&E analyst — not a chatbot summarising bullet points.
+Produce a structured markdown report using EXACTLY this format. Be specific, cite the data, and write like a professional M&E analyst, not a chatbot summarising bullet points.
 
 ---
 
 ## Executive Summary
-*2–3 punchy sentences. What is the single most important thing an oversight body should know about how this programme is actually performing on the ground?*
+*2 to 3 punchy sentences. What is the single most important thing an oversight body should know about how this programme is actually performing on the ground?*
 
 ---
 
@@ -135,15 +135,15 @@ Synthesise responses about women, persons with disabilities, and marginalized yo
 
 ## Regional Patterns
 
-If a "Regional Distribution" section appears above with 2 or more counties, compare how reach or concerns differ across those counties/wards — name them explicitly. If only one county (or zero) is represented, write: *"Insufficient regional data — responses came from too few distinct counties to compare."* and stop this section there.
+If a "Regional Distribution" section appears above with 2 or more counties, compare how reach or concerns differ across those counties/wards, name them explicitly. If only one county (or zero) is represented, write: *"Insufficient regional data, responses came from too few distinct counties to compare."* and stop this section there.
 
 ---
 
 ## Recommendations
 
-Give 3–4 specific, actionable recommendations to programme administrators. Label each by urgency:
+Give 3 to 4 specific, actionable recommendations to programme administrators. Label each by urgency:
 
-**[Quick Win | Medium-term | Structural Reform]** — *Title*
+**[Quick Win | Medium-term | Structural Reform]**, *Title*
 One or two sentences: what specifically should be done, and why the data justifies it.
 
 ---
@@ -156,8 +156,8 @@ IMPORTANT GUIDELINES:
 - Write in English. Be direct and analytical, not generic.
 - Cite actual numbers and quote fragments from the data wherever possible.
 - Acknowledge limitations if sample size is small (under 10 responses).
-- If the data shows a concerning pattern, say so explicitly — don't soften it.
-- Keep the entire report between 600–900 words of prose (excluding headers/labels).
+- If the data shows a concerning pattern, say so explicitly, don't soften it.
+- Keep the entire report between 600 to 900 words of prose (excluding headers/labels).
 - Do NOT add commentary outside the template structure above.`;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;

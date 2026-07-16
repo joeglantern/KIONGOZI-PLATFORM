@@ -212,7 +212,7 @@ export async function POST(
     }
 }
 
-// PUT — atomic update of quiz metadata + questions + options (instructor only)
+// PUT, atomic update of quiz metadata + questions + options (instructor only)
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ courseId: string; quizId: string }> }
