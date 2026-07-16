@@ -200,9 +200,24 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
+  const linking = {
+    prefixes: ['https://api.kiongozi.org', 'kiongozi://'],
+    config: {
+      screens: {
+        Feed: {
+          screens: {
+            PostDetail: {
+              path: 'posts/:postId',
+            },
+          },
+        },
+      },
+    },
+  };
+
   return (
     <View style={styles.root}>
-      <NavigationContainer ref={navRef} theme={navTheme}>
+      <NavigationContainer ref={navRef} theme={navTheme} linking={linking}>
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,

@@ -18,6 +18,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.kiongozi.chat",
       "buildNumber": "10",
+      "associatedDomains": ["applinks:api.kiongozi.org"],
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice input functionality.",
         "NSSpeechRecognitionUsageDescription": "This app needs access to speech recognition to convert your voice to text.",
@@ -33,6 +34,20 @@
     "android": {
       "package": "com.kiongozi.mobile",
       "versionCode": 12,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPrefix": "/posts"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-party-fg.png",
         "backgroundColor": "#000000"

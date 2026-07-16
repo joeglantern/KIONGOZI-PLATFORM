@@ -363,7 +363,7 @@ export function PostCard({
     try {
       await Share.share({
         message: `${activePost.profiles?.full_name ?? ''}: ${activePost.content}`,
-        url: `https://kiongozi.app/posts/${activePost.id}`,
+        url: `https://api.kiongozi.org/posts/${activePost.id}`,
       });
     } catch {}
   }, [activePost.id, activePost.content, activePost.profiles?.full_name]);
