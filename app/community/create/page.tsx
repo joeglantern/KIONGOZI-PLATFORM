@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import CreatePostForm from '@/components/social/CreatePostForm';
 import { redirect } from 'next/navigation';
 
@@ -6,7 +7,7 @@ export default async function CreatePostPage() {
     const supabase = await createClient();
 
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     // Fetch topics for the dropdown
     const { data: topics, error } = await supabase

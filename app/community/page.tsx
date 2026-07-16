@@ -1,5 +1,6 @@
 import { createClient as createSupabaseServer } from '@/app/utils/supabase/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { PenSquare, Loader2 } from 'lucide-react';
 
 async function Feed() {
     const supabase = await createSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     const fallbackKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const supabaseAdmin = createClient(
@@ -75,8 +76,7 @@ async function Feed() {
 }
 
 export default async function CommunityPage() {
-    const supabase = await createSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     return (
         <div className="space-y-4">

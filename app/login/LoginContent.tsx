@@ -12,6 +12,7 @@ import { LogIn, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 import { getPostAuthPath } from '@/lib/auth/redirects';
+import { friendlyAuthError } from '@/lib/auth/auth-errors';
 
 function getPostLoginPath(
   next: string | null,
@@ -36,6 +37,15 @@ export default function LoginContent({ next }: LoginContentProps) {
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [error, setError] = useState('');
+  // Cooldown after a rate-limit response, so rapid re-clicks don't burn more of
+  // the auth rate-limit window. Counts down to 0.
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const profileIsIncomplete = user && profile
     ? !profile.username || !(profile.first_name?.trim() || profile.full_name?.trim())
@@ -50,6 +60,7 @@ export default function LoginContent({ next }: LoginContentProps) {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cooldown > 0) return; // still cooling down from a rate limit; don't spend the window
     setLoading(true);
     setError('');
 
@@ -69,9 +80,11 @@ export default function LoginContent({ next }: LoginContentProps) {
         router.refresh();
         toast({ title: 'Success', description: 'Logged in successfully.' });
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
-      toast({ title: 'Login Failed', description: err.message || 'Failed to sign in', variant: 'destructive' });
+    } catch (err: unknown) {
+      const friendly = friendlyAuthError(err);
+      setError(friendly.message);
+      if (friendly.isRateLimited) setCooldown(friendly.retryAfterSeconds);
+      toast({ title: 'Login Failed', description: friendly.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -165,14 +178,16 @@ export default function LoginContent({ next }: LoginContentProps) {
 
             <Button
               type="submit"
-              disabled={loading || oauthLoading}
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2"
+              disabled={loading || oauthLoading || cooldown > 0}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-70"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span>Signing in...</span>
                 </>
+              ) : cooldown > 0 ? (
+                <span>Try again in {cooldown}s</span>
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
@@ -206,8 +221,10 @@ export default function LoginContent({ next }: LoginContentProps) {
               });
               if (error) {
                 setOauthLoading(false);
-                setError(error.message);
-                toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
+                const friendly = friendlyAuthError(error);
+                setError(friendly.message);
+                if (friendly.isRateLimited) setCooldown(friendly.retryAfterSeconds);
+                toast({ title: 'Login Failed', description: friendly.message, variant: 'destructive' });
               }
             }}
             disabled={loading || oauthLoading}

@@ -180,7 +180,7 @@ export default function ScormPlayerPage() {
               </button>
 
               <div className="hidden sm:block text-xs font-bold text-gray-400 uppercase tracking-widest">
-                {currentIndex >= 0 ? currentIndex + 1 : ', '} / {items.length}
+                {currentIndex >= 0 ? currentIndex + 1 : 0} / {items.length}
               </div>
 
               <button

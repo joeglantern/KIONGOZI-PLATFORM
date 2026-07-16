@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,7 @@ import PetitionActions from './PetitionActions';
 
 export default async function PetitionDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     const { id } = await params;
 
     const { data: petition, error } = await supabase

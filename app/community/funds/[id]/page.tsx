@@ -1,11 +1,12 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { notFound } from 'next/navigation';
 import FundDetailClient from './FundDetailClient';
 
 export default async function FundDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     const { data: fund } = await supabase.from('public_funds').select('*').eq('id', id).single();
     if (!fund) notFound();

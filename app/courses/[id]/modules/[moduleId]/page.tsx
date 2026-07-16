@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { redirect } from 'next/navigation';
 import ModuleViewerClient from './ModuleViewerClient';
 
@@ -13,7 +14,7 @@ export default async function ModuleViewerPage({
     const { preview } = await searchParams;
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) redirect(`/login?next=/courses/${courseId}/modules/${moduleId}`);
 
     // Profile + course + membership check, all in parallel

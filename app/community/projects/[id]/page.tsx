@@ -1,11 +1,12 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { notFound } from 'next/navigation';
 import ProjectDetailClient from './ProjectDetailClient';
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     const { data: project } = await supabase
         .from('public_projects')

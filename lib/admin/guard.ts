@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 
 type AdminGuardOk = {
     ok: true;
@@ -13,9 +14,9 @@ type AdminGuardErr = { ok: false; status: 401 | 403; error: string };
  * Supabase client on success, so writes still pass through RLS as the caller.
  */
 export async function requireAdmin(): Promise<AdminGuardOk | AdminGuardErr> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) return { ok: false, status: 401, error: 'Unauthorized' };
+    const supabase = await createClient();
 
     const { data: profile } = await supabase
         .from('profiles')

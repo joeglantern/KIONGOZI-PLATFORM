@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import FundCard from '@/components/social/FundCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,7 +13,7 @@ function formatCurrency(amount: number, currency = 'KES') {
 
 export default async function FundsPage() {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     const { data: funds } = await supabase
         .from('public_funds')

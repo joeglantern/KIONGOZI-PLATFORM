@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from './current-user';
 
 type UserGuardOk = {
     ok: true;
@@ -14,8 +15,8 @@ type UserGuardErr = { ok: false; status: 401; error: string };
  * still pass through RLS as the caller. Mirrors requireAdmin() without the role check.
  */
 export async function requireUser(): Promise<UserGuardOk | UserGuardErr> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) return { ok: false, status: 401, error: 'Unauthorized' };
+    const supabase = await createClient();
     return { ok: true, supabase, user };
 }

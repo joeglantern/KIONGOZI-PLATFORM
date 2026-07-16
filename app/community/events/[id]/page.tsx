@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, ArrowLeft, Clock, Users, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,7 @@ import { getProfileDisplayName } from '@/lib/social/profile-display';
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     const { id } = await params;
 
     const { data: event, error } = await supabase

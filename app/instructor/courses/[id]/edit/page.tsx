@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { redirect } from 'next/navigation';
 import EditCourseClient from './EditCourseClient';
 
@@ -10,7 +11,7 @@ export default async function EditCoursePage({
     const { id: courseId } = await params;
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) redirect(`/login?next=/instructor/courses/${courseId}/edit`);
 
     const { data: profile } = await supabase

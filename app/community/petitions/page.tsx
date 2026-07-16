@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import PetitionCard from '@/components/social/PetitionCard';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
@@ -6,7 +7,7 @@ import Link from 'next/link';
 
 export default async function PetitionsPage() {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     // Fetch active petitions
     const { data: petitions, error } = await supabase

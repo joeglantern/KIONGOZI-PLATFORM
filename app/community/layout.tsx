@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,7 @@ export default async function CommunityLayout({
     children: React.ReactNode;
 }) {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     const [{ count: postsCount }, { count: petitionsCount }, { count: membersCount }, { data: topics }] = await Promise.all([
         supabase.from('social_posts').select('*', { count: 'exact', head: true }),
@@ -53,17 +54,17 @@ export default async function CommunityLayout({
                             {/* Stats row */}
                             <div className="flex flex-wrap gap-6 mt-8 mb-8">
                                 <div className="text-center">
-                                    <p className="text-2xl font-bold text-white">{postsCount?.toLocaleString() ?? ', '}</p>
+                                    <p className="text-2xl font-bold text-white">{postsCount?.toLocaleString() ?? '0'}</p>
                                     <p className="text-xs text-white/50 mt-0.5">Discussions</p>
                                 </div>
                                 <div className="w-px bg-white/10 self-stretch" />
                                 <div className="text-center">
-                                    <p className="text-2xl font-bold text-white">{petitionsCount?.toLocaleString() ?? ', '}</p>
+                                    <p className="text-2xl font-bold text-white">{petitionsCount?.toLocaleString() ?? '0'}</p>
                                     <p className="text-xs text-white/50 mt-0.5">Active Petitions</p>
                                 </div>
                                 <div className="w-px bg-white/10 self-stretch" />
                                 <div className="text-center">
-                                    <p className="text-2xl font-bold text-white">{membersCount?.toLocaleString() ?? ', '}</p>
+                                    <p className="text-2xl font-bold text-white">{membersCount?.toLocaleString() ?? '0'}</p>
                                     <p className="text-xs text-white/50 mt-0.5">Members</p>
                                 </div>
                             </div>

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { InstructorShell } from './components/InstructorShell';
 
 /**
@@ -10,7 +11,7 @@ import { InstructorShell } from './components/InstructorShell';
  */
 export default async function InstructorLayout({ children }: { children: React.ReactNode }) {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     if (!user) {
         redirect('/login?next=/instructor/dashboard');

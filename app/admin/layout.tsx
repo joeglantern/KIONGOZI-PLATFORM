@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 
 /**
  * Server-side authoritative guard for the admin area. Runs a real token
@@ -9,7 +10,7 @@ import { createClient } from '@/app/utils/supabase/server';
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     if (!user) {
         redirect('/login?next=/admin/dashboard');

@@ -1,11 +1,12 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { notFound } from 'next/navigation';
 import ProgrammeDetailClient from './ProgrammeDetailClient';
 
 export default async function ProgrammeDetailPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     const { data: programme } = await supabase.from('civic_programmes').select('*').eq('slug', slug).single();
     if (!programme) notFound();

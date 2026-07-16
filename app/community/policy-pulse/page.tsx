@@ -1,9 +1,10 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import PolicyPulseClient from '@/components/social/PolicyPulseClient';
 
 export default async function PolicyPulsePage() {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     const { data: polls } = await supabase
         .from('policy_polls')

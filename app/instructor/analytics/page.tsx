@@ -130,7 +130,7 @@ export default function InstructorAnalyticsPage() {
                     return {
                         id: pkg.id,
                         title: pkg.title,
-                        course_title: courseMap.get(pkg.course_id) ?? ', ',
+                        course_title: courseMap.get(pkg.course_id) ?? 'Untitled course',
                         launches: regs.length,
                         completions: completed,
                         avg_score: avg,

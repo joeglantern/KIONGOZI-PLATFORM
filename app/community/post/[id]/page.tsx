@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { notFound } from 'next/navigation';
 import PostCard from '@/components/social/PostCard';
 import CommentSection from '@/components/social/CommentSection';
@@ -13,7 +14,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
     const supabase = await createClient();
 
     // Get current user for like functionality checking
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     // Fetch the post
     const { data: post, error } = await supabase

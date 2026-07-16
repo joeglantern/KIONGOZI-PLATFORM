@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import LiveSession from '@/components/social/LiveSession';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lock } from 'lucide-react';
@@ -9,7 +10,7 @@ export default async function LiveRoomPage({ params }: { params: Promise<{ id: s
     const supabase = await createClient();
     const { id } = await params;
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) {
         redirect(`/login?next=/community/events/${id}/live`);
     }

@@ -1,5 +1,6 @@
 import type { ElementType } from 'react';
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import ProjectCard from '@/components/social/ProjectCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,7 +30,7 @@ export default async function ProjectsPage({
 }) {
     const { milestone, type } = await searchParams;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     const { data: programmes } = await supabase.from('civic_programmes').select('*').order('sort_order');
 

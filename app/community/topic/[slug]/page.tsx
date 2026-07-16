@@ -1,5 +1,6 @@
 import { createClient as createSupabaseServer } from '@/app/utils/supabase/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { notFound } from 'next/navigation';
 import PostCard from '@/components/social/PostCard';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +12,7 @@ import { ChevronLeft } from 'lucide-react';
 export default async function TopicPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
     const supabase = await createSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     // Admin client for profile lookups
     const fallbackKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

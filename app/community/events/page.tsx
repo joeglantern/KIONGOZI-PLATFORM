@@ -1,4 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import EventCard from '@/components/social/EventCard';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Plus } from 'lucide-react';
@@ -6,7 +7,7 @@ import Link from 'next/link';
 
 export default async function EventsPage() {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     // Fetch upcoming events
     const { data: events, error: eventsError } = await supabase
