@@ -52,7 +52,10 @@ export default function LoginContent({ next }: LoginContentProps) {
     : false;
 
   // Redirect once we have both user AND profile (so we know the correct destination).
-  // Waiting for profile prevents a double-redirect when profile arrives after authLoading clears.
+  // This is the ONLY place that navigates after a successful sign-in; handleLogin
+  // deliberately does not also push a route, since a second, independent
+  // navigation call racing this effect could cancel it and stall on /login
+  // even though sign-in succeeded (confirmed: intermittent, roughly 1 in 3).
   useEffect(() => {
     if (authLoading || !user || !profile) return;
     router.replace(getPostLoginPath(next, profile.role, profileIsIncomplete));
@@ -69,15 +72,11 @@ export default function LoginContent({ next }: LoginContentProps) {
       if (signInError) throw signInError;
 
       if (data.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('role, username, first_name, full_name')
-          .eq('id', data.user.id)
-          .single();
-
-        const isIncomplete = !profileData?.username || !(profileData?.first_name?.trim() || profileData?.full_name?.trim());
-        router.push(getPostLoginPath(next, profileData?.role, isIncomplete));
-        router.refresh();
+        // Don't navigate here: UserContext's onAuthStateChange listener picks up
+        // this same sign-in and populates user+profile, which the effect above
+        // then redirects on. A second, independent navigation from this handler
+        // raced that effect (see the effect's comment) and is what caused the
+        // intermittent "stuck on /login after a successful sign-in" bug.
         toast({ title: 'Success', description: 'Logged in successfully.' });
       }
     } catch (err: unknown) {
