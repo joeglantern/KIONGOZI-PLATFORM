@@ -307,11 +307,13 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   },
 
   deletePost: (postId: string) => {
+    const remove = (posts: Post[]) =>
+      posts.filter(p => p.id !== postId && p.repost_of_id !== postId);
     set(state => ({
-      feedPosts: state.feedPosts.filter(p => p.id !== postId),
-      explorePosts: state.explorePosts.filter(p => p.id !== postId),
-      forYouPosts: state.forYouPosts.filter(p => p.id !== postId),
-      bookmarkPosts: state.bookmarkPosts.filter(p => p.id !== postId),
+      feedPosts: remove(state.feedPosts),
+      explorePosts: remove(state.explorePosts),
+      forYouPosts: remove(state.forYouPosts),
+      bookmarkPosts: remove(state.bookmarkPosts),
     }));
   },
 

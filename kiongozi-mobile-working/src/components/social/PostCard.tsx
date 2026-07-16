@@ -273,9 +273,15 @@ export function PostCard({
     }
   }, [onMentionPress, onProfilePress]);
 
+  // Orphaned repost — original was deleted; render nothing
+  if (post.repost_of_id && !post.repost_of) return null;
+
   // When this is a repost, all interactions target the ORIGINAL post
   const isRepost = !!(post.repost_of_id && post.repost_of);
   const activePost = isRepost ? post.repost_of! : post;
+
+  // Empty post — no content and no media; render nothing
+  if (!activePost.content?.trim() && (!activePost.post_media || activePost.post_media.length === 0)) return null;
   const isReposted = activePost.isReposted ?? false;
 
   // Register the active (possibly original) post in the global interaction map

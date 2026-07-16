@@ -360,7 +360,7 @@ export default function ProfileTabScreen() {
                 setSavedPosts(prev => prev.filter((p: any) => p.id !== item.id));
               } else {
                 await apiClient.deletePost(item.id);
-                setPosts(prev => prev.filter(p => p.id !== item.id));
+                setPosts(prev => prev.filter(p => p.id !== item.id && p.repost_of_id !== item.id));
               }
             }}
           />
