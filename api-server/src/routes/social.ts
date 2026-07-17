@@ -5,6 +5,7 @@ import MentionService from '../services/MentionService';
 import FeedService, { enrichWithUserState, getPrivateUserIds } from '../services/FeedService';
 import NotificationService from '../services/NotificationService';
 import OpenAI from 'openai';
+import ModerationService from '../services/ModerationService';
 
 /**
  * Returns true if the viewer can access posts from the given author.
@@ -145,6 +146,12 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
     }
     if (content.length > 280) {
       res.status(400).json({ success: false, error: 'Content exceeds 280 characters' });
+      return;
+    }
+
+    const moderation = await ModerationService.checkText(content);
+    if (moderation.flagged) {
+      res.status(422).json({ success: false, error: moderation.reason });
       return;
     }
 
