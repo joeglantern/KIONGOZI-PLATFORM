@@ -33,7 +33,7 @@
     },
     "android": {
       "package": "com.kiongozi.mobile",
-      "versionCode": 12,
+      "versionCode": 13,
       "intentFilters": [
         {
           "action": "VIEW",
