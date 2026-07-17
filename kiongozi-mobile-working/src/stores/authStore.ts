@@ -9,6 +9,7 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   sessionExpired: boolean; // true when session expired externally (not user-initiated sign-out)
+  pendingPasswordReset: boolean; // true while OTP verified but password not yet set
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, firstName: string, lastName: string, username?: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean; email?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
@@ -17,6 +18,8 @@ interface AuthState {
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   checkEmailVerified: () => Promise<{ success: boolean; error?: string }>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyResetOTP: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
+  cancelPasswordReset: () => Promise<void>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -25,6 +28,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: false,
   initialized: false,
   sessionExpired: false,
+  pendingPasswordReset: false,
 
   initialize: async () => {
     try {
@@ -48,7 +52,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          set({ user: session?.user ?? null });
+          if (!get().pendingPasswordReset) {
+            set({ user: session?.user ?? null });
+          }
         } else if (event === 'SIGNED_OUT') {
           set({ user: null, sessionExpired: !!get().user });
           const { useSocialStore } = require('./socialStore');
@@ -258,19 +264,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   resetPassword: async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: 'kiongozi://reset-password',
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: { shouldCreateUser: false },
       });
-      return error ? { success: false, error: error.message } : { success: true };
+      // Treat "user not found" as success to avoid revealing whether an email is registered
+      if (error && !error.message.toLowerCase().includes('not found') && !error.message.toLowerCase().includes('does not exist')) {
+        return { success: false, error: error.message };
+      }
+      return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   },
 
+  verifyResetOTP: async (email: string, token: string) => {
+    try {
+      set({ pendingPasswordReset: true });
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token,
+        type: 'email',
+      });
+      if (error) {
+        set({ pendingPasswordReset: false });
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (error: any) {
+      set({ pendingPasswordReset: false });
+      return { success: false, error: error.message };
+    }
+  },
+
+  cancelPasswordReset: async () => {
+    await supabase.auth.signOut({ scope: 'local' });
+    set({ pendingPasswordReset: false });
+  },
+
   updatePassword: async (newPassword: string) => {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
-      return error ? { success: false, error: error.message } : { success: true };
+      if (error) return { success: false, error: error.message };
+      // Session is valid — now surface the user to navigate into the app
+      const { data: { user } } = await supabase.auth.getUser();
+      set({ user, pendingPasswordReset: false });
+      return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

@@ -25,7 +25,7 @@ import apiClient from '../utils/apiClient';
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { signIn, signUp, resetPassword, signInWithGoogle, loading } = useAuthStore();
+  const { signIn, signUp, resetPassword, verifyResetOTP, cancelPasswordReset, signInWithGoogle, loading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -43,9 +43,69 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  // OTP step
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const otpInputRef = useRef<TextInput>(null);
+  // New password step (inline after OTP)
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [resetPwLoading, setResetPwLoading] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Auto-submit when all 6 OTP digits are entered
+  useEffect(() => {
+    if (otpCode.length === 6 && resetSent && !otpVerified && !otpLoading) {
+      handleVerifyOTP();
+    }
+  }, [otpCode]);
+
+  const handleVerifyOTP = async () => {
+    if (otpCode.length < 6 || otpLoading) return;
+    setOtpLoading(true);
+    const result = await verifyResetOTP(resetEmail, otpCode);
+    setOtpLoading(false);
+    if (result.success) {
+      setOtpVerified(true);
+    } else {
+      Alert.alert('Invalid code', result.error || 'The code is incorrect or has expired.');
+      setOtpCode('');
+    }
+  };
+
+  const handleSetNewPassword = async () => {
+    if (newPassword.length < 8) {
+      Alert.alert('Too short', 'Password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Mismatch', 'Passwords do not match.');
+      return;
+    }
+    setResetPwLoading(true);
+    const { updatePassword } = useAuthStore.getState();
+    const result = await updatePassword(newPassword);
+    setResetPwLoading(false);
+    if (!result.success) {
+      Alert.alert('Error', result.error || 'Failed to update password.');
+    }
+    // On success, authStore sets user → app navigates away automatically
+  };
+
+  const exitForgotMode = async () => {
+    if (otpVerified) await cancelPasswordReset();
+    setForgotMode(false);
+    setResetSent(false);
+    setOtpCode('');
+    setOtpVerified(false);
+    setNewPassword('');
+    setConfirmPassword('');
+  };
 
   const handleFocusEmail = React.useCallback(() => setFocusedField('email'), []);
   const handleFocusPassword = React.useCallback(() => setFocusedField('password'), []);
@@ -190,7 +250,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
               {forgotMode ? (
                 <View style={styles.forgotHeader}>
                   <TouchableOpacity
-                    onPress={() => setForgotMode(false)}
+                    onPress={exitForgotMode}
                     style={styles.backBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
@@ -213,27 +273,14 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
               )}
             </View>
 
-            {/* Forgot Password Card */}
+            {/* Forgot Password Flow */}
             {forgotMode && (
               <View style={styles.formContainer}>
-                {resetSent ? (
-                  <View style={styles.resetSuccessCard}>
-                    <Ionicons name="checkmark-circle" size={48} color="#22c55e" style={{ alignSelf: 'center', marginBottom: 12 }} />
-                    <Text style={styles.resetSuccessTitle}>Check your email</Text>
-                    <Text style={styles.resetSuccessText}>
-                      We sent a password reset link to {resetEmail}. Tap the link to set a new password.
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.submitButton}
-                      onPress={() => { setForgotMode(false); setResetSent(false); }}
-                    >
-                      <Text style={styles.submitButtonText}>Back to sign in</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
+                {!resetSent && (
+                  /* Step 1: Enter email */
                   <>
                     <Text style={styles.resetSubtitle}>
-                      Enter your email address and we'll send you a link to reset your password.
+                      Enter your email and we'll send you a 6-digit code to reset your password.
                     </Text>
                     <View style={styles.inputContainer}>
                       <Ionicons name="mail-outline" size={20} color="#555555" style={styles.inputIcon} />
@@ -259,7 +306,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                         if (result.success) {
                           setResetSent(true);
                         } else {
-                          Alert.alert('Error', result.error || 'Failed to send reset email.');
+                          Alert.alert('Error', result.error || 'Failed to send code.');
                         }
                       }}
                       activeOpacity={0.8}
@@ -267,7 +314,121 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       {resetLoading ? (
                         <ActivityIndicator color="#fff" size="small" />
                       ) : (
-                        <Text style={styles.submitButtonText}>Send Reset Email</Text>
+                        <Text style={styles.submitButtonText}>Send Code</Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {resetSent && !otpVerified && (
+                  /* Step 2: Enter 6-digit OTP */
+                  <>
+                    <Text style={styles.resetSubtitle}>
+                      We sent a 6-digit code to {resetEmail}. Enter it below.
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={1}
+                      onPress={() => otpInputRef.current?.focus()}
+                      style={styles.otpWrapper}
+                    >
+                      <View style={styles.otpBoxRow} pointerEvents="none">
+                        {[0, 1, 2, 3, 4, 5].map(i => (
+                          <View key={i} style={[
+                            styles.otpBox,
+                            i < otpCode.length ? styles.otpBoxFilled : (i === otpCode.length && styles.otpBoxActive),
+                          ]}>
+                            <Text style={styles.otpDigit}>{otpCode[i] || ''}</Text>
+                          </View>
+                        ))}
+                      </View>
+                      <TextInput
+                        ref={otpInputRef}
+                        style={styles.otpHiddenInput}
+                        value={otpCode}
+                        onChangeText={(t) => setOtpCode(t.replace(/[^0-9]/g, '').slice(0, 6))}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        caretHidden
+                        autoFocus
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.submitButton, (otpLoading || otpCode.length < 6) && styles.submitButtonDisabled]}
+                      disabled={otpLoading || otpCode.length < 6}
+                      onPress={handleVerifyOTP}
+                      activeOpacity={0.8}
+                    >
+                      {otpLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.submitButtonText}>Verify Code</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.resendBtn}
+                      onPress={async () => {
+                        setOtpCode('');
+                        setResetLoading(true);
+                        await resetPassword(resetEmail);
+                        setResetLoading(false);
+                        Alert.alert('Code resent', 'A new code has been sent to your email.');
+                      }}
+                    >
+                      <Text style={styles.resendText}>
+                        {resetLoading ? 'Sending…' : "Didn't get it? Resend code"}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {resetSent && otpVerified && (
+                  /* Step 3: Set new password */
+                  <>
+                    <Text style={styles.resetSubtitle}>
+                      Choose a new password for your account.
+                    </Text>
+                    <View style={styles.inputContainer}>
+                      <Ionicons name="lock-closed-outline" size={20} color="#555555" style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, styles.inputWithIcon, styles.passwordInput]}
+                        placeholder="New password (min. 8 characters)"
+                        placeholderTextColor="#9ca3af"
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={!showNewPw}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      <TouchableOpacity style={styles.eyeButton} onPress={() => setShowNewPw(!showNewPw)}>
+                        <Ionicons name={showNewPw ? 'eye-off' : 'eye'} size={20} color="#8E8E93" />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <Ionicons name="lock-closed-outline" size={20} color="#555555" style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, styles.inputWithIcon, styles.passwordInput]}
+                        placeholder="Confirm new password"
+                        placeholderTextColor="#9ca3af"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirmPw}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmPw(!showConfirmPw)}>
+                        <Ionicons name={showConfirmPw ? 'eye-off' : 'eye'} size={20} color="#8E8E93" />
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.submitButton, (resetPwLoading || !newPassword || !confirmPassword) && styles.submitButtonDisabled]}
+                      disabled={resetPwLoading || !newPassword || !confirmPassword}
+                      onPress={handleSetNewPassword}
+                      activeOpacity={0.8}
+                    >
+                      {resetPwLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.submitButtonText}>Set New Password</Text>
                       )}
                     </TouchableOpacity>
                   </>
@@ -436,7 +597,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
 
               {!isSignUp && (
                 <TouchableOpacity
-                  onPress={() => { setForgotMode(true); setResetSent(false); setResetEmail(email); }}
+                  onPress={() => { setForgotMode(true); setResetSent(false); setOtpCode(''); setOtpVerified(false); setResetEmail(email); }}
                   style={styles.forgotLink}
                 >
                   <Text style={styles.forgotText}>Forgot password?</Text>
@@ -793,21 +954,52 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     fontSize: 15,
   },
-  resetSuccessCard: {
-    paddingVertical: 24,
+  otpWrapper: {
+    position: 'relative',
+    marginVertical: 24,
   },
-  resetSuccessTitle: {
-    fontSize: 20,
+  otpBoxRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  otpBox: {
+    width: 46,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#2A2A2A',
+    backgroundColor: '#161616',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpBoxActive: {
+    borderColor: '#5CB85C',
+  },
+  otpBoxFilled: {
+    borderColor: '#3A3A3A',
+    backgroundColor: '#1E1E1E',
+  },
+  otpDigit: {
+    fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 12,
   },
-  resetSuccessText: {
-    fontSize: 15,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginBottom: 28,
-    lineHeight: 22,
+  otpHiddenInput: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    color: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  resendBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  resendText: {
+    color: '#5CB85C',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
