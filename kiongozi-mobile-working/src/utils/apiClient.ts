@@ -619,18 +619,32 @@ class ApiClient {
   }
 
   /** Update own profile (multipart/form-data for avatar upload) */
-  async updateProfile(formData: FormData) {
+  async updateProfile(formData: FormData): Promise<{ success: boolean; data?: any; error?: string }> {
     const url = `${this.baseURL}/api/v1/social/profile`;
     const token = await this.getAuthToken();
-    const headers: HeadersInit = { 'User-Agent': 'Kiongozi-Mobile/1.0' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    try {
-      const response = await fetch(url, { method: 'PATCH', headers, body: formData });
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PATCH', url);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('User-Agent', 'Kiongozi-Mobile/1.0');
+      // Do NOT set Content-Type — XHR sets it automatically with the correct multipart boundary
+
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch {
+          resolve({ success: false, error: `Server error (${xhr.status})` });
+        }
+      };
+
+      xhr.onerror = () => resolve({ success: false, error: 'Network error — could not reach server' });
+      xhr.ontimeout = () => resolve({ success: false, error: 'Upload timed out' });
+      xhr.timeout = 30000;
+
+      xhr.send(formData);
+    });
   }
 
   /** Get trending hashtags + posts */
