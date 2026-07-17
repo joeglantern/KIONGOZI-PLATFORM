@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kiongozi.chat",
-      "buildNumber": "10",
+      "buildNumber": "11",
       "associatedDomains": ["applinks:api.kiongozi.org"],
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice input functionality.",
