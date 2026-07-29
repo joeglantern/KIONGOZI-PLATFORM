@@ -1,251 +1,127 @@
 import express from 'express';
+import { prisma } from '../config/prisma';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { adminRateLimit } from '../middleware/rateLimiter';
 
 const router = express.Router();
 
-// Apply admin rate limiting to all routes
 router.use(adminRateLimit.middleware());
-
-// Apply authentication to all routes
 router.use(authenticateToken);
-
-// Apply admin role requirement to all routes
 router.use(requireRole(['admin', 'org_admin']));
 
-/**
- * User Management Endpoints
- */
+// ─── Users ────────────────────────────────────────────────────────────────────
 
-// Get all users with pagination and filtering
 router.get('/users', async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      status, 
-      role, 
-      search 
-    } = req.query;
+    const { page = 1, limit = 20, status, role, search } = req.query;
 
-    let query = supabaseServiceClient
-      .from('profiles')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    // Apply filters
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (role) {
-      query = query.eq('role', role);
-    }
+    const where: any = {};
+    if (status) where.status = status;
+    if (role) where.role = role;
     if (search) {
-      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+      where.OR = [
+        { full_name: { contains: search as string, mode: 'insensitive' } },
+        { email: { contains: search as string, mode: 'insensitive' } },
+      ];
     }
 
-    // Apply pagination
-    const from = (Number(page) - 1) * Number(limit);
-    const to = from + Number(limit) - 1;
-    query = query.range(from, to);
+    const skip = (Number(page) - 1) * Number(limit);
+    const take = Number(limit);
 
-    const { data: users, error, count } = await query;
+    const [users, count] = await prisma.$transaction([
+      prisma.profiles.findMany({ where, orderBy: { created_at: 'desc' }, skip, take }),
+      prisma.profiles.count({ where }),
+    ]);
 
-    if (error) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to fetch users',
-        details: error.message 
-      });
-    }
-
-    const totalPages = Math.ceil((count || 0) / Number(limit));
+    const totalPages = Math.ceil(count / Number(limit));
 
     res.json({
       success: true,
       data: {
-        users: users || [],
+        users,
         pagination: {
           currentPage: Number(page),
           totalPages,
-          totalCount: count || 0,
+          totalCount: count,
           hasNext: Number(page) < totalPages,
-          hasPrev: Number(page) > 1
-        }
-      }
+          hasPrev: Number(page) > 1,
+        },
+      },
     });
   } catch (error: any) {
     console.error('Admin users fetch error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error',
-      details: error.message 
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-// Get user by ID with detailed information
 router.get('/users/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Get user profile
-    const { data: user, error: userError } = await supabaseServiceClient
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const user = await prisma.profiles.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
-    if (userError || !user) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'User not found' 
-      });
-    }
-
-    // Get user's conversation count
-    const { count: conversationCount } = await supabaseServiceClient
-      .from('conversations')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    // Get user's message count
-    const { count: messageCount } = await supabaseServiceClient
-      .from('messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    // Get recent login logs
-    const { data: recentLogins } = await supabaseServiceClient
-      .from('user_login_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(5);
+    const [conversationCount, messageCount, recentLogins] = await prisma.$transaction([
+      prisma.conversations.count({ where: { user_id: userId } }),
+      prisma.messages.count({ where: { user_id: userId } }),
+      prisma.user_login_logs.findMany({
+        where: { user_id: userId },
+        orderBy: { created_at: 'desc' },
+        take: 5,
+      }),
+    ]);
 
     res.json({
       success: true,
       data: {
         user,
         stats: {
-          conversations: conversationCount || 0,
-          messages: messageCount || 0,
+          conversations: conversationCount,
+          messages: messageCount,
           lastLogin: user.last_login_at,
-          loginCount: user.login_count || 0
+          loginCount: user.login_count,
         },
-        recentLogins: recentLogins || []
-      }
+        recentLogins,
+      },
     });
   } catch (error: any) {
     console.error('Admin user detail fetch error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error',
-      details: error.message 
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-// Get user's course enrollments (admin only)
 router.get('/users/:userId/enrollments', async (req, res) => {
   try {
     const { userId } = req.params;
-    const {
-      status,
-      limit = '20',
-      offset = '0'
-    } = req.query;
+    const { status, limit = '20', offset = '0' } = req.query;
 
-    // Verify user exists
-    const { data: userExists } = await supabaseServiceClient
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .single();
+    const userExists = await prisma.profiles.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!userExists) return res.status(404).json({ success: false, error: 'User not found' });
 
-    if (!userExists) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
-    }
-
-    let query = supabaseServiceClient
-      .from('course_enrollments')
-      .select(`
-        id,
-        enrolled_at,
-        status,
-        progress_percentage,
-        completed_at,
-        certificate_issued,
-        last_accessed_at,
-        created_at,
-        updated_at,
-        courses (
-          id,
-          title,
-          description,
-          difficulty_level,
-          estimated_duration_hours,
-          category:module_categories (
-            id,
-            name,
-            color,
-            icon
-          ),
-          author:profiles!courses_author_id_fkey (
-            full_name,
-            email
-          )
-        )
-      `)
-      .eq('user_id', userId);
-
-    // Filter by status if provided
-    if (status && ['active', 'completed', 'dropped', 'suspended'].includes(status as string)) {
-      query = query.eq('status', status);
-    }
-
-    // Apply pagination and ordering
     const limitNum = Math.min(parseInt(limit as string, 10) || 20, 100);
     const offsetNum = parseInt(offset as string, 10) || 0;
 
-    query = query
-      .order('last_accessed_at', { ascending: false })
-      .range(offsetNum, offsetNum + limitNum - 1);
-
-    const { data: enrollments, error, count } = await query;
-
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to fetch user enrollments',
-        details: error.message
-      });
+    const where: any = { user_id: userId };
+    if (status && ['active', 'completed', 'dropped', 'suspended'].includes(status as string)) {
+      where.status = status;
     }
 
-    res.json({
-      success: true,
-      data: enrollments || [],
-      pagination: {
-        limit: limitNum,
-        offset: offsetNum,
-        total: count || enrollments?.length || 0
-      }
+    const enrollments = await prisma.course_enrollments.findMany({
+      where,
+      include: { courses: true },
+      orderBy: { last_accessed_at: 'desc' },
+      skip: offsetNum,
+      take: limitNum,
     });
+
+    res.json({ success: true, data: enrollments });
   } catch (error: any) {
     console.error('Admin user enrollments fetch error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-// Update user status (ban/unban/activate/deactivate)
 router.patch('/users/:userId/status', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -253,70 +129,38 @@ router.patch('/users/:userId/status', async (req, res) => {
     const adminId = (req as any).user.id;
 
     if (!['active', 'inactive', 'banned'].includes(status)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid status. Must be active, inactive, or banned' 
-      });
+      return res.status(400).json({ success: false, error: 'Invalid status. Must be active, inactive, or banned' });
     }
 
-    // Use appropriate database function based on status
     let result;
     if (status === 'banned') {
       result = await supabaseServiceClient.rpc('ban_user', {
         target_user_id: userId,
         admin_user_id: adminId,
-        reason: reason || 'No reason provided'
+        reason: reason || 'No reason provided',
       });
     } else if (status === 'active') {
-      // Check current status to determine which function to use
-      const { data: currentUser } = await supabaseServiceClient
-        .from('profiles')
-        .select('status')
-        .eq('id', userId)
-        .single();
-
+      const currentUser = await prisma.profiles.findUnique({ where: { id: userId }, select: { status: true } });
       if (currentUser?.status === 'banned') {
-        result = await supabaseServiceClient.rpc('unban_user', {
-          target_user_id: userId,
-          admin_user_id: adminId
-        });
+        result = await supabaseServiceClient.rpc('unban_user', { target_user_id: userId, admin_user_id: adminId });
       } else {
-        result = await supabaseServiceClient.rpc('activate_user', {
-          target_user_id: userId,
-          admin_user_id: adminId
-        });
+        result = await supabaseServiceClient.rpc('activate_user', { target_user_id: userId, admin_user_id: adminId });
       }
     } else if (status === 'inactive') {
-      result = await supabaseServiceClient.rpc('deactivate_user', {
-        target_user_id: userId,
-        admin_user_id: adminId
-      });
+      result = await supabaseServiceClient.rpc('deactivate_user', { target_user_id: userId, admin_user_id: adminId });
     }
 
     if (result?.error) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to update user status',
-        details: result.error.message 
-      });
+      return res.status(500).json({ success: false, error: 'Failed to update user status', details: result.error.message });
     }
 
-    res.json({
-      success: true,
-      message: `User status updated to ${status}`,
-      data: { userId, status, reason }
-    });
+    res.json({ success: true, message: `User status updated to ${status}`, data: { userId, status, reason } });
   } catch (error: any) {
     console.error('Admin user status update error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error',
-      details: error.message 
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-// Update user role
 router.patch('/users/:userId/role', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -325,522 +169,277 @@ router.patch('/users/:userId/role', async (req, res) => {
 
     const validRoles = ['user', 'admin', 'content_editor', 'moderator', 'org_admin', 'analyst', 'researcher'];
     if (!validRoles.includes(role)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Invalid role. Must be one of: ${validRoles.join(', ')}` 
-      });
+      return res.status(400).json({ success: false, error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
     }
 
-    // Fetch current role for audit log
-    const { data: currentProfile } = await supabaseServiceClient
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
+    const currentProfile = await prisma.profiles.findUnique({ where: { id: userId }, select: { role: true } });
 
-    // Direct update — bypasses the broken change_user_role RPC which checks
-    // jwt_role() and gets 'service_role' instead of 'admin'/'org_admin'
-    const { error } = await supabaseServiceClient
-      .from('profiles')
-      .update({ role, updated_at: new Date().toISOString() })
-      .eq('id', userId);
+    await prisma.profiles.update({ where: { id: userId }, data: { role, updated_at: new Date() } });
 
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to update user role',
-        details: error.message
-      });
-    }
-
-    // Log the action manually (same pattern as other admin actions)
     await supabaseServiceClient.rpc('log_admin_action', {
       admin_id: adminId,
       target_user_id: userId,
       action_type: 'role_changed',
-      action_details: { old_role: currentProfile?.role ?? null, new_role: role }
-    }).catch(() => { /* non-critical */ });
+      action_details: { old_role: currentProfile?.role ?? null, new_role: role },
+    }).then(undefined, () => { /* non-critical */ });
 
-    res.json({
-      success: true,
-      message: `User role updated to ${role}`,
-      data: { userId, role }
-    });
+    res.json({ success: true, message: `User role updated to ${role}`, data: { userId, role } });
   } catch (error: any) {
     console.error('Admin user role update error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error',
-      details: error.message 
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-// Create new user
 router.post('/users', async (req, res) => {
   try {
     const { email, full_name, first_name, last_name, role = 'user', password } = req.body;
     const adminId = (req as any).user.id;
 
     if (!email || !full_name || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email, full name, and password are required'
-      });
+      return res.status(400).json({ success: false, error: 'Email, full name, and password are required' });
     }
 
-    // Create auth user first
     const { data: authUser, error: authError } = await supabaseServiceClient.auth.admin.createUser({
       email,
       password,
-      email_confirm: true
+      email_confirm: true,
     });
 
     if (authError) {
-      return res.status(400).json({
-        success: false,
-        error: 'Failed to create auth user',
-        details: authError.message
-      });
+      return res.status(400).json({ success: false, error: 'Failed to create auth user', details: authError.message });
     }
 
-    // Create profile
-    const { data: profile, error: profileError } = await supabaseServiceClient
-      .from('profiles')
-      .insert({
-        id: authUser.user.id,
-        email,
-        full_name,
-        first_name,
-        last_name,
-        role
-      })
-      .select()
-      .single();
-
-    if (profileError) {
-      // Cleanup: delete auth user if profile creation fails
+    let profile;
+    try {
+      profile = await prisma.profiles.create({
+        data: { id: authUser.user.id, email, full_name, first_name, last_name, role },
+      });
+    } catch (profileError: any) {
       await supabaseServiceClient.auth.admin.deleteUser(authUser.user.id);
-      return res.status(400).json({
-        success: false,
-        error: 'Failed to create profile',
-        details: profileError.message
-      });
+      return res.status(400).json({ success: false, error: 'Failed to create profile', details: profileError.message });
     }
 
-    // Log admin action
     await supabaseServiceClient.rpc('log_admin_action', {
       admin_id: adminId,
       target_user_id: profile.id,
       action_type: 'user_created',
-      action_details: { 
-        email: profile.email,
-        role: profile.role 
-      }
+      action_details: { email: profile.email, role: profile.role },
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'User created successfully',
-      data: { user: profile }
-    });
+    res.status(201).json({ success: true, message: 'User created successfully', data: { user: profile } });
   } catch (error: any) {
     console.error('Admin user creation error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-/**
- * Dashboard Analytics Endpoints
- */
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 
-// Get dashboard overview stats
 router.get('/dashboard/stats', async (req, res) => {
   try {
-    // Get total users
-    const { count: totalUsers } = await supabaseServiceClient
-      .from('profiles')
-      .select('*', { count: 'exact', head: true });
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    // Get active users (last 30 days)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { count: activeUsers } = await supabaseServiceClient
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .gte('last_login_at', thirtyDaysAgo);
-
-    // Get total conversations
-    const { count: totalConversations } = await supabaseServiceClient
-      .from('conversations')
-      .select('*', { count: 'exact', head: true });
-
-    // Get total messages
-    const { count: totalMessages } = await supabaseServiceClient
-      .from('messages')
-      .select('*', { count: 'exact', head: true });
-
-    // Get banned users
-    const { count: bannedUsers } = await supabaseServiceClient
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'banned');
-
-    // Get recent registrations (last 7 days)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { count: recentRegistrations } = await supabaseServiceClient
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', sevenDaysAgo);
+    const [totalUsers, activeUsers, totalConversations, totalMessages, bannedUsers, recentRegistrations] =
+      await prisma.$transaction([
+        prisma.profiles.count(),
+        prisma.profiles.count({ where: { last_login_at: { gte: thirtyDaysAgo } } }),
+        prisma.conversations.count(),
+        prisma.messages.count(),
+        prisma.profiles.count({ where: { status: 'banned' } }),
+        prisma.profiles.count({ where: { created_at: { gte: sevenDaysAgo } } }),
+      ]);
 
     res.json({
       success: true,
       data: {
-        totalUsers: totalUsers || 0,
-        activeUsers: activeUsers || 0,
-        totalConversations: totalConversations || 0,
-        totalMessages: totalMessages || 0,
-        bannedUsers: bannedUsers || 0,
-        recentRegistrations: recentRegistrations || 0,
-        timestamp: new Date().toISOString()
-      }
+        totalUsers,
+        activeUsers,
+        totalConversations,
+        totalMessages,
+        bannedUsers,
+        recentRegistrations,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error: any) {
     console.error('Admin dashboard stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-/**
- * System Settings Endpoints
- */
+// ─── System Settings ──────────────────────────────────────────────────────────
 
-// Get system settings
 router.get('/settings', async (req, res) => {
   try {
     const { category } = req.query;
 
-    let query = supabaseServiceClient
-      .from('system_settings')
-      .select('*')
-      .order('category', { ascending: true })
-      .order('setting_key', { ascending: true });
+    const settings = await prisma.system_settings.findMany({
+      where: category ? { category: category as string } : undefined,
+      orderBy: [{ category: 'asc' }, { setting_key: 'asc' }],
+    });
 
-    if (category) {
-      query = query.eq('category', category);
-    }
-
-    const { data: settings, error } = await query;
-
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to fetch settings',
-        details: error.message
-      });
-    }
-
-    // Group settings by category
     const groupedSettings: Record<string, any> = {};
-    
-    (settings || []).forEach((setting: any) => {
-      if (!groupedSettings[setting.category]) {
-        groupedSettings[setting.category] = {};
-      }
-      
-      // Parse the JSON value based on data type
+    for (const setting of settings) {
+      if (!groupedSettings[setting.category]) groupedSettings[setting.category] = {};
+
       let value = setting.setting_value;
       try {
-        if (setting.data_type === 'string') {
-          value = typeof value === 'string' ? value : JSON.parse(value);
-        } else if (setting.data_type === 'number') {
-          value = typeof value === 'number' ? value : parseFloat(JSON.parse(value));
-        } else if (setting.data_type === 'boolean') {
-          value = typeof value === 'boolean' ? value : JSON.parse(value);
-        } else if (setting.data_type === 'json') {
-          value = typeof value === 'object' ? value : JSON.parse(value);
-        }
-      } catch (e) {
-        // If parsing fails, use raw value
-        value = setting.setting_value;
-      }
+        if (setting.data_type === 'number') value = parseFloat(String(value));
+        else if (setting.data_type === 'boolean') value = value === true || value === 'true';
+        else if (setting.data_type === 'string') value = typeof value === 'string' ? value : String(value);
+      } catch { /* use raw value */ }
 
       groupedSettings[setting.category][setting.setting_key] = {
         value,
         description: setting.description,
         dataType: setting.data_type,
         isPublic: setting.is_public,
-        updatedAt: setting.updated_at
+        updatedAt: setting.updated_at,
       };
-    });
+    }
 
-    res.json({
-      success: true,
-      data: { settings: groupedSettings }
-    });
+    res.json({ success: true, data: { settings: groupedSettings } });
   } catch (error: any) {
     console.error('Admin settings fetch error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-// Update system settings
 router.put('/settings', async (req, res) => {
   try {
     const { category, settings } = req.body;
     const adminId = (req as any).user.id;
 
     if (!category || !settings) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: category, settings'
-      });
+      return res.status(400).json({ success: false, error: 'Missing required fields: category, settings' });
     }
 
-    const updates = [];
-    const errors = [];
+    const updates: string[] = [];
+    const errors: string[] = [];
 
-    // Update each setting
     for (const [settingKey, settingData] of Object.entries(settings)) {
       try {
         const { value } = settingData as any;
-        
-        // Convert value to JSON for storage
-        let jsonValue = JSON.stringify(value);
-
-        const { error } = await supabaseServiceClient
-          .from('system_settings')
-          .update({
-            setting_value: jsonValue,
-            updated_at: new Date().toISOString(),
-            updated_by: adminId
-          })
-          .eq('category', category)
-          .eq('setting_key', settingKey);
-
-        if (error) {
-          errors.push(`${settingKey}: ${error.message}`);
-        } else {
-          updates.push(settingKey);
-        }
+        const result = await prisma.system_settings.updateMany({
+          where: { category, setting_key: settingKey },
+          data: { setting_value: value, updated_at: new Date(), updated_by: adminId },
+        });
+        if (result.count > 0) updates.push(settingKey);
+        else errors.push(`${settingKey}: not found`);
       } catch (err: any) {
         errors.push(`${settingKey}: ${err.message}`);
       }
     }
 
-    // Log admin action
     await supabaseServiceClient.rpc('log_admin_action', {
       admin_id: adminId,
       target_user_id: null,
       action_type: 'update_settings',
-      action_details: { 
-        category, 
-        updated_settings: updates,
-        errors: errors.length > 0 ? errors : null
-      }
+      action_details: { category, updated_settings: updates, errors: errors.length > 0 ? errors : null },
     });
 
     if (errors.length > 0) {
       return res.status(207).json({
         success: false,
         message: `Updated ${updates.length} settings, but encountered ${errors.length} errors`,
-        data: {
-          updated: updates,
-          errors
-        }
+        data: { updated: updates, errors },
       });
     }
 
-    res.json({
-      success: true,
-      message: `Successfully updated ${updates.length} settings`,
-      data: { updated: updates }
-    });
+    res.json({ success: true, message: `Successfully updated ${updates.length} settings`, data: { updated: updates } });
   } catch (error: any) {
     console.error('Admin settings update error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-// Create new system setting
 router.post('/settings', async (req, res) => {
   try {
-    const { 
-      category, 
-      setting_key, 
-      setting_value, 
-      description, 
-      data_type = 'string',
-      is_public = false
-    } = req.body;
+    const { category, setting_key, setting_value, description, data_type = 'string', is_public = false } = req.body;
     const adminId = (req as any).user.id;
 
     if (!category || !setting_key || setting_value === undefined) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: category, setting_key, setting_value'
-      });
+      return res.status(400).json({ success: false, error: 'Missing required fields: category, setting_key, setting_value' });
     }
 
-    // Convert value to JSON for storage
-    let jsonValue = JSON.stringify(setting_value);
+    const setting = await prisma.system_settings.create({
+      data: { category, setting_key, setting_value, description, data_type, is_public, updated_by: adminId },
+    });
 
-    const { data: setting, error } = await supabaseServiceClient
-      .from('system_settings')
-      .insert({
-        category,
-        setting_key,
-        setting_value: jsonValue,
-        description,
-        data_type,
-        is_public,
-        updated_by: adminId
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to create setting',
-        details: error.message
-      });
-    }
-
-    // Log admin action
     await supabaseServiceClient.rpc('log_admin_action', {
       admin_id: adminId,
       target_user_id: null,
       action_type: 'create_setting',
-      action_details: { category, setting_key, data_type }
+      action_details: { category, setting_key, data_type },
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'Setting created successfully',
-      data: { setting }
-    });
+    res.status(201).json({ success: true, message: 'Setting created successfully', data: { setting } });
   } catch (error: any) {
     console.error('Admin setting creation error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-/**
- * System Logs Endpoints
- */
+// ─── System Logs ──────────────────────────────────────────────────────────────
 
-// Get system logs with filtering and pagination
 router.get('/logs', async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 50, 
-      level, 
-      category, 
-      startDate,
-      endDate 
-    } = req.query;
+    const { page = 1, limit = 50, level, category, startDate, endDate } = req.query;
 
-    let query = supabaseServiceClient
-      .from('system_logs')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    // Apply filters
-    if (level) {
-      query = query.eq('level', level);
-    }
-    if (category) {
-      query = query.eq('category', category);
-    }
-    if (startDate) {
-      query = query.gte('created_at', startDate);
-    }
-    if (endDate) {
-      query = query.lte('created_at', endDate);
+    const where: any = {};
+    if (level) where.level = level;
+    if (category) where.category = category;
+    if (startDate || endDate) {
+      where.created_at = {};
+      if (startDate) where.created_at.gte = new Date(startDate as string);
+      if (endDate) where.created_at.lte = new Date(endDate as string);
     }
 
-    // Apply pagination
-    const from = (Number(page) - 1) * Number(limit);
-    const to = from + Number(limit) - 1;
-    query = query.range(from, to);
+    const skip = (Number(page) - 1) * Number(limit);
+    const take = Number(limit);
 
-    const { data: logs, error, count } = await query;
+    const [logs, count] = await prisma.$transaction([
+      prisma.system_logs.findMany({ where, orderBy: { created_at: 'desc' }, skip, take }),
+      prisma.system_logs.count({ where }),
+    ]);
 
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to fetch logs',
-        details: error.message
-      });
-    }
-
-    const totalPages = Math.ceil((count || 0) / Number(limit));
+    const totalPages = Math.ceil(count / Number(limit));
 
     res.json({
       success: true,
       data: {
-        logs: logs || [],
+        logs,
         pagination: {
           currentPage: Number(page),
           totalPages,
-          totalCount: count || 0,
+          totalCount: count,
           hasNext: Number(page) < totalPages,
-          hasPrev: Number(page) > 1
-        }
-      }
+          hasPrev: Number(page) > 1,
+        },
+      },
     });
   } catch (error: any) {
     console.error('Admin logs fetch error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
   }
 });
 
-// Grant verified badge
+// ─── Verify badge ─────────────────────────────────────────────────────────────
+
 router.patch('/users/:userId/verify', async (req, res) => {
   try {
     const { userId } = req.params;
     const adminId = (req as any).user.id;
 
-    const { error } = await supabaseServiceClient
-      .from('profiles')
-      .update({ is_verified: true })
-      .eq('id', userId);
-
-    if (error) {
-      return res.status(500).json({ success: false, error: 'Failed to verify user', details: error.message });
-    }
+    await prisma.profiles.update({ where: { id: userId }, data: { is_verified: true } });
 
     await supabaseServiceClient.rpc('log_admin_action', {
       admin_id: adminId,
       target_user_id: userId,
       action_type: 'user_verified',
       action_details: { verified: true },
-    });
+    }).then(undefined, () => { /* non-critical */ });
 
     res.json({ success: true, message: 'User verified successfully' });
   } catch (error: any) {
@@ -848,27 +447,19 @@ router.patch('/users/:userId/verify', async (req, res) => {
   }
 });
 
-// Revoke verified badge
 router.delete('/users/:userId/verify', async (req, res) => {
   try {
     const { userId } = req.params;
     const adminId = (req as any).user.id;
 
-    const { error } = await supabaseServiceClient
-      .from('profiles')
-      .update({ is_verified: false })
-      .eq('id', userId);
-
-    if (error) {
-      return res.status(500).json({ success: false, error: 'Failed to unverify user', details: error.message });
-    }
+    await prisma.profiles.update({ where: { id: userId }, data: { is_verified: false } });
 
     await supabaseServiceClient.rpc('log_admin_action', {
       admin_id: adminId,
       target_user_id: userId,
       action_type: 'user_unverified',
       action_details: { verified: false },
-    });
+    }).then(undefined, () => { /* non-critical */ });
 
     res.json({ success: true, message: 'Verification removed successfully' });
   } catch (error: any) {

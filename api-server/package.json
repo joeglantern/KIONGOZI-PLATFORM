@@ -7,7 +7,11 @@
     "dev": "nodemon",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:pull": "prisma db pull",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
   },
   "keywords": [
     "api",
@@ -19,6 +23,7 @@
   "author": "Joseph Liban Muritu",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^6",
     "@supabase/supabase-js": "^2.45.3",
     "@types/socket.io": "^3.0.1",
     "axios": "^1.9.0",
@@ -38,6 +43,7 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
+    "prisma": "^6",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",

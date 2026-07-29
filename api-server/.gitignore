@@ -15,6 +15,9 @@ yarn-error.log*
 dist/
 build/
 
+# Prisma generated client (regenerated via postinstall / npm run db:generate)
+prisma/generated/
+
 # Logs
 logs
 *.log
