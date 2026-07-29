@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Platform, Linking } from 'react-native';
-import Constants from 'expo-constants';
 import apiClient from '../utils/apiClient';
 
 export interface ForceUpdateState {
@@ -24,17 +23,14 @@ export function useForceUpdate(): ForceUpdateState {
 
         const { android, ios, force_update_message } = res.data as any;
         const isAndroid = Platform.OS === 'android';
-        const currentBuild = parseInt(
-          isAndroid
-            ? Constants.expoConfig?.android?.versionCode?.toString() ?? '0'
-            : Constants.expoConfig?.ios?.buildNumber?.toString() ?? '0',
-          10
-        );
+        const platform = isAndroid ? android : ios;
 
-        const minBuild = isAndroid ? android?.min_version_code : ios?.min_build_number;
+        // Server sets force_update_required: true to block all clients immediately
+        // Fallback: compare build numbers if the flag isn't present
+        const required = platform?.force_update_required === true;
         const storeUrl = isAndroid ? android?.store_url : ios?.store_url;
 
-        if (minBuild && currentBuild < minBuild) {
+        if (required) {
           setState({
             required: true,
             message: force_update_message || 'Please update the app to continue.',

@@ -76,6 +76,7 @@ router.get('/app-config', (_req, res) => {
       },
       ios: {
         min_build_number: 12,
+        force_update_required: true,
         store_url: 'https://apps.apple.com/app/id6789518676',
       },
       force_update_message: 'A new version of Kiongozi is available with important updates. Please update to continue.',
