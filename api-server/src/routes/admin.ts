@@ -3,6 +3,7 @@ import { prisma } from '../config/prisma';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { adminRateLimit } from '../middleware/rateLimiter';
+import { sendExpoPush } from '../services/PushService';
 
 const router = express.Router();
 
@@ -464,6 +465,46 @@ router.delete('/users/:userId/verify', async (req, res) => {
     res.json({ success: true, message: 'Verification removed successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
+// ─── Push Notifications ───────────────────────────────────────────────────────
+
+router.post('/notifications/push', async (req, res) => {
+  try {
+    const { title, body, target, user_id } = req.body as {
+      title: string;
+      body: string;
+      target: 'all' | 'android' | 'ios' | 'user';
+      user_id?: string;
+    };
+
+    if (!title || !body || !target) {
+      return res.status(400).json({ success: false, error: 'title, body, and target are required' });
+    }
+
+    if (target === 'user' && !user_id) {
+      return res.status(400).json({ success: false, error: 'user_id is required when target is "user"' });
+    }
+
+    const where: any = {};
+    if (target === 'android') where.platform = 'android';
+    else if (target === 'ios') where.platform = 'ios';
+    else if (target === 'user') where.user_id = user_id;
+
+    const tokenRows = await prisma.push_tokens.findMany({ where, select: { token: true } });
+    const tokens = tokenRows.map(r => r.token);
+
+    if (tokens.length === 0) {
+      return res.json({ success: true, message: 'No registered devices found for the selected target', sent: 0 });
+    }
+
+    await sendExpoPush(tokens, title, body);
+
+    return res.json({ success: true, message: `Notification sent to ${tokens.length} device(s)`, sent: tokens.length });
+  } catch (error: any) {
+    console.error('Failed to send push notification:', error);
+    return res.status(500).json({ success: false, error: 'Failed to send push notification', details: error.message });
   }
 });
 
