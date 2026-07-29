@@ -72,11 +72,12 @@ router.get('/app-config', (_req, res) => {
     data: {
       android: {
         min_version_code: 11,
+        force_update_required: true,
         store_url: 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile',
       },
       ios: {
         min_build_number: 12,
-        force_update_required: true,
+        force_update_required: false,
         store_url: 'https://apps.apple.com/app/id6789518676',
       },
       force_update_message: 'A new version of Kiongozi is available with important updates. Please update to continue.',
