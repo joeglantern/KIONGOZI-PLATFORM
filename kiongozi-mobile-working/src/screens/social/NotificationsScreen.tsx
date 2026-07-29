@@ -152,7 +152,6 @@ export default function NotificationsScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
-  useEffect(() => { return () => { markAllRead(); }; }, []);
 
   const handlePress = (item: SocialNotification) => {
     markRead(item.id);

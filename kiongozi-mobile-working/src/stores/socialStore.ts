@@ -246,7 +246,10 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   },
 
   prependPost: (post: Post) => {
-    set(state => ({ feedPosts: [post, ...state.feedPosts] }));
+    set(state => ({
+      feedPosts: [post, ...state.feedPosts],
+      forYouPosts: [post, ...state.forYouPosts],
+    }));
   },
 
   // Seed the interaction map for a post — only writes if not already tracked

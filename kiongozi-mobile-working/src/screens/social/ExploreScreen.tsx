@@ -262,7 +262,7 @@ export default function ExploreScreen() {
           onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
-              refreshing={exploreLoading && explorePosts.length === 0}
+              refreshing={exploreLoading}
               onRefresh={() => { fetchExploreFeed(true); loadTrending(); }}
               tintColor={T.accent}
             />

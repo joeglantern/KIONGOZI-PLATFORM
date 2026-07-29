@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Image, Alert, ActivityIndicator
+  ScrollView, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +9,7 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import { PostInput } from '../../components/social/PostInput';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
@@ -22,6 +23,7 @@ interface CreatePostScreenProps {
 
 export default function CreatePostScreen({ onClose, parentPostId }: CreatePostScreenProps) {
   const { user } = useAuthStore();
+  const { myProfile } = useProfileStore();
   const { prependPost } = useSocialStore();
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
@@ -155,7 +157,10 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -186,7 +191,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 
       <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
         <View style={styles.row}>
-          <UserAvatar avatarUrl={undefined} size={44} />
+          <UserAvatar avatarUrl={myProfile?.avatar_url} size={44} />
           <View style={styles.inputContainer}>
             <PostInput
               value={content}
@@ -204,8 +209,10 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
                     <View key={i} style={[styles.mediaItem, isSingle && { width: '100%', aspectRatio: ratio }]}>
                       {m.type === 'video' ? (
                         <View style={[isSingle ? styles.mediaThumbFull : styles.mediaThumb, styles.videoThumb]}>
+                          {m.thumbnailUri ? (
+                            <Image source={{ uri: m.thumbnailUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                          ) : null}
                           <Ionicons name="play-circle" size={36} color="#fff" />
-                          <Text style={styles.videoLabel}>Video</Text>
                         </View>
                       ) : (
                         <Image source={{ uri: m.uri }} style={isSingle ? styles.mediaThumbFull : styles.mediaThumb} resizeMode="cover" />
@@ -265,7 +272,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
           { icon: 'trash-outline', label: 'Discard', onPress: onClose, destructive: true },
         ]}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

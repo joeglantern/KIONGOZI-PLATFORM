@@ -128,7 +128,7 @@ export default function SettingsScreen() {
     try {
       const res = await apiClient.exportUserData();
       if (res.success || res.data) {
-        Alert.alert('Data Export', 'Your data export is ready. In a production build this would download a JSON file.');
+        Alert.alert('Data Export', 'Your data is being prepared. You will receive an email with a download link within 24 hours.');
       } else {
         Alert.alert('Error', res.error || 'Failed to export data.');
       }

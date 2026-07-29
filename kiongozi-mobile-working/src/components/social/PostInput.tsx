@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { View, TextInput, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useRef, useMemo } from 'react';
+import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import apiClient from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 interface PostInputProps {
   value: string;
@@ -13,6 +14,8 @@ interface PostInputProps {
 const MAX_CHARS = 280;
 
 export function PostInput({ value, onChangeText, placeholder = "What's happening in Kenya?", autoFocus }: PostInputProps) {
+  const T = useTheme();
+  const styles = useMemo(() => makeStyles(T), [T]);
   const [suggestions, setSuggestions] = useState<Array<{ id: string; username: string; full_name: string }>>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -24,7 +27,6 @@ export function PostInput({ value, onChangeText, placeholder = "What's happening
   const handleChange = (text: string) => {
     onChangeText(text);
 
-    // Detect @mention typing
     const match = text.match(/@(\w*)$/);
     if (match) {
       const query = match[1];
@@ -76,7 +78,7 @@ export function PostInput({ value, onChangeText, placeholder = "What's happening
         value={value}
         onChangeText={handleChange}
         placeholder={placeholder}
-        placeholderTextColor="#a0aec0"
+        placeholderTextColor={T.textMuted}
         multiline
         maxLength={MAX_CHARS + 10}
         autoFocus={autoFocus}
@@ -92,50 +94,52 @@ export function PostInput({ value, onChangeText, placeholder = "What's happening
   );
 }
 
-const styles = StyleSheet.create({
-  input: {
-    fontSize: 18,
-    color: '#1a202c',
-    minHeight: 80,
-    textAlignVertical: 'top',
-    paddingVertical: 8,
-  },
-  counter: {
-    textAlign: 'right',
-    color: '#a0aec0',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  overLimit: {
-    color: '#e53e3e',
-  },
-  suggestions: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  suggestion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    gap: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
-  },
-  suggestionName: {
-    fontWeight: '600',
-    color: '#1a202c',
-    fontSize: 14,
-  },
-  suggestionUsername: {
-    color: '#718096',
-    fontSize: 13,
-  }
-});
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+  return StyleSheet.create({
+    input: {
+      fontSize: 18,
+      color: T.text,
+      minHeight: 80,
+      textAlignVertical: 'top',
+      paddingVertical: 8,
+    },
+    counter: {
+      textAlign: 'right',
+      color: T.textMuted,
+      fontSize: 13,
+      marginTop: 4,
+    },
+    overLimit: {
+      color: '#e53e3e',
+    },
+    suggestions: {
+      backgroundColor: T.surface,
+      borderWidth: 1,
+      borderColor: T.borderLight,
+      borderRadius: 8,
+      marginBottom: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    suggestion: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      gap: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: T.borderLight,
+    },
+    suggestionName: {
+      fontWeight: '600',
+      color: T.text,
+      fontSize: 14,
+    },
+    suggestionUsername: {
+      color: T.textSub,
+      fontSize: 13,
+    },
+  });
+}

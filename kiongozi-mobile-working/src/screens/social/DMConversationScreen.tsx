@@ -337,11 +337,11 @@ export default function DMConversationScreen() {
   }, [user?.id, participantAvatar, participantName, styles, openContextMenu, messageMap]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -631,7 +631,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     inputBar: {
       paddingHorizontal: 12,
       paddingTop: 8,
-      paddingBottom: Math.max(bottomInset, Platform.OS === 'ios' ? 20 : 8) + 8,
+      paddingBottom: 10,
       backgroundColor: T.bg,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: T.borderLight,
@@ -743,8 +743,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     comingSoonBar: {
       alignItems: 'center',
       justifyContent: 'center',
-      paddingTop: 20,
-      paddingBottom: Math.max(bottomInset, Platform.OS === 'ios' ? 20 : 8) + 16,
+      paddingVertical: 20,
       backgroundColor: T.bg,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: T.borderLight,
