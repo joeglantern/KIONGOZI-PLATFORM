@@ -3,7 +3,9 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Install dependencies first (cache layer)
+# prisma/schema.prisma must be present before npm ci so postinstall can run prisma generate
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci --only=production=false
 
 # Copy source and build
