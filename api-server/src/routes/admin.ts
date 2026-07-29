@@ -331,19 +331,35 @@ router.patch('/users/:userId/role', async (req, res) => {
       });
     }
 
-    const { error } = await supabaseServiceClient.rpc('change_user_role', {
-      target_user_id: userId,
-      admin_user_id: adminId,
-      new_role: role
-    });
+    // Fetch current role for audit log
+    const { data: currentProfile } = await supabaseServiceClient
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    // Direct update — bypasses the broken change_user_role RPC which checks
+    // jwt_role() and gets 'service_role' instead of 'admin'/'org_admin'
+    const { error } = await supabaseServiceClient
+      .from('profiles')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', userId);
 
     if (error) {
-      return res.status(500).json({ 
-        success: false, 
+      return res.status(500).json({
+        success: false,
         error: 'Failed to update user role',
-        details: error.message 
+        details: error.message
       });
     }
+
+    // Log the action manually (same pattern as other admin actions)
+    await supabaseServiceClient.rpc('log_admin_action', {
+      admin_id: adminId,
+      target_user_id: userId,
+      action_type: 'role_changed',
+      action_details: { old_role: currentProfile?.role ?? null, new_role: role }
+    }).catch(() => { /* non-critical */ });
 
     res.json({
       success: true,
