@@ -4,7 +4,7 @@ import {
   TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert, Modal,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -87,7 +87,8 @@ export default function DMConversationScreen() {
   useHideTabBar();
 
   const T = useTheme();
-  const styles = useMemo(() => makeStyles(T), [T]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(T, insets.bottom), [T, insets.bottom]);
   const isBot = participantUsername === 'kiongozi';
   const [text, setText] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
@@ -583,7 +584,7 @@ export default function DMConversationScreen() {
   );
 }
 
-function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>, bottomInset: number) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: T.bg },
     container: { flex: 1, backgroundColor: T.bg },
@@ -630,7 +631,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     inputBar: {
       paddingHorizontal: 12,
       paddingTop: 8,
-      paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+      paddingBottom: Math.max(bottomInset, Platform.OS === 'ios' ? 20 : 8) + 8,
       backgroundColor: T.bg,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: T.borderLight,
@@ -742,8 +743,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     comingSoonBar: {
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 20,
-      paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+      paddingTop: 20,
+      paddingBottom: Math.max(bottomInset, Platform.OS === 'ios' ? 20 : 8) + 16,
       backgroundColor: T.bg,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: T.borderLight,
@@ -773,7 +774,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       backgroundColor: T.surface,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+      paddingBottom: Math.max(bottomInset, Platform.OS === 'ios' ? 20 : 8) + 12,
       paddingTop: 8,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: -4 },
