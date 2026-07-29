@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
 import type { User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 interface AuthState {
   user: User | null;
@@ -13,6 +14,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, firstName: string, lastName: string, username?: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean; email?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -205,6 +207,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { success: false, error: 'Google sign-in failed — please try again' };
     } catch (error: any) {
       set({ loading: false });
+      return { success: false, error: error.message };
+    }
+  },
+
+  signInWithApple: async () => {
+    set({ loading: true });
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        set({ loading: false });
+        return { success: false, error: 'Apple did not return an identity token.' };
+      }
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) {
+        set({ loading: false });
+        return { success: false, error: error.message };
+      }
+
+      // Apple only sends name on first sign-in — save it to the profile if present
+      if (credential.fullName?.givenName && data.user) {
+        await supabase.auth.updateUser({
+          data: {
+            first_name: credential.fullName.givenName,
+            last_name: credential.fullName.familyName ?? '',
+          },
+        });
+      }
+
+      set({ user: data.user, loading: false, sessionExpired: false });
+      return { success: true };
+    } catch (error: any) {
+      set({ loading: false });
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        return { success: false, error: 'Sign-in cancelled' };
+      }
       return { success: false, error: error.message };
     }
   },

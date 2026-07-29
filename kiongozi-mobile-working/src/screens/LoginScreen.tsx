@@ -21,11 +21,16 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '../utils/apiClient';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { signIn, signUp, resetPassword, verifyResetOTP, cancelPasswordReset, signInWithGoogle, loading } = useAuthStore();
+  const { signIn, signUp, resetPassword, verifyResetOTP, cancelPasswordReset, signInWithGoogle, signInWithApple, loading } = useAuthStore();
+  const [appleAvailable, setAppleAvailable] = React.useState(false);
+  React.useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
+  }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -646,6 +651,21 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   />
                   <Text style={styles.googleBtnText}>Continue with Google</Text>
                 </TouchableOpacity>
+
+                {appleAvailable && (
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={26}
+                    style={styles.appleBtn}
+                    onPress={async () => {
+                      const result = await signInWithApple();
+                      if (!result.success && result.error && result.error !== 'Sign-in cancelled') {
+                        Alert.alert('Apple Sign-In Failed', result.error);
+                      }
+                    }}
+                  />
+                )}
               </View>
             )}
 
@@ -905,6 +925,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  appleBtn: {
+    width: '100%',
+    height: 50,
+    marginTop: 12,
   },
   footerText: {
     color: '#8E8E93',
