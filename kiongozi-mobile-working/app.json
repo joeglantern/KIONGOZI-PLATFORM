@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kiongozi.chat",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "usesAppleSignIn": true,
       "associatedDomains": ["applinks:api.kiongozi.org"],
       "infoPlist": {
