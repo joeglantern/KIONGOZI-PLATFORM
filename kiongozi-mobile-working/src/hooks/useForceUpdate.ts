@@ -23,11 +23,14 @@ export function useForceUpdate(): ForceUpdateState {
         if (!res.success || !res.data) return;
 
         const { android, ios, force_update_message } = res.data as any;
-        const currentBuild = parseInt(Constants.expoConfig?.android?.versionCode?.toString()
-          ?? Constants.expoConfig?.ios?.buildNumber?.toString()
-          ?? '0', 10);
-
         const isAndroid = Platform.OS === 'android';
+        const currentBuild = parseInt(
+          isAndroid
+            ? Constants.expoConfig?.android?.versionCode?.toString() ?? '0'
+            : Constants.expoConfig?.ios?.buildNumber?.toString() ?? '0',
+          10
+        );
+
         const minBuild = isAndroid ? android?.min_version_code : ios?.min_build_number;
         const storeUrl = isAndroid ? android?.store_url : ios?.store_url;
 
