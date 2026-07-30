@@ -1,8 +1,52 @@
 import { AndroidLogo, AppleLogo } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { getDashboardStats, getAppConfig } from '../api/client';
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from 'recharts';
+import { getDashboardStats, getAppConfig, getAnalytics } from '../api/client';
+import type { AnalyticsPoint } from '../api/client';
 import { formatNumber } from '../lib/utils';
 import type { DashboardStats, AppConfig } from '../types';
+
+function fmt(d: string) {
+  const dt = new Date(d);
+  return `${dt.toLocaleString('en', { month: 'short' })} ${dt.getDate()}`;
+}
+
+function ChartTooltip({
+  active, payload, label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: 'hsl(var(--card))',
+      border: '1px solid hsl(var(--border))',
+      borderRadius: 8,
+      padding: '9px 13px',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+      minWidth: 140,
+    }}>
+      <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 7, fontWeight: 500 }}>
+        {label ? fmt(String(label)) : ''}
+      </p>
+      {payload.map((e, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: i < payload.length - 1 ? 5 : 0 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: e.color, flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>{e.name}</span>
+          <span style={{ fontSize: 12, color: 'hsl(var(--foreground))', fontWeight: 600, marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>
+            {e.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const TICK = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' } as const;
 
 function Skel({ w, h, className = '' }: { w?: string; h?: string; className?: string }) {
   return (
@@ -55,6 +99,12 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
+  const { data: analyticsData = [], isLoading: analyticsLoading } = useQuery<AnalyticsPoint[]>({
+    queryKey: ['analytics', '7d'],
+    queryFn: () => getAnalytics('7d'),
+    staleTime: 60_000,
+  });
+
   return (
     <div>
       {/* ── Stats strip ── */}
@@ -79,6 +129,49 @@ export default function DashboardPage() {
             )}
           </div>
         ))}
+      </div>
+
+      {/* ── User Growth (7d) ── */}
+      <div className="border-t border-border pt-5 mb-8">
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">User Growth</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">New & active users over the last 7 days</p>
+          </div>
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-2">
+              <span style={{ display: 'inline-block', width: 16, height: 2, background: '#5CB85C', borderRadius: 1 }} />
+              <span className="text-[11px] text-muted-foreground">New</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span style={{ display: 'inline-block', width: 16, height: 2, background: '#60A5FA', borderRadius: 1 }} />
+              <span className="text-[11px] text-muted-foreground">Active</span>
+            </div>
+          </div>
+        </div>
+        {analyticsLoading ? (
+          <div className="w-full animate-pulse rounded bg-accent" style={{ height: 160 }} />
+        ) : (
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart data={analyticsData} margin={{ top: 4, right: 2, left: -22, bottom: 0 }}>
+              <defs>
+                <linearGradient id="dashGradNew" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#5CB85C" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#5CB85C" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="dashGradActive" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.16} />
+                  <stop offset="100%" stopColor="#60A5FA" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" tick={TICK} axisLine={false} tickLine={false} tickFormatter={fmt} />
+              <YAxis tick={TICK} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip />} />
+              <Area type="monotone" dataKey="newUsers"    name="New"    stroke="#5CB85C" strokeWidth={1.5} fill="url(#dashGradNew)"    dot={false} activeDot={{ r: 4, fill: '#5CB85C',    strokeWidth: 0 }} />
+              <Area type="monotone" dataKey="activeUsers" name="Active" stroke="#60A5FA" strokeWidth={1.5} fill="url(#dashGradActive)" dot={false} activeDot={{ r: 4, fill: '#60A5FA', strokeWidth: 0 }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* ── App Status ── */}

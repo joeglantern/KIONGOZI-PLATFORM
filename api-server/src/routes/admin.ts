@@ -269,6 +269,64 @@ router.get('/dashboard/stats', async (req, res) => {
   }
 });
 
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+router.get('/analytics', async (req, res) => {
+  try {
+    const range = (req.query.range as string) || '7d';
+    const days = range === '90d' ? 90 : range === '30d' ? 30 : 7;
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    const [newUsersRaw, activeUsersRaw, messagesRaw] = await Promise.all([
+      prisma.$queryRaw`
+        SELECT DATE(created_at)::text AS date, COUNT(*)::int AS count
+        FROM profiles WHERE created_at >= ${startDate}
+        GROUP BY DATE(created_at) ORDER BY date ASC
+      ` as Promise<{ date: string; count: number }[]>,
+      prisma.$queryRaw`
+        SELECT DATE(last_login_at)::text AS date, COUNT(*)::int AS count
+        FROM profiles WHERE last_login_at >= ${startDate}
+        GROUP BY DATE(last_login_at) ORDER BY date ASC
+      ` as Promise<{ date: string; count: number }[]>,
+      prisma.$queryRaw`
+        SELECT DATE(created_at)::text AS date, COUNT(*)::int AS count
+        FROM messages WHERE created_at >= ${startDate}
+        GROUP BY DATE(created_at) ORDER BY date ASC
+      ` as Promise<{ date: string; count: number }[]>,
+    ]);
+
+    // Build complete date series (days with 0 data still included)
+    const dates: string[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+
+    const toMap = (rows: { date: string; count: number }[]) =>
+      Object.fromEntries(rows.map(r => [String(r.date).slice(0, 10), Number(r.count)]));
+
+    const nuMap  = toMap(newUsersRaw);
+    const auMap  = toMap(activeUsersRaw);
+    const msgMap = toMap(messagesRaw);
+
+    const points = dates.map(date => ({
+      date,
+      newUsers:    nuMap[date]  ?? 0,
+      activeUsers: auMap[date]  ?? 0,
+      messages:    msgMap[date] ?? 0,
+    }));
+
+    res.json({ success: true, data: { points, range } });
+  } catch (error: any) {
+    console.error('Admin analytics error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
 // ─── System Settings ──────────────────────────────────────────────────────────
 
 router.get('/settings', async (req, res) => {

@@ -47,9 +47,8 @@ export const updateUserRole = (id: string, role: string) =>
 export const getDashboardStats = () =>
   api.get('/api/v1/admin/dashboard/stats').then(r => r.data?.data ?? r.data)
 
-// Analytics doesn't exist on backend yet — returns empty array gracefully
-export const getAnalytics = (_range: '7d' | '30d' | '90d') =>
-  Promise.resolve([] as AnalyticsPoint[])
+export const getAnalytics = (range: '7d' | '30d' | '90d') =>
+  api.get('/api/v1/admin/analytics', { params: { range } }).then(r => (r.data?.data?.points ?? []) as AnalyticsPoint[])
 
 // ─── System logs (mapped to audit log UI) ────────────────────────────────────
 export const getAuditLogs = (params?: { page?: number; limit?: number; level?: string; category?: string; startDate?: string; endDate?: string }) =>
@@ -79,10 +78,9 @@ export const sendPushNotification = (payload: { title: string; body: string; tar
 export const getHealthDetailed = () =>
   api.get('/api/v1/health/detailed').then(r => r.data)
 
-// Shared types used in stubs
 export interface AnalyticsPoint {
   date: string
-  users: number
-  posts: number
-  active: number
+  newUsers: number
+  activeUsers: number
+  messages: number
 }
