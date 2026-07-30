@@ -9,6 +9,10 @@ import rateLimit from 'express-rate-limit';
 // Load environment variables
 dotenv.config();
 
+// Validate env immediately — missing vars produce a loud startup banner
+import { validateEnvOnBoot } from './config/validateEnv';
+validateEnvOnBoot();
+
 // Import routes
 import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';

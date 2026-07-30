@@ -1,121 +1,87 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Self-verifying deploy for the Kiongozi API (run on the VPS).
+#
+#   cd ~/kiongozi-api/api-server && bash deploy.sh
+#
+# Guards against every failure mode we've actually been burned by:
+#   1. "Already up to date" because commits were never pushed from the dev machine
+#   2. Missing .env variables discovered only as runtime 500s
+#   3. Rebuilding old code and assuming the new code is live
+# It verifies the running container AND the public domain report the exact
+# commit that was just deployed.
+#
+# Flags: --force   deploy even if git pull brought nothing new (e.g. env-only change)
 
-# Kiongozi API Server — Docker Deployment Script
-# Deploys to Contabo VPS using Docker Compose (replaces PM2)
+set -euo pipefail
+cd "$(dirname "$0")"
 
-set -e
+FORCE=0
+[ "${1:-}" = "--force" ] && FORCE=1
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+echo "── 1/5 Pulling latest code ──────────────────────────────"
+BEFORE=$(git rev-parse --short HEAD)
+git pull --ff-only
+AFTER=$(git rev-parse --short HEAD)
 
-log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-log_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
-log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
-
-REPO_URL="https://github.com/joeglantern/KIONGOZI-PLATFORM.git"
-DEPLOY_DIR="$HOME/kiongozi-api"
-API_DIR="$DEPLOY_DIR/api-server"
-
-echo ""
-log_info "========================================="
-log_info "  Kiongozi API Server — Docker Deploy"
-log_info "========================================="
-echo ""
-
-# ── Step 1: System prereqs ───────────────────────────────────────────────────
-log_info "Step 1: Checking prerequisites..."
-if ! command -v docker &>/dev/null; then
-    log_info "Installing Docker..."
-    curl -fsSL https://get.docker.com | sh
-fi
-if ! command -v git &>/dev/null; then
-    apt-get install -y git
-fi
-log_success "Prerequisites OK"
-
-# ── Step 2: Clone or update repo ─────────────────────────────────────────────
-log_info "Step 2: Getting latest code..."
-if [ -d "$DEPLOY_DIR" ]; then
-    cd "$DEPLOY_DIR"
-    git pull origin main
-    log_success "Code updated"
-else
-    cd "$HOME"
-    git clone "$REPO_URL" kiongozi-api
-    log_success "Code cloned"
+if [ "$BEFORE" = "$AFTER" ] && [ "$FORCE" -ne 1 ]; then
+  DEPLOYED=$(curl -s -m 5 http://127.0.0.1:3001/api/v1/health | grep -o '"commit":"[^"]*"' | cut -d'"' -f4 || true)
+  if [ "$DEPLOYED" = "$AFTER" ]; then
+    echo "✅ Nothing to do: commit $AFTER is already deployed and running."
+    exit 0
+  fi
+  echo ""
+  echo "⚠️  git pull brought NOTHING NEW (still at $BEFORE)."
+  echo "    If you just made changes: did you 'git push' from your dev machine?"
+  echo "    Running container reports commit: ${DEPLOYED:-unreachable}"
+  echo "    To rebuild this commit anyway: bash deploy.sh --force"
+  exit 1
 fi
 
-cd "$API_DIR"
-log_info "Working in: $(pwd)"
+echo "Deploying commit: $AFTER (was: $BEFORE)"
 
-# ── Step 3: Verify .env exists ───────────────────────────────────────────────
-log_info "Step 3: Checking environment file..."
-if [ ! -f ".env" ]; then
-    log_warning ".env not found — creating template"
-    cat > .env << 'ENVEOF'
-# Server
-PORT=3001
-NODE_ENV=production
-
-# Supabase
-SUPABASE_URL=https://jdncfyagppohtksogzkx.supabase.co
-SUPABASE_ANON_KEY=FILL_IN
-SUPABASE_SERVICE_ROLE_KEY=FILL_IN
-
-# OpenAI
-OPENAI_API_KEY=FILL_IN
-
-# Bot (@kiongozi)
-BOT_USER_ID=00000000-0000-0000-0000-000000000001
-
-# JWT
-JWT_SECRET=FILL_IN_STRONG_SECRET
-
-# CORS — add your app domain
-ALLOWED_ORIGINS=https://app.kiongozi.co.ke,http://localhost:3000
-
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=200
-ENVEOF
-
-    log_error "Please fill in the .env file and re-run deploy.sh"
-    echo "  nano $API_DIR/.env"
-    exit 1
+echo "── 2/5 Checking .env ────────────────────────────────────"
+MISSING=""
+for VAR in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY DATABASE_URL JWT_SECRET OPENAI_API_KEY; do
+  grep -q "^${VAR}=" .env || MISSING="$MISSING $VAR"
+done
+if [ -n "$MISSING" ]; then
+  echo "⛔ .env is missing:$MISSING"
+  echo "   Add them (copy from your dev machine's api-server/.env), then re-run."
+  exit 1
 fi
-log_success "Environment file found"
+echo "✅ .env has all required variables"
 
-# ── Step 4: Docker Compose deploy ────────────────────────────────────────────
-log_info "Step 4: Building and starting Docker containers..."
+echo "── 3/5 Building image ───────────────────────────────────"
+GIT_SHA=$AFTER docker compose build
 
-docker compose pull --ignore-pull-failures 2>/dev/null || true
-docker compose up -d --build
+echo "── 4/5 Starting container ───────────────────────────────"
+GIT_SHA=$AFTER docker compose up -d --remove-orphans
 
-log_success "Containers started"
+echo "── 5/5 Verifying deployment ─────────────────────────────"
+for i in $(seq 1 18); do
+  sleep 5
+  HEALTH=$(curl -s -m 5 http://127.0.0.1:3001/api/v1/health || true)
+  if [ -n "$HEALTH" ]; then
+    RUNNING=$(echo "$HEALTH" | grep -o '"commit":"[^"]*"' | cut -d'"' -f4 || true)
+    if [ "$RUNNING" = "$AFTER" ]; then
+      echo "✅ CONTAINER VERIFIED: healthy and running commit $AFTER"
+      PUBLIC=$(curl -s -m 10 https://api.kiongozi.org/api/v1/health | grep -o '"commit":"[^"]*"' | cut -d'"' -f4 || true)
+      if [ "$PUBLIC" = "$AFTER" ]; then
+        echo "✅ PUBLIC DOMAIN VERIFIED: api.kiongozi.org is serving commit $AFTER"
+      else
+        echo "⚠️  api.kiongozi.org reports '${PUBLIC:-unreachable}' — check host nginx routing!"
+        exit 1
+      fi
+      echo "── startup log highlights ──"
+      docker logs kiongozi-api --since 2m 2>&1 | grep -E "Environment|MISSING|Server running|⛔|⚠️|✅" | head -10 || true
+      echo ""
+      echo "🎉 Deploy complete and verified."
+      exit 0
+    fi
+  fi
+  echo "   waiting for container... ($((i * 5))s)"
+done
 
-# ── Step 5: Verify ───────────────────────────────────────────────────────────
-log_info "Step 5: Verifying deployment..."
-sleep 8
-docker compose ps
-
-echo ""
-log_info "========================================="
-log_success "Deployment Complete!"
-log_info "========================================="
-echo ""
-echo "🌐 Endpoints:"
-echo "   Health:    https://api.yourdomain.com/api/v1/health"
-echo "   Social:    https://api.yourdomain.com/api/v1/social"
-echo "   DMs:       https://api.yourdomain.com/api/v1/dm"
-echo ""
-echo "📊 Useful commands:"
-echo "   Logs:      docker compose logs -f api"
-echo "   Restart:   docker compose restart api"
-echo "   Stop:      docker compose down"
-echo "   Status:    docker compose ps"
-echo ""
+echo "⛔ Deploy verification FAILED — container never became healthy or reports the wrong commit."
+echo "   Inspect: docker logs kiongozi-api --tail 50"
+exit 1

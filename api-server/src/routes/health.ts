@@ -1,17 +1,20 @@
 import { Router } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { prisma } from '../config/prisma';
+import { missingRequired, missingRecommended } from '../config/validateEnv';
 
 const router = Router();
 
-// Basic health check
+// Basic health check — `commit` is baked in at Docker build time (GIT_SHA arg),
+// so `curl /api/v1/health` always answers "which code is actually deployed?"
 router.get('/', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0'
+    version: '1.0.0',
+    commit: process.env.GIT_SHA || 'unknown'
   });
 });
 
@@ -23,11 +26,16 @@ router.get('/detailed', async (_req, res) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
     version: '1.0.0',
+    commit: process.env.GIT_SHA || 'unknown',
     memory: process.memoryUsage(),
     cpu: process.cpuUsage(),
     pid: process.pid,
     nodeVersion: process.version,
     platform: process.platform,
+    config: {
+      missingRequired,
+      missingRecommended,
+    },
     services: {
       database: 'checking...'
     }

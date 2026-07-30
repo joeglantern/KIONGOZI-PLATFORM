@@ -15,6 +15,10 @@ RUN npm run build
 # Remove dev dependencies after build
 RUN npm prune --production
 
+# Deployed commit — passed by deploy.sh, surfaced at /api/v1/health as "commit"
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
+
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \

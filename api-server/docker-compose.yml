@@ -1,6 +1,9 @@
 services:
   api:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     image: kiongozi-api:latest
     container_name: kiongozi-api
     restart: always
