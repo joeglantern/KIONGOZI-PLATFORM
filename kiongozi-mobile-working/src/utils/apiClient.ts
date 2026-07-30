@@ -45,6 +45,9 @@ export interface LearningStats {
 
 class ApiClient {
   private baseURL: string;
+  // Single-flight refresh: when many screens hit 401 at once, they all await
+  // the same refresh attempt instead of firing parallel refreshes.
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor(baseURL: string = API_BASE_URL) {
     this.baseURL = baseURL;
@@ -52,7 +55,7 @@ class ApiClient {
 
   /**
    * Get the current access token from Supabase's own session management.
-   * Supabase handles persistence (SecureStore chunking) and auto-refresh automatically.
+   * Persistence uses the chunked SecureStore adapter in supabaseClient.
    */
   private async getAuthToken(): Promise<string | null> {
     try {
@@ -61,6 +64,30 @@ class ApiClient {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Attempt one session refresh. If it fails the session is dead — sign out
+   * locally so the auth listener routes to the login screen, which also stops
+   * screens from retrying failed requests in a loop.
+   */
+  private async tryRecoverSession(): Promise<boolean> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = (async () => {
+        try {
+          const { data, error } = await supabase.auth.refreshSession();
+          if (!error && data.session) return true;
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+          return false;
+        } catch {
+          return false;
+        } finally {
+          // Allow another recovery attempt after this one settles
+          setTimeout(() => { this.refreshPromise = null; }, 3000);
+        }
+      })();
+    }
+    return this.refreshPromise;
   }
 
   // These are kept for API compatibility but are no-ops — Supabase manages the token now.
@@ -72,15 +99,16 @@ class ApiClient {
    */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    isRetry = false
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     const token = await this.getAuthToken();
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'Kiongozi-Mobile/1.0',
-      ...options.headers,
+      ...(options.headers as Record<string, string> | undefined),
     };
 
     if (token) {
@@ -94,6 +122,18 @@ class ApiClient {
       });
 
       const responseText = await response.text();
+
+      // Expired/invalid token: refresh once and retry, otherwise sign out locally
+      if (response.status === 401 && token && !isRetry) {
+        const recovered = await this.tryRecoverSession();
+        if (recovered) {
+          return this.request(endpoint, options, true);
+        }
+        return {
+          success: false,
+          error: 'Session expired. Please sign in again.',
+        };
+      }
 
       // Only log details for errors or when debugging
       if (!response.ok) {
