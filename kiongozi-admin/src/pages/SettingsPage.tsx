@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   LockKey,
-  Moon,
   ShieldSlash,
   Export,
   Trash,
@@ -40,7 +39,7 @@ function AccessDenied() {
 }
 
 // ---------------------------------------------------------------------------
-// Section card wrapper
+// Section wrapper
 // ---------------------------------------------------------------------------
 function Section({
   title,
@@ -54,11 +53,11 @@ function Section({
   return (
     <section
       className={cn(
-        'card space-y-4',
-        danger && 'border-red-500/20 bg-red-500/5',
+        'border-t pt-5 pb-5 space-y-4',
+        danger ? 'border-red-500/30' : 'border-border',
       )}
     >
-      <h2 className={cn('text-lg font-semibold', danger && 'text-red-400')}>{title}</h2>
+      <h2 className={cn('text-[15px] font-semibold text-foreground', danger && 'text-red-400')}>{title}</h2>
       {children}
     </section>
   );
@@ -347,16 +346,9 @@ function DataPrivacySection() {
 function AppearanceSection() {
   return (
     <Section title="Appearance">
-      <div className="flex items-start gap-4 p-4 rounded-xl border border-border bg-accent">
-        <Moon weight="duotone" size={22} className="text-brand mt-0.5 shrink-0" />
-        <div>
-          <p className="text-sm font-medium">Dark Theme</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            This admin panel uses a fixed dark theme for optimal monitoring.
-            Light mode coming soon.
-          </p>
-        </div>
-      </div>
+      <p className="text-[13px] text-muted-foreground">
+        Use the theme toggle in the header to switch between dark and light mode. Your preference is saved automatically.
+      </p>
     </Section>
   );
 }
@@ -372,14 +364,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Super admin configuration and platform controls.
-        </p>
-      </div>
-
+    <div className="space-y-0 max-w-3xl">
       <PlatformInfoSection />
       <AdminAccountSection />
       <DataPrivacySection />

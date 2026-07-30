@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom'
-import { Bell } from '@phosphor-icons/react'
+import { Bell, List, Sun, Moon } from '@phosphor-icons/react'
 import { useAuthStore } from '../../stores/authStore'
+import { useUiStore } from '../../stores/uiStore'
 import { useSocketStore } from '../../stores/socketStore'
 import { UserAvatar } from '../ui/UserAvatar'
 import { RoleBadge } from '../ui/RoleBadge'
@@ -21,26 +22,45 @@ export function Header() {
   const connected = useSocketStore(s => s.connected)
   const { pathname } = useLocation()
   const page = PAGE_TITLES[pathname] ?? { title: 'Kiongozi Admin', desc: '' }
+  const { theme, toggleTheme, setMobileSidebarOpen } = useUiStore()
 
   return (
-    <header className="h-[56px] flex items-center justify-between gap-4 px-5 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
-      <div>
-        <h1 className="text-[15px] font-bold text-foreground leading-tight">{page.title}</h1>
-        {page.desc && (
-          <p className="text-[11px] text-muted-foreground leading-tight hidden sm:block">{page.desc}</p>
-        )}
+    <header className="h-[56px] flex items-center justify-between gap-4 px-4 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
+      <div className="flex items-center gap-3">
+        {/* Mobile hamburger */}
+        <button
+          className="md:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          onClick={() => setMobileSidebarOpen(true)}
+          aria-label="Open menu"
+        >
+          <List weight="bold" size={20} />
+        </button>
+
+        <div>
+          <h1 className="text-[15px] font-bold text-foreground leading-tight">{page.title}</h1>
+          {page.desc && (
+            <p className="text-[11px] text-muted-foreground leading-tight hidden sm:block">{page.desc}</p>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        {/* Connection status — minimal dot only */}
-        <div className="hidden sm:flex items-center gap-1.5">
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-brand animate-pulse' : 'bg-zinc-600'}`}
-          />
+      <div className="flex items-center gap-1.5">
+        {/* Connection status */}
+        <div className="hidden sm:flex items-center gap-1.5 mr-2">
+          <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-brand animate-pulse' : 'bg-zinc-600'}`} />
           <span className={`text-[11px] font-medium ${connected ? 'text-brand' : 'text-zinc-500'}`}>
             {connected ? 'Live' : 'Offline'}
           </span>
         </div>
+
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? <Sun weight="duotone" size={17} /> : <Moon weight="duotone" size={17} />}
+        </button>
 
         {/* Notifications */}
         <div className="relative">

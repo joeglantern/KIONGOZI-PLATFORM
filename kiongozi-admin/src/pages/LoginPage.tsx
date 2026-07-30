@@ -28,29 +28,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'hsl(240 10% 3.9%)' }}>
+    <div className="min-h-screen flex bg-background">
 
       {/* ── Left: brand panel ─────────────────────────────────────────────────── */}
-      <div
-        className="hidden lg:flex lg:w-[48%] relative overflow-hidden"
-        style={{ background: '#111318' }}
-      >
+      <div className="hidden lg:flex lg:w-[48%] relative overflow-hidden bg-card border-r border-border">
         {/* Subtle dot-grid texture */}
         <div
           aria-hidden="true"
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(circle, rgba(128,128,128,0.08) 1px, transparent 1px)',
             backgroundSize: '28px 28px',
           }}
         />
 
-        {/* Soft vignette so edges recede */}
+        {/* Soft vignette */}
         <div
           aria-hidden="true"
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse 90% 80% at 50% 50%, transparent 40%, #111318 100%)',
+            background: 'radial-gradient(ellipse 90% 80% at 50% 50%, transparent 40%, var(--tw-shadow-color, transparent) 100%)',
           }}
         />
 
@@ -63,7 +60,7 @@ export default function LoginPage() {
             style={{
               width: '148px',
               height: '148px',
-              boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 20px 60px rgba(0,0,0,0.5)',
+              boxShadow: '0 0 0 1px rgba(128,128,128,0.12), 0 20px 60px rgba(0,0,0,0.15)',
             }}
           >
             <img
@@ -75,28 +72,11 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Label above heading */}
-          <p style={{
-            fontSize: '10.5px',
-            fontWeight: 600,
-            letterSpacing: '0.2em',
-            textTransform: 'uppercase',
-            color: '#5CB85C',
-            marginBottom: '10px',
-          }}>
+          <p className="text-[10.5px] font-semibold tracking-[0.2em] uppercase text-brand mb-2.5">
             Admin Console
           </p>
 
-          {/* Heading */}
-          <h1 style={{
-            fontSize: '28px',
-            fontWeight: 700,
-            lineHeight: 1.15,
-            letterSpacing: '-0.025em',
-            color: 'rgba(255,255,255,0.95)',
-            margin: 0,
-            marginBottom: '14px',
-          }}>
+          <h1 className="text-[28px] font-bold leading-[1.15] tracking-tight text-foreground">
             Kiongozi<br />Control Center
           </h1>
 
@@ -105,14 +85,11 @@ export default function LoginPage() {
 
       {/* ── Right: sign-in form ────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-screen flex items-center justify-center px-6 py-14 lg:px-14">
-        <div className="w-full" style={{ maxWidth: '340px' }}>
+        <div className="w-full max-w-[340px]">
 
           {/* Mobile-only logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
-            <div
-              className="rounded-xl overflow-hidden flex-shrink-0"
-              style={{ width: '38px', height: '38px' }}
-            >
+            <div className="rounded-xl overflow-hidden shrink-0" style={{ width: '38px', height: '38px' }}>
               <img
                 src="/KchatLogo.png"
                 alt="Kiongozi Chat"
@@ -121,23 +98,17 @@ export default function LoginPage() {
                 style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.9)', letterSpacing: '-0.01em' }}>
+            <span className="text-[14px] font-semibold text-foreground tracking-tight">
               Kiongozi Admin
             </span>
           </div>
 
           {/* Heading */}
-          <div style={{ marginBottom: '28px' }}>
-            <h2 style={{
-              fontSize: '22px',
-              fontWeight: 700,
-              color: 'hsl(0 0% 97%)',
-              letterSpacing: '-0.025em',
-              marginBottom: '4px',
-            }}>
+          <div className="mb-7">
+            <h2 className="text-[22px] font-bold text-foreground tracking-tight mb-1">
               Sign in
             </h2>
-            <p style={{ fontSize: '13px', color: 'hsl(240 5% 58%)', lineHeight: 1.5 }}>
+            <p className="text-[13px] text-muted-foreground leading-relaxed">
               Enter your administrator credentials to continue.
             </p>
           </div>
@@ -145,25 +116,24 @@ export default function LoginPage() {
           {/* Error */}
           {error && (
             <div
-              className="flex items-start gap-2.5 rounded-lg border mb-5"
+              className="flex items-start gap-2.5 rounded-lg border mb-5 px-3 py-2.5"
               style={{
                 background: 'rgba(239,68,68,0.07)',
                 borderColor: 'rgba(239,68,68,0.2)',
-                padding: '11px 13px',
               }}
             >
-              <WarningCircle weight="fill" size={15} style={{ color: '#F87171', flexShrink: 0, marginTop: '1.5px' }} />
-              <p style={{ fontSize: '13px', color: '#F87171', lineHeight: 1.5, margin: 0 }}>{error}</p>
+              <WarningCircle weight="fill" size={15} className="text-red-400 shrink-0 mt-[1.5px]" />
+              <p className="text-[13px] text-red-400 leading-relaxed">{error}</p>
             </div>
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
             <div>
-              <label htmlFor="email" style={{
-                display: 'block', fontSize: '12px', fontWeight: 500,
-                color: 'hsl(0 0% 76%)', letterSpacing: '0.01em', marginBottom: '6px',
-              }}>
+              <label
+                htmlFor="email"
+                className="block text-[12px] font-medium text-muted-foreground mb-1.5 tracking-[0.01em]"
+              >
                 Email address
               </label>
               <input
@@ -176,10 +146,10 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" style={{
-                display: 'block', fontSize: '12px', fontWeight: 500,
-                color: 'hsl(0 0% 76%)', letterSpacing: '0.01em', marginBottom: '6px',
-              }}>
+              <label
+                htmlFor="password"
+                className="block text-[12px] font-medium text-muted-foreground mb-1.5 tracking-[0.01em]"
+              >
                 Password
               </label>
               <input
@@ -214,10 +184,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p style={{
-            marginTop: '28px', textAlign: 'center', fontSize: '11px',
-            color: 'hsl(240 5% 36%)', lineHeight: 1.5,
-          }}>
+          <p className="mt-7 text-center text-[11px] text-muted-foreground leading-relaxed">
             Access is restricted to authorised administrators only.
           </p>
 

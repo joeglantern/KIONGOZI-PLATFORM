@@ -8,6 +8,8 @@ interface AuthState {
   user: AdminUser | null
   token: string | null
   isAuthenticated: boolean
+  _hasHydrated: boolean
+  setHasHydrated: (v: boolean) => void
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   hasRole: (required: Role | Role[]) => boolean
@@ -37,6 +39,8 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
+      _hasHydrated: false,
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
 
       login: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -91,6 +95,9 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'kiongozi-admin-auth',
       partialize: s => ({ user: s.user, token: s.token, isAuthenticated: s.isAuthenticated }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true)
+      },
     }
   )
 )

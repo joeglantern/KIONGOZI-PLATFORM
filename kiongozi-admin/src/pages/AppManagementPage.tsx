@@ -62,8 +62,8 @@ function CommandBlock({ command }: CommandBlockProps) {
   };
 
   return (
-    <div className="flex items-center gap-3 bg-zinc-900 border border-border rounded-lg px-4 py-3 font-mono text-sm">
-      <span className="flex-1 text-green-400 break-all">{command}</span>
+    <div className="flex items-center gap-3 bg-accent border border-border rounded-lg px-4 py-3 font-mono text-sm">
+      <span className="flex-1 text-brand break-all">{command}</span>
       <button
         type="button"
         onClick={handleCopy}
@@ -241,17 +241,10 @@ export default function AppManagementPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold">App Management</h1>
-        <p className="text-muted-foreground mt-1">
-          Control mobile releases, force-update flags, and OTA deployments.
-        </p>
-      </div>
-
+    <div className="space-y-0 max-w-4xl">
       {/* ── 1. Force Update Control ── */}
-      <section className="card space-y-5">
-        <h2 className="text-lg font-semibold">Force Update Control</h2>
+      <section className="border-t border-border pt-5 pb-6 space-y-4">
+        <h2 className="text-[15px] font-semibold text-foreground">Force Update Control</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <PlatformCard
             platform="android"
@@ -297,8 +290,8 @@ export default function AppManagementPage() {
       </section>
 
       {/* ── 2. App Config Details ── */}
-      <section className="card space-y-4">
-        <h2 className="text-lg font-semibold">App Config Details</h2>
+      <section className="border-t border-border pt-5 pb-6 space-y-4">
+        <h2 className="text-[15px] font-semibold text-foreground">App Config Details</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-1">
@@ -320,10 +313,10 @@ export default function AppManagementPage() {
       </section>
 
       {/* ── 3. OTA Instructions ── */}
-      <section className="card space-y-4">
+      <section className="border-t border-border pt-5 pb-6 space-y-4">
         <div className="flex items-center gap-2">
-          <Info weight="duotone" size={20} className="text-brand" />
-          <h2 className="text-lg font-semibold">Deploy OTA Update</h2>
+          <Info weight="duotone" size={16} className="text-brand" />
+          <h2 className="text-[15px] font-semibold text-foreground">Deploy OTA Update</h2>
         </div>
         <p className="text-sm text-muted-foreground">
           Run these commands from your project root to push an over-the-air
@@ -347,9 +340,9 @@ export default function AppManagementPage() {
 
       {/* ── 4. System Health ── */}
       {isAdmin && health && (
-        <section className="card space-y-4">
+        <section className="border-t border-border pt-5 pb-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">System Health</h2>
+            <h2 className="text-[15px] font-semibold text-foreground">System Health</h2>
             <span className="text-xs text-muted-foreground">
               {health.timestamp ? new Date(health.timestamp as string).toLocaleTimeString() : ''}
             </span>

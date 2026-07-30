@@ -4,7 +4,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* ── Dark theme (default) ── */
+  :root, html.dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 6% 7%;
@@ -22,6 +23,29 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
     --ring: 142 43% 54%;
+    --radius: 0.5rem;
+    --sidebar-width: 240px;
+  }
+
+  /* ── Light theme ── */
+  html.light {
+    --background: 220 20% 97%;
+    --foreground: 220 13% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 10%;
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --primary: 142 43% 46%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 10% 92%;
+    --secondary-foreground: 220 13% 10%;
+    --muted: 220 10% 92%;
+    --muted-foreground: 220 8% 48%;
+    --accent: 220 10% 93%;
+    --accent-foreground: 220 13% 10%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --ring: 142 43% 46%;
     --radius: 0.5rem;
     --sidebar-width: 240px;
   }
@@ -53,13 +77,20 @@
 
   ::selection { background: rgba(92, 184, 92, 0.2); color: #5CB85C; }
 
-  /* Keep inputs dark when browser autofills */
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus {
+  /* Autofill override — matches input bg per theme */
+  html.dark input:-webkit-autofill,
+  html.dark input:-webkit-autofill:hover,
+  html.dark input:-webkit-autofill:focus {
     -webkit-box-shadow: 0 0 0 1000px hsl(240 3.7% 12%) inset !important;
     -webkit-text-fill-color: hsl(0 0% 98%) !important;
     caret-color: hsl(0 0% 98%);
+  }
+  html.light input:-webkit-autofill,
+  html.light input:-webkit-autofill:hover,
+  html.light input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px hsl(220 10% 93%) inset !important;
+    -webkit-text-fill-color: hsl(220 13% 10%) !important;
+    caret-color: hsl(220 13% 10%);
   }
 }
 

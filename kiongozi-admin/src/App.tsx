@@ -14,7 +14,8 @@ import SettingsPage from './pages/SettingsPage'
 import type { Role } from './types'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, _hasHydrated } = useAuthStore()
+  if (!_hasHydrated) return null
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
 }
 
@@ -30,14 +31,14 @@ export default function App() {
         position="top-right"
         toastOptions={{
           style: {
-            background: '#111112',
-            color: '#fafafa',
-            border: '1px solid #27272a',
+            background: 'hsl(var(--card))',
+            color: 'hsl(var(--foreground))',
+            border: '1px solid hsl(var(--border))',
             fontSize: '13px',
             borderRadius: '10px',
             padding: '10px 14px',
           },
-          success: { iconTheme: { primary: '#5CB85C', secondary: 'white' } },
+          success: { iconTheme: { primary: '#5CB85C', secondary: 'hsl(var(--card))' } },
         }}
       />
       <Routes>
