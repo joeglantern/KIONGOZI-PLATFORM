@@ -286,10 +286,12 @@ router.get('/analytics', async (req, res) => {
         FROM profiles WHERE created_at >= ${startDate}
         GROUP BY DATE(created_at) ORDER BY date ASC
       ` as Promise<{ date: string; count: number }[]>,
+      // Distinct users with any authenticated activity per day (user_login_logs
+      // gets a throttled row from the auth middleware on every active user)
       prisma.$queryRaw`
-        SELECT DATE(last_login_at)::text AS date, COUNT(*)::int AS count
-        FROM profiles WHERE last_login_at >= ${startDate}
-        GROUP BY DATE(last_login_at) ORDER BY date ASC
+        SELECT DATE(created_at)::text AS date, COUNT(DISTINCT user_id)::int AS count
+        FROM user_login_logs WHERE created_at >= ${startDate}
+        GROUP BY DATE(created_at) ORDER BY date ASC
       ` as Promise<{ date: string; count: number }[]>,
       prisma.$queryRaw`
         SELECT DATE(created_at)::text AS date, COUNT(*)::int AS count

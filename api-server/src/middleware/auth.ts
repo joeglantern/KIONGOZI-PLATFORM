@@ -1,6 +1,36 @@
 import { Request, Response, NextFunction } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { supabaseUserClient, supabaseServiceClient } from '../config/supabase';
+import { prisma } from '../config/prisma';
+
+// ─── Activity tracking ────────────────────────────────────────────────────────
+// Every authenticated request marks the user active, throttled to one DB write
+// per user per THROTTLE window. Powers "Active (30d)" (profiles.last_login_at)
+// and the per-day active-users chart (distinct user_ids in user_login_logs).
+const ACTIVITY_THROTTLE_MS = 30 * 60 * 1000; // 30 min
+const lastActivityWrite = new Map<string, number>();
+
+function trackActivity(userId: string) {
+  const now = Date.now();
+  if (now - (lastActivityWrite.get(userId) ?? 0) < ACTIVITY_THROTTLE_MS) return;
+  lastActivityWrite.set(userId, now);
+
+  // Prune stale entries so the map can't grow unbounded
+  if (lastActivityWrite.size > 10_000) {
+    const cutoff = now - 24 * 60 * 60 * 1000;
+    for (const [id, ts] of lastActivityWrite) {
+      if (ts < cutoff) lastActivityWrite.delete(id);
+    }
+  }
+
+  // Fire-and-forget — activity tracking must never slow down or fail a request
+  void prisma.profiles
+    .update({ where: { id: userId }, data: { last_login_at: new Date() } })
+    .catch(() => { /* profile row may not exist yet */ });
+  void prisma.user_login_logs
+    .create({ data: { user_id: userId } })
+    .catch(() => { /* non-critical */ });
+}
 
 const supabaseProjectRef = process.env.SUPABASE_URL?.split('https://')[1]?.split('.')[0];
 const JWKS_URL = supabaseProjectRef
@@ -80,6 +110,7 @@ export const authenticateToken = async (
     return;
   }
   req.user = user;
+  trackActivity(user.id);
   next();
   return;
 };
@@ -93,7 +124,10 @@ export const optionalAuth = async (
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
   if (token) {
     const user = await verifySupabaseToken(token);
-    if (user) req.user = user;
+    if (user) {
+      req.user = user;
+      trackActivity(user.id);
+    }
   }
   next();
   return;
