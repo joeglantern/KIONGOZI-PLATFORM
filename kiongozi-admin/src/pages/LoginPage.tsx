@@ -100,35 +100,6 @@ export default function LoginPage() {
             Kiongozi<br />Control Center
           </h1>
 
-          <p style={{
-            fontSize: '13.5px',
-            lineHeight: 1.65,
-            color: 'rgba(255,255,255,0.38)',
-            maxWidth: '260px',
-          }}>
-            Manage users, moderate content, and keep Kenya's civic network running.
-          </p>
-
-          {/* Bottom strip */}
-          <div style={{
-            position: 'absolute',
-            bottom: '32px',
-            left: 0,
-            right: 0,
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '24px',
-          }}>
-            {[
-              { v: '47', l: 'Counties' },
-              { v: '2026', l: 'Season' },
-            ].map(({ v, l }) => (
-              <div key={l} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '17px', fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: '-0.02em' }}>{v}</div>
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginTop: '1px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>{l}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
