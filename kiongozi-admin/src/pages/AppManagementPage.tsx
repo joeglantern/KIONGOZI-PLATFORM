@@ -116,20 +116,20 @@ function PlatformCard({
         <span className="font-semibold text-lg">{label}</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <p className="text-muted-foreground">Current Version</p>
-          <p className="font-medium">{version ?? '—'}</p>
+      <div className="space-y-2 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-muted-foreground shrink-0">Current Version</span>
+          <span className="font-medium tabular-nums">{version ?? '—'}</span>
         </div>
-        <div>
-          <p className="text-muted-foreground">{buildLabel}</p>
-          <p className="font-medium">{buildValue ?? '—'}</p>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-muted-foreground shrink-0">{buildLabel}</span>
+          <span className="font-medium tabular-nums">{buildValue ?? '—'}</span>
         </div>
       </div>
 
       {isAdmin && (
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-medium">Force Update Required</p>
             <p className="text-xs text-muted-foreground">
               Block users on older builds

@@ -104,15 +104,17 @@ export interface NotificationPayload {
 }
 
 export interface AppConfig {
-  android: {
-    min_version_code: number
+  android?: {
+    min_version_code?: number
     force_update_required: boolean
-    store_url: string
+    store_url?: string
+    current_version?: string
   }
-  ios: {
-    min_build_number: number
+  ios?: {
+    min_build_number?: number
     force_update_required: boolean
-    store_url: string
+    store_url?: string
+    current_version?: string
   }
-  force_update_message: string
+  force_update_message?: string
 }

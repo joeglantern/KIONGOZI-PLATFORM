@@ -34,6 +34,7 @@ const DB_ROLE_OPTIONS = [
   { value: 'researcher',     label: 'Researcher' },
   { value: 'admin',          label: 'Admin' },
   { value: 'org_admin',      label: 'Org Admin' },
+  { value: 'super_admin',    label: 'Super Admin' },
 ]
 
 export default function UsersPage() {
@@ -111,7 +112,7 @@ export default function UsersPage() {
       toast.success('Role updated.')
       invalidateUsers()
     },
-    onError: () => toast.error('Failed to update role.'),
+    onError: (error: any) => toast.error(error?.response?.data?.error ?? 'Failed to update role.'),
   })
 
   const isModerator = hasRole('moderator')

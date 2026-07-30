@@ -146,12 +146,16 @@ export default function NotificationsPage() {
 
   const sendMutation = useMutation({
     mutationFn: (payload: NotificationPayload) => sendPushNotification(payload),
-    onSuccess: () => {
-      toast.success('Notification sent!');
+    onSuccess: (data: any) => {
+      if (data?.sent === 0) {
+        toast('No registered devices found for this target.', { icon: '📱' });
+      } else {
+        toast.success(data?.message ?? 'Notification sent!');
+      }
       resetForm();
     },
-    onError: () => {
-      toast.error('Failed to send notification');
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error ?? 'Failed to send notification');
       setConfirming(false);
     },
   });

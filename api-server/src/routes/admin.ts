@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.use(adminRateLimit.middleware());
 router.use(authenticateToken);
-router.use(requireRole(['admin', 'org_admin']));
+router.use(requireRole(['admin', 'org_admin', 'super_admin']));
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -168,7 +168,7 @@ router.patch('/users/:userId/role', async (req, res) => {
     const { role } = req.body;
     const adminId = (req as any).user.id;
 
-    const validRoles = ['user', 'admin', 'content_editor', 'moderator', 'org_admin', 'analyst', 'researcher'];
+    const validRoles = ['user', 'admin', 'super_admin', 'content_editor', 'moderator', 'org_admin', 'analyst', 'researcher'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ success: false, error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
     }
