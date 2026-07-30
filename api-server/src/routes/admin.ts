@@ -327,6 +327,58 @@ router.get('/analytics', async (req, res) => {
   }
 });
 
+// ─── App Config (mobile force-update control) ─────────────────────────────────
+
+router.patch('/app-config', async (req, res) => {
+  try {
+    const adminId = (req as any).user.id;
+    const patch = req.body ?? {};
+
+    const existing = await prisma.system_settings.findFirst({
+      where: { category: 'app_config', setting_key: 'config' },
+    });
+    const current = (existing?.setting_value as any) ?? {};
+
+    const merged = {
+      ...current,
+      ...patch,
+      android: { ...(current.android ?? {}), ...(patch.android ?? {}) },
+      ios: { ...(current.ios ?? {}), ...(patch.ios ?? {}) },
+    };
+
+    if (existing) {
+      await prisma.system_settings.update({
+        where: { id: existing.id },
+        data: { setting_value: merged, updated_at: new Date(), updated_by: adminId },
+      });
+    } else {
+      await prisma.system_settings.create({
+        data: {
+          category: 'app_config',
+          setting_key: 'config',
+          setting_value: merged,
+          description: 'Mobile app version & force-update configuration (managed from admin panel)',
+          data_type: 'json',
+          is_public: true,
+          updated_by: adminId,
+        },
+      });
+    }
+
+    await supabaseServiceClient.rpc('log_admin_action', {
+      admin_id: adminId,
+      target_user_id: null,
+      action_type: 'app_config_updated',
+      action_details: patch,
+    }).then(undefined, () => { /* non-critical */ });
+
+    res.json({ success: true, message: 'App config updated', data: merged });
+  } catch (error: any) {
+    console.error('Admin app-config update error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
 // ─── System Settings ──────────────────────────────────────────────────────────
 
 router.get('/settings', async (req, res) => {

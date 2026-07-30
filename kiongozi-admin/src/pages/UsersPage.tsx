@@ -4,10 +4,12 @@ import {
   MagnifyingGlass,
   CaretLeft,
   CaretRight,
+  Plus,
+  X,
 } from '@phosphor-icons/react'
 import toast from 'react-hot-toast'
 
-import { getUsers, banUser, unbanUser, verifyUser, updateUserRole } from '../api/client'
+import { getUsers, banUser, unbanUser, verifyUser, unverifyUser, updateUserRole, createUser } from '../api/client'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { RoleBadge } from '../components/ui/RoleBadge'
@@ -37,6 +39,126 @@ const DB_ROLE_OPTIONS = [
   { value: 'super_admin',    label: 'Super Admin' },
 ]
 
+// ---------------------------------------------------------------------------
+// Add User modal
+// ---------------------------------------------------------------------------
+function AddUserModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [email, setEmail] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState('user')
+
+  const mutation = useMutation({
+    mutationFn: () => createUser({ email, full_name: fullName, password, role }),
+    onSuccess: () => {
+      toast.success('User created.')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      onClose()
+    },
+    onError: (error: any) =>
+      toast.error(error?.response?.data?.details ?? error?.response?.data?.error ?? 'Failed to create user.'),
+  })
+
+  const canSubmit = email.includes('@') && fullName.trim().length > 1 && password.length >= 8
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl bg-card border border-border shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border">
+          <h2 className="text-[15px] font-semibold text-foreground">Add User</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            aria-label="Close"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        <form
+          className="p-5 space-y-3.5"
+          onSubmit={e => {
+            e.preventDefault()
+            if (canSubmit) mutation.mutate()
+          }}
+        >
+          <div>
+            <label htmlFor="nu-name" className="text-xs text-muted-foreground block mb-1">Full Name</label>
+            <input
+              id="nu-name"
+              type="text"
+              className="input-base w-full"
+              placeholder="Jane Wanjiku"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label htmlFor="nu-email" className="text-xs text-muted-foreground block mb-1">Email</label>
+            <input
+              id="nu-email"
+              type="email"
+              className="input-base w-full"
+              placeholder="jane@example.org"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="nu-pw" className="text-xs text-muted-foreground block mb-1">
+              Password <span className="opacity-60">(min 8 characters)</span>
+            </label>
+            <input
+              id="nu-pw"
+              type="password"
+              className="input-base w-full"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label htmlFor="nu-role" className="text-xs text-muted-foreground block mb-1">Role</label>
+            <select
+              id="nu-role"
+              className="input-base w-full"
+              value={role}
+              onChange={e => setRole(e.target.value)}
+            >
+              {DB_ROLE_OPTIONS.map(r => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary text-sm py-1.5 px-3">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit || mutation.isPending}
+              className="btn-primary text-sm py-1.5 px-3 disabled:opacity-50"
+            >
+              {mutation.isPending ? 'Creating…' : 'Create User'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function UsersPage() {
   const { hasRole } = useAuthStore()
   const queryClient = useQueryClient()
@@ -45,6 +167,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [page, setPage] = useState(1)
+  const [showAddUser, setShowAddUser] = useState(false)
 
   // Debounce search input
   useEffect(() => {
@@ -106,6 +229,15 @@ export default function UsersPage() {
     onError: () => toast.error('Failed to verify user.'),
   })
 
+  const unverifyMutation = useMutation({
+    mutationFn: (id: string) => unverifyUser(id),
+    onSuccess: () => {
+      toast.success('Verification removed.')
+      invalidateUsers()
+    },
+    onError: () => toast.error('Failed to remove verification.'),
+  })
+
   const roleMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role: string }) => updateUserRole(id, role),
     onSuccess: () => {
@@ -120,7 +252,7 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-5">
-      {/* Toolbar: search + filter tabs */}
+      {/* Toolbar: search + add user */}
       <div className="flex items-center justify-between gap-4">
         {/* Search */}
         <div className="relative w-full max-w-[260px]">
@@ -136,7 +268,19 @@ export default function UsersPage() {
             className="input-base pl-8 h-8 text-[13px]"
           />
         </div>
+
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddUser(true)}
+            className="btn-primary flex items-center gap-1.5 text-[13px] py-1.5 px-3 shrink-0"
+          >
+            <Plus weight="bold" size={14} />
+            Add User
+          </button>
+        )}
       </div>
+
+      {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} />}
 
       {/* Table card with underline tabs */}
       <div className="card overflow-hidden">
@@ -282,18 +426,23 @@ export default function UsersPage() {
                             </button>
                           )}
 
-                          {/* Verify */}
+                          {/* Verify / Unverify toggle */}
                           <button
-                            onClick={() => verifyMutation.mutate(user.id)}
-                            disabled={user.is_verified || verifyMutation.isPending}
-                            className={cn(
-                              'text-sm py-1 px-2.5 rounded border font-medium transition-colors',
+                            onClick={() =>
                               user.is_verified
-                                ? 'opacity-40 cursor-not-allowed bg-accent border-border text-muted-foreground'
+                                ? unverifyMutation.mutate(user.id)
+                                : verifyMutation.mutate(user.id)
+                            }
+                            disabled={verifyMutation.isPending || unverifyMutation.isPending}
+                            title={user.is_verified ? 'Remove verification' : 'Verify user'}
+                            className={cn(
+                              'text-sm py-1 px-2.5 rounded border font-medium transition-colors disabled:opacity-50',
+                              user.is_verified
+                                ? 'bg-accent border-border text-muted-foreground hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10'
                                 : 'bg-brand/10 text-brand border-brand/20 hover:bg-brand/20',
                             )}
                           >
-                            {user.is_verified ? 'Verified' : 'Verify'}
+                            {user.is_verified ? 'Unverify' : 'Verify'}
                           </button>
 
                           {/* Role dropdown — admin only */}

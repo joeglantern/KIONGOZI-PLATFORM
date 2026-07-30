@@ -8,7 +8,6 @@ import {
   Bell,
   Gear,
   ClipboardText,
-  ArrowSquareOut,
   SignOut,
   CaretLeft,
   CaretRight,
@@ -149,22 +148,6 @@ export function Sidebar() {
             )}
           </NavLink>
         ))}
-
-        <div className="border-t border-border my-2 mx-1" />
-
-        <a
-          href="https://kiongozi.app"
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={handleNavClick}
-          className={cn(
-            'group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-100',
-            sidebarCollapsed && !mobileSidebarOpen && 'justify-center px-0'
-          )}
-        >
-          <ArrowSquareOut weight="duotone" size={18} className="shrink-0 transition-colors" />
-          {(!sidebarCollapsed || mobileSidebarOpen) && <span>View App</span>}
-        </a>
       </nav>
 
       {/* User footer */}

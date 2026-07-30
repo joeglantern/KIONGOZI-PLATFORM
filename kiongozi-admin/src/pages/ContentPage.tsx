@@ -221,7 +221,7 @@ function FlaggedPostsTab() {
 
   const { data: posts, isLoading } = useQuery<Post[]>({
     queryKey: ['flagged-posts'],
-    queryFn: getFlaggedPosts,
+    queryFn: () => getFlaggedPosts(),
   })
 
   const removeMutation = useMutation({

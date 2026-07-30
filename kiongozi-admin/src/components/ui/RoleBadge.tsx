@@ -17,7 +17,7 @@ const ROLE_CONFIG: Record<string, RoleConfig> = {
 }
 
 export function RoleBadge({ role, className }: { role?: string | null; className?: string }) {
-  const cfg = (role && ROLE_CONFIG[role]) ?? ROLE_CONFIG.user
+  const cfg = (role ? ROLE_CONFIG[role] : undefined) ?? ROLE_CONFIG.user
   return (
     <span className={cn(
       'inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border',

@@ -13,7 +13,7 @@ router.use(authenticateToken);
  */
 
 // Get connected users statistics (admin only)
-router.get('/connected-users', requireRole(['admin', 'org_admin']), (req: any, res) => {
+router.get('/connected-users', requireRole(['admin', 'org_admin', 'super_admin']), (req: any, res) => {
   try {
     const socketService = req.socketService;
     
@@ -46,7 +46,7 @@ router.get('/connected-users', requireRole(['admin', 'org_admin']), (req: any, r
 });
 
 // Send notification to specific user (admin only)
-router.post('/notify-user/:userId', requireRole(['admin', 'org_admin']), (req: any, res) => {
+router.post('/notify-user/:userId', requireRole(['admin', 'org_admin', 'super_admin']), (req: any, res) => {
   try {
     const { userId } = req.params;
     const { title, message, type = 'info', priority = 'normal', data = {} } = req.body;
@@ -100,7 +100,7 @@ router.post('/notify-user/:userId', requireRole(['admin', 'org_admin']), (req: a
 });
 
 // Send notification to users by role (admin only)
-router.post('/notify-role/:role', requireRole(['admin', 'org_admin']), (req: any, res) => {
+router.post('/notify-role/:role', requireRole(['admin', 'org_admin', 'super_admin']), (req: any, res) => {
   try {
     const { role } = req.params;
     const { title, message, type = 'info', priority = 'normal', data = {} } = req.body;
@@ -163,7 +163,7 @@ router.post('/notify-role/:role', requireRole(['admin', 'org_admin']), (req: any
 });
 
 // Send security alert (admin only)
-router.post('/security-alert', requireRole(['admin', 'org_admin']), (req: any, res) => {
+router.post('/security-alert', requireRole(['admin', 'org_admin', 'super_admin']), (req: any, res) => {
   try {
     const { message, severity = 'medium', category = 'general', metadata = {} } = req.body;
     const adminId = req.user.id;
@@ -215,7 +215,7 @@ router.post('/security-alert', requireRole(['admin', 'org_admin']), (req: any, r
 });
 
 // Send admin event (admin only)
-router.post('/admin-event', requireRole(['admin', 'org_admin']), (req: any, res) => {
+router.post('/admin-event', requireRole(['admin', 'org_admin', 'super_admin']), (req: any, res) => {
   try {
     const { event_type, description, metadata = {} } = req.body;
     const adminId = req.user.id;
@@ -266,7 +266,7 @@ router.post('/admin-event', requireRole(['admin', 'org_admin']), (req: any, res)
 });
 
 // Broadcast system update (admin only)
-router.post('/system-update', requireRole(['admin', 'org_admin']), (req: any, res) => {
+router.post('/system-update', requireRole(['admin', 'org_admin', 'super_admin']), (req: any, res) => {
   try {
     const { title, message, version, maintenance = false, metadata = {} } = req.body;
     const adminId = req.user.id;
@@ -319,7 +319,7 @@ router.post('/system-update', requireRole(['admin', 'org_admin']), (req: any, re
 });
 
 // Check if user is connected (admin only)
-router.get('/user-status/:userId', requireRole(['admin', 'org_admin']), (req: any, res) => {
+router.get('/user-status/:userId', requireRole(['admin', 'org_admin', 'super_admin']), (req: any, res) => {
   try {
     const { userId } = req.params;
     const socketService = req.socketService;

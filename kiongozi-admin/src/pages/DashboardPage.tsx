@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { getDashboardStats, getAppConfig, getAnalytics } from '../api/client';
+import { getDashboardStats, getAppConfig, getAnalytics, getConnectedUsers } from '../api/client';
 import type { AnalyticsPoint } from '../api/client';
 import { formatNumber } from '../lib/utils';
 import type { DashboardStats, AppConfig } from '../types';
@@ -105,6 +105,13 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
+  const { data: liveData } = useQuery<{ totalConnected: number }>({
+    queryKey: ['connected-users'],
+    queryFn: getConnectedUsers,
+    refetchInterval: 30_000,
+    retry: false,
+  });
+
   return (
     <div>
       {/* ── Stats strip ── */}
@@ -114,11 +121,18 @@ export default function DashboardPage() {
           { label: 'Active (30d)',   value: stats?.activeUsers         },
           { label: 'New (7d)',       value: stats?.recentRegistrations },
           { label: 'Messages',       value: stats?.totalMessages       },
+          { label: 'Online Now',     value: liveData?.totalConnected, live: true },
           { label: 'Banned',         value: stats?.bannedUsers, danger: true },
-        ].map((s, i) => (
+        ].map((s: { label: string; value?: number; danger?: boolean; live?: boolean }, i) => (
           <div key={s.label} className={`pr-8 ${i > 0 ? 'pl-8 border-l border-border' : ''}`}>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-0.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-0.5 flex items-center gap-1.5">
               {s.label}
+              {s.live && (
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-60" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand" />
+                </span>
+              )}
             </p>
             {isLoading ? (
               <Skel w="52px" h="28px" className="mt-1" />

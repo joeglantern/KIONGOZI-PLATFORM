@@ -43,6 +43,12 @@ export const unverifyUser = (id: string) => api.delete(`/api/v1/admin/users/${id
 export const updateUserRole = (id: string, role: string) =>
   api.patch(`/api/v1/admin/users/${id}/role`, { role }).then(r => r.data)
 
+export const createUser = (payload: { email: string; full_name: string; password: string; role?: string }) =>
+  api.post('/api/v1/admin/users', payload).then(r => r.data)
+
+export const getUserDetail = (id: string) =>
+  api.get(`/api/v1/admin/users/${id}`).then(r => r.data?.data ?? r.data)
+
 // ─── Dashboard & analytics ────────────────────────────────────────────────────
 export const getDashboardStats = () =>
   api.get('/api/v1/admin/dashboard/stats').then(r => r.data?.data ?? r.data)
@@ -54,11 +60,15 @@ export const getAnalytics = (range: '7d' | '30d' | '90d') =>
 export const getAuditLogs = (params?: { page?: number; limit?: number; level?: string; category?: string; startDate?: string; endDate?: string }) =>
   api.get('/api/v1/admin/logs', { params: { ...params, limit: params?.limit ?? 25 } }).then(r => r.data?.data ?? r.data)
 
-// ─── App config (read from health endpoint) ──────────────────────────────────
+// ─── App config (public read via health, admin write) ────────────────────────
 export const getAppConfig = () =>
   api.get('/api/v1/health/app-config').then(r => r.data?.data ?? r.data)
 export const updateAppConfig = (data: Record<string, unknown>) =>
-  api.patch('/api/v1/health/app-config', data).then(r => r.data)
+  api.patch('/api/v1/admin/app-config', data).then(r => r.data)
+
+// ─── Live connections ─────────────────────────────────────────────────────────
+export const getConnectedUsers = () =>
+  api.get('/api/v1/websocket/connected-users').then(r => r.data?.data ?? r.data)
 
 // ─── Content / reports (not yet on backend — returns empty arrays) ───────────
 export const getReports = (_params?: { status?: string; page?: number }) =>

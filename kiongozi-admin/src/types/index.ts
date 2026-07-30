@@ -42,12 +42,16 @@ export interface Post {
   view_count: number
   created_at: string
   profiles: { full_name: string; username: string; avatar_url?: string }
+  // Alias shapes used by the flagged-posts UI (backend moderation feed)
+  author?: { full_name?: string; username?: string; avatar_url?: string }
   is_flagged?: boolean
   flag_reason?: string
+  flagReason?: string
 }
 
 export interface Report {
   id: string
+  type?: string
   post_id?: string
   reported_user_id?: string
   reporter_id: string

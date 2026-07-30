@@ -20,9 +20,10 @@ export function useAdminSocket() {
   useEffect(() => {
     if (!isAuthenticated || !token) return
 
+    // Default transport order (polling first, upgrade to websocket) — starting
+    // with websocket fails through proxies that don't forward the upgrade
     const socket = io(WS_URL, {
       auth: { token },
-      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 15_000,

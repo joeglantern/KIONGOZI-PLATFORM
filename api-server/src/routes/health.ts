@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
+import { prisma } from '../config/prisma';
 
 const router = Router();
 
@@ -38,7 +39,7 @@ router.get('/detailed', async (_req, res) => {
       const { error } = await supabaseServiceClient
         .from('profiles')
         .select('count(*)', { count: 'exact', head: true });
-      
+
       if (error) {
         healthCheck.services.database = 'unhealthy';
         healthCheck.status = 'degraded';
@@ -58,32 +59,52 @@ router.get('/detailed', async (_req, res) => {
     healthCheck.errors.push(`Database connection failed: ${error.message}`);
   }
 
-  const statusCode = healthCheck.status === 'healthy' ? 200 : 
+  const statusCode = healthCheck.status === 'healthy' ? 200 :
                     healthCheck.status === 'degraded' ? 200 : 503;
 
   res.status(statusCode).json(healthCheck);
 });
 
-// GET /api/v1/health/app-config — minimum version requirements, checked on app startup
-// To force an update: bump android.min_version_code or ios.min_build_number, then restart PM2
-router.get('/app-config', (_req, res) => {
-  res.json({
-    success: true,
-    data: {
-      android: {
-        min_version_code: 11,
-        force_update_required: true,
-        store_url: 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile',
+// Fallback used when no config has been saved yet (or the DB is unreachable) —
+// mobile apps check this on every startup, so it must never 500
+export const APP_CONFIG_DEFAULTS = {
+  android: {
+    min_version_code: 11,
+    force_update_required: true,
+    store_url: 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile',
+    current_version: '1.0.0',
+  },
+  ios: {
+    min_build_number: 12,
+    force_update_required: false,
+    store_url: 'https://apps.apple.com/app/id6789518676',
+    current_version: '1.0.0',
+  },
+  force_update_message: 'A new version of Kiongozi is available with important updates. Please update to continue.',
+};
+
+// GET /api/v1/health/app-config — minimum version requirements, checked on app startup.
+// Values live in system_settings (category 'app_config') and are managed from the
+// admin panel via PATCH /api/v1/admin/app-config.
+router.get('/app-config', async (_req, res) => {
+  try {
+    const row = await prisma.system_settings.findFirst({
+      where: { category: 'app_config', setting_key: 'config' },
+    });
+    const stored = (row?.setting_value as any) ?? {};
+    res.json({
+      success: true,
+      data: {
+        ...APP_CONFIG_DEFAULTS,
+        ...stored,
+        android: { ...APP_CONFIG_DEFAULTS.android, ...(stored.android ?? {}) },
+        ios: { ...APP_CONFIG_DEFAULTS.ios, ...(stored.ios ?? {}) },
       },
-      ios: {
-        min_build_number: 12,
-        force_update_required: false,
-        store_url: 'https://apps.apple.com/app/id6789518676',
-      },
-      force_update_message: 'A new version of Kiongozi is available with important updates. Please update to continue.',
-    },
-  });
+    });
+  } catch (error) {
+    console.error('app-config fetch failed, serving defaults:', error);
+    res.json({ success: true, data: APP_CONFIG_DEFAULTS });
+  }
 });
 
 export default router;
-
