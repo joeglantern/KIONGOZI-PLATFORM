@@ -20,6 +20,7 @@
     "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.28.0",
     "recharts": "^2.14.1",
+    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^2.5.5",
     "zustand": "^5.0.2"
   },

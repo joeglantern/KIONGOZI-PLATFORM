@@ -64,8 +64,9 @@ app.use((req: any, res, next) => {
 app.use(helmet());
 
 // CORS configuration
+const DEV_ORIGINS = ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:5174'];
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3002'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',').map(s => s.trim()) || DEV_ORIGINS,
   credentials: true,
   optionsSuccessStatus: 200
 };

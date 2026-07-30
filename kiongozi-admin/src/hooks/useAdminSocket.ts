@@ -1,105 +1,70 @@
 import { useEffect, useRef } from 'react'
+import { io, type Socket } from 'socket.io-client'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../stores/authStore'
 import { useSocketStore } from '../stores/socketStore'
 
+// In dev: connect through Vite's /socket.io proxy → api.kiongozi.org
+// In prod: connect directly (VITE_API_URL is the backend's origin)
 const WS_URL = import.meta.env.DEV
-  ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`
-  : (import.meta.env.VITE_API_URL || 'https://api.kiongozi.org').replace(/^https?/, s => s === 'https' ? 'wss' : 'ws')
-
-type SocketEvent =
-  | { type: 'new_user'; data: { id: string; full_name: string } }
-  | { type: 'new_report'; data: { id: string; reason: string } }
-  | { type: 'post_flagged'; data: { id: string } }
-  | { type: 'stats_update'; data: Record<string, number> }
-  | { type: 'ping' }
-
-const WS_ENABLED = import.meta.env.VITE_WS_ENABLED === 'true'
+  ? window.location.origin
+  : (import.meta.env.VITE_API_URL || 'https://api.kiongozi.org')
 
 export function useAdminSocket() {
   const { token, isAuthenticated } = useAuthStore()
   const queryClient = useQueryClient()
-  const setConnected = useSocketStore(s => s.setConnected)
-  const ws = useRef<WebSocket | null>(null)
-  const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const attemptRef = useRef(0)
+  const { setConnected } = useSocketStore()
+  const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
-    if (!WS_ENABLED || !isAuthenticated || !token) return
+    if (!isAuthenticated || !token) return
 
-    // `mounted` is scoped to this effect closure — set to false on cleanup
-    // so that onclose never schedules a retry after unmount (fixes React StrictMode
-    // double-invoke and avoids reconnect loops when the backend has no WS endpoint)
-    let mounted = true
-    let everOpened = false
+    const socket = io(WS_URL, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 15_000,
+      reconnectionAttempts: Infinity,
+    })
 
-    function connect() {
-      const socket = new WebSocket(`${WS_URL}/ws/admin?token=${token}`)
-      ws.current = socket
+    socketRef.current = socket
 
-      socket.onopen = () => {
-        everOpened = true
-        attemptRef.current = 0
-        setConnected(true)
-      }
+    socket.on('connect', () => {
+      setConnected(true)
+    })
 
-      socket.onmessage = (event: MessageEvent) => {
-        let msg: SocketEvent
-        try {
-          msg = JSON.parse(event.data as string)
-        } catch {
-          return
-        }
+    socket.on('disconnect', () => {
+      setConnected(false)
+    })
 
-        switch (msg.type) {
-          case 'new_user':
-            queryClient.invalidateQueries({ queryKey: ['stats'] })
-            queryClient.invalidateQueries({ queryKey: ['users'] })
-            toast(`New user: ${msg.data.full_name}`, { icon: '👤' })
-            break
-          case 'new_report':
-            queryClient.invalidateQueries({ queryKey: ['stats'] })
-            queryClient.invalidateQueries({ queryKey: ['reports'] })
-            toast(`New report: ${msg.data.reason}`, { icon: '🚩' })
-            break
-          case 'post_flagged':
-            queryClient.invalidateQueries({ queryKey: ['flagged-posts'] })
-            queryClient.invalidateQueries({ queryKey: ['stats'] })
-            break
-          case 'stats_update':
-            queryClient.invalidateQueries({ queryKey: ['stats'] })
-            break
-          case 'ping':
-            socket.send(JSON.stringify({ type: 'pong' }))
-            break
-        }
-      }
+    // Real-time admin events from the backend
+    socket.on('new_user', (data: { id: string; full_name: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast(`New user: ${data.full_name}`, { icon: '👤' })
+    })
 
-      socket.onclose = () => {
-        setConnected(false)
-        // Only retry if:
-        // 1. The effect is still mounted (not cleaned up by React)
-        // 2. The connection was ever established (don't retry if server has no WS)
-        // 3. We haven't exceeded the retry cap
-        if (!mounted || !everOpened || attemptRef.current >= 5) return
-        const delay = Math.min(1000 * 2 ** attemptRef.current, 30_000)
-        attemptRef.current += 1
-        reconnectTimeout.current = setTimeout(connect, delay)
-      }
+    socket.on('new_report', (data: { id: string; reason: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      toast(`New report: ${data.reason}`, { icon: '🚩' })
+    })
 
-      socket.onerror = () => {
-        socket.close()
-      }
-    }
+    socket.on('post_flagged', () => {
+      queryClient.invalidateQueries({ queryKey: ['flagged-posts'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+    })
 
-    connect()
+    socket.on('stats_update', () => {
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+    })
 
     return () => {
-      mounted = false
-      if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current)
-      ws.current?.close()
-      ws.current = null
+      socket.disconnect()
+      socketRef.current = null
+      setConnected(false)
     }
-  }, [isAuthenticated, token, queryClient])
+  }, [isAuthenticated, token, queryClient, setConnected])
 }

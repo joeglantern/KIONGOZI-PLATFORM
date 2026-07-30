@@ -9,11 +9,12 @@ export default defineConfig({
       '/api': {
         target: 'https://api.kiongozi.org',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
-      '/ws': {
-        target: 'wss://api.kiongozi.org',
+      '/socket.io': {
+        target: 'https://api.kiongozi.org',
         changeOrigin: true,
+        secure: false,
         ws: true,
       },
     },

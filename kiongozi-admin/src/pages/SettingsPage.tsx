@@ -9,10 +9,38 @@ import {
   Tag,
   CalendarBlank,
   FloppyDisk,
+  WifiHigh,
 } from '@phosphor-icons/react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../stores/authStore';
+import { useUiStore } from '../stores/uiStore';
+import { useSocketStore } from '../stores/socketStore';
 import { cn } from '../lib/utils';
+
+// ---------------------------------------------------------------------------
+// Toggle switch
+// ---------------------------------------------------------------------------
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none',
+        checked ? 'bg-brand' : 'bg-muted-foreground/30',
+      )}
+    >
+      <span
+        className={cn(
+          'pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform',
+          checked ? 'translate-x-4' : 'translate-x-0.5',
+        )}
+      />
+    </button>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Access denied
@@ -354,6 +382,42 @@ function AppearanceSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Notifications section
+// ---------------------------------------------------------------------------
+function NotificationsSection() {
+  const { connectionAlerts, setConnectionAlerts } = useUiStore();
+  const connected = useSocketStore(s => s.connected);
+
+  return (
+    <Section title="Notifications">
+      <div className="flex items-center justify-between gap-6 py-1">
+        <div className="flex items-start gap-3">
+          <WifiHigh weight="duotone" size={16} className="text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <p className="text-[13px] font-medium text-foreground leading-snug">Connection alerts</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5 leading-relaxed">
+              Show a toast when the live connection to the server drops or recovers.
+              {' '}
+              <span className={cn(
+                'inline-flex items-center gap-1 font-medium',
+                connected ? 'text-brand' : 'text-muted-foreground',
+              )}>
+                <span className={cn(
+                  'inline-block w-1.5 h-1.5 rounded-full',
+                  connected ? 'bg-brand' : 'bg-muted-foreground/50',
+                )} />
+                {connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </p>
+          </div>
+        </div>
+        <Toggle checked={connectionAlerts} onChange={setConnectionAlerts} />
+      </div>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 export default function SettingsPage() {
@@ -367,8 +431,9 @@ export default function SettingsPage() {
     <div className="space-y-0 max-w-3xl">
       <PlatformInfoSection />
       <AdminAccountSection />
-      <DataPrivacySection />
       <AppearanceSection />
+      <NotificationsSection />
+      <DataPrivacySection />
     </div>
   );
 }

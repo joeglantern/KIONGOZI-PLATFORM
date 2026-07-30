@@ -7,11 +7,13 @@ interface UiState {
   sidebarCollapsed: boolean
   mobileSidebarOpen: boolean
   theme: Theme
+  connectionAlerts: boolean
   toggleSidebar: () => void
   setSidebarCollapsed: (v: boolean) => void
   setMobileSidebarOpen: (v: boolean) => void
   setTheme: (t: Theme) => void
   toggleTheme: () => void
+  setConnectionAlerts: (v: boolean) => void
 }
 
 function applyTheme(t: Theme) {
@@ -24,6 +26,7 @@ export const useUiStore = create<UiState>()(
       sidebarCollapsed: false,
       mobileSidebarOpen: false,
       theme: 'dark',
+      connectionAlerts: true,
       toggleSidebar: () => set(s => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarCollapsed: v => set({ sidebarCollapsed: v }),
       setMobileSidebarOpen: v => set({ mobileSidebarOpen: v }),
@@ -33,10 +36,11 @@ export const useUiStore = create<UiState>()(
         applyTheme(next)
         set({ theme: next })
       },
+      setConnectionAlerts: v => set({ connectionAlerts: v }),
     }),
     {
       name: 'kiongozi-admin-ui',
-      partialize: s => ({ sidebarCollapsed: s.sidebarCollapsed, theme: s.theme }),
+      partialize: s => ({ sidebarCollapsed: s.sidebarCollapsed, theme: s.theme, connectionAlerts: s.connectionAlerts }),
       onRehydrateStorage: () => state => {
         if (state) applyTheme(state.theme)
       },
