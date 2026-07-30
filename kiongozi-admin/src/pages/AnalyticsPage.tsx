@@ -1,12 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   Area,
   AreaChart,
   Bar,
   BarChart,
-  CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -14,86 +11,135 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChartLine, FileText, Heartbeat, Users } from '@phosphor-icons/react';
-import { getAnalytics } from '../api/client';
-import { AnalyticsPoint } from '../types';
-import { cn, formatDate, formatNumber } from '../lib/utils';
+import { cn, formatNumber } from '../lib/utils';
+import type { AnalyticsPoint } from '../types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type Range = '7d' | '30d' | '90d';
 
-const RANGE_LABELS: Record<Range, string> = {
-  '7d': 'last 7 days',
-  '30d': 'last 30 days',
-  '90d': 'last 90 days',
-};
+// ─── Demo data (backend endpoint not yet built) ───────────────────────────────
 
-// ─── Chart constants ─────────────────────────────────────────────────────────
+function buildDemoData(days: number): AnalyticsPoint[] {
+  const pts: AnalyticsPoint[] = [];
+  let userBase = 1180;
+  let postBase = 44;
+  const now = new Date('2026-07-30');
 
-const TICK_STYLE = { fontSize: 11, fill: 'var(--color-muted-foreground)' } as const;
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
 
-const GRID_PROPS = {
-  stroke: 'var(--color-border)',
-  strokeDasharray: '4 4',
-  vertical: false,
-} as const;
+    // Seed-based pseudo-random that stays deterministic
+    const seed = (i * 137 + days * 17) % 100;
+    const growth = 12 + Math.floor(seed * 0.28);
+    userBase += growth;
+    const active = Math.round(userBase * (0.58 + (seed % 18) * 0.002));
+    postBase = Math.max(30, postBase + Math.floor((seed % 20) - 9));
 
-const TOOLTIP_CONTENT_STYLE = {
-  background: 'var(--color-popover)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 8,
-  fontSize: 12,
-  color: 'var(--color-foreground)',
-} as const;
-
-// ─── Skeletons ────────────────────────────────────────────────────────────────
-
-function ChartSkeleton({ height }: { height: number }) {
-  return (
-    <div
-      className="animate-pulse rounded-lg bg-accent"
-      style={{ height }}
-    />
-  );
+    pts.push({ date: iso, users: userBase, active, posts: postBase });
+  }
+  return pts;
 }
 
-function StatCardSkeleton() {
+const DEMO: Record<Range, AnalyticsPoint[]> = {
+  '7d':  buildDemoData(7),
+  '30d': buildDemoData(30),
+  '90d': buildDemoData(90),
+};
+
+// ─── Custom tooltip ───────────────────────────────────────────────────────────
+
+interface TooltipEntry {
+  name: string;
+  value: number;
+  color: string;
+  unit?: string;
+}
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
   return (
-    <div className="card space-y-2">
-      <div className="h-5 w-5 rounded bg-accent animate-pulse" />
-      <div className="h-8 w-28 rounded bg-accent animate-pulse" />
-      <div className="h-4 w-36 rounded bg-accent animate-pulse" />
+    <div
+      style={{
+        background: 'hsl(240 6% 10%)',
+        border: '1px solid hsl(240 3.7% 18%)',
+        borderRadius: 8,
+        padding: '9px 13px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        minWidth: 140,
+      }}
+    >
+      <p style={{ fontSize: 11, color: 'hsl(240 5% 50%)', marginBottom: 7, fontWeight: 500 }}>
+        {label}
+      </p>
+      {payload.map((e, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: i < payload.length - 1 ? 5 : 0 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: e.color, flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: 'hsl(240 5% 65%)' }}>{e.name}</span>
+          <span style={{ fontSize: 12, color: 'hsl(0 0% 96%)', fontWeight: 600, marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>
+            {formatNumber(e.value)}{e.unit ?? ''}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Chart axis constants ────────────────────────────────────────────────────
 
-function RangeSelector({
-  value,
-  onChange,
-}: {
-  value: Range;
-  onChange: (r: Range) => void;
-}) {
+const TICK = { fontSize: 11, fill: 'hsl(240 5% 46%)' } as const;
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleString('en', { month: 'short' })} ${d.getDate()}`;
+}
+
+// ─── Range selector ──────────────────────────────────────────────────────────
+
+function RangeSelector({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
+  const ranges: Range[] = ['7d', '30d', '90d'];
   return (
-    <div className="flex items-center gap-1 rounded-full bg-accent p-1">
-      {(['7d', '30d', '90d'] as Range[]).map((r) => (
-        <button
-          key={r}
-          type="button"
-          onClick={() => onChange(r)}
-          className={cn(
-            'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-            value === r
-              ? 'bg-card text-brand shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {r}
-        </button>
+    <div className="flex items-center gap-3">
+      {ranges.map((r, i) => (
+        <div key={r} className="flex items-center gap-3">
+          {i > 0 && <span className="text-border text-[10px] select-none">|</span>}
+          <button
+            onClick={() => onChange(r)}
+            className={cn(
+              'text-[12px] font-medium transition-colors leading-none',
+              value === r ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {r}
+          </button>
+        </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Section header ──────────────────────────────────────────────────────────
+
+function SectionHead({ label, sub, value }: { label: string; sub?: string; value?: string }) {
+  return (
+    <div className="flex items-end justify-between mb-4">
+      <div>
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">{label}</p>
+        {value && (
+          <p className="text-2xl font-bold text-foreground tabular-nums leading-tight mt-0.5">{value}</p>
+        )}
+        {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -102,266 +148,168 @@ function RangeSelector({
 
 export default function AnalyticsPage() {
   const [range, setRange] = useState<Range>('30d');
-
-  const { data: analytics, isLoading } = useQuery<AnalyticsPoint[]>({
-    queryKey: ['analytics', range],
-    queryFn: () => getAnalytics(range),
-    placeholderData: prev => prev,
-  });
-
-  // ── Derived data ────────────────────────────────────────────────────────────
+  const data = DEMO[range];
 
   const engagementData = useMemo(
     () =>
-      (analytics ?? []).map((p) => ({
+      data.map((p) => ({
         ...p,
-        engagement:
-          p.users > 0
-            ? parseFloat(((p.active / p.users) * 100).toFixed(1))
-            : 0,
+        engagement: p.users > 0 ? parseFloat(((p.active / p.users) * 100).toFixed(1)) : 0,
       })),
-    [analytics],
+    [data],
   );
 
-  const stats = useMemo(() => {
-    const points = analytics ?? [];
-    if (points.length === 0) return { totalUsers: 0, totalPosts: 0, avgActive: 0 };
-    const totalUsers = points.reduce((acc, p) => acc + p.users, 0);
-    const totalPosts = points.reduce((acc, p) => acc + p.posts, 0);
-    const avgActive = Math.round(
-      points.reduce((acc, p) => acc + p.active, 0) / points.length,
-    );
-    return { totalUsers, totalPosts, avgActive };
-  }, [analytics]);
-
-  const dateRangeLabel = useMemo(() => {
-    const points = analytics ?? [];
-    if (points.length < 2) return '';
-    return `${formatDate(points[0].date)} – ${formatDate(points[points.length - 1].date)}`;
-  }, [analytics]);
-
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const totals = useMemo(() => {
+    const first = data[0]?.users ?? 0;
+    const last  = data[data.length - 1]?.users ?? 0;
+    const newUsers = last - first;
+    const totalPosts = data.reduce((s, p) => s + p.posts, 0);
+    const avgActive = Math.round(data.reduce((s, p) => s + p.active, 0) / (data.length || 1));
+    const avgEngagement = data.length
+      ? parseFloat((data.reduce((s, p) => s + (p.users > 0 ? (p.active / p.users) * 100 : 0), 0) / data.length).toFixed(1))
+      : 0;
+    return { newUsers, totalPosts, avgActive, avgEngagement };
+  }, [data]);
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Page header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="page-header">Analytics</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Platform growth and engagement metrics
-          </p>
+    <div className="space-y-0">
+      {/* ── Toolbar ── */}
+      <div className="flex items-center justify-between mb-7">
+        <div className="flex gap-6">
+          {/* Mini stats */}
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">New Users</p>
+            <p className="text-[22px] font-bold text-foreground tabular-nums leading-tight">+{formatNumber(totals.newUsers)}</p>
+          </div>
+          <div className="border-l border-border pl-6">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">Posts</p>
+            <p className="text-[22px] font-bold text-foreground tabular-nums leading-tight">{formatNumber(totals.totalPosts)}</p>
+          </div>
+          <div className="border-l border-border pl-6">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">Avg Active / day</p>
+            <p className="text-[22px] font-bold text-foreground tabular-nums leading-tight">{formatNumber(totals.avgActive)}</p>
+          </div>
+          <div className="border-l border-border pl-6">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">Avg Engagement</p>
+            <p className="text-[22px] font-bold text-foreground tabular-nums leading-tight">{totals.avgEngagement}%</p>
+          </div>
         </div>
+
         <RangeSelector value={range} onChange={setRange} />
       </div>
 
-      {/* ── User Growth (full width) ─────────────────────────────────────── */}
-      <div className="card">
-        <div className="mb-4 flex items-start justify-between">
-          <div>
-            <h2 className="font-semibold text-foreground">User Growth</h2>
-            {dateRangeLabel && (
-              <p className="mt-0.5 text-xs text-muted-foreground">{dateRangeLabel}</p>
-            )}
-          </div>
-          <ChartLine size={18} weight="duotone" className="text-muted-foreground" />
-        </div>
+      {/* ── User growth — full width ── */}
+      <div className="border-t border-border pt-5 mb-8">
+        <SectionHead
+          label="User Growth"
+          sub="Total registered vs. daily active"
+        />
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={data} margin={{ top: 4, right: 2, left: -22, bottom: 0 }}>
+            <defs>
+              <linearGradient id="gUsers" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#5CB85C" stopOpacity={0.22} />
+                <stop offset="100%" stopColor="#5CB85C" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gActive" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.18} />
+                <stop offset="100%" stopColor="#60A5FA" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="date"
+              tick={TICK}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={fmtDate}
+              interval={Math.max(0, Math.floor(data.length / 6) - 1)}
+            />
+            <YAxis
+              tick={TICK}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)}
+            />
+            <Tooltip content={<ChartTooltip />} />
+            <Area type="monotone" dataKey="users" name="Total" stroke="#5CB85C" strokeWidth={1.5} fill="url(#gUsers)" dot={false} activeDot={{ r: 4, fill: '#5CB85C', strokeWidth: 0 }} />
+            <Area type="monotone" dataKey="active" name="Active" stroke="#60A5FA" strokeWidth={1.5} fill="url(#gActive)" dot={false} activeDot={{ r: 4, fill: '#60A5FA', strokeWidth: 0 }} />
+          </AreaChart>
+        </ResponsiveContainer>
 
-        {isLoading ? (
-          <ChartSkeleton height={300} />
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart
-              data={analytics}
-              margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="gradUsers" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#5CB85C" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="#5CB85C" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gradActive" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid {...GRID_PROPS} />
-              <XAxis
-                dataKey="date"
-                tick={TICK_STYLE}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(d: string) => formatDate(d)}
-              />
-              <YAxis
-                tick={TICK_STYLE}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v: number) => formatNumber(v)}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_CONTENT_STYLE}
-                labelFormatter={(d) => formatDate(String(d))}
-              />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-              <Area
-                type="monotone"
-                dataKey="users"
-                name="New Users"
-                stroke="#5CB85C"
-                strokeWidth={2}
-                fill="url(#gradUsers)"
-                dot={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="active"
-                name="Active Users"
-                stroke="#3B82F6"
-                strokeWidth={2}
-                fill="url(#gradActive)"
-                dot={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
+        {/* Legend */}
+        <div className="flex items-center gap-5 mt-3">
+          <div className="flex items-center gap-2">
+            <span style={{ display: 'inline-block', width: 20, height: 2, background: '#5CB85C', borderRadius: 1 }} />
+            <span className="text-[11px] text-muted-foreground">Total registered</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span style={{ display: 'inline-block', width: 20, height: 2, background: '#60A5FA', borderRadius: 1 }} />
+            <span className="text-[11px] text-muted-foreground">Daily active</span>
+          </div>
+        </div>
       </div>
 
-      {/* ── Post Volume + Engagement Rate (two-column) ───────────────────── */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      {/* ── Two-column: Post Volume + Engagement ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
         {/* Post Volume */}
-        <div className="card">
-          <div className="mb-4 flex items-start justify-between">
-            <div>
-              <h2 className="font-semibold text-foreground">Post Volume</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Daily posts created</p>
-            </div>
-            <FileText size={18} weight="duotone" className="text-muted-foreground" />
-          </div>
-
-          {isLoading ? (
-            <ChartSkeleton height={220} />
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart
-                data={analytics}
-                margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-              >
-                <CartesianGrid {...GRID_PROPS} />
-                <XAxis
-                  dataKey="date"
-                  tick={TICK_STYLE}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(d: string) => formatDate(d)}
-                />
-                <YAxis tick={TICK_STYLE} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={TOOLTIP_CONTENT_STYLE}
-                  labelFormatter={(d) => formatDate(String(d))}
-                />
-                <Bar
-                  dataKey="posts"
-                  name="Posts"
-                  fill="#5CB85C"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+        <div className="border-t border-border pt-5">
+          <SectionHead label="Post Volume" sub="Posts created per day" />
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={data} margin={{ top: 4, right: 2, left: -22, bottom: 0 }} barSize={range === '7d' ? 28 : range === '30d' ? 10 : 5}>
+              <XAxis
+                dataKey="date"
+                tick={TICK}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={fmtDate}
+                interval={Math.max(0, Math.floor(data.length / 5) - 1)}
+              />
+              <YAxis tick={TICK} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip />} />
+              <Bar dataKey="posts" name="Posts" fill="#5CB85C" radius={[2, 2, 0, 0]} opacity={0.85} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Engagement Rate */}
-        <div className="card">
-          <div className="mb-4 flex items-start justify-between">
-            <div>
-              <h2 className="font-semibold text-foreground">Engagement Rate</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Active users as % of total
-              </p>
-            </div>
-            <Heartbeat size={18} weight="duotone" className="text-muted-foreground" />
-          </div>
-
-          {isLoading ? (
-            <ChartSkeleton height={220} />
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart
-                data={engagementData}
-                margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-              >
-                <CartesianGrid {...GRID_PROPS} />
-                <XAxis
-                  dataKey="date"
-                  tick={TICK_STYLE}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(d: string) => formatDate(d)}
-                />
-                <YAxis
-                  tick={TICK_STYLE}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) => `${v}%`}
-                />
-                <Tooltip
-                  contentStyle={TOOLTIP_CONTENT_STYLE}
-                  labelFormatter={(d) => formatDate(String(d))}
-                  formatter={(v: number) => [`${v}%`, 'Engagement']}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="engagement"
-                  name="Engagement %"
-                  stroke="#3B82F6"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: '#3B82F6', strokeWidth: 0 }}
-                  activeDot={{ r: 5, strokeWidth: 0 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
+        <div className="border-t border-border pt-5">
+          <SectionHead label="Engagement Rate" sub="Active users as % of total" />
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={engagementData} margin={{ top: 4, right: 2, left: -22, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gEng" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#A78BFA" stopOpacity={0.18} />
+                  <stop offset="100%" stopColor="#A78BFA" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="date"
+                tick={TICK}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={fmtDate}
+                interval={Math.max(0, Math.floor(data.length / 5) - 1)}
+              />
+              <YAxis
+                tick={TICK}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => `${v}%`}
+                domain={['auto', 'auto']}
+              />
+              <Tooltip content={<ChartTooltip />} formatter={(v: number) => `${v}%`} />
+              <Line
+                type="monotone"
+                dataKey="engagement"
+                name="Engagement"
+                stroke="#A78BFA"
+                strokeWidth={1.5}
+                dot={false}
+                activeDot={{ r: 4, fill: '#A78BFA', strokeWidth: 0 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-      </div>
-
-      {/* ── Summary stats (3-col) ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {isLoading ? (
-          <>
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-          </>
-        ) : (
-          <>
-            <div className="card">
-              <Users size={20} weight="duotone" className="mb-2 text-brand" />
-              <p className="text-3xl font-bold text-foreground">
-                {formatNumber(stats.totalUsers)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                New users in {RANGE_LABELS[range]}
-              </p>
-            </div>
-
-            <div className="card">
-              <FileText size={20} weight="duotone" className="mb-2 text-brand" />
-              <p className="text-3xl font-bold text-foreground">
-                {formatNumber(stats.totalPosts)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">Total posts created</p>
-            </div>
-
-            <div className="card">
-              <Heartbeat size={20} weight="duotone" className="mb-2 text-brand" />
-              <p className="text-3xl font-bold text-foreground">
-                {formatNumber(stats.avgActive)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">Avg daily active users</p>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );
