@@ -6,12 +6,10 @@ import {
   CaretRight,
   Plus,
   X,
-  DownloadSimple,
 } from '@phosphor-icons/react'
 import toast from 'react-hot-toast'
 
 import { getUsers, banUser, unbanUser, verifyUser, unverifyUser, updateUserRole, createUser } from '../api/client'
-import { exportToExcel } from '../lib/exportExcel'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { RoleBadge } from '../components/ui/RoleBadge'
@@ -252,51 +250,9 @@ export default function UsersPage() {
   const isModerator = hasRole('moderator')
   const isAdmin = hasRole('admin')
 
-  const [exporting, setExporting] = useState(false)
-  const handleExport = async () => {
-    setExporting(true)
-    try {
-      // Fetch everything matching the current search/filter, not just this page
-      const full = await getUsers({
-        search,
-        page: 1,
-        limit: 1000,
-        status: statusFilter !== 'all' && statusFilter !== 'verified' ? statusFilter : undefined,
-      })
-      let rows: AppUser[] = full?.users ?? []
-      if (statusFilter === 'verified') rows = rows.filter(u => u.is_verified)
-      if (rows.length === 0) {
-        toast.error('No users to export.')
-        return
-      }
-      await exportToExcel({
-        title: 'Kiongozi — Users',
-        fileName: 'kiongozi-users',
-        columns: [
-          { header: 'Name', width: 26, value: u => u.full_name ?? '' },
-          { header: 'Username', width: 18, value: u => u.username ?? '' },
-          { header: 'Email', width: 30, value: u => u.email },
-          { header: 'Role', width: 14, value: u => u.role },
-          { header: 'Status', width: 10, value: u => u.status },
-          { header: 'Verified', width: 10, value: u => (u.is_verified ? 'Yes' : 'No') },
-          { header: 'Posts', width: 8, value: u => u.post_count },
-          { header: 'Followers', width: 10, value: u => u.follower_count },
-          { header: 'Joined', width: 12, value: u => formatDate(u.created_at) },
-          { header: 'Last Active', width: 12, value: u => (u.last_login_at ? formatDate(u.last_login_at) : '') },
-        ],
-        rows,
-      })
-      toast.success(`Exported ${rows.length} users.`)
-    } catch {
-      toast.error('Export failed.')
-    } finally {
-      setExporting(false)
-    }
-  }
-
   return (
     <div className="space-y-5">
-      {/* Toolbar: search + export + add user */}
+      {/* Toolbar: search + add user */}
       <div className="flex items-center justify-between gap-4">
         {/* Search */}
         <div className="relative w-full max-w-[260px]">
@@ -313,27 +269,15 @@ export default function UsersPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {isModerator && (
-            <button
-              onClick={handleExport}
-              disabled={exporting}
-              className="inline-flex items-center gap-1.5 rounded border border-border bg-accent px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-            >
-              <DownloadSimple size={14} weight="duotone" />
-              {exporting ? 'Exporting…' : 'Export Excel'}
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              onClick={() => setShowAddUser(true)}
-              className="btn-primary flex items-center gap-1.5 text-[13px] py-1.5 px-3 shrink-0"
-            >
-              <Plus weight="bold" size={14} />
-              Add User
-            </button>
-          )}
-        </div>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddUser(true)}
+            className="btn-primary flex items-center gap-1.5 text-[13px] py-1.5 px-3 shrink-0"
+          >
+            <Plus weight="bold" size={14} />
+            Add User
+          </button>
+        )}
       </div>
 
       {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} />}
