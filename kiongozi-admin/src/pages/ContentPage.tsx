@@ -7,10 +7,12 @@ import {
   CheckCircle,
   XCircle,
   Warning,
+  DownloadSimple,
 } from '@phosphor-icons/react'
 import toast from 'react-hot-toast'
 
 import { getReports, resolveReport, getFlaggedPosts, removePost } from '../api/client'
+import { exportToExcel } from '../lib/exportExcel'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -87,19 +89,55 @@ function ReportsTab() {
 
   const isModerator = hasRole('moderator')
 
+  const handleExport = async () => {
+    if (!reports || reports.length === 0) {
+      toast.error('No reports to export.')
+      return
+    }
+    try {
+      await exportToExcel({
+        title: 'Kiongozi — Content Reports',
+        fileName: 'kiongozi-reports',
+        columns: [
+          { header: 'Date', width: 12, value: r => formatDate(r.created_at) },
+          { header: 'Report Time', width: 20, value: r => r.created_at },
+          { header: 'Type', width: 10, value: r => r.type ?? 'post' },
+          { header: 'Reason', width: 44, value: r => r.reason },
+          { header: 'Reported By', width: 24, value: r => r.reporter?.full_name ?? r.reporter?.username ?? 'Unknown' },
+          { header: 'Reported User', width: 24, value: r => r.reported_user?.full_name ?? r.reported_user?.username ?? '' },
+          { header: 'Status', width: 12, value: r => r.status ?? 'pending' },
+        ],
+        rows: reports,
+      })
+      toast.success('Report exported.')
+    } catch {
+      toast.error('Export failed.')
+    }
+  }
+
   return (
     <div className="space-y-4">
-      {/* Status filter — underline tabs */}
-      <div className="flex border-b border-border -mx-0 px-0">
-        {REPORT_STATUS_TABS.map((tab) => (
-          <TabButton
-            key={tab.value}
-            active={statusFilter === tab.value}
-            onClick={() => setStatusFilter(tab.value)}
-          >
-            {tab.label}
-          </TabButton>
-        ))}
+      {/* Status filter — underline tabs + export */}
+      <div className="flex items-center justify-between border-b border-border">
+        <div className="flex">
+          {REPORT_STATUS_TABS.map((tab) => (
+            <TabButton
+              key={tab.value}
+              active={statusFilter === tab.value}
+              onClick={() => setStatusFilter(tab.value)}
+            >
+              {tab.label}
+            </TabButton>
+          ))}
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={!reports || reports.length === 0}
+          className="inline-flex items-center gap-1.5 rounded border border-border bg-accent px-3 py-1.5 mb-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+        >
+          <DownloadSimple size={15} weight="duotone" />
+          Export Excel
+        </button>
       </div>
 
       {/* Report cards */}
