@@ -620,4 +620,159 @@ router.post('/notifications/push', async (req, res) => {
   }
 });
 
+// ─── Content moderation ───────────────────────────────────────────────────────
+
+const REPORTER_SELECT = { id: true, full_name: true, username: true, avatar_url: true };
+
+const humanizeReason = (reason: string) => reason.replace(/_/g, ' ');
+
+router.get('/reports', async (req, res) => {
+  try {
+    const { status, limit = 50 } = req.query;
+    const take = Math.min(Number(limit) || 50, 100);
+
+    const reports = await prisma.reports.findMany({
+      where: status ? { status: status as string } : {},
+      orderBy: { created_at: 'desc' },
+      take,
+      include: {
+        profiles_reports_reporter_idToprofiles: { select: REPORTER_SELECT },
+        profiles_reports_reported_user_idToprofiles: { select: REPORTER_SELECT },
+        posts: {
+          select: {
+            id: true,
+            content: true,
+            created_at: true,
+            profiles: { select: REPORTER_SELECT },
+          },
+        },
+      },
+    });
+
+    const data = reports.map(r => ({
+      id: r.id,
+      type: r.reported_post_id ? 'post' : 'user',
+      reason: r.description ? `${humanizeReason(r.reason)} — ${r.description}` : humanizeReason(r.reason),
+      status: r.status ?? 'pending',
+      created_at: r.created_at,
+      reporter: r.profiles_reports_reporter_idToprofiles,
+      reported_user: r.profiles_reports_reported_user_idToprofiles,
+      post: r.posts ? { ...r.posts, author: r.posts.profiles } : null,
+    }));
+
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Admin reports fetch error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
+router.post('/reports/:reportId/resolve', async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    const adminId = (req as any).user.id;
+    const { action } = req.body as { action: 'dismiss' | 'remove' };
+
+    if (!['dismiss', 'remove'].includes(action)) {
+      return res.status(400).json({ success: false, error: 'action must be "dismiss" or "remove"' });
+    }
+
+    const report = await prisma.reports.findUnique({ where: { id: reportId } });
+    if (!report) {
+      return res.status(404).json({ success: false, error: 'Report not found' });
+    }
+
+    if (action === 'dismiss') {
+      await prisma.reports.update({ where: { id: reportId }, data: { status: 'dismissed' } });
+    } else if (report.reported_post_id) {
+      // Deleting the post cascades away its report rows, so log first.
+      await supabaseServiceClient.rpc('log_admin_action', {
+        admin_id: adminId,
+        target_user_id: report.reported_user_id ?? report.reporter_id,
+        action_type: 'post_removed',
+        action_details: { report_id: reportId, post_id: report.reported_post_id, reason: report.reason },
+      }).then(undefined, () => { /* non-critical */ });
+
+      await prisma.posts.delete({ where: { id: report.reported_post_id } });
+      return res.json({ success: true, message: 'Post removed and report resolved' });
+    } else {
+      // User report — the account action (ban/deactivate) happens on the Users page.
+      await prisma.reports.update({ where: { id: reportId }, data: { status: 'resolved' } });
+    }
+
+    await supabaseServiceClient.rpc('log_admin_action', {
+      admin_id: adminId,
+      target_user_id: report.reported_user_id ?? report.reporter_id,
+      action_type: `report_${action === 'dismiss' ? 'dismissed' : 'resolved'}`,
+      action_details: { report_id: reportId, reason: report.reason },
+    }).then(undefined, () => { /* non-critical */ });
+
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('Admin report resolve error:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
+// Posts with at least one pending report ("flagged")
+router.get('/content/flagged', async (req, res) => {
+  try {
+    const take = Math.min(Number(req.query.limit) || 50, 100);
+
+    const posts = await prisma.posts.findMany({
+      where: { reports: { some: { status: 'pending' } } },
+      orderBy: { created_at: 'desc' },
+      take,
+      include: {
+        profiles: { select: REPORTER_SELECT },
+        reports: { where: { status: 'pending' }, select: { reason: true } },
+      },
+    });
+
+    const data = posts.map(p => {
+      const counts = new Map<string, number>();
+      for (const r of p.reports) counts.set(r.reason, (counts.get(r.reason) ?? 0) + 1);
+      const topReason = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'reported';
+      return {
+        id: p.id,
+        content: p.content,
+        created_at: p.created_at,
+        author: p.profiles,
+        flagReason: `${p.reports.length} report${p.reports.length === 1 ? '' : 's'} — ${humanizeReason(topReason)}`,
+      };
+    });
+
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Admin flagged posts fetch error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
+router.delete('/posts/:postId', async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const adminId = (req as any).user.id;
+
+    const post = await prisma.posts.findUnique({ where: { id: postId }, select: { user_id: true } });
+    if (!post) {
+      return res.status(404).json({ success: false, error: 'Post not found' });
+    }
+
+    await supabaseServiceClient.rpc('log_admin_action', {
+      admin_id: adminId,
+      target_user_id: post.user_id,
+      action_type: 'post_removed',
+      action_details: { post_id: postId },
+    }).then(undefined, () => { /* non-critical */ });
+
+    await prisma.posts.delete({ where: { id: postId } });
+
+    return res.json({ success: true, message: 'Post removed' });
+  } catch (error: any) {
+    console.error('Admin post delete error:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
 export default router;

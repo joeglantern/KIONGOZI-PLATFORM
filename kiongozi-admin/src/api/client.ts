@@ -70,15 +70,15 @@ export const updateAppConfig = (data: Record<string, unknown>) =>
 export const getConnectedUsers = () =>
   api.get('/api/v1/websocket/connected-users').then(r => r.data?.data ?? r.data)
 
-// ─── Content / reports (not yet on backend — returns empty arrays) ───────────
-export const getReports = (_params?: { status?: string; page?: number }) =>
-  Promise.resolve([])
-export const resolveReport = (_id: string, _action: string) =>
-  Promise.resolve({ success: true })
-export const getFlaggedPosts = (_params?: { page?: number }) =>
-  Promise.resolve([])
+// ─── Content / reports ────────────────────────────────────────────────────────
+export const getReports = (params?: { status?: string; limit?: number }) =>
+  api.get('/api/v1/admin/reports', { params }).then(r => r.data?.data ?? [])
+export const resolveReport = (id: string, action: string) =>
+  api.post(`/api/v1/admin/reports/${id}/resolve`, { action }).then(r => r.data)
+export const getFlaggedPosts = (params?: { limit?: number }) =>
+  api.get('/api/v1/admin/content/flagged', { params }).then(r => r.data?.data ?? [])
 export const removePost = (id: string) =>
-  api.delete(`/api/v1/social/posts/${id}`).then(r => r.data)
+  api.delete(`/api/v1/admin/posts/${id}`).then(r => r.data)
 
 // ─── Notifications (not yet on backend) ──────────────────────────────────────
 export const sendPushNotification = (payload: { title: string; body: string; target: string; user_id?: string }) =>
