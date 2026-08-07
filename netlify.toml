@@ -4,13 +4,21 @@
 
 [build.environment]
   NEXT_TELEMETRY_DISABLED = "1"
-  NODE_VERSION = "18" 
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_OPENAI_API_KEY"
+  # Node 18 reached end-of-life and no longer receives security patches.
+  NODE_VERSION = "20"
+
+  # SECRETS_SCAN_OMIT_KEYS previously listed NEXT_PUBLIC_OPENAI_API_KEY, which
+  # silenced Netlify's secret scanner rather than fixing the underlying leak.
+  # Any NEXT_PUBLIC_* value is inlined into the browser bundle at build time, so
+  # an OpenAI key set that way is served to every visitor. The scanner must stay
+  # armed: the AI key belongs to the api-server as OPENAI_API_KEY, never to this
+  # app and never with a NEXT_PUBLIC_ prefix.
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200 
+# NOTE: a catch-all `/* -> /index.html 200` SPA rewrite used to live here. This
+# is a Next.js App Router app built with `output: 'standalone'` and served by
+# @netlify/plugin-nextjs, which installs its own routing. A blanket rewrite to a
+# static index.html shadows that, so server-rendered routes and API handlers are
+# bypassed. The plugin handles routing; no manual redirect belongs here.
