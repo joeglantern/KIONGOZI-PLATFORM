@@ -251,8 +251,20 @@ class LearningProfileService {
     skillLevel: string
   ): Promise<Array<{id: string; title: string; category: string; difficulty: string; reason: string}>> {
     try {
-      // Get modules user hasn't started yet
-      const { data: availableModules, error } = await supabase
+      // Get the modules the user has already started, then exclude them.
+      // NOTE: PostgREST's `in` filter takes a literal value list, not a SQL subquery —
+      // the previous inline `(SELECT ... WHERE user_id = '${userId}')` silently failed
+      // (so this filter never excluded anything) and interpolated userId unsafely.
+      // Fetch the started ids first and pass them as a value list.
+      const { data: started } = await supabase
+        .from('user_progress')
+        .select('module_id')
+        .eq('user_id', userId);
+      const startedIds = (started ?? [])
+        .map((r: any) => r.module_id)
+        .filter(Boolean);
+
+      let modulesQuery = supabase
         .from('learning_modules')
         .select(`
           id,
@@ -261,10 +273,11 @@ class LearningProfileService {
           module_categories(name)
         `)
         .eq('status', 'published')
-        .not('id', 'in', `(
-          SELECT module_id FROM user_progress WHERE user_id = '${userId}'
-        )`)
         .limit(20);
+      if (startedIds.length > 0) {
+        modulesQuery = modulesQuery.not('id', 'in', `(${startedIds.join(',')})`);
+      }
+      const { data: availableModules, error } = await modulesQuery;
 
       if (error || !availableModules) return [];
 
