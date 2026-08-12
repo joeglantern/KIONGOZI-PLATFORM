@@ -1,0 +1,50 @@
+name: Refresh Database Map
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/migrations/**'
+      - '**/supabase/migrations/**'
+      - 'scripts/db-map-config.json'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you triggering a manual refresh?'
+        required: false
+
+jobs:
+  refresh-db-map:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Use a PAT so the bot commit can trigger subsequent workflows
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Regenerate DATABASE_MAP.md
+        run: node scripts/generate-db-map.mjs
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Commit updated map
+        run: |
+          git config user.name  "db-map-bot"
+          git config user.email "bot@kiongozi.app"
+          git add DATABASE_MAP.md
+          # Only commit if the file actually changed
+          if git diff --staged --quiet; then
+            echo "DATABASE_MAP.md is already up to date."
+          else
+            git commit -m "chore: refresh DATABASE_MAP.md [skip ci]"
+            git push
+          fi
