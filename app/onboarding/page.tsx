@@ -72,6 +72,7 @@ function OnboardingContent() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [county, setCounty] = useState("");
   const [institution, setInstitution] = useState("");
+  const [party, setParty] = useState("");
   const [dailyGoal, setDailyGoal] = useState<5 | 10 | 15>(10);
   const [focusPath, setFocusPath] = useState<PathSlug>("civic");
   const [paths, setPaths] = useState<LearningPath[]>([]);
@@ -92,6 +93,21 @@ function OnboardingContent() {
     if (profile.daily_goal_minutes) setDailyGoal(profile.daily_goal_minutes);
     if (profile.focus_path) setFocusPath(profile.focus_path);
   }, [profile, router]);
+
+  // Party lives in its own owner-only table rather than on the profile row,
+  // which other users can read.
+  useEffect(() => {
+    if (!user) return;
+    const fetchParty = async () => {
+      const { data } = await supabase
+        .from("learner_political_affiliation")
+        .select("political_party")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data?.political_party) setParty(data.political_party);
+    };
+    void fetchParty();
+  }, [supabase, user]);
 
   useEffect(() => {
     const fetchPaths = async () => {
@@ -146,6 +162,16 @@ function OnboardingContent() {
         return;
       }
 
+      const partyName = party.trim();
+      const { error: partyError } = partyName
+        ? await supabase.from("learner_political_affiliation").upsert({
+          user_id: user.id,
+          political_party: partyName,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" })
+        : await supabase.from("learner_political_affiliation").delete().eq("user_id", user.id);
+      if (partyError) console.error("Saving political party failed:", partyError);
+
       // Keep enrollment aligned with the final path choice. Existing enrollment is preserved.
       const startingCourseId = await findStartingCourseIdForPath(supabase, focusPath);
       if (startingCourseId) {
@@ -179,7 +205,8 @@ function OnboardingContent() {
     <ChoiceGrid key="identity" title="Where will your impact begin?" subtitle="This helps us recommend relevant communities and challenges.">
       <div className="mx-auto grid max-w-2xl gap-5 text-left sm:grid-cols-2">
         <label className="font-black"><span className="mb-2 flex items-center gap-2"><MapPin className="h-4 w-4 text-brand-orange" /> County</span><select value={county} onChange={(event) => setCounty(event.target.value)} className="input-base min-h-12"><option value="">Select your county</option>{counties.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <label className="font-black"><span className="mb-2 flex items-center gap-2"><Building2 className="h-4 w-4 text-brand-orange" /> School or organization <em className="text-xs font-medium text-brand-primary/40">optional</em></span><input value={institution} onChange={(event) => setInstitution(event.target.value)} className="input-base min-h-12" placeholder="e.g. University of Nairobi" maxLength={120} /></label>
+        <label className="font-black"><span className="mb-2 flex items-center gap-2"><Building2 className="h-4 w-4 text-brand-orange" /> Institution <em className="text-xs font-medium text-brand-primary/40">optional</em></span><input value={institution} onChange={(event) => setInstitution(event.target.value)} className="input-base min-h-12" placeholder="e.g. University of Nairobi" maxLength={120} /></label>
+        <label className="font-black sm:col-span-2"><span className="mb-2 flex items-center gap-2"><Flag className="h-4 w-4 text-brand-orange" /> Political party <em className="text-xs font-medium text-brand-primary/40">optional</em></span><input value={party} onChange={(event) => setParty(event.target.value)} className="input-base min-h-12" placeholder="e.g. Independent, or leave blank" maxLength={120} aria-describedby="party-privacy" /><span id="party-privacy" className="mt-2 block text-xs font-semibold text-brand-primary/50">Private. Only you and the Kiongozi team can see this.</span></label>
       </div>
     </ChoiceGrid>,
     <ChoiceGrid key="commitment" title="Choose a daily rhythm you can keep." subtitle="Consistency beats intensity. You can adjust this any time.">
