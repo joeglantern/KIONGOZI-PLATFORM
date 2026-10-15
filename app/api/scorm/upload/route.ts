@@ -22,6 +22,17 @@ function isUnsafeEntryPath(relativePath: string): boolean {
   return norm.split('/').some((seg) => seg === '..');
 }
 
+// OS/zip-tool metadata that is never part of a SCORM package.
+function isJunkEntry(name: string): boolean {
+  const norm = name.replace(/\\/g, '/');
+  return (
+    norm.startsWith('__MACOSX/') ||
+    norm.includes('/__MACOSX/') ||
+    /(^|\/)\._/.test(norm) ||
+    /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$/i.test(norm)
+  );
+}
+
 // Upload a single file directly via Supabase Storage REST API.
 // Bypasses the JS SDK which has reliability issues with large batches in Node.js.
 async function uploadFile(
@@ -29,7 +40,8 @@ async function uploadFile(
   content: Buffer,
   contentType: string
 ): Promise<string | null> {
-  const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${storagePath}`;
+  const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');
+  const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodedPath}`;
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -79,7 +91,7 @@ export async function POST(request: NextRequest) {
     const courseId = formData.get('course_id') as string | null;
 
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-    if (!file.name.endsWith('.zip')) {
+    if (!file.name.toLowerCase().endsWith('.zip')) {
       return NextResponse.json({ error: 'File must be a .zip archive' }, { status: 400 });
     }
     if (typeof file.size === 'number' && file.size > MAX_ARCHIVE_BYTES) {
@@ -89,34 +101,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Packages may only be attached to a course the uploader can edit.
+    if (courseId) {
+      const { data: course } = await supabase
+        .from('courses')
+        .select('id, author_id')
+        .eq('id', courseId)
+        .maybeSingle();
+      if (!course) {
+        return NextResponse.json({ error: 'Course not found' }, { status: 404 });
+      }
+      if (profile.role !== 'admin' && course.author_id !== user.id) {
+        return NextResponse.json({ error: 'You can only add packages to your own courses' }, { status: 403 });
+      }
+    }
+
     // Load ZIP
     const arrayBuffer = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(arrayBuffer);
+    let zip: JSZip;
+    try {
+      zip = await JSZip.loadAsync(arrayBuffer);
+    } catch {
+      return NextResponse.json(
+        { error: 'This file is not a valid .zip archive. Re-export the package and try again.' },
+        { status: 400 }
+      );
+    }
 
-    // Find imsmanifest.xml (may be in root or subdirectory)
-    const manifestFile =
-      zip.file('imsmanifest.xml') ||
-      Object.values(zip.files).find((f) => f.name.endsWith('imsmanifest.xml'));
+    // Find the real imsmanifest.xml: exact file name, shallowest path, and
+    // never macOS resource forks like __MACOSX/._imsmanifest.xml.
+    const manifestFile = Object.values(zip.files)
+      .filter((f) => !f.dir && !isJunkEntry(f.name) && /(^|\/)imsmanifest\.xml$/i.test(f.name))
+      .sort((a, b) => a.name.split('/').length - b.name.split('/').length)[0];
 
     if (!manifestFile) {
       return NextResponse.json(
-        { error: 'Invalid SCORM package: imsmanifest.xml not found' },
+        { error: 'This is not a SCORM package: imsmanifest.xml was not found. In Storyline, Rise or Captivate, publish to LMS as SCORM 1.2 or 2004.' },
         { status: 400 }
       );
     }
 
     // Parse manifest
     const manifestXml = await manifestFile.async('text');
-    const manifest = parseManifest(manifestXml);
+    let manifest: ReturnType<typeof parseManifest>;
+    try {
+      manifest = parseManifest(manifestXml);
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: `Could not read imsmanifest.xml: ${err?.message || 'invalid XML'}` },
+        { status: 400 }
+      );
+    }
 
     // Determine the root prefix (if manifest is in a subdirectory)
-    const rootPrefix = manifestFile.name.replace('imsmanifest.xml', '');
+    const rootPrefix = manifestFile.name.slice(0, manifestFile.name.length - 'imsmanifest.xml'.length);
 
     // Generate package ID
     const packageId = crypto.randomUUID();
     const storagePath = `scorm/${packageId}`;
 
-    const zipFiles = Object.values(zip.files).filter((f) => !f.dir);
+    // Only files under the manifest's folder belong to the package.
+    const zipFiles = Object.values(zip.files).filter(
+      (f) => !f.dir && !isJunkEntry(f.name) && f.name.startsWith(rootPrefix)
+    );
     if (zipFiles.length > MAX_ENTRIES) {
       return NextResponse.json(
         { error: `Archive has too many files (max ${MAX_ENTRIES})` },
@@ -182,6 +229,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Create scorm_packages record
+    if (!zip.file(`${rootPrefix}${manifest.entryPoint.split('?')[0].split('#')[0]}`)) {
+      console.warn(`SCORM upload: entry point ${manifest.entryPoint} not found in archive`);
+    }
+
     const { data: pkg, error: dbError } = await supabase
       .from('scorm_packages')
       .insert({
@@ -226,7 +277,14 @@ function getContentType(filename: string): string {
     gif: 'image/gif',
     svg: 'image/svg+xml',
     mp4: 'video/mp4',
+    webm: 'video/webm',
+    ogg: 'audio/ogg',
+    wav: 'audio/wav',
     mp3: 'audio/mpeg',
+    webp: 'image/webp',
+    ico: 'image/x-icon',
+    txt: 'text/plain',
+    otf: 'font/otf',
     pdf: 'application/pdf',
     swf: 'application/x-shockwave-flash',
     woff: 'font/woff',

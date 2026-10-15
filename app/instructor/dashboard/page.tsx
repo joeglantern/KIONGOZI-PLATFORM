@@ -11,8 +11,9 @@ import {
     BookOpen,
     TrendingUp,
     Star,
-    Eye,
+    Edit3,
     ArrowRight,
+    Plus,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 
@@ -39,6 +40,7 @@ export default function InstructorDashboardPage() {
     const [totalStudents, setTotalStudents] = useState(0);
     const [avgRating, setAvgRating] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
         if (user) fetchDashboardData();
@@ -46,19 +48,18 @@ export default function InstructorDashboardPage() {
 
     const fetchDashboardData = async () => {
         if (!user) return;
+        setLoading(true);
+        setLoadError(null);
         try {
-            // 1. Fetch instructor's courses
+            // 1. Fetch instructor's courses (soft-deleted courses are excluded)
             const { data: myCourses, error: coursesError } = await supabase
                 .from('courses')
                 .select('id, title, difficulty_level, created_at')
                 .eq('author_id', user.id)
+                .is('deleted_at', null)
                 .order('created_at', { ascending: false });
 
-            if (coursesError) {
-                console.error('Error fetching courses:', coursesError);
-                setLoading(false);
-                return;
-            }
+            if (coursesError) throw coursesError;
 
             if (!myCourses || myCourses.length === 0) {
                 setCourses([]);
@@ -69,7 +70,7 @@ export default function InstructorDashboardPage() {
             const courseIds = myCourses.map(c => c.id);
 
             // 2+3. Fetch enrollments and reviews in parallel
-            const [{ data: enrollments }, { data: reviews }] = await Promise.all([
+            const [{ data: enrollments, error: enrollError }, { data: reviews, error: reviewError }] = await Promise.all([
                 supabase
                     .from('course_enrollments')
                     .select('course_id, progress_percentage, status, user_id')
@@ -79,6 +80,9 @@ export default function InstructorDashboardPage() {
                     .select('rating, course_id')
                     .in('course_id', courseIds),
             ]);
+
+            if (enrollError) throw enrollError;
+            if (reviewError) throw reviewError;
 
             // Calculate per-course stats
             const courseStats: CourseData[] = myCourses.map(course => {
@@ -108,6 +112,7 @@ export default function InstructorDashboardPage() {
             }
         } catch (err) {
             console.error('Dashboard error:', err);
+            setLoadError('We could not load your dashboard. Check your connection and try again.');
         } finally {
             setLoading(false);
         }
@@ -125,13 +130,27 @@ export default function InstructorDashboardPage() {
                 <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
                         <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
-                            Instructor Hub 👨‍🏫
+                            Instructor hub
                         </h1>
-                        <p className="text-gray-500 font-medium">
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">
                             Welcome back, <span className="text-orange-500">{profile?.first_name || 'Instructor'}</span>. Manage courses and track student progress.
                         </p>
                     </div>
+                    <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl self-start md:self-auto">
+                        <Link href="/instructor/courses/new">
+                            <Plus className="w-4 h-4 mr-1.5" /> New course
+                        </Link>
+                    </Button>
                 </div>
+
+                {loadError && !loading && (
+                    <div role="alert" className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400 text-sm font-semibold">
+                        <span>{loadError}</span>
+                        <Button variant="outline" size="sm" onClick={fetchDashboardData} className="border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl">
+                            Try again
+                        </Button>
+                    </div>
+                )}
 
                 {loading ? (
                     <>
@@ -168,25 +187,25 @@ export default function InstructorDashboardPage() {
                     <>
                         {/* Stats Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4 transition-transform hover:scale-[1.02]">
+                            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4 transition-transform ">
                                 <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-500">
                                     <BookOpen className="w-7 h-7" />
                                 </div>
                                 <div>
                                     <p className="text-3xl font-black text-gray-900 dark:text-white">{courses.length}</p>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">My Courses</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">My courses</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4 transition-transform hover:scale-[1.02]">
+                            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4 transition-transform ">
                                 <div className="w-14 h-14 bg-green-50 dark:bg-green-900/30 rounded-2xl flex items-center justify-center text-green-500">
                                     <Users className="w-7 h-7" />
                                 </div>
                                 <div>
                                     <p className="text-3xl font-black text-gray-900 dark:text-white">{totalStudents}</p>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Students</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total students</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4 transition-transform hover:scale-[1.02]">
+                            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4 transition-transform ">
                                 <div className="w-14 h-14 bg-purple-50 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center text-purple-500">
                                     <TrendingUp className="w-7 h-7" />
                                 </div>
@@ -195,13 +214,13 @@ export default function InstructorDashboardPage() {
                                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Completion</p>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4 transition-transform hover:scale-[1.02]">
+                            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex items-center gap-4 transition-transform ">
                                 <div className="w-14 h-14 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center text-amber-500">
                                     <Star className="w-7 h-7" />
                                 </div>
                                 <div>
-                                    <p className="text-3xl font-black text-gray-900 dark:text-white">{avgRating || ', '}</p>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg Rating</p>
+                                    <p className="text-3xl font-black text-gray-900 dark:text-white">{avgRating || <span className="text-xl text-gray-400">No ratings</span>}</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg rating</p>
                                 </div>
                             </div>
                         </div>
@@ -211,11 +230,11 @@ export default function InstructorDashboardPage() {
                             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                                 <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
                                     <BookOpen className="w-5 h-5 text-orange-500" />
-                                    Recent Courses
+                                    Recent courses
                                 </h2>
                                 <Button asChild variant="ghost" className="text-orange-600 dark:text-orange-400 font-bold hover:bg-orange-50 dark:hover:bg-orange-900/20">
                                     <Link href="/instructor/courses">
-                                        View All <ArrowRight className="w-4 h-4 ml-1" />
+                                        View all <ArrowRight className="w-4 h-4 ml-1" />
                                     </Link>
                                 </Button>
                             </div>
@@ -226,11 +245,11 @@ export default function InstructorDashboardPage() {
                                         <BookOpen className="w-10 h-10" />
                                     </div>
                                     <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">No courses yet</h3>
-                                    <p className="text-gray-500 font-medium max-w-sm mb-6">
-                                        You haven't created any courses. Head to 'My Courses' to create one!
+                                    <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mb-6">
+                                        Create your first course to start teaching. You can add lessons and quizzes as you go.
                                     </p>
                                     <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl px-6 py-4">
-                                        <Link href="/instructor/courses">
+                                        <Link href="/instructor/courses/new">
                                             Create Course
                                         </Link>
                                     </Button>
@@ -238,10 +257,14 @@ export default function InstructorDashboardPage() {
                             ) : (
                                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {courses.slice(0, 5).map(course => (
-                                        <Link key={course.id} href={`/courses/${course.id}`}>
-                                            <div className="p-5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer flex items-center gap-5">
-                                                <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-lg shrink-0">
-                                                    {course.title[0]}
+                                        <Link
+                                            key={course.id}
+                                            href={`/instructor/courses/${course.id}/edit`}
+                                            className="block focus-visible:outline-none focus-visible:bg-orange-50 dark:focus-visible:bg-gray-800"
+                                        >
+                                            <div className="p-5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center gap-5">
+                                                <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-lg shrink-0" aria-hidden="true">
+                                                    {(course.title?.trim()[0] || 'C').toUpperCase()}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="font-bold text-gray-900 dark:text-white text-sm truncate">{course.title}</h3>
@@ -257,7 +280,7 @@ export default function InstructorDashboardPage() {
                                                 <div className="flex items-center gap-4 shrink-0">
                                                     <div className="text-right hidden sm:block">
                                                         <p className="text-sm font-black text-gray-900 dark:text-white">{course.avg_progress}%</p>
-                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Avg Progress</p>
+                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Avg progress</p>
                                                     </div>
                                                     <div className="w-16 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden hidden sm:block">
                                                         <div
@@ -265,7 +288,7 @@ export default function InstructorDashboardPage() {
                                                             style={{ width: `${course.avg_progress}%` }}
                                                         />
                                                     </div>
-                                                    <Eye className="w-4 h-4 text-gray-400" />
+                                                    <Edit3 className="w-4 h-4 text-gray-400" aria-hidden="true" />
                                                 </div>
                                             </div>
                                         </Link>

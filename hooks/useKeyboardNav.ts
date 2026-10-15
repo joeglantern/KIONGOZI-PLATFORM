@@ -27,9 +27,14 @@ export function useKeyboardNav({
 }) {
     const handleKeyDown = useCallback(
         (e: KeyboardEvent) => {
-            // Ignore when typing in inputs
-            const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-            if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+            // Ignore when typing, when a media element owns the arrow keys
+            // (seeking), when another handler already acted, or with modifiers
+            // (browser back/forward, text selection shortcuts).
+            if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+            const target = e.target as HTMLElement | null;
+            const tag = target?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'video' || tag === 'audio') return;
+            if (target?.isContentEditable) return;
 
             if (e.key === 'ArrowLeft' && hasPrev) {
                 e.preventDefault();

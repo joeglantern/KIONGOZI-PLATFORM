@@ -47,10 +47,12 @@ export default function InstructorAnalyticsPage() {
         if (!user) return;
         try {
             // Get instructor's courses
-            const { data: instructorCourses } = await supabase
+            const { data: instructorCourses, error: coursesError } = await supabase
                 .from('courses')
                 .select('id, title')
-                .eq('author_id', user.id);
+                .eq('author_id', user.id)
+                .is('deleted_at', null);
+            if (coursesError) throw coursesError;
 
             if (!instructorCourses?.length) {
                 setLoading(false);

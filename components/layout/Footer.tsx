@@ -1,133 +1,95 @@
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
-import { Mail, Github, Twitter, Linkedin } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Mail } from 'lucide-react';
+
+const SUPPORT_EMAIL = 'user.support@kiongozi.org';
+
+const platformLinks = [
+    { label: 'Browse courses', href: '/courses' },
+    { label: 'Community', href: '/community' },
+    { label: 'Impact map', href: '/impact-map' },
+];
+
+const legalLinks = [
+    { label: 'Privacy policy', href: '/privacy-policy' },
+    { label: 'Terms of service', href: '/terms-of-service' },
+    { label: 'Cookie notice', href: '/cookie-notice' },
+];
+
+const linkClass =
+    'rounded-sm text-gray-400 hover:text-orange-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900';
 
 export function Footer() {
+    const pathname = usePathname();
     const currentYear = new Date().getFullYear();
 
+    // The instructor portal is a full-screen app shell with its own chrome.
+    // Rendering the site footer underneath it leaves invisible, still-focusable
+    // links behind the shell, so skip it there (the root Navbar does the same).
+    if (pathname?.startsWith('/instructor')) return null;
+
     return (
-        <footer className="bg-gray-900 text-gray-300">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <footer className="bg-gray-900 text-gray-300" aria-labelledby="site-footer-heading">
+            <h2 id="site-footer-heading" className="sr-only">Site footer</h2>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 md:gap-8">
                     {/* Brand */}
-                    <div className="col-span-1 md:col-span-2">
-                        <div className="flex items-center space-x-2 mb-4">
+                    <div className="sm:col-span-2">
+                        <Link href="/" className={`inline-flex items-center gap-2 mb-4 ${linkClass}`}>
                             <Image
                                 src="/logo.png"
-                                alt="Kiongozi Logo"
+                                alt=""
                                 width={40}
                                 height={40}
                                 className="w-10 h-10 object-contain drop-shadow-sm"
                             />
                             <span className="text-xl font-bold text-white">Kiongozi</span>
-                        </div>
-                        <p className="text-gray-400 mb-4 max-w-md">
-                            Empowering Kenya's youth with skills for the green economy and digital future.
-                            Learn, grow, and lead with purpose.
+                        </Link>
+                        <p className="text-gray-400 mb-5 max-w-md leading-relaxed">
+                            Skills for Kenya&apos;s youth in the green economy, civic leadership and the digital future.
                         </p>
                         <a
-                            href="mailto:user.support@kiongozi.org"
-                            className="inline-flex items-center space-x-2 text-gray-400 hover:text-orange-400 transition-colors mb-4"
+                            href={`mailto:${SUPPORT_EMAIL}`}
+                            className={`inline-flex items-center gap-2 text-sm ${linkClass}`}
                         >
-                            <Mail className="w-4 h-4" />
-                            <span className="text-sm">user.support@kiongozi.org</span>
+                            <Mail className="w-4 h-4" aria-hidden="true" />
+                            <span>{SUPPORT_EMAIL}</span>
                         </a>
-                        <div className="flex items-center space-x-4">
-                            <a
-                                href="https://twitter.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 bg-gray-800 hover:bg-orange-500 rounded-lg flex items-center justify-center transition-colors"
-                            >
-                                <Twitter className="w-5 h-5" />
-                            </a>
-                            <a
-                                href="https://linkedin.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 bg-gray-800 hover:bg-blue-500 rounded-lg flex items-center justify-center transition-colors"
-                            >
-                                <Linkedin className="w-5 h-5" />
-                            </a>
-                            <a
-                                href="https://github.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-10 h-10 bg-gray-800 hover:bg-gray-700 rounded-lg flex items-center justify-center transition-colors"
-                            >
-                                <Github className="w-5 h-5" />
-                            </a>
-                        </div>
                     </div>
 
-                    {/* Platform Links */}
-                    <div>
+                    <nav aria-label="Platform">
                         <h3 className="text-white font-semibold mb-4">Platform</h3>
-                        <ul className="space-y-2">
-                            <li>
-                                <Link href="/courses" className="hover:text-orange-400 transition-colors">
-                                    Browse Courses
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/community" className="hover:text-orange-400 transition-colors">
-                                    Community
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/impact-map" className="hover:text-orange-400 transition-colors">
-                                    Impact Map
-                                </Link>
-                            </li>
+                        <ul className="space-y-2.5">
+                            {platformLinks.map((link) => (
+                                <li key={link.href}>
+                                    <Link href={link.href} className={linkClass}>{link.label}</Link>
+                                </li>
+                            ))}
                         </ul>
-                    </div>
+                    </nav>
 
-                    {/* Support Links */}
-                    <div>
+                    <nav aria-label="Support">
                         <h3 className="text-white font-semibold mb-4">Support</h3>
-                        <ul className="space-y-2">
+                        <ul className="space-y-2.5">
                             <li>
-                                <a href="mailto:user.support@kiongozi.org" className="hover:text-orange-400 transition-colors">
-                                    Contact Us
-                                </a>
+                                <a href={`mailto:${SUPPORT_EMAIL}`} className={linkClass}>Contact us</a>
                             </li>
-                            <li>
-                                <Link href="/privacy-policy" className="hover:text-orange-400 transition-colors">
-                                    Privacy Policy
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/terms-of-service" className="hover:text-orange-400 transition-colors">
-                                    Terms of Service
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/cookie-notice" className="hover:text-orange-400 transition-colors">
-                                    Cookie Notice
-                                </Link>
-                            </li>
+                            {legalLinks.map((link) => (
+                                <li key={link.href}>
+                                    <Link href={link.href} className={linkClass}>{link.label}</Link>
+                                </li>
+                            ))}
                         </ul>
-                    </div>
+                    </nav>
                 </div>
 
-                {/* Bottom Bar */}
                 <div className="mt-12 pt-8 border-t border-gray-800">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <p className="text-gray-400 text-sm">
-                            © {currentYear} Kiongozi LMS. All rights reserved.
-                        </p>
-                        <div className="flex items-center space-x-6">
-                            <Link href="/privacy-policy" className="text-gray-400 hover:text-orange-400 text-sm transition-colors">
-                                Privacy Policy
-                            </Link>
-                            <Link href="/terms-of-service" className="text-gray-400 hover:text-orange-400 text-sm transition-colors">
-                                Terms of Service
-                            </Link>
-                            <Link href="/cookie-notice" className="text-gray-400 hover:text-orange-400 text-sm transition-colors">
-                                Cookie Notice
-                            </Link>
-                        </div>
-                    </div>
+                    <p className="text-gray-500 text-sm text-center md:text-left">
+                        © {currentYear} Kiongozi Platform. All rights reserved.
+                    </p>
                 </div>
             </div>
         </footer>

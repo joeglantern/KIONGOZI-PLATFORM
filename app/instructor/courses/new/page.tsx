@@ -20,6 +20,7 @@ import {
     ChevronDown,
     ChevronUp,
     Plus,
+    Package,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -88,6 +89,7 @@ export default function CreateCoursePage() {
     const [lessonCount, setLessonCount] = useState(0);
     const [saving, setSaving] = useState(false);
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(true);
     const lessonTitleRef = useRef<HTMLInputElement>(null);
 
     const [courseForm, setCourseForm] = useState<CourseForm>({
@@ -108,9 +110,11 @@ export default function CreateCoursePage() {
             .from('module_categories')
             .select('id, name')
             .order('name')
-            .then(({ data }: { data: { id: string; name: string }[] | null }) => {
+            .then(({ data, error }: { data: { id: string; name: string }[] | null; error: { message: string } | null }) => {
+                if (error) console.error('[CreateCourse] categories error:', error.message);
                 setCategories(data || []);
-                if (data?.[0]) setCourseForm(f => ({ ...f, category_id: data[0].id }));
+                if (data?.[0]) setCourseForm(f => (f.category_id ? f : { ...f, category_id: data[0].id }));
+                setCategoriesLoading(false);
             });
     }, [supabase]);
 
@@ -121,6 +125,7 @@ export default function CreateCoursePage() {
     }, [step, lessonCount]);
 
     const handleCreateCourse = async () => {
+        if (saving) return;
         if (!courseForm.title.trim()) {
             toast({ title: 'Course title is required', variant: 'destructive' });
             return;
@@ -153,6 +158,7 @@ export default function CreateCoursePage() {
     };
 
     const handleSaveLesson = async (andFinish: boolean) => {
+        if (saving) return;
         if (!lesson.title.trim()) {
             toast({ title: 'Lesson title is required', variant: 'destructive' });
             return;
@@ -167,6 +173,8 @@ export default function CreateCoursePage() {
                 .insert({
                     title: lesson.title.trim(),
                     media_type: lesson.media_type,
+                    // learning_modules.content is NOT NULL with no default.
+                    content: '',
                     author_id: user.id,
                     status: 'draft',
                     estimated_duration_minutes: 30,
@@ -186,7 +194,11 @@ export default function CreateCoursePage() {
                     is_required: true,
                 });
 
-            if (linkErr) throw linkErr;
+            if (linkErr) {
+                // Don't leave an orphaned lesson behind if linking failed.
+                await supabase.from('learning_modules').delete().eq('id', mod.id);
+                throw linkErr;
+            }
 
             if (lesson.addQuiz && lesson.quizTitle.trim()) {
                 const { error: quizErr } = await supabase
@@ -226,8 +238,8 @@ export default function CreateCoursePage() {
         : [];
 
     const currentTrailLabel = step === 'lesson'
-        ? lessonCount === 0 ? 'Add Lesson 1' : `Add Lesson ${lessonCount + 1}`
-        : 'Course Info';
+        ? lessonCount === 0 ? 'Add lesson 1' : `Add lesson ${lessonCount + 1}`
+        : 'Course info';
 
     return (
         <ProtectedRoute allowedRoles={['instructor', 'admin']}>
@@ -242,12 +254,12 @@ export default function CreateCoursePage() {
 
                 {/* ── Step trail ── */}
                 {step === 'lesson' && (
-                    <StepTrail completedLabels={completedTrail.slice(0, -lessonCount || undefined)} current={currentTrailLabel} />
+                    <StepTrail completedLabels={completedTrail} current={currentTrailLabel} />
                 )}
 
                 {/* ════════════════ STEP 1: Course Info ════════════════ */}
                 {step === 'course-info' && (
-                    <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-10 shadow-sm">
+                    <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-6 sm:p-10 shadow-sm">
                         <div className="w-14 h-14 bg-orange-50 dark:bg-orange-900/20 rounded-2xl flex items-center justify-center mb-6">
                             <BookOpen className="w-7 h-7 text-orange-500" />
                         </div>
@@ -260,40 +272,47 @@ export default function CreateCoursePage() {
 
                         <div className="space-y-6">
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">
-                                    Course Title <span className="text-orange-500">*</span>
+                                <label htmlFor="course-title" className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                                    Course title <span className="text-orange-500" aria-hidden="true">*</span>
                                 </label>
                                 <input
+                                    id="course-title"
+                                    required
+                                    maxLength={160}
                                     autoFocus
                                     type="text"
                                     value={courseForm.title}
                                     onChange={e => setCourseForm(f => ({ ...f, title: e.target.value }))}
-                                    onKeyDown={e => e.key === 'Enter' && handleCreateCourse()}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateCourse(); } }}
                                     placeholder="e.g. Introduction to Climate Finance"
-                                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300"
+                                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg font-bold text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300"
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Category</label>
+                                    <label htmlFor="course-category" className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Category</label>
                                     <select
+                                        id="course-category"
                                         value={courseForm.category_id}
                                         onChange={e => setCourseForm(f => ({ ...f, category_id: e.target.value }))}
-                                        className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold outline-none appearance-none cursor-pointer"
+                                        className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold text-gray-900 dark:text-white outline-none appearance-none cursor-pointer focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500"
                                     >
+                                        {categories.length === 0 && (
+                                            <option value="">{categoriesLoading ? 'Loading…' : 'No categories available'}</option>
+                                        )}
                                         {categories.map(c => (
                                             <option key={c.id} value={c.id}>{c.name}</option>
                                         ))}
-                                        {categories.length === 0 && <option value="">Loading…</option>}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Difficulty</label>
+                                    <label htmlFor="course-difficulty" className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Difficulty</label>
                                     <select
+                                        id="course-difficulty"
                                         value={courseForm.difficulty_level}
                                         onChange={e => setCourseForm(f => ({ ...f, difficulty_level: e.target.value }))}
-                                        className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold outline-none appearance-none cursor-pointer"
+                                        className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold text-gray-900 dark:text-white outline-none appearance-none cursor-pointer focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500"
                                     >
                                         <option value="beginner">Beginner</option>
                                         <option value="intermediate">Intermediate</option>
@@ -326,14 +345,14 @@ export default function CreateCoursePage() {
                 {/* ════════════════ STEP 2+: Add Lesson ════════════════ */}
                 {step === 'lesson' && (
                     <div className="space-y-4">
-                        <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-8 shadow-sm">
+                        <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-6 sm:p-8 shadow-sm">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-sm">
                                     {lessonCount + 1}
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
-                                        {lessonCount === 0 ? 'Add your first lesson' : `Add Lesson ${lessonCount + 1}`}
+                                        {lessonCount === 0 ? 'Add your first lesson' : `Add lesson ${lessonCount + 1}`}
                                     </h2>
                                     <p className="text-xs text-gray-400 font-medium mt-0.5">You can always edit the full content in the editor</p>
                                 </div>
@@ -341,27 +360,33 @@ export default function CreateCoursePage() {
 
                             {/* Lesson title */}
                             <div className="space-y-2 mb-6">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">
-                                    Lesson Title <span className="text-orange-500">*</span>
+                                <label htmlFor="lesson-title" className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                                    Lesson title <span className="text-orange-500" aria-hidden="true">*</span>
                                 </label>
                                 <input
+                                    id="lesson-title"
+                                    required
+                                    maxLength={160}
                                     ref={lessonTitleRef}
                                     type="text"
                                     value={lesson.title}
                                     onChange={e => setLesson(l => ({ ...l, title: e.target.value }))}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleSaveLesson(false); } }}
                                     placeholder="e.g. What is Carbon Pricing?"
-                                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-base font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300"
+                                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-base font-bold text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300"
                                 />
                             </div>
 
                             {/* Content type */}
                             <div className="space-y-2 mb-6">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Content Type</label>
-                                <div className="grid grid-cols-3 gap-3">
+                                <p id="content-type-label" className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Content type</p>
+                                <div role="radiogroup" aria-labelledby="content-type-label" className="grid grid-cols-3 gap-2 sm:gap-3">
                                     {MEDIA_OPTIONS.map(opt => (
                                         <button
                                             key={opt.value}
                                             type="button"
+                                            role="radio"
+                                            aria-checked={lesson.media_type === opt.value}
                                             onClick={() => setLesson(l => ({ ...l, media_type: opt.value }))}
                                             className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all text-center ${
                                                 lesson.media_type === opt.value
@@ -383,6 +408,7 @@ export default function CreateCoursePage() {
                                 <button
                                     type="button"
                                     onClick={() => setLesson(l => ({ ...l, addQuiz: !l.addQuiz }))}
+                                    aria-expanded={lesson.addQuiz}
                                     className="w-full flex items-center justify-between text-left group"
                                 >
                                     <div className="flex items-center gap-2.5">
@@ -402,14 +428,15 @@ export default function CreateCoursePage() {
 
                                 {lesson.addQuiz && (
                                     <div className="mt-4 space-y-2">
-                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Quiz Title</label>
+                                        <label htmlFor="quiz-title" className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Quiz title</label>
                                         <input
+                                            id="quiz-title"
                                             autoFocus
                                             type="text"
                                             value={lesson.quizTitle}
                                             onChange={e => setLesson(l => ({ ...l, quizTitle: e.target.value }))}
                                             placeholder="e.g. Carbon Pricing Check"
-                                            className="w-full px-5 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300 text-sm"
+                                            className="w-full px-5 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all placeholder:font-normal placeholder:text-gray-300 text-sm"
                                         />
                                         <p className="text-xs text-gray-400">You&apos;ll add questions in the full editor after finishing.</p>
                                     </div>
@@ -418,7 +445,7 @@ export default function CreateCoursePage() {
                         </div>
 
                         {/* Action row */}
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
                             <button
                                 type="button"
                                 onClick={handleSkipToEditor}
@@ -427,7 +454,7 @@ export default function CreateCoursePage() {
                                 {lessonCount === 0 ? 'Skip, go straight to editor' : 'Finish, open editor'}
                             </button>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
                                 <Button
                                     variant="outline"
                                     onClick={() => handleSaveLesson(false)}
@@ -435,7 +462,7 @@ export default function CreateCoursePage() {
                                     className="font-bold rounded-2xl px-5 h-11 gap-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-40"
                                 >
                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                    Save &amp; Add Another
+                                    Save &amp; add another
                                 </Button>
 
                                 <Button
@@ -448,6 +475,23 @@ export default function CreateCoursePage() {
                                 </Button>
                             </div>
                         </div>
+
+                        {lessonCount === 0 && (
+                            <div className="rounded-2xl border border-orange-100 dark:border-orange-900/40 bg-orange-50/60 dark:bg-orange-900/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-black text-gray-800 dark:text-gray-100">Already built this course in Storyline, Rise or Captivate?</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Skip lessons and upload the SCORM .zip instead.</p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => courseId && router.push(`/instructor/courses/${courseId}/edit?panel=scorm`)}
+                                    className="shrink-0 rounded-xl border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-400 font-bold gap-2"
+                                >
+                                    <Package className="w-4 h-4" /> Upload SCORM package
+                                </Button>
+                            </div>
+                        )}
 
                         {lessonCount > 0 && (
                             <p className="text-center text-xs text-gray-400">

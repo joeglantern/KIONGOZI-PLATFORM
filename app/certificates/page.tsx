@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { CertificatesSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 import Image from 'next/image';
+import { getCourseThumbnail } from '@/lib/course-thumbnail';
 
 const escapeHtml = (value: string) =>
     value
@@ -251,7 +252,7 @@ export default function CertificatesPage() {
                 const enriched = await Promise.all(data.map(async (cert) => {
                     const { data: courseData } = await supabase
                         .from('courses')
-                        .select('title, module_categories(name)')
+                        .select('title, description, thumbnail_url, module_categories(name)')
                         .eq('id', cert.course_id)
                         .single();
                     return { ...cert, course: courseData };
@@ -331,10 +332,15 @@ export default function CertificatesPage() {
                                             {/* Course Preview */}
                                             <div className="flex items-center space-x-4 mb-6">
                                                 <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0">
-                                                    {cert.course?.thumbnail_url ? (
+                                                    {cert.course ? (
                                                         <Image
-                                                            src={cert.course.thumbnail_url}
-                                                            alt={cert.course.title}
+                                                            src={getCourseThumbnail({
+                                                                title: cert.course.title,
+                                                                description: cert.course.description,
+                                                                categoryName: cert.course.module_categories?.name,
+                                                                thumbnailUrl: cert.course.thumbnail_url,
+                                                            })}
+                                                            alt=""
                                                             width={64}
                                                             height={64}
                                                             className="w-full h-full object-cover"

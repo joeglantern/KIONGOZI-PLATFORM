@@ -5,10 +5,13 @@ import EditCourseClient from './EditCourseClient';
 
 export default async function EditCoursePage({
     params,
+    searchParams,
 }: {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ panel?: string }>;
 }) {
     const { id: courseId } = await params;
+    const { panel } = await searchParams;
     const supabase = await createClient();
 
     const user = await getCurrentUser();
@@ -27,9 +30,9 @@ export default async function EditCoursePage({
     const [{ data: course }, { data: mods }, { data: quizData }] = await Promise.all([
         supabase
             .from('courses')
-            .select('id, title, status, review_status, description, category_id, difficulty_level, estimated_duration_hours, thumbnail_url, updated_at, published_at, author_id')
+            .select('id, title, status, review_status, description, category_id, difficulty_level, estimated_duration_hours, thumbnail_url, updated_at, published_at, author_id, deleted_at')
             .eq('id', courseId)
-            .single(),
+            .maybeSingle(),
         supabase
             .from('course_modules')
             .select('id, order_index, is_required, learning_modules(id, title, media_type, estimated_duration_minutes)')
@@ -41,11 +44,12 @@ export default async function EditCoursePage({
             .eq('course_id', courseId),
     ]);
 
-    if (!course) redirect('/instructor/courses');
+    if (!course || course.deleted_at) redirect('/instructor/courses');
     if (profile.role !== 'admin' && course.author_id !== user.id) redirect('/instructor/courses');
 
     return (
         <EditCourseClient
+            initialPanel={panel === 'scorm' ? 'scorm' : 'settings'}
             courseId={courseId}
             userId={user.id}
             initialCourse={course as any}

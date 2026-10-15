@@ -15,6 +15,18 @@ export async function GET(
 
     const { serviceClient, user, pkg, isPrivileged } = access;
 
+    // SCORM 1.2 cmi.core.student_name is "Last, First"; packages show it.
+    const { data: learner } = await serviceClient
+      .from('profiles')
+      .select('first_name, last_name, username')
+      .eq('id', user.id)
+      .maybeSingle();
+    const learnerName =
+      [learner?.last_name, learner?.first_name].filter(Boolean).join(', ') ||
+      learner?.username ||
+      user.email ||
+      'Learner';
+
     // Preview mode: privileged users (author/admin) get a mock registration, 
     // no DB record created, no progress tracked.
     if (request.headers.get('X-SCORM-Preview') === '1') {
@@ -37,6 +49,7 @@ export async function GET(
           lesson_location: null,
         },
         package: pkg,
+        learnerName,
         serveBase: `/api/scorm/${packageId}/serve`,
       });
     }
@@ -66,9 +79,14 @@ export async function GET(
           .eq('user_id', user.id)
           .single();
 
+    if (!existing) {
+      return NextResponse.json({ error: 'Could not start a SCORM session' }, { status: 500 });
+    }
+
     return NextResponse.json({
       registration: existing,
       package: pkg,
+      learnerName,
       serveBase: `/api/scorm/${packageId}/serve`,
     });
   } catch (err: any) {

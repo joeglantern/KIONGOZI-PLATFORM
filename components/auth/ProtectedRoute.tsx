@@ -46,7 +46,7 @@ export function ProtectedRoute({
     // Only block on the initial session check (very fast, reads from cookie)
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-[60vh] bg-transparent flex items-center justify-center">
                 <MascotLoader className="w-28 h-28" label="Loading…" />
             </div>
         );

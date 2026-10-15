@@ -43,6 +43,7 @@ import { useKeyboardNav } from '@/hooks/useKeyboardNav';
 import { AccessibilityMenu } from '@/components/learning/AccessibilityMenu';
 import { getQuestionsForModule, type ScenarioQuestion } from '@/lib/scenario-questions';
 import { syncCourseEnrollmentProgress } from '@/lib/lms/course-progress';
+import { LessonMedia } from '@/components/learning/LessonMedia';
 
 type SlideType =
   | { type: 'content'; markdown: string }
@@ -380,6 +381,49 @@ export default function ModuleViewerClient({
     const currentIndex = allModules.findIndex(m => m.learning_modules.id === moduleId);
     const hasPrev = currentIndex > 0;
     const hasNext = currentIndex < allModules.length - 1;
+    const completedModuleCount = allModules.filter(m =>
+        progress.some(p => p.module_id === m.learning_modules.id && p.status === 'completed')
+    ).length;
+    const courseProgressPercent = allModules.length > 0
+        ? Math.round((completedModuleCount / allModules.length) * 100)
+        : 0;
+
+    // After the last lesson, continue into the course's interactive (SCORM)
+    // lessons and final quiz instead of dropping the learner on the overview.
+    const [afterLessonsTarget, setAfterLessonsTarget] = useState<{ href: string; label: string } | null>(null);
+    useEffect(() => {
+        if (hasNext) return;
+        let cancelled = false;
+        const previewSuffix = isPreviewMode ? '?preview=1' : '';
+        (async () => {
+            const [{ data: pkgs }, { data: finalQuiz }] = await Promise.all([
+                supabase
+                    .from('scorm_packages')
+                    .select('id')
+                    .eq('course_id', courseId)
+                    .eq('status', 'active')
+                    .order('created_at')
+                    .limit(1),
+                supabase
+                    .from('quizzes')
+                    .select('id')
+                    .eq('course_id', courseId)
+                    .is('module_id', null)
+                    .limit(1)
+                    .maybeSingle(),
+            ]);
+            if (cancelled) return;
+            if (pkgs?.[0]) {
+                setAfterLessonsTarget({ href: `/lms/scorm/${pkgs[0].id}${previewSuffix}`, label: 'Next: Interactive Lesson' });
+            } else if (finalQuiz?.id) {
+                setAfterLessonsTarget({
+                    href: `/courses/${courseId}/quiz/${finalQuiz.id}?returnTo=${encodeURIComponent(`/courses/${courseId}${previewSuffix}`)}`,
+                    label: 'Next: Final Quiz',
+                });
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [courseId, hasNext, isPreviewMode, supabase]);
 
     const navigateToModule = useCallback((direction: 'prev' | 'next') => {
         if (currentIndex === -1) return;
@@ -537,8 +581,10 @@ export default function ModuleViewerClient({
                 if (isCompleted) {
                     if (hasNext) {
                         navigateToModule('next');
+                    } else if (afterLessonsTarget) {
+                        router.push(afterLessonsTarget.href);
                     } else {
-                        router.push(`/courses/${courseId}`);
+                        router.push(`/courses/${courseId}${isPreviewMode ? '?preview=1' : ''}`);
                     }
                 } else if (isPreviewMode) {
                     router.push(`/courses/${courseId}${isPreviewMode ? '?preview=1' : ''}`);
@@ -548,10 +594,12 @@ export default function ModuleViewerClient({
                     await handleMarkComplete();
                 }
             }
+        } else if (!hasNext && afterLessonsTarget) {
+            router.push(afterLessonsTarget.href);
         } else {
             navigateToModule('next');
         }
-    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, hasNext, navigateToModule, handleMarkComplete, router, courseId, isPreviewMode, requiresQuizPass, quiz?.title, slides]);
+    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, hasNext, navigateToModule, handleMarkComplete, router, courseId, isPreviewMode, requiresQuizPass, quiz?.title, slides, afterLessonsTarget]);
 
     const handlePrevClick = useCallback(() => {
         if (deliveryMode === 'text') {
@@ -569,7 +617,7 @@ export default function ModuleViewerClient({
         if (deliveryMode === 'text') {
             if (currentSlideIndex === totalSlides - 1) {
                 if (isCompleted) {
-                    return hasNext ? "Next Lesson" : "Back to Course";
+                    return hasNext ? "Next Lesson" : afterLessonsTarget?.label ?? "Back to Course";
                 }
                 if (requiresQuizPass) return "Pass Quiz First";
                 return isPreviewMode ? "Back to Course" : "Finish & Claim XP";
@@ -580,8 +628,9 @@ export default function ModuleViewerClient({
             }
             return "Next Slide";
         }
+        if (!hasNext && afterLessonsTarget) return afterLessonsTarget.label;
         return "Next";
-    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, isPreviewMode, hasNext, requiresQuizPass, slides]);
+    }, [deliveryMode, currentSlideIndex, totalSlides, isCompleted, hasAnsweredCorrectly, isPreviewMode, hasNext, requiresQuizPass, slides, afterLessonsTarget]);
 
     const isNextDisabled = useMemo(() => {
         if (deliveryMode === 'text') {
@@ -595,8 +644,8 @@ export default function ModuleViewerClient({
             }
             return false;
         }
-        return !hasNext;
-    }, [deliveryMode, slides, currentSlideIndex, hasAnsweredCorrectly, completing, hasNext, isCompleted, requiresQuizPass]);
+        return !hasNext && !afterLessonsTarget;
+    }, [deliveryMode, slides, currentSlideIndex, hasAnsweredCorrectly, completing, hasNext, isCompleted, requiresQuizPass, afterLessonsTarget]);
 
     const isPrevDisabled = useMemo(() => {
         if (deliveryMode === 'text') {
@@ -638,7 +687,8 @@ export default function ModuleViewerClient({
 
                 {/* Sidebar */}
                 <aside
-                    className={`fixed inset-y-0 left-0 z-40 lg:relative flex-shrink-0 transition-all duration-300 ease-in-out bg-white overflow-hidden ${
+                    aria-label="Course outline"
+                    className={`fixed top-16 bottom-0 left-0 z-40 lg:relative lg:top-auto flex-shrink-0 transition-all duration-300 ease-in-out bg-white overflow-hidden ${
                         sidebarOpen ? 'w-80 translate-x-0 shadow-2xl lg:shadow-none' : 'w-0 -translate-x-full lg:translate-x-0 lg:w-0'
                     }`}
                 >
@@ -655,6 +705,7 @@ export default function ModuleViewerClient({
                         />
                         <button
                             onClick={() => setSidebarOpen(false)}
+                            aria-label="Close course outline"
                             className="lg:hidden absolute top-4 right-4 p-2 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center"
                         >
                             <X className="w-5 h-5 text-gray-500" />
@@ -704,24 +755,25 @@ export default function ModuleViewerClient({
                     </AnimatePresence>
 
                     {/* Top bar */}
-                    <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-30 px-4 py-3 sm:px-6">
+                    <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 sticky top-16 z-30 px-4 py-3 sm:px-6">
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-4 min-w-0">
                                 {!sidebarOpen && (
                                     <button
                                         onClick={() => setSidebarOpen(true)}
+                                        aria-label="Show course outline"
                                         className="p-2 hover:bg-orange-50 rounded-xl text-gray-500 hover:text-orange-600 transition-colors border border-transparent hover:border-orange-100"
                                     >
                                         <Menu className="w-5 h-5" />
                                     </button>
                                 )}
                                 <div className="min-w-0">
-                                    <h2 className="text-lg font-black text-gray-900 truncate leading-tight mb-1">{moduleData.title}</h2>
+                                    <h1 className="text-base sm:text-lg font-black text-gray-900 truncate leading-tight mb-1">{moduleData.title}</h1>
                                     <Breadcrumb
                                         items={[
                                             { label: 'Courses', href: '/courses' },
                                             { label: course.title, href: `/courses/${courseId}${isPreviewMode ? '?preview=1' : ''}` },
-                                            { label: `Lesson ${currentIndex + 1}` },
+                                            { label: `Lesson ${currentIndex + 1} of ${allModules.length}` },
                                         ]}
                                     />
                                 </div>
@@ -786,6 +838,26 @@ export default function ModuleViewerClient({
                                 </button>
                             </div>
                         </div>
+                        {allModules.length > 0 && (
+                            <div className="mt-2.5 flex items-center gap-3">
+                                <div
+                                    className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden"
+                                    role="progressbar"
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-valuenow={courseProgressPercent}
+                                    aria-label="Course lessons completed"
+                                >
+                                    <div
+                                        className="h-full rounded-full bg-orange-500 transition-all duration-500"
+                                        style={{ width: `${courseProgressPercent}%` }}
+                                    />
+                                </div>
+                                <span className="text-[11px] font-bold text-gray-500 tabular-nums shrink-0">
+                                    {completedModuleCount}/{allModules.length} lessons
+                                </span>
+                            </div>
+                        )}
                     </header>
 
                     {/* Scrollable content */}
@@ -888,9 +960,14 @@ export default function ModuleViewerClient({
                                                         {currentSlideIndex === 0 && (
                                                             <>
                                                                 {moduleData.media_type === 'video' && moduleData.media_url && (
-                                                                    <div className="mb-6 rounded-2xl overflow-hidden aspect-video bg-black relative shadow-lg border border-gray-205">
-                                                                        <video src={moduleData.media_url} controls className="w-full h-full object-contain" />
-                                                                    </div>
+                                                                    <LessonMedia
+                                                                        kind="video"
+                                                                        src={moduleData.media_url}
+                                                                        resumeKey={`module-${moduleId}`}
+                                                                        title={moduleData.title}
+                                                                        transcript={moduleData.transcription}
+                                                                        className="mb-6"
+                                                                    />
                                                                 )}
                                                                 {moduleData.media_type === 'audio' && moduleData.media_url && (
                                                                     <div className="mb-6 p-6 rounded-2xl bg-orange-500 shadow-md border border-orange-400 text-white flex flex-col items-center gap-4">
@@ -901,8 +978,22 @@ export default function ModuleViewerClient({
                                                                             <h4 className="font-bold text-white mb-1">{moduleData.title}</h4>
                                                                             <p className="text-orange-100 text-xs">Audio Session</p>
                                                                         </div>
-                                                                        <audio src={moduleData.media_url} controls className="w-full max-w-md filter invert brightness-200" />
+                                                                        <LessonMedia
+                                                                            kind="audio"
+                                                                            src={moduleData.media_url}
+                                                                            resumeKey={`module-${moduleId}`}
+                                                                            title={moduleData.title}
+                                                                            className="w-full max-w-md [&_audio]:rounded-xl [&_button]:text-white [&_button:hover]:bg-white/20 [&_svg]:text-orange-100"
+                                                                        />
                                                                     </div>
+                                                                )}
+                                                                {moduleData.media_type === 'audio' && moduleData.media_url && moduleData.transcription?.trim() && (
+                                                                    <details className="mb-6 rounded-2xl border border-gray-100 bg-white p-4">
+                                                                        <summary className="cursor-pointer text-sm font-bold text-gray-700">Read the transcript</summary>
+                                                                        <div className="mt-3 max-h-72 overflow-y-auto text-sm leading-relaxed text-gray-700 whitespace-pre-line">
+                                                                            {moduleData.transcription}
+                                                                        </div>
+                                                                    </details>
                                                                 )}
                                                             </>
                                                         )}
@@ -1285,17 +1376,14 @@ export default function ModuleViewerClient({
                                                 </span>
                                             </div>
 
-                                            <div className="rounded-2xl overflow-hidden aspect-video bg-black relative shadow-2xl border border-gray-800">
-                                                <video
-                                                    src={course.video_url ?? undefined}
-                                                    controls
-                                                    controlsList="nodownload"
-                                                    onContextMenu={(e) => e.preventDefault()}
-                                                    preload="metadata"
-                                                    className="w-full h-full object-contain"
-                                                    title="Course Video presentation"
+                                            {course.video_url && (
+                                                <LessonMedia
+                                                    kind="video"
+                                                    src={course.video_url}
+                                                    resumeKey={`course-video-${courseId}`}
+                                                    title={`${course.title} video`}
                                                 />
-                                            </div>
+                                            )}
                                         </div>
 
                                         {/* Completion Panel */}
@@ -1467,6 +1555,7 @@ export default function ModuleViewerClient({
                                     controlsList="nodownload"
                                     onContextMenu={(e) => e.preventDefault()}
                                     preload="metadata"
+                                    playsInline
                                     className="max-h-[75vh] max-w-full rounded-2xl shadow-2xl object-contain"
                                     title="Course Video presentation Fullscreen"
                                     autoPlay

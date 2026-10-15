@@ -155,6 +155,7 @@ function reindexModules(items: CourseModule[]): CourseModule[] {
 }
 
 interface EditCourseClientProps {
+    initialPanel?: 'settings' | 'scorm';
     courseId: string;
     userId: string;
     initialCourse: CourseMeta;
@@ -163,6 +164,7 @@ interface EditCourseClientProps {
 }
 
 export default function EditCourseClient({
+    initialPanel = 'settings',
     courseId,
     userId,
     initialCourse,
@@ -179,7 +181,7 @@ export default function EditCourseClient({
     const [courseMeta, setCourseMeta] = useState<CourseMeta | null>(initialCourse);
     const [modules, setModules] = useState<CourseModule[]>(() => normalizeCourseModules(initialRawModules));
     const [quizzes, setQuizzes] = useState<Quiz[]>(initialQuizzes);
-    const [selection, setSelection] = useState<Selection>({ type: 'settings' });
+    const [selection, setSelection] = useState<Selection>({ type: initialPanel });
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [validationLoading, setValidationLoading] = useState(false);
@@ -398,6 +400,12 @@ export default function EditCourseClient({
         scheduleMetadataRefresh();
     }, [loadData, scheduleMetadataRefresh, supabase, toast]);
 
+    // On narrow screens the outline would squeeze the editor to nothing,
+    // so start with it collapsed there.
+    useEffect(() => {
+        if (window.matchMedia('(max-width: 767px)').matches) setSidebarOpen(false);
+    }, []);
+
     // Initial data comes from server, only fetch validation & revisions on mount
     useEffect(() => {
         void Promise.all([
@@ -412,7 +420,10 @@ export default function EditCourseClient({
         setCourseMeta((prev) => prev ? { ...prev, title: val } : prev);
         if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
         titleSaveTimer.current = setTimeout(async () => {
-            await supabase.from('courses').update({ title: val.trim() || 'Untitled Course' }).eq('id', courseId);
+            const { error } = await supabase.from('courses').update({ title: val.trim() || 'Untitled Course' }).eq('id', courseId);
+            if (error) {
+                toast({ title: 'Could not save course title', description: error.message, variant: 'destructive' });
+            }
         }, 800);
     };
 
@@ -499,6 +510,8 @@ export default function EditCourseClient({
                 .insert({
                     title: 'Untitled Module',
                     media_type: 'text',
+                    // learning_modules.content is NOT NULL with no default.
+                    content: '',
                     author_id: userId,
                     status: 'draft',
                     estimated_duration_minutes: 30,
@@ -518,7 +531,11 @@ export default function EditCourseClient({
                 })
                 .select('id')
                 .single();
-            if (linkErr) throw linkErr;
+            if (linkErr) {
+                // Don't leave an orphaned lesson behind if linking failed.
+                await supabase.from('learning_modules').delete().eq('id', mod.id);
+                throw linkErr;
+            }
 
             const newMod: CourseModule = {
                 id: link.id,
@@ -540,24 +557,39 @@ export default function EditCourseClient({
     };
 
     const handleDeleteModule = useCallback(async (m: CourseModule) => {
-        if (!confirm(`Delete "${m.learning_modules.title}"? This cannot be undone.`)) return;
+        if (!confirm(`Delete the lesson "${m.learning_modules.title}" and any quiz attached to it? This cannot be undone.`)) return;
 
         try {
-            await Promise.all([
-                supabase.from('course_modules').delete().eq('id', m.id),
-                supabase.from('learning_modules').delete().eq('id', m.learning_modules.id),
-            ]);
+            // quizzes.module_id is ON DELETE SET NULL, so a lesson quiz left in
+            // place would silently turn into a second "final quiz". Remove it first.
+            const { error: quizErr } = await supabase
+                .from('quizzes')
+                .delete()
+                .eq('course_id', courseId)
+                .eq('module_id', m.learning_modules.id);
+            if (quizErr) throw quizErr;
 
+            const { error: linkErr } = await supabase.from('course_modules').delete().eq('id', m.id);
+            if (linkErr) throw linkErr;
+
+            const { error: modErr } = await supabase.from('learning_modules').delete().eq('id', m.learning_modules.id);
+            if (modErr) throw modErr;
+
+            setQuizzes((prev) => prev.filter((q) => q.module_id !== m.learning_modules.id));
             const remainingModules = modules.filter((mod) => mod.id !== m.id);
             await persistModuleOrder(remainingModules);
-            if (selection?.type === 'module' && selection.id === m.id) {
+            if (
+                (selection?.type === 'module' && selection.id === m.id) ||
+                (selection?.type === 'quiz' && selection.moduleId === m.learning_modules.id)
+            ) {
                 setSelection({ type: 'settings' });
             }
-            toast({ title: 'Module deleted' });
+            toast({ title: 'Lesson deleted' });
         } catch (err: any) {
-            toast({ title: 'Error deleting module', description: err.message, variant: 'destructive' });
+            toast({ title: 'Error deleting lesson', description: err.message, variant: 'destructive' });
+            await loadData();
         }
-    }, [modules, persistModuleOrder, selection, supabase, toast]);
+    }, [courseId, loadData, modules, persistModuleOrder, selection, supabase, toast]);
 
     const handleModuleSaved = useCallback((data: { title: string; media_type: string; estimated_duration_minutes: number }) => {
         if (selection?.type !== 'module') return;
@@ -688,7 +720,9 @@ export default function EditCourseClient({
                         .update({
                             title: snapshot.title || 'Untitled Module',
                             description: snapshot.description || null,
-                            content: snapshot.content || null,
+                            // learning_modules.content is NOT NULL - a snapshot taken
+                            // while the editor was empty must restore as '', not null.
+                            content: snapshot.content || '',
                             media_type: snapshot.media_type || 'text',
                             media_url: snapshot.media_url || null,
                             transcription: snapshot.transcription || null,
@@ -735,14 +769,16 @@ export default function EditCourseClient({
     return (
         <div
                 className="-m-4 lg:-m-8 flex flex-col overflow-hidden bg-white dark:bg-gray-950"
-                style={{ height: 'calc(100vh - 64px)' }}
+                style={{ height: 'calc(100dvh - 64px)' }}
             >
                 <div className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between px-4 gap-4 z-10">
                     <div className="flex items-center gap-3 min-w-0">
                         <button
                             onClick={() => setSidebarOpen(s => !s)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
-                            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+                            title={sidebarOpen ? 'Hide course outline' : 'Show course outline'}
+                            aria-label={sidebarOpen ? 'Hide course outline' : 'Show course outline'}
+                            aria-expanded={sidebarOpen}
                         >
                             <ChevronLeft className={`w-4 h-4 transition-transform duration-200 ${sidebarOpen ? '' : 'rotate-180'}`} />
                         </button>
@@ -751,6 +787,7 @@ export default function EditCourseClient({
                             href="/instructor/courses"
                             className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors flex-shrink-0"
                             title="Back to My Courses"
+                            aria-label="Back to My Courses"
                         >
                             <ArrowLeft className="w-4 h-4" />
                         </Link>
@@ -758,7 +795,9 @@ export default function EditCourseClient({
                         <input
                             value={courseTitle}
                             onChange={(e) => handleTitleChange(e.target.value)}
-                            className="font-black text-gray-900 dark:text-white bg-transparent border-none outline-none focus:bg-gray-50 dark:focus:bg-gray-800 rounded-lg px-2 py-1 text-sm min-w-0 flex-1 max-w-xs"
+                            aria-label="Course title"
+                            maxLength={160}
+                            className="font-black text-gray-900 dark:text-white bg-transparent border-none outline-none focus:bg-gray-50 dark:focus:bg-gray-800 focus:ring-2 focus:ring-orange-500/40 rounded-lg px-2 py-1 text-sm min-w-0 flex-1 max-w-xs"
                             placeholder="Course title…"
                         />
 
@@ -792,24 +831,26 @@ export default function EditCourseClient({
                         <Button
                             size="sm"
                             onClick={handleTogglePublish}
-                            disabled={publishing || (!!validationLoading && !readiness) || (courseStatus !== 'published' && !!readiness?.blockingCount)}
+                            disabled={publishing || (!!validationLoading && !readiness)}
+                        aria-disabled={courseStatus !== 'published' && !!readiness?.blockingCount}
+                        title={courseStatus !== 'published' && readiness?.blockingCount ? 'Fix the publish blockers first. Click to see the first one.' : undefined}
                             className={`font-bold rounded-lg px-4 text-xs h-8 ${courseStatus === 'published'
                                 ? 'bg-green-100 hover:bg-red-50 text-green-700 hover:text-red-600 border border-green-200 hover:border-red-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800'
                                 : readiness?.blockingCount
-                                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-800 dark:text-gray-500'
+                                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-400'
                                     : 'bg-orange-500 hover:bg-orange-600 text-white shadow-sm shadow-orange-500/20'
                                 }`}
                         >
                             {publishing
                                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                : courseStatus === 'published' ? 'Published ✓' : 'Publish'
+                                : courseStatus === 'published' ? 'Unpublish' : 'Publish'
                             }
                         </Button>
                     </div>
                 </div>
 
                 <div className="flex flex-1 min-h-0">
-                    <div className={`flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60 flex flex-col overflow-hidden transition-all duration-200 ${sidebarOpen ? 'w-64' : 'w-0'}`}>
+                    <div className={`flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60 flex flex-col overflow-hidden transition-all duration-200 ${sidebarOpen ? 'w-64' : 'w-0 invisible'}`}>
                         <div className="flex-1 overflow-y-auto p-3 space-y-1">
                             <SidebarButton
                                 icon={<Settings className="w-4 h-4 flex-shrink-0" />}
@@ -824,8 +865,9 @@ export default function EditCourseClient({
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Lessons</span>
                                     <button
                                         onClick={handleAddModule}
-                                        className="w-5 h-5 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center transition-colors"
+                                        className="w-6 h-6 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
                                         title="Add lesson"
+                                        aria-label="Add lesson"
                                     >
                                         <Plus className="w-3 h-3" />
                                     </button>
@@ -850,11 +892,23 @@ export default function EditCourseClient({
                                                     {/* Lesson row */}
                                                     <div
                                                         draggable
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        aria-current={moduleSelected ? 'true' : undefined}
+                                                        aria-label={`Lesson ${idx + 1}: ${m.learning_modules.title}`}
                                                         onDragStart={() => handleDragStart(idx)}
                                                         onDragOver={(e) => handleDragOver(e, idx)}
                                                         onDrop={handleDrop}
+                                                        onDragEnd={() => setDragIndex(null)}
                                                         onClick={() => setSelection({ type: 'module', id: m.id })}
-                                                        className={`group flex items-center gap-2 px-2 py-2 rounded-xl cursor-pointer transition-all ${moduleSelected
+                                                        onKeyDown={(e) => {
+                                                            if (e.target !== e.currentTarget) return;
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                setSelection({ type: 'module', id: m.id });
+                                                            }
+                                                        }}
+                                                        className={`group flex items-center gap-2 px-2 py-2 rounded-xl cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${moduleSelected
                                                             ? 'bg-orange-50 dark:bg-orange-900/20'
                                                             : 'hover:bg-white dark:hover:bg-gray-800'
                                                             } ${dragIndex === idx ? 'opacity-40 scale-95' : ''}`}
@@ -866,12 +920,15 @@ export default function EditCourseClient({
                                                         <span className={`flex-1 text-xs font-bold truncate ${moduleSelected ? 'text-orange-600' : 'text-gray-700 dark:text-gray-300'}`}>
                                                             {m.learning_modules.title}
                                                         </span>
-                                                        {hasIssue && <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />}
+                                                        {hasIssue && <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Has publish blockers" />}
                                                         <button
+                                                            type="button"
                                                             onClick={(e) => { e.stopPropagation(); handleDeleteModule(m); }}
-                                                            className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition-all"
+                                                            aria-label={`Delete lesson ${m.learning_modules.title}`}
+                                                            title="Delete lesson"
+                                                            className="flex-shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                                                         >
-                                                            <Trash2 className="w-3 h-3" />
+                                                            <Trash2 className="w-3.5 h-3.5" />
                                                         </button>
                                                     </div>
 
@@ -881,8 +938,8 @@ export default function EditCourseClient({
                                                             <button
                                                                 onClick={() => setSelection({ type: 'quiz', id: moduleQuiz.id, moduleId: m.learning_modules.id })}
                                                                 className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left transition-all ${quizSelected
-                                                                    ? 'bg-orange-50 text-orange-600'
-                                                                    : 'text-gray-400 hover:bg-white hover:text-gray-700'}`}
+                                                                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                                                                    : 'text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-white'}`}
                                                             >
                                                                 <HelpCircle className="w-3 h-3 flex-shrink-0" />
                                                                 <span className="text-[11px] font-semibold truncate flex-1">{moduleQuiz.title}</span>
@@ -890,7 +947,7 @@ export default function EditCourseClient({
                                                         ) : (
                                                             <button
                                                                 onClick={() => setSelection({ type: 'quiz', id: null, moduleId: m.learning_modules.id })}
-                                                                className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left text-gray-300 hover:text-orange-500 hover:bg-white transition-all"
+                                                                className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left text-gray-400 dark:text-gray-500 hover:text-orange-500 hover:bg-white dark:hover:bg-gray-800 transition-all"
                                                             >
                                                                 <Plus className="w-3 h-3 flex-shrink-0" />
                                                                 <span className="text-[11px] font-semibold">Add quiz after lesson</span>
@@ -925,8 +982,8 @@ export default function EditCourseClient({
                                         <button
                                             onClick={() => setSelection({ type: 'quiz', id: courseQuiz.id, moduleId: null })}
                                             className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all ${courseQuizSelected
-                                                ? 'bg-orange-50 text-orange-600'
-                                                : 'hover:bg-white text-gray-700'}`}
+                                                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                                                : 'hover:bg-white dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
                                         >
                                             <HelpCircle className="w-3.5 h-3.5 flex-shrink-0" />
                                             <span className="text-xs font-bold truncate flex-1">{courseQuiz.title}</span>
@@ -934,7 +991,7 @@ export default function EditCourseClient({
                                     ) : (
                                         <button
                                             onClick={() => setSelection({ type: 'quiz', id: null, moduleId: null })}
-                                            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-orange-500 hover:bg-white transition-all border-2 border-dashed border-gray-200"
+                                            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-orange-500 hover:bg-white dark:hover:bg-gray-800 transition-all border-2 border-dashed border-gray-200 dark:border-gray-700"
                                         >
                                             <Plus className="w-3.5 h-3.5" /> Add final quiz
                                         </button>
@@ -958,8 +1015,8 @@ export default function EditCourseClient({
                                         </div>
                                         <span className="text-xs font-black text-white uppercase tracking-wide">SCORM Package</span>
                                     </div>
-                                    <p className="text-[11px] text-orange-100 font-medium leading-snug pl-9.5">
-                                        Upload an e-learning package (.zip), replaces manual lessons
+                                    <p className="text-[11px] text-orange-100 font-medium leading-snug pl-[2.375rem]">
+                                        Add an interactive course exported as SCORM (.zip)
                                     </p>
                                 </button>
                             </div>
@@ -1025,14 +1082,18 @@ export default function EditCourseClient({
                                     <div>
                                         <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-wider">SCORM Package</h2>
                                         <p className="text-sm text-gray-500 font-medium mt-1">
-                                            Upload an Articulate, Captivate, or any SCORM 1.2 package to embed in this course.
+                                            Upload a course exported from Articulate Storyline or Rise, Adobe Captivate, iSpring or any SCORM 1.2 or 2004 tool. Learners open it inside this course and their progress, score and time are tracked.
                                         </p>
                                     </div>
                                     <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8">
                                         <ScormUpload
                                             courseId={courseId}
                                             onPackageLinked={(pkg) => {
-                                                toast({ title: 'SCORM package linked', description: `${pkg.title} is ready to preview.` });
+                                                toast({ title: 'SCORM package added', description: `${pkg.title} is ready to preview.` });
+                                                scheduleMetadataRefresh();
+                                            }}
+                                            onPackageRemoved={() => {
+                                                toast({ title: 'SCORM package removed from this course' });
                                                 scheduleMetadataRefresh();
                                             }}
                                         />
@@ -1040,10 +1101,10 @@ export default function EditCourseClient({
                                     <div className="bg-orange-50/50 dark:bg-orange-900/10 rounded-2xl border border-orange-100 dark:border-orange-800/30 p-5">
                                         <p className="text-xs font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">How it works</p>
                                         <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1.5 list-decimal list-inside">
-                                            <li>Export your course as SCORM 1.2 from Articulate or Captivate</li>
-                                            <li>Upload the .zip file above, all files are extracted and stored securely</li>
-                                            <li>Students launch the content from within this course, progress and scores sync automatically</li>
-                                            <li>All interactions are tracked via xAPI statements in the Kiongozi LRS</li>
+                                            <li>In your authoring tool, publish for LMS as SCORM 1.2 or SCORM 2004 and keep the .zip as is</li>
+                                            <li>Upload the .zip above. We unpack and check it, which takes a moment for large files</li>
+                                            <li>Use Preview to try it as a learner. Preview never records progress</li>
+                                            <li>Publish the course. Learners see the package as an interactive lesson after your other lessons, and it counts toward course completion</li>
                                         </ol>
                                     </div>
                                 </div>

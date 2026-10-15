@@ -20,7 +20,9 @@ import {
     Package
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getCourseThumbnail } from '@/lib/course-thumbnail';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -41,7 +43,7 @@ export default function MyLearningPage() {
                     id, course_id, user_id, status, progress_percentage, updated_at,
                     courses (
                         id, title, description, thumbnail_url, difficulty_level,
-                        estimated_duration_hours, category_id
+                        estimated_duration_hours, category_id, module_categories(name)
                     )
                 `)
                 .eq('user_id', user!.id)
@@ -210,6 +212,20 @@ export default function MyLearningPage() {
                                                         const course: any = Array.isArray(enrollment.courses) ? enrollment.courses[0] : enrollment.courses;
                                                         return (
                                                             <>
+                                                                <Link href={`/courses/${enrollment.course_id}`} tabIndex={-1} aria-hidden="true" className="relative block h-40 bg-orange-50 overflow-hidden">
+                                                                    <Image
+                                                                        src={getCourseThumbnail({
+                                                                            title: course?.title,
+                                                                            description: course?.description,
+                                                                            categoryName: (Array.isArray(course?.module_categories) ? course.module_categories[0] : course?.module_categories)?.name,
+                                                                            thumbnailUrl: course?.thumbnail_url,
+                                                                        })}
+                                                                        alt=""
+                                                                        fill
+                                                                        sizes="(max-width: 768px) 100vw, 50vw"
+                                                                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                                                    />
+                                                                </Link>
                                                                 <div className="p-8 flex-1">
                                                                     <div className="flex items-center justify-between mb-8">
                                                                         <div className="flex items-center space-x-2">
@@ -233,7 +249,7 @@ export default function MyLearningPage() {
                                                                             <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">
                                                                                 <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-orange-500" />
                                                                             </div>
-                                                                            <span>{course?.estimated_duration_hours || ', '}h Total</span>
+                                                                            <span>{course?.estimated_duration_hours ? `${course.estimated_duration_hours}h total` : 'Self-paced'}</span>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
                                                                             <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-orange-50 transition-colors">

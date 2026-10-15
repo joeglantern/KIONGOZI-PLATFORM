@@ -42,11 +42,21 @@ export function parseManifest(xmlContent: string): ScormManifest {
   if (!manifest) throw new Error('Invalid imsmanifest.xml: missing <manifest> root');
 
   // Version
-  const schemaVersion =
+  // SCORM 2004 reports "2004 3rd Edition", "2004 4th Edition" or "CAM 1.3";
+  // its namespaces (adlcp_v1p3 / imscp_v1p1 + adlseq) are a reliable fallback.
+  const schemaVersion = String(
     manifest.metadata?.schemaversion ||
     manifest.metadata?.['adlcp:location'] ||
-    '1.2';
-  const version = String(schemaVersion).includes('2004') ? '2004' : '1.2';
+    '1.2'
+  );
+  const namespaces = Object.entries(manifest)
+    .filter(([key]) => key.startsWith('@_xmlns'))
+    .map(([, value]) => String(value))
+    .join(' ');
+  const version =
+    /2004|cam\s*1\.3/i.test(schemaVersion) || /adlcp_v1p3|adlseq_v1p3|adlnav_v1p3/i.test(namespaces)
+      ? '2004'
+      : '1.2';
 
   // Organizations
   const orgsRoot = manifest.organizations;
@@ -98,7 +108,10 @@ export function parseManifest(xmlContent: string): ScormManifest {
   // Title, from default org or first org
   const defaultOrgData =
     organizations.find((o) => o.identifier === defaultOrg) || organizations[0];
-  const title = defaultOrgData?.title || 'Untitled Course';
+  const rawTitle = defaultOrgData?.title;
+  const title = String(
+    (typeof rawTitle === 'object' && rawTitle !== null ? (rawTitle as any)['#text'] : rawTitle) || 'Untitled package'
+  ).trim();
 
   return {
     title,

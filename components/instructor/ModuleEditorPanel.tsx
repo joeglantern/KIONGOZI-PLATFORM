@@ -105,6 +105,11 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
         is_required: true,
     });
 
+    // Latest form for saves triggered from Tiptap's onUpdate callback.
+    const formRef = useRef(form);
+    formRef.current = form;
+    const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
+
     // We keep content separate so it can be driven by Tiptap
     const contentRef = useRef<string>('');
 
@@ -162,10 +167,12 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
                         : mod.learning_objectives || '',
                     is_required: cm?.is_required ?? true,
                 });
-                // Seed the Tiptap editor with existing content
+                // Always remember the loaded content. If the editor hasn't
+                // mounted yet, the seeding effect below applies it; without
+                // this, the next autosave would overwrite the lesson with ''.
+                contentRef.current = mod.content || '';
                 if (editor && mod.content) {
                     editor.commands.setContent(mod.content, { emitUpdate: false });
-                    contentRef.current = mod.content;
                 }
                 lastRevisionSignatureRef.current = JSON.stringify({
                     title: mod.title || '',
@@ -206,7 +213,9 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
                 .update({
                     title: nextForm.title.trim() || 'Untitled Module',
                     description: nextForm.description || null,
-                    content: html || null,
+                    // learning_modules.content is NOT NULL - never write null here,
+                    // an empty editor must save as an empty string.
+                    content: html || '',
                     media_type: nextForm.media_type,
                     media_url: nextForm.media_url || null,
                     transcription: nextForm.transcription || null,
@@ -274,14 +283,31 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
     const scheduleFormSave = useCallback((nextForm: ModuleForm) => {
         if (saveTimer.current) clearTimeout(saveTimer.current);
         setSaveStatus('idle');
-        saveTimer.current = setTimeout(() => doSave(nextForm, contentRef.current), 1000);
+        pendingSaveRef.current = () => doSave(nextForm, contentRef.current);
+        saveTimer.current = setTimeout(() => {
+            pendingSaveRef.current = null;
+            void doSave(nextForm, contentRef.current);
+        }, 1000);
     }, [doSave]);
 
     const scheduleContentSave = useCallback((html: string) => {
         if (saveTimer.current) clearTimeout(saveTimer.current);
         setSaveStatus('idle');
-        saveTimer.current = setTimeout(() => doSave(form, html), 1000);
-    }, [doSave, form]);
+        pendingSaveRef.current = () => doSave(formRef.current, html);
+        saveTimer.current = setTimeout(() => {
+            pendingSaveRef.current = null;
+            void doSave(formRef.current, html);
+        }, 1000);
+    }, [doSave]);
+
+    // Flush a pending autosave when the panel unmounts (e.g. switching lessons
+    // within the debounce window) instead of silently dropping the edit.
+    useEffect(() => () => {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        const pending = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        if (pending) void pending();
+    }, []);
 
     const update = useCallback((patch: Partial<ModuleForm>) => {
         setForm(prev => {
@@ -297,11 +323,15 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
         if (!file || !editor) return;
         const ext = file.name.split('.').pop();
         const path = `content-media/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        await supabase.storage.from('courses').upload(path, file);
-        const { data: { publicUrl } } = supabase.storage.from('courses').getPublicUrl(path);
-        editor.chain().focus().setImage({ src: publicUrl }).run();
         e.target.value = '';
-    }, [editor, supabase]);
+        const { error } = await supabase.storage.from('courses').upload(path, file);
+        if (error) {
+            toast({ title: 'Image upload failed', description: error.message, variant: 'destructive' });
+            return;
+        }
+        const { data: { publicUrl } } = supabase.storage.from('courses').getPublicUrl(path);
+        editor.chain().focus().setImage({ src: publicUrl, alt: file.name.replace(/\.[^.]+$/, '') }).run();
+    }, [editor, supabase, toast]);
 
     const handleSetLink = useCallback(() => {
         const url = window.prompt('URL');

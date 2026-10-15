@@ -27,6 +27,9 @@ import Link from 'next/link';
 import { BookmarkButton } from '@/components/shared/BookmarkButton';
 import { CourseDetailSkeleton } from '@/components/ui/Skeleton';
 import { xapi } from '@/lib/xapi';
+import Image from 'next/image';
+import { getCourseThumbnail } from '@/lib/course-thumbnail';
+import { MarkdownRenderer } from '@/components/learning/MarkdownRenderer';
 
 function TabLoader() {
     return (
@@ -261,10 +264,11 @@ export default function CourseDetailPage() {
                 id: pkg.id,
                 type: 'scorm',
                 title: pkg.title,
-                description: `SCORM ${pkg.version} · Interactive module`,
-                href: `/lms/scorm/${pkg.id}`,
+                description: status === 'failed' ? 'Interactive lesson · try again to pass' : 'Interactive lesson',
+                href: `/lms/scorm/${pkg.id}${previewSuffix}`,
                 isCompleted: status === 'completed' || status === 'passed',
-                isRequired: false,
+                // Course progress counts every active package, so show it as required too.
+                isRequired: true,
             };
         });
 
@@ -408,7 +412,23 @@ export default function CourseDetailPage() {
                     ]} />
 
                     {/* Course Header */}
-                    <div className="bg-white rounded-xl shadow-lg p-8 mb-6 border border-gray-100">
+                    <div className="bg-white rounded-xl shadow-lg mb-6 border border-gray-100 overflow-hidden">
+                    <div className="relative h-40 sm:h-56 bg-orange-50">
+                        <Image
+                            src={getCourseThumbnail({
+                                title: course.title,
+                                description: course.description,
+                                categoryName: course.module_categories?.name,
+                                thumbnailUrl: course.thumbnail_url,
+                            })}
+                            alt=""
+                            fill
+                            priority
+                            sizes="(max-width: 1024px) 100vw, 1024px"
+                            className="object-cover object-right"
+                        />
+                    </div>
+                    <div className="p-5 sm:p-8">
                         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 mb-6">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-3">
@@ -424,7 +444,7 @@ export default function CourseDetailPage() {
                                 </div>
 
                                 <div className="flex items-center justify-between mb-3">
-                                    <h1 className="text-4xl font-bold text-gray-900">{course.title}</h1>
+                                    <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 break-words">{course.title}</h1>
                                     {!isPreviewMode && (
                                         <BookmarkButton
                                             itemId={courseId}
@@ -437,10 +457,14 @@ export default function CourseDetailPage() {
                                         />
                                     )}
                                 </div>
-                                <p className="text-lg text-gray-600 mb-4">{course.description}</p>
+                                {course.description && (
+                                    <div className="text-base sm:text-lg text-gray-600 mb-4 [&_p]:my-2 max-w-none">
+                                        <MarkdownRenderer content={course.description} />
+                                    </div>
+                                )}
 
                                 {/* Meta Info */}
-                                <div className="flex items-center gap-6 text-sm text-gray-600">
+                                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600">
                                     <div className="flex items-center gap-2">
                                         <Clock className="w-4 h-4" />
                                         <span>{course.estimated_duration_hours} hours</span>
@@ -568,6 +592,7 @@ export default function CourseDetailPage() {
                                 <p className="text-gray-700 whitespace-pre-line">{course.overview}</p>
                             </div>
                         )}
+                    </div>
                     </div>
 
                     {/* Main Content Tabs */}

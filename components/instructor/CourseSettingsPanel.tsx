@@ -58,6 +58,7 @@ export default function CourseSettingsPanel({
     });
 
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const lastRevisionSignatureRef = useRef('');
     const lastRevisionAtRef = useRef(0);
@@ -94,7 +95,8 @@ export default function CourseSettingsPanel({
     const scheduleAutosave = useCallback((next: CourseForm) => {
         if (saveTimer.current) clearTimeout(saveTimer.current);
         setStatus('idle');
-        saveTimer.current = setTimeout(async () => {
+        const save = async () => {
+            pendingSaveRef.current = null;
             setStatus('saving');
             const { error } = await supabase
                 .from('courses')
@@ -139,8 +141,19 @@ export default function CourseSettingsPanel({
                     onRevisionSaved?.();
                 }
             }
-        }, 1000);
+        };
+        pendingSaveRef.current = save;
+        saveTimer.current = setTimeout(() => { void save(); }, 1000);
     }, [courseId, onRevisionSaved, onSaved, supabase, toast, userId]);
+
+    // Flush a pending autosave if the instructor switches panels within the
+    // debounce window, instead of silently dropping the edit.
+    useEffect(() => () => {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        const pending = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        if (pending) void pending();
+    }, []);
 
     const update = useCallback((patch: Partial<CourseForm>) => {
         setForm(prev => {
@@ -155,17 +168,30 @@ export default function CourseSettingsPanel({
             files.map(async (file) => {
                 const ext = file.name.split('.').pop();
                 const path = `content-media/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-                await supabase.storage.from('courses').upload(path, file);
+                const { error } = await supabase.storage.from('courses').upload(path, file);
+                if (error) {
+                    toast({ title: `Could not upload ${file.name}`, description: error.message, variant: 'destructive' });
+                    return null;
+                }
                 const { data: { publicUrl } } = supabase.storage.from('courses').getPublicUrl(path);
-                return publicUrl;
+                return publicUrl as string;
             })
         );
-        callback(urls);
+        callback(urls.filter((url): url is string => Boolean(url)));
     };
 
     const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
         if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast({ title: 'Please choose an image file', variant: 'destructive' });
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast({ title: 'Image is too large', description: 'Use an image under 5 MB.', variant: 'destructive' });
+            return;
+        }
         try {
             setUploading(true);
             const ext = file.name.split('.').pop();
@@ -183,12 +209,12 @@ export default function CourseSettingsPanel({
 
     return (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-8 py-4 flex items-center justify-between">
+            <div className="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 sm:px-8 py-4 flex items-center justify-between">
                 <div>
                     <h2 className="font-black text-gray-900 dark:text-white text-sm uppercase tracking-widest">Course Settings</h2>
                     <p className="text-xs text-gray-400 font-medium mt-0.5">Thumbnail, description, metadata</p>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs font-bold min-w-[80px] justify-end">
+                <div className="flex items-center gap-1.5 text-xs font-bold min-w-[80px] justify-end" role="status" aria-live="polite">
                     {status === 'saving' && (
                         <><Loader2 className="w-3.5 h-3.5 animate-spin text-orange-500" /><span className="text-orange-500">Saving…</span></>
                     )}
@@ -202,33 +228,47 @@ export default function CourseSettingsPanel({
             </div>
 
             <div className="flex-1 overflow-y-auto">
-                <div className="p-8 max-w-3xl space-y-10">
+                <div className="p-4 sm:p-8 max-w-3xl space-y-10">
                     <div className="space-y-3">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Course Thumbnail</label>
-                        <div
-                            onClick={() => fileInputRef.current?.click()}
-                            className="relative w-full max-w-sm rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:border-orange-400 transition-all group bg-gray-50 dark:bg-gray-800"
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Course thumbnail</p>
+                        <p className="text-xs text-gray-400 -mt-1">Shown on course cards. 16:9, under 5 MB. Courses without one use their category cover.</p>
+                        <button
+                            type="button"
+                            onClick={() => !uploading && fileInputRef.current?.click()}
+                            aria-label={form.thumbnail_url ? 'Replace course thumbnail' : 'Upload course thumbnail'}
+                            className="relative block w-full max-w-sm rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:border-orange-400 transition-all group bg-gray-50 dark:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
                             style={{ aspectRatio: '16/9' }}
                         >
                             {form.thumbnail_url ? (
                                 <>
-                                    <Image src={form.thumbnail_url} alt="Thumbnail" fill className="object-cover" unoptimized />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <UploadCloud className="w-8 h-8 text-white" />
-                                    </div>
+                                    <Image src={form.thumbnail_url} alt="Current course thumbnail" fill className="object-cover" unoptimized />
+                                    <span className={`absolute inset-0 bg-black/40 transition-opacity flex items-center justify-center ${uploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}`}>
+                                        {uploading
+                                            ? <Loader2 className="w-8 h-8 animate-spin text-white" />
+                                            : <UploadCloud className="w-8 h-8 text-white" />}
+                                    </span>
                                 </>
                             ) : (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                                <span className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                                     {uploading
                                         ? <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
                                         : <UploadCloud className="w-8 h-8 text-gray-300" />
                                     }
-                                    <p className="text-xs font-bold text-gray-400">
+                                    <span className="text-xs font-bold text-gray-400">
                                         {uploading ? 'Uploading…' : 'Click to upload thumbnail'}
-                                    </p>
-                                </div>
+                                    </span>
+                                </span>
                             )}
-                        </div>
+                        </button>
+                        {form.thumbnail_url && !uploading && (
+                            <button
+                                type="button"
+                                onClick={() => update({ thumbnail_url: '' })}
+                                className="text-xs font-bold text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                                Remove thumbnail
+                            </button>
+                        )}
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -250,22 +290,26 @@ export default function CourseSettingsPanel({
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Category</label>
+                            <label htmlFor="course-settings-category" className="text-xs font-black text-gray-400 uppercase tracking-widest">Category</label>
                             <select
+                                id="course-settings-category"
                                 value={form.category_id}
                                 onChange={(e) => update({ category_id: e.target.value })}
-                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold outline-none appearance-none cursor-pointer"
+                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold text-gray-900 dark:text-white outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-orange-500"
                             >
+                                {/* Without an explicit empty option the browser shows the first
+                                    category even though none is saved, hiding a publish blocker. */}
+                                <option value="">{ready ? 'Select a category' : 'Loading…'}</option>
                                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                {categories.length === 0 && <option value="">Loading…</option>}
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Difficulty</label>
+                            <label htmlFor="course-settings-difficulty" className="text-xs font-black text-gray-400 uppercase tracking-widest">Difficulty</label>
                             <select
+                                id="course-settings-difficulty"
                                 value={form.difficulty_level}
                                 onChange={(e) => update({ difficulty_level: e.target.value })}
-                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold outline-none appearance-none cursor-pointer"
+                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold text-gray-900 dark:text-white outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-orange-500"
                             >
                                 <option value="beginner">Beginner</option>
                                 <option value="intermediate">Intermediate</option>
@@ -273,16 +317,22 @@ export default function CourseSettingsPanel({
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                            <label htmlFor="course-settings-duration" className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
                                 <Clock className="w-3 h-3" /> Duration (hrs)
                             </label>
                             <input
+                                id="course-settings-duration"
                                 type="number"
-                                min="0"
+                                min="0.5"
+                                max="500"
                                 step="0.5"
+                                inputMode="decimal"
                                 value={form.estimated_duration_hours}
-                                onChange={(e) => update({ estimated_duration_hours: parseFloat(e.target.value) || 0 })}
-                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold outline-none"
+                                onChange={(e) => {
+                                    const hours = parseFloat(e.target.value);
+                                    update({ estimated_duration_hours: Number.isFinite(hours) ? Math.min(500, Math.max(0.5, hours)) : 0.5 });
+                                }}
+                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl font-bold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
                             />
                         </div>
                     </div>
