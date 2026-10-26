@@ -600,6 +600,11 @@ class ApiClient {
     return this.request(`/api/v1/social/posts/${postId}/like`, { method: 'POST' });
   }
 
+  /** Count a video view (fire and forget) */
+  async recordPostView(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}/view`, { method: 'POST' });
+  }
+
   /** Repost a post */
   async repostPost(postId: string, content?: string) {
     return this.request(`/api/v1/social/posts/${postId}/repost`, {

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
-import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
@@ -12,6 +11,7 @@ import QuotePostModal from './QuotePostModal';
 import apiClient from '../../utils/apiClient';
 import { useSocialStore } from '../../stores/socialStore';
 import { VerifiedBadge } from './VerifiedBadge';
+import { FeedVideo } from './FeedVideo';
 
 // ─── Reusable action sheet — replaces all native Alert dialogs ───────────────
 
@@ -170,42 +170,6 @@ function SmartImage({ url, onPress }: { url: string; onPress: () => void }) {
   );
 }
 
-function VideoThumbnail({ url, style, isSingle, onPress }: { url: string; style?: any; isSingle?: boolean; onPress: () => void }) {
-  const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
-  const [ratio, setRatio] = useState(1.33);
-  const T = useTheme();
-
-  useEffect(() => {
-    VideoThumbnails.getThumbnailAsync(url, { time: 0 })
-      .then(t => {
-        setThumbnailUri(t.uri);
-        if (isSingle && t.width && t.height) {
-          setRatio(Math.min(Math.max(t.width / t.height, 0.56), 1.78));
-        }
-      })
-      .catch(() => {});
-  }, [url]);
-
-  const containerStyle = isSingle
-    ? { width: '100%' as const, aspectRatio: ratio, borderRadius: 12, overflow: 'hidden' as const, backgroundColor: T.surface, marginTop: 4 }
-    : [{ overflow: 'hidden', backgroundColor: T.surface, borderRadius: 8 }, style];
-
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={containerStyle}>
-      {thumbnailUri ? (
-        <Image source={{ uri: thumbnailUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-      ) : (
-        <View style={{ flex: 1, backgroundColor: T.surface }} />
-      )}
-      <View style={StyleSheet.absoluteFillObject as any}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="play-circle" size={36} color="rgba(255,255,255,0.92)" />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -358,6 +322,14 @@ export function PostCard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRepostSheetOpen(true);
   }, []);
+
+  // Views: shown for posts that have them; a video counts a view after 2s of playback.
+  const [views, setViews] = useState(activePost.view_count ?? 0);
+  useEffect(() => { setViews(activePost.view_count ?? 0); }, [activePost.id]);
+  const recordView = useCallback(() => {
+    setViews(v => v + 1);
+    apiClient.recordPostView(activePost.id).catch(() => {});
+  }, [activePost.id]);
 
   const handleShare = useCallback(async () => {
     try {
@@ -518,11 +490,14 @@ export function PostCard({
               activePost.post_media.length === 1 ? (
                 <View style={{ marginTop: 6, marginBottom: 10 }}>
                   {activePost.post_media[0].media_type === 'video' ? (
-                    <VideoThumbnail
+                    <FeedVideo
                       url={activePost.post_media[0].url}
-                      isSingle
-                      style={styles.mediaImage}
+                      thumbnailUrl={activePost.post_media[0].thumbnail_url}
+                      width={activePost.post_media[0].width}
+                      height={activePost.post_media[0].height}
+                      durationSeconds={activePost.post_media[0].duration_seconds}
                       onPress={() => openViewer(0)}
+                      onWatched={recordView}
                     />
                   ) : (
                     <SmartImage url={activePost.post_media[0].url} onPress={() => openViewer(0)} />
@@ -572,6 +547,13 @@ export function PostCard({
                 color={activePost.isBookmarked ? T.accent : T.textMuted}
               />
             </TouchableOpacity>
+
+            {views > 0 && (
+              <View style={styles.action} accessibilityLabel={`${views} views`}>
+                <Ionicons name="stats-chart" size={15} color={T.textMuted} />
+                <Text style={styles.actionCount}>{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views}</Text>
+              </View>
+            )}
 
             {/* Share is pushed to the far right — matches the design's margin-left:auto */}
             <TouchableOpacity style={[styles.action, { marginLeft: 'auto' }]} onPress={handleShare}>

@@ -6,15 +6,21 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Dimensions,
   Animated,
   PanResponder,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Post } from '../../stores/socialStore';
+import { UserAvatar } from './UserAvatar';
+import { VerifiedBadge } from './VerifiedBadge';
+import { getPosition, setPosition, setFeedPaused } from './videoPlayback';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -46,21 +52,98 @@ export interface MediaViewerModalProps {
   postContext?: PostContext;
 }
 
-function VideoPage({ url }: { url: string }) {
-  const player = useVideoPlayer(url, p => { p.pause(); });
+const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n));
+
+// ---- Video page --------------------------------------------------------------
+// Plays with sound when it is the current page, continues from where the feed was,
+// tap to pause/play, thin seekable progress bar. No native controls so swipes reach the modal.
+function VideoPage({ url, active, bottomInset }: { url: string; active: boolean; bottomInset: number }) {
+  const [paused, setPaused] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [muted, setMutedState] = useState(false);
+  const barWidth = useRef(SCREEN_W - 32);
+
+  const player = useVideoPlayer(url, p => {
+    p.loop = true;
+    p.muted = false;
+    p.timeUpdateEventInterval = 0.25;
+    const start = getPosition(url);
+    if (start > 0) p.currentTime = start;
+  });
+
+  useEffect(() => {
+    const subs = [
+      player.addListener('statusChange', ({ status }) => setLoading(status === 'loading')),
+      player.addListener('timeUpdate', ({ currentTime }) => {
+        setPosition(url, currentTime);
+        if (player.duration > 0) setProgress(currentTime / player.duration);
+      }),
+    ];
+    return () => subs.forEach(s => s.remove());
+  }, [player]);
+
+  useEffect(() => {
+    if (active && !paused) player.play(); else player.pause();
+  }, [active, paused, player]);
+
+  // Leaving the viewer: keep the feed muted again (sound is a viewer thing) and remember position.
+  useEffect(() => () => { try { setPosition(url, player.currentTime); } catch {} }, [player]);
+
+  const seek = (x: number) => {
+    if (player.duration > 0) {
+      const t = Math.min(Math.max(x / barWidth.current, 0), 1) * player.duration;
+      player.currentTime = t;
+      setProgress(t / player.duration);
+    }
+  };
+
   return (
-    <View style={{ width: SCREEN_W, height: SCREEN_H, backgroundColor: '#000' }}>
-      <VideoView
-        player={player}
-        style={StyleSheet.absoluteFill}
-        contentFit="contain"
-        nativeControls
-        allowsFullscreen
-      />
+    <View style={styles.page}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => setPaused(p => !p)}>
+        <VideoView
+          player={player}
+          style={StyleSheet.absoluteFill}
+          contentFit="contain"
+          nativeControls={false}
+          allowsFullscreen={false}
+        />
+        {(paused || loading) && (
+          <View style={styles.centerOverlay} pointerEvents="none">
+            {loading && !paused ? (
+              <ActivityIndicator size="large" color="#fff" />
+            ) : (
+              <View style={styles.bigPlay}>
+                <Ionicons name="play" size={34} color="#fff" style={{ marginLeft: 4 }} />
+              </View>
+            )}
+          </View>
+        )}
+      </Pressable>
+
+      <TouchableOpacity
+        style={[styles.roundBtn, styles.muteBtn]}
+        onPress={() => { const m = !muted; setMutedState(m); player.muted = m; }}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={20} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Progress bar, sits at the very bottom under the caption overlay */}
+      <Pressable
+        style={[styles.progressHit, { bottom: bottomInset + 2 }]}
+        onLayout={e => { barWidth.current = e.nativeEvent.layout.width; }}
+        onPress={e => seek(e.nativeEvent.locationX)}
+      >
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+        </View>
+      </Pressable>
     </View>
   );
 }
 
+// ---- Viewer -------------------------------------------------------------------
 export function MediaViewerModal({
   visible,
   onClose,
@@ -71,20 +154,26 @@ export function MediaViewerModal({
 }: MediaViewerModalProps) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [captionOpen, setCaptionOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  // Swipe-to-dismiss — translateY only (no Reanimated, Expo Go safe)
+  // Swipe up or down anywhere to dismiss.
   const translateY = useRef(new Animated.Value(0)).current;
-  const backdropOpacity = translateY.interpolate({
-    inputRange: [0, SCREEN_H * 0.45],
-    outputRange: [1, 0],
+  const fade = translateY.interpolate({
+    inputRange: [-SCREEN_H * 0.4, 0, SCREEN_H * 0.4],
+    outputRange: [0, 1, 0],
+    extrapolate: 'clamp',
+  });
+  const scale = translateY.interpolate({
+    inputRange: [-SCREEN_H, 0, SCREEN_H],
+    outputRange: [0.85, 1, 0.85],
     extrapolate: 'clamp',
   });
 
-  const dismissWithAnimation = useCallback(() => {
+  const dismiss = useCallback((dir: 1 | -1 = 1) => {
     Animated.timing(translateY, {
-      toValue: SCREEN_H,
-      duration: 220,
+      toValue: dir * SCREEN_H,
+      duration: 200,
       useNativeDriver: true,
     }).start(() => {
       onClose();
@@ -92,24 +181,16 @@ export function MediaViewerModal({
     });
   }, [onClose, translateY]);
 
-  // Separate PanResponder that lives on a thin drag-strip above the image.
-  // This strip has no ScrollView competing for the gesture.
-  const dragResponder = useRef(
+  const pan = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gs) => {
-        if (gs.dy > 0) translateY.setValue(gs.dy);
-      },
-      onPanResponderRelease: (_, gs) => {
-        if (gs.dy > 90 || gs.vy > 1.2) {
-          dismissWithAnimation();
+      // Claim clearly vertical drags before the horizontal pager or taps get them.
+      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dy) > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.4,
+      onPanResponderMove: (_, g) => translateY.setValue(g.dy),
+      onPanResponderRelease: (_, g) => {
+        if (Math.abs(g.dy) > 110 || Math.abs(g.vy) > 1.1) {
+          dismissRef.current(g.dy > 0 ? 1 : -1);
         } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 15,
-            stiffness: 150,
-          }).start();
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 16, stiffness: 160 }).start();
         }
       },
       onPanResponderTerminate: () => {
@@ -117,15 +198,21 @@ export function MediaViewerModal({
       },
     })
   ).current;
+  const dismissRef = useRef(dismiss);
+  dismissRef.current = dismiss;
 
   useEffect(() => {
     if (visible) {
       translateY.setValue(0);
       setCurrentIndex(initialIndex);
+      setCaptionOpen(false);
       setTimeout(() => {
         scrollRef.current?.scrollTo({ x: initialIndex * SCREEN_W, animated: false });
       }, 0);
     }
+    // Pause feed videos underneath while the viewer is open.
+    setFeedPaused('viewer', visible);
+    return () => setFeedPaused('viewer', false);
   }, [visible, initialIndex]);
 
   const handleScroll = useCallback((event: any) => {
@@ -135,29 +222,24 @@ export function MediaViewerModal({
 
   if (!media.length) return null;
 
-  const showBottomBar = !!(caption || postContext);
+  const author = postContext?.post.profiles;
+  const showBottom = !!(caption || postContext);
+  const progressSpace = media.some(m => m.media_type === 'video') ? 14 : 0;
 
   return (
     <Modal
       visible={visible}
       animationType="fade"
-      onRequestClose={dismissWithAnimation}
+      onRequestClose={() => dismiss(1)}
       statusBarTranslucent
       transparent
     >
-      {/* Backdrop dims as you pull down */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, styles.backdrop, { opacity: backdropOpacity }]} />
+      <Animated.View style={[StyleSheet.absoluteFillObject, styles.backdrop, { opacity: fade }]} />
 
-      <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
-        {/* Drag handle strip — owns the vertical pan gesture exclusively */}
-        <View
-          style={[styles.dragStrip, { paddingTop: insets.top }]}
-          {...dragResponder.panHandlers}
-        >
-          <View style={styles.dragPill} />
-        </View>
-
-        {/* Horizontal image pager */}
+      <Animated.View
+        style={[styles.container, { transform: [{ translateY }, { scale }] }]}
+        {...pan.panHandlers}
+      >
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -165,196 +247,143 @@ export function MediaViewerModal({
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScroll}
           scrollEventThrottle={16}
-          style={styles.scroll}
+          style={StyleSheet.absoluteFill}
         >
           {media.map((item, index) =>
             item.media_type === 'video' ? (
-              <VideoPage key={`${item.url}_${index}`} url={item.url} />
+              visible ? (
+                <VideoPage
+                  key={`${item.url}_${index}`}
+                  url={item.url}
+                  active={index === currentIndex}
+                  bottomInset={insets.bottom}
+                />
+              ) : (
+                <View key={`${item.url}_${index}`} style={styles.page} />
+              )
             ) : (
               <View key={`${item.url}_${index}`} style={styles.page}>
-                <Image
-                  source={{ uri: item.url }}
-                  style={StyleSheet.absoluteFill}
-                  resizeMode="contain"
-                />
+                <Image source={{ uri: item.url }} style={StyleSheet.absoluteFill} resizeMode="contain" />
               </View>
             )
           )}
         </ScrollView>
 
-        {/* Bottom bar */}
-        {showBottomBar && (
-          <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
-            {caption ? (
-              <Text style={styles.caption} numberOfLines={4}>{caption}</Text>
-            ) : null}
-            {postContext && (
-              <View style={styles.actions}>
-                <TouchableOpacity style={styles.action} onPress={postContext.onReply}>
-                  <Ionicons name="chatbubble-outline" size={20} color="#fff" />
-                  {postContext.commentCount > 0 && (
-                    <Text style={styles.actionCount}>{postContext.commentCount}</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.action} onPress={postContext.onRepost}>
-                  <Ionicons name="repeat-outline" size={20} color="#fff" />
-                  {postContext.repostCount > 0 && (
-                    <Text style={styles.actionCount}>{postContext.repostCount}</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.action} onPress={postContext.onLike}>
-                  <Ionicons
-                    name={postContext.isLiked ? 'heart' : 'heart-outline'}
-                    size={20}
-                    color={postContext.isLiked ? '#fc8181' : '#fff'}
-                  />
-                  {postContext.likeCount > 0 && (
-                    <Text style={[styles.actionCount, postContext.isLiked && styles.likedCount]}>
-                      {postContext.likeCount}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.action} onPress={postContext.onBookmark}>
-                  <Ionicons
-                    name={postContext.isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                    size={20}
-                    color={postContext.isBookmarked ? '#90cdf4' : '#fff'}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.action} onPress={postContext.onShare}>
-                  <Ionicons name="share-outline" size={20} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+        {/* Bottom overlay: soft gradient instead of a solid box, so the video stays visible */}
+        {showBottom && (
+          <Animated.View style={[styles.bottom, { opacity: fade }]} pointerEvents="box-none">
+            <LinearGradient
+              colors={['rgba(0,0,0,0)', captionOpen ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.7)']}
+              locations={[0, 0.45, 1]}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={[styles.bottomInner, { paddingBottom: insets.bottom + progressSpace + 10 }]} pointerEvents="box-none">
+              {author && (
+                <View style={styles.authorRow}>
+                  <UserAvatar avatarUrl={author.avatar_url} size={30} isVerified={author.is_verified} />
+                  <Text style={styles.authorName} numberOfLines={1}>{author.full_name || author.username}</Text>
+                  {author.is_verified && <VerifiedBadge size={14} />}
+                </View>
+              )}
+              {caption ? (
+                <Pressable onPress={() => setCaptionOpen(o => !o)} hitSlop={6}>
+                  <Text style={styles.caption} numberOfLines={captionOpen ? undefined : 2}>
+                    {caption}
+                  </Text>
+                  {!captionOpen && caption.length > 90 && <Text style={styles.more}>more</Text>}
+                </Pressable>
+              ) : null}
+              {postContext && (
+                <View style={styles.actions}>
+                  <TouchableOpacity style={styles.action} onPress={() => { dismiss(1); setTimeout(postContext.onReply, 220); }}>
+                    <Ionicons name="chatbubble-outline" size={22} color="#fff" />
+                    {postContext.commentCount > 0 && <Text style={styles.actionCount}>{compact(postContext.commentCount)}</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.action} onPress={postContext.onRepost}>
+                    <Ionicons name="repeat-outline" size={22} color="#fff" />
+                    {postContext.repostCount > 0 && <Text style={styles.actionCount}>{compact(postContext.repostCount)}</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.action} onPress={postContext.onLike}>
+                    <Ionicons
+                      name={postContext.isLiked ? 'heart' : 'heart-outline'}
+                      size={22}
+                      color={postContext.isLiked ? '#fc8181' : '#fff'}
+                    />
+                    {postContext.likeCount > 0 && (
+                      <Text style={[styles.actionCount, postContext.isLiked && styles.likedCount]}>
+                        {compact(postContext.likeCount)}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.action} onPress={postContext.onBookmark}>
+                    <Ionicons
+                      name={postContext.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                      size={21}
+                      color={postContext.isBookmarked ? '#90cdf4' : '#fff'}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.action, { marginLeft: 'auto' }]} onPress={postContext.onShare}>
+                    <Ionicons name="share-outline" size={21} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </Animated.View>
         )}
 
-        {/* Overlay — pointerEvents="box-none" so ScrollView still scrolls */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          {/* Close button */}
-          <View
-            style={[styles.topBar, { paddingTop: insets.top + 8 }]}
-            pointerEvents="box-none"
+        {/* Top bar */}
+        <Animated.View style={[styles.topBar, { paddingTop: insets.top + 8, opacity: fade }]} pointerEvents="box-none">
+          <TouchableOpacity
+            style={styles.roundBtn}
+            onPress={() => dismiss(1)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Close"
           >
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={dismissWithAnimation}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-            {media.length > 1 && (
-              <Text style={styles.counter}>{currentIndex + 1} / {media.length}</Text>
-            )}
-          </View>
-
-          {/* Dot indicators */}
+            <Ionicons name="close" size={24} color="#fff" />
+          </TouchableOpacity>
           {media.length > 1 && (
-            <View
-              style={[styles.dots, showBottomBar ? { bottom: 120 } : { bottom: 24 }]}
-              pointerEvents="none"
-            >
-              {media.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.dot, i === currentIndex ? styles.dotActive : styles.dotInactive]}
-                />
-              ))}
-            </View>
+            <Text style={styles.counter}>{currentIndex + 1} / {media.length}</Text>
           )}
-        </View>
+        </Animated.View>
       </Animated.View>
     </Modal>
   );
 }
 
+const textShadow = { textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 };
+
 const styles = StyleSheet.create({
-  backdrop: {
-    backgroundColor: '#000',
+  backdrop: { backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: '#000' },
+  page: { width: SCREEN_W, height: SCREEN_H, backgroundColor: '#000' },
+  centerOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  bigPlay: {
+    width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  dragStrip: {
-    width: '100%',
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20,
-  },
-  dragPill: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  scroll: {
-    flex: 1,
-  },
-  page: {
-    width: SCREEN_W,
-    backgroundColor: '#000',
-    // height fills remaining space after drag strip and bottom bar
-    height: SCREEN_H - 36,
-  },
+  roundBtn: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 20, padding: 8 },
+  muteBtn: { position: 'absolute', right: 16, top: '50%', marginTop: -20 },
+  progressHit: { position: 'absolute', left: 16, right: 16, height: 18, justifyContent: 'center', zIndex: 5 },
+  progressTrack: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.3)', overflow: 'hidden' },
+  progressFill: { height: 3, backgroundColor: '#fff' },
   topBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    position: 'absolute', top: 0, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16,
-    zIndex: 10,
-  },
-  closeBtn: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 20,
-    padding: 8,
   },
   counter: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
+    color: '#fff', fontSize: 15, fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, overflow: 'hidden',
   },
-  dots: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  dotActive: { backgroundColor: '#fff' },
-  dotInactive: { backgroundColor: 'rgba(255,255,255,0.4)' },
-  bottomBar: {
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  caption: {
-    color: '#fff',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 10,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 24,
-    paddingBottom: 4,
-  },
-  action: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  actionCount: { color: '#fff', fontSize: 13 },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  bottomInner: { paddingHorizontal: 16, paddingTop: 48 },
+  authorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  authorName: { color: '#fff', fontSize: 15, fontWeight: '700', flexShrink: 1, ...textShadow },
+  caption: { color: '#fff', fontSize: 14.5, lineHeight: 20, ...textShadow },
+  more: { color: 'rgba(255,255,255,0.75)', fontSize: 13.5, fontWeight: '600', marginTop: 2 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 26, marginTop: 14 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  actionCount: { color: '#fff', fontSize: 13.5, fontWeight: '600', ...textShadow },
   likedCount: { color: '#fc8181' },
 });

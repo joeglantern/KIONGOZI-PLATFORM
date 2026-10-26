@@ -352,6 +352,29 @@ router.post('/posts/:id/like', authenticateToken, async (req: Request, res: Resp
   }
 });
 
+// POST /api/v1/social/posts/:id/view — count a view (the app calls this after 2s of video playback)
+// Deduped per viewer (user id, or IP when signed out) for 6 hours, in memory.
+const recentViews = new Map<string, number>();
+router.post('/posts/:id/view', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const viewer = req.user?.id ?? req.ip ?? 'anon';
+    const key = `${id}:${viewer}`;
+    const now = Date.now();
+    if ((recentViews.get(key) ?? 0) > now - 6 * 3600e3) { res.json({ success: true, counted: false }); return; }
+    recentViews.set(key, now);
+    if (recentViews.size > 50000) {
+      for (const [k, t] of recentViews) if (t < now - 6 * 3600e3) recentViews.delete(k);
+    }
+    const { data: post } = await supabaseServiceClient.from('posts').select('view_count').eq('id', id).maybeSingle();
+    if (!post) { res.status(404).json({ success: false, error: 'Post not found' }); return; }
+    await supabaseServiceClient.from('posts').update({ view_count: (post.view_count ?? 0) + 1 }).eq('id', id);
+    res.json({ success: true, counted: true });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to record view' });
+  }
+});
+
 // POST /api/v1/social/posts/:id/repost
 router.post('/posts/:id/repost', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
