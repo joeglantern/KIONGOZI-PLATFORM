@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput, Image,
+  View, Text, StyleSheet, FlatList, TextInput, Image, ActivityIndicator,
   TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert, Modal,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -368,7 +368,7 @@ export default function DMConversationScreen() {
               activeOpacity={0.7}
               onPress={() => participantUsername && navigation.navigate('PublicProfile', { username: participantUsername })}
             >
-              <UserAvatar avatarUrl={participantAvatar} size={38} />
+              <UserAvatar avatarUrl={participantAvatar} size={32} />
               <View style={styles.headerNames}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                   <Text style={styles.headerName} numberOfLines={1}>{participantName || 'Message'}</Text>
@@ -387,7 +387,7 @@ export default function DMConversationScreen() {
               onPress={() => navigation.navigate('PublicProfile', { username: participantUsername })}
               accessibilityLabel="View profile"
             >
-              <Ionicons name="information-circle-outline" size={24} color={T.text} />
+              <Ionicons name="ellipsis-horizontal" size={22} color={T.text} />
             </TouchableOpacity>
           ) : <View style={styles.headerRight} />}
         </View>
@@ -473,43 +473,37 @@ export default function DMConversationScreen() {
             )}
 
             <View style={styles.inputRow}>
-              <TouchableOpacity
-                style={styles.attachBtn}
-                onPress={handlePickImage}
-                disabled={uploading}
-              >
-                <Ionicons name="image-outline" size={24} color={uploading ? T.textMuted : T.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.attachBtn}
-                onPress={handleCamera}
-                disabled={uploading}
-              >
-                <Ionicons name="camera-outline" size={24} color={uploading ? T.textMuted : T.text} />
-              </TouchableOpacity>
-
-              <View style={styles.inputWrap}>
+              <View style={styles.inputPill}>
+                <TouchableOpacity style={styles.pillIcon} onPress={handlePickImage} disabled={uploading} accessibilityLabel="Send a photo">
+                  <Ionicons name="add" size={24} color={uploading ? T.textMuted : T.text} />
+                </TouchableOpacity>
                 <TextInput
                   style={styles.input}
                   value={text}
                   onChangeText={setText}
-                  placeholder="Message…"
+                  placeholder="Message"
                   placeholderTextColor={T.placeholder}
                   multiline
                   maxLength={1000}
                 />
+                {hasContent ? (
+                  <Animated.View style={{ transform: [{ scale: sendScale }] }}>
+                    <TouchableOpacity
+                      onPress={handleSend}
+                      disabled={!hasContent || uploading}
+                      style={styles.sendBtn}
+                      activeOpacity={0.8}
+                      accessibilityLabel="Send"
+                    >
+                      {uploading ? <ActivityIndicator size="small" color="#000" /> : <Ionicons name="arrow-up" size={18} color="#000" />}
+                    </TouchableOpacity>
+                  </Animated.View>
+                ) : (
+                  <TouchableOpacity style={styles.pillIcon} onPress={handleCamera} disabled={uploading} accessibilityLabel="Take a photo">
+                    <Ionicons name="camera-outline" size={22} color={uploading ? T.textMuted : T.text} />
+                  </TouchableOpacity>
+                )}
               </View>
-
-              <Animated.View style={{ transform: [{ scale: sendScale }], opacity: sendScale }}>
-                <TouchableOpacity
-                  onPress={handleSend}
-                  disabled={!hasContent || uploading}
-                  style={styles.sendBtn}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="arrow-up" size={20} color="#000" />
-                </TouchableOpacity>
-              </Animated.View>
             </View>
           </View>
         )}
@@ -604,12 +598,11 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 4,
-      paddingVertical: 6,
+      paddingHorizontal: 2,
+      paddingVertical: 0,
+      height: 50,
       backgroundColor: T.bg,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: T.borderLight,
-      gap: 6,
+      gap: 4,
     },
     backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     headerIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -617,20 +610,17 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 9,
     },
     headerNames: { flex: 1 },
-    headerName: { fontSize: 16, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },
-    headerHandle: { fontSize: 13, color: T.textMuted, marginTop: 1 },
+    headerName: { fontSize: 16, color: T.text, fontWeight: '600', letterSpacing: -0.2 },
+    headerHandle: { fontSize: 12, color: T.textMuted, marginTop: 0 },
     headerRight: { width: 44 },
 
     messageList: { paddingVertical: 12, paddingBottom: 4 },
 
     dateSep: { alignItems: 'center', marginTop: 18, marginBottom: 6 },
-    dateLabel: {
-      fontSize: 12, color: T.textSub, fontWeight: '600',
-      backgroundColor: T.surface, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, overflow: 'hidden',
-    },
+    dateLabel: { fontSize: 12, color: T.textMuted, fontWeight: '500' },
 
     empty: { alignItems: 'center', marginTop: 70, gap: 6 },
     emptyName: { color: T.text, fontSize: 20, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 8 },
@@ -641,16 +631,16 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     loadOlderText: { color: T.accent, fontSize: 14, fontWeight: '600' },
 
     inputBar: {
-      paddingHorizontal: 12,
-      paddingTop: 8,
-      paddingBottom: 10,
+      paddingHorizontal: 10,
+      paddingTop: 6,
+      paddingBottom: 8,
       backgroundColor: T.bg,
     },
     replyPreviewBar: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: T.surface,
-      borderRadius: 10,
+      borderRadius: 14,
       borderLeftWidth: 3,
       borderLeftColor: T.accent,
       paddingHorizontal: 12,
@@ -679,11 +669,20 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       top: -6,
       right: -6,
     },
-    inputRow: {
+    inputRow: { flexDirection: 'row', alignItems: 'flex-end' },
+    inputPill: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'flex-end',
-      gap: 8,
+      minHeight: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: T.border,
+      paddingHorizontal: 4,
+      paddingVertical: 3,
+      backgroundColor: T.bg,
     },
+    pillIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     attachBtn: {
       width: 38,
       height: 44,
@@ -700,17 +699,19 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       justifyContent: 'center',
     },
     input: {
-      fontSize: 15,
+      flex: 1,
+      fontSize: 16,
       color: T.text,
-      maxHeight: 110,
-      padding: 0,
+      maxHeight: 120,
+      paddingHorizontal: 4,
+      paddingTop: Platform.OS === 'ios' ? 9 : 7,
+      paddingBottom: Platform.OS === 'ios' ? 9 : 7,
     },
     sendBtn: {
       backgroundColor: T.accent,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      marginBottom: 2,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       justifyContent: 'center',
       alignItems: 'center',
     },

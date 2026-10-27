@@ -39,10 +39,11 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
   const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
   const C = useMemo(() => ({
-    own: isDark ? '#1F6B3A' : '#D3F2D5',
-    ownText: isDark ? '#FFFFFF' : '#0B2A13',
-    ownMeta: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(11,42,19,0.6)',
-    other: T.userBubble,
+    own: T.accent,
+    ownText: '#000000',
+    ownMeta: 'rgba(0,0,0,0.55)',
+    other: 'transparent',
+    otherBorder: isDark ? '#2C2C2E' : '#DEDEE3',
     otherText: T.text,
     otherMeta: T.textMuted,
   }), [isDark, T]);
@@ -66,7 +67,7 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
       {isOwn && (
         message._pending
           ? <Ionicons name="time-outline" size={12} color={mediaOnly ? '#fff' : meta} style={{ marginLeft: 3 }} />
-          : <Ionicons name={message.is_read ? 'checkmark-done' : 'checkmark'} size={14} color={message.is_read ? (isDark ? '#7FE0A0' : '#1F8A45') : (mediaOnly ? '#fff' : meta)} style={{ marginLeft: 3 }} />
+          : <Ionicons name={message.is_read ? 'checkmark-done' : 'checkmark'} size={14} color={mediaOnly ? '#fff' : message.is_read ? '#000' : meta} style={{ marginLeft: 3 }} />
       )}
     </View>
   ) : null;
@@ -89,6 +90,7 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
           style={({ pressed }) => [
             styles.bubble,
             { backgroundColor: bg },
+            !isOwn && !mediaOnly && { borderWidth: 1, borderColor: C.otherBorder },
             corners,
             mediaOnly && styles.mediaBubble,
             message._pending && { opacity: 0.6 },
@@ -96,8 +98,8 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
           ]}
         >
           {replyPreview && (
-            <View style={[styles.reply, { backgroundColor: isOwn ? 'rgba(0,0,0,0.14)' : T.surface }, mediaOnly && { margin: 6 }]}>
-              <Text style={[styles.replyName, { color: isOwn ? fg : T.accent }]} numberOfLines={1}>{replyPreview.senderName}</Text>
+            <View style={[styles.reply, { backgroundColor: isOwn ? 'rgba(0,0,0,0.1)' : T.surface }, mediaOnly && { margin: 6 }]}>
+              <Text style={[styles.replyName, { color: isOwn ? fg : T.text }]} numberOfLines={1}>{replyPreview.senderName}</Text>
               <Text style={[styles.replyText, { color: isOwn ? meta : T.textSub }]} numberOfLines={2}>{replyPreview.content}</Text>
             </View>
           )}
