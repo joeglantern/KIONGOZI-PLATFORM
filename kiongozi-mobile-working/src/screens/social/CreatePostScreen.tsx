@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
+  View, Text, Pressable, StyleSheet, TextInput, Keyboard,
   ScrollView, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { PostInput } from '../../components/social/PostInput';
+import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -21,20 +22,95 @@ interface CreatePostScreenProps {
   parentPostId?: string;
 }
 
+type MediaItem = { uri: string; type: 'image' | 'video'; width?: number; height?: number; thumbnailUri?: string };
+type MentionUser = { id: string; username: string; full_name: string; avatar_url?: string };
+
+const MAX_CHARS = 280;
+const WARN_AT = 240;
+const MAX_MEDIA = 4;
+const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+const THUMB_H = 180;
+
 export default function CreatePostScreen({ onClose, parentPostId }: CreatePostScreenProps) {
   const { user } = useAuthStore();
-  const { myProfile } = useProfileStore();
+  const { currentUserProfile } = useProfileStore();
   const { prependPost } = useSocialStore();
   const T = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(T), [T]);
   const [content, setContent] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'followers'>('public');
-  const [media, setMedia] = useState<Array<{ uri: string; type: 'image' | 'video'; width?: number; height?: number; thumbnailUri?: string }>>([]);
+  const [media, setMedia] = useState<MediaItem[]>([]);
   const [posting, setPosting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [discardSheet, setDiscardSheet] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
-  const canPost = content.trim().length > 0 && content.length <= 280 && !posting;
+  // @mention autocomplete
+  const [suggestions, setSuggestions] = useState<MentionUser[]>([]);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s = Keyboard.addListener(showEvt, () => setKeyboardOpen(true));
+    const h = Keyboard.addListener(hideEvt, () => setKeyboardOpen(false));
+    return () => {
+      s.remove();
+      h.remove();
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, []);
+
+  const canPost = content.trim().length > 0 && content.length <= MAX_CHARS && !posting;
+  const displayName = currentUserProfile?.full_name || (user as any)?.full_name || 'You';
+  const handle = currentUserProfile?.username || (user as any)?.username;
+
+  const handleChangeText = (text: string) => {
+    setContent(text);
+    const match = text.match(/@(\w*)$/);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (match && match[1].length >= 1) {
+      const query = match[1];
+      searchTimer.current = setTimeout(async () => {
+        try {
+          const res = await apiClient.searchSocial(query);
+          const users = (res.data as any)?.users as MentionUser[] | undefined;
+          if (res.success && users) {
+            setSuggestions(users.slice(0, 5));
+          }
+        } catch {}
+      }, 300);
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const insertMention = (username: string) => {
+    setContent(prev => prev.replace(/@\w*$/, `@${username} `));
+    setSuggestions([]);
+  };
+
+  const addAssets = async (assets: ImagePicker.ImagePickerAsset[], type: 'image' | 'video') => {
+    const oversized = assets.filter(a => a.fileSize && a.fileSize > MAX_BYTES);
+    if (oversized.length > 0) {
+      Alert.alert('File too large', `${oversized.length} file(s) exceed 8 MB and cannot be uploaded.`);
+    }
+    const validAssets = assets.filter(a => !a.fileSize || a.fileSize <= MAX_BYTES);
+    if (validAssets.length === 0) return;
+
+    const newMedia = await Promise.all(validAssets.map(async a => {
+      let thumbnailUri: string | undefined;
+      if (type === 'video') {
+        try {
+          const thumb = await VideoThumbnails.getThumbnailAsync(a.uri, { time: 0 });
+          thumbnailUri = thumb.uri;
+        } catch {}
+      }
+      return { uri: a.uri, type, width: a.width, height: a.height, thumbnailUri };
+    }));
+    setMedia(prev => [...prev, ...newMedia].slice(0, MAX_MEDIA));
+  };
 
   const pickMedia = async (type: 'image' | 'video') => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -47,30 +123,20 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
       mediaTypes: type === 'image' ? 'images' : 'videos',
       quality: 0.9,
       allowsMultipleSelection: true,
-      selectionLimit: 4,
+      selectionLimit: MAX_MEDIA,
     });
 
-    if (!result.canceled) {
-      const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
-      const oversized = result.assets.filter(a => a.fileSize && a.fileSize > MAX_BYTES);
-      if (oversized.length > 0) {
-        Alert.alert('File too large', `${oversized.length} file(s) exceed 8 MB and cannot be uploaded.`);
-      }
-      const validAssets = result.assets.filter(a => !a.fileSize || a.fileSize <= MAX_BYTES);
-      if (validAssets.length === 0) return;
+    if (!result.canceled) await addAssets(result.assets, type);
+  };
 
-      const newMedia = await Promise.all(validAssets.map(async a => {
-        let thumbnailUri: string | undefined;
-        if (type === 'video') {
-          try {
-            const thumb = await VideoThumbnails.getThumbnailAsync(a.uri, { time: 0 });
-            thumbnailUri = thumb.uri;
-          } catch {}
-        }
-        return { uri: a.uri, type: type as 'image' | 'video', width: a.width, height: a.height, thumbnailUri };
-      }));
-      setMedia(prev => [...prev, ...newMedia].slice(0, 4));
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow camera access in Settings.');
+      return;
     }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.9 });
+    if (!result.canceled) await addAssets(result.assets, 'image');
   };
 
   const removeMedia = (index: number) => {
@@ -125,6 +191,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 
   const handlePost = async () => {
     if (!canPost) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setPosting(true);
 
     try {
@@ -143,7 +210,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
       const res = await apiClient.createPost(content.trim(), uploadedMedia, parentPostId, visibility);
       if (res.success && res.data) {
         if (!parentPostId) {
-          prependPost(res.data);
+          prependPost(res.data as any);
         }
         onClose();
       } else {
@@ -156,113 +223,177 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     }
   };
 
+  const handleCancel = () => {
+    if (content.trim().length > 0 || media.length > 0) {
+      Keyboard.dismiss();
+      setDiscardSheet(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const mediaFull = media.length >= MAX_MEDIA;
+  const remaining = MAX_CHARS - content.length;
+  const over = remaining < 0;
+  const isPublic = visibility === 'public';
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => {
-            if (content.trim().length > 0 || media.length > 0) {
-              setDiscardSheet(true);
-            } else {
-              onClose();
-            }
-          }}
-          style={styles.cancelBtn}
+      <View style={[styles.header, { paddingTop: insets.top + 4, height: insets.top + 4 + 50 }]}>
+        <Pressable
+          onPress={handleCancel}
+          hitSlop={8}
+          style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
         >
           <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Post</Text>
-        <TouchableOpacity
+        </Pressable>
+        <View style={styles.headerTitleWrap} pointerEvents="none">
+          <Text style={styles.headerTitle}>{parentPostId ? 'Reply' : 'New post'}</Text>
+        </View>
+        <Pressable
           onPress={handlePost}
           disabled={!canPost}
-          style={[styles.postBtn, !canPost && styles.postBtnDisabled]}
+          hitSlop={6}
+          style={({ pressed }) => [styles.postBtn, !canPost && !posting && styles.disabled, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canPost }}
         >
           {posting ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color="#000" />
           ) : (
             <Text style={styles.postText}>Post</Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
-      <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
         <View style={styles.row}>
-          <UserAvatar avatarUrl={myProfile?.avatar_url} size={44} />
-          <View style={styles.inputContainer}>
-            <PostInput
+          {/* Avatar + thread connector */}
+          <View style={styles.rail}>
+            <UserAvatar avatarUrl={currentUserProfile?.avatar_url} size={40} />
+            <View style={styles.connector} />
+          </View>
+
+          <View style={styles.main}>
+            <View style={styles.nameRow}>
+              <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
+              {handle ? <Text style={styles.handle} numberOfLines={1}>@{handle}</Text> : null}
+            </View>
+
+            <TextInput
               value={content}
-              onChangeText={setContent}
+              onChangeText={handleChangeText}
+              placeholder={parentPostId ? 'Post your reply' : "What's happening?"}
+              placeholderTextColor={T.placeholder}
+              multiline
+              maxLength={MAX_CHARS + 10}
               autoFocus
+              style={styles.input}
+              selectionColor={T.accent}
             />
+
+            {suggestions.length > 0 && (
+              <View style={styles.suggestions}>
+                {suggestions.map(u => (
+                  <Pressable
+                    key={u.id}
+                    onPress={() => insertMention(u.username)}
+                    style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}
+                  >
+                    <UserAvatar avatarUrl={u.avatar_url} size={28} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.suggestionName} numberOfLines={1}>{u.full_name}</Text>
+                      <Text style={styles.suggestionHandle} numberOfLines={1}>@{u.username}</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
 
             {/* Media previews */}
             {media.length > 0 && (
-              <View style={media.length === 1 ? styles.mediaSingle : styles.mediaGrid}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.mediaScroll}
+                contentContainerStyle={styles.mediaRow}
+                keyboardShouldPersistTaps="handled"
+              >
                 {media.map((m, i) => {
-                  const isSingle = media.length === 1;
-                  const ratio = (m.width && m.height) ? Math.min(Math.max(m.width / m.height, 0.56), 1.91) : 1;
+                  const ratio = (m.width && m.height) ? Math.min(Math.max(m.width / m.height, 0.6), 1.6) : 0.8;
+                  const src = m.type === 'video' ? m.thumbnailUri : m.uri;
                   return (
-                    <View key={i} style={[styles.mediaItem, isSingle && { width: '100%', aspectRatio: ratio }]}>
-                      {m.type === 'video' ? (
-                        <View style={[isSingle ? styles.mediaThumbFull : styles.mediaThumb, styles.videoThumb]}>
-                          {m.thumbnailUri ? (
-                            <Image source={{ uri: m.thumbnailUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                          ) : null}
-                          <Ionicons name="play-circle" size={36} color="#fff" />
+                    <View key={`${m.uri}-${i}`} style={[styles.thumb, { width: THUMB_H * ratio }]}>
+                      {src ? (
+                        <Image source={{ uri: src }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                      ) : null}
+                      {m.type === 'video' && (
+                        <View style={styles.playBadge} pointerEvents="none">
+                          <Ionicons name="play" size={16} color="#fff" />
                         </View>
-                      ) : (
-                        <Image source={{ uri: m.uri }} style={isSingle ? styles.mediaThumbFull : styles.mediaThumb} resizeMode="cover" />
                       )}
-                      <TouchableOpacity style={styles.removeMedia} onPress={() => removeMedia(i)}>
-                        <Ionicons name="close-circle" size={22} color="#fff" />
-                      </TouchableOpacity>
+                      <Pressable
+                        onPress={() => removeMedia(i)}
+                        hitSlop={10}
+                        style={({ pressed }) => [styles.removeBadge, pressed && styles.pressed]}
+                        accessibilityLabel="Remove media"
+                      >
+                        <Ionicons name="close" size={16} color="#fff" />
+                      </Pressable>
                     </View>
                   );
                 })}
-              </View>
+              </ScrollView>
             )}
 
             {uploading && (
               <View style={styles.uploadingRow}>
-                <ActivityIndicator size="small" color="#5CB85C" />
-                <Text style={styles.uploadingText}>Uploading media...</Text>
+                <ActivityIndicator size="small" color={T.textMuted} />
+                <Text style={styles.uploadingText}>Uploading media…</Text>
               </View>
             )}
           </View>
         </View>
       </ScrollView>
 
-      {/* Toolbar */}
-      <View style={styles.toolbar}>
-        <TouchableOpacity onPress={() => pickMedia('image')} style={styles.toolbarBtn}>
-          <Ionicons name="image-outline" size={24} color="#5CB85C" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => pickMedia('video')} style={styles.toolbarBtn}>
-          <Ionicons name="videocam-outline" size={24} color="#5CB85C" />
-        </TouchableOpacity>
+      {/* Toolbar — sits above the keyboard */}
+      <View style={[styles.toolbar, { paddingBottom: keyboardOpen ? 6 : Math.max(insets.bottom, 8) }]}>
+        <ToolButton icon="image-outline" onPress={() => pickMedia('image')} disabled={mediaFull} color={T.textSub} label="Add photos" />
+        <ToolButton icon="camera-outline" onPress={takePhoto} disabled={mediaFull} color={T.textSub} label="Take a photo" />
+        <ToolButton icon="videocam-outline" onPress={() => pickMedia('video')} disabled={mediaFull} color={T.textSub} label="Add video" />
 
-        {/* Visibility toggle */}
-        <TouchableOpacity
-          style={styles.visPill}
+        <Pressable
+          style={({ pressed }) => [styles.visPill, pressed && styles.pressed]}
           onPress={() => setVisibility(v => v === 'public' ? 'followers' : 'public')}
+          accessibilityRole="button"
+          accessibilityLabel={isPublic ? 'Visible to everyone. Tap to limit to followers' : 'Visible to followers. Tap to make public'}
         >
-          <Ionicons
-            name={visibility === 'public' ? 'globe-outline' : 'people-outline'}
-            size={14}
-            color="#5CB85C"
-          />
-          <Text style={styles.visText}>{visibility === 'public' ? 'Everyone' : 'Followers'}</Text>
-        </TouchableOpacity>
+          <Ionicons name={isPublic ? 'globe-outline' : 'people-outline'} size={14} color={T.textSub} />
+          <Text style={styles.visText} numberOfLines={1}>{isPublic ? 'Everyone can see' : 'Followers only'}</Text>
+        </Pressable>
 
         <View style={styles.flex} />
-        <Text style={[styles.charCount, content.length > 260 && styles.charCountWarn]}>
-          {280 - content.length}
-        </Text>
+
+        {content.length > 0 && (
+          <View style={styles.counterWrap}>
+            {content.length > WARN_AT && (
+              <Text style={[styles.counterText, over && { color: T.error }]}>{remaining}</Text>
+            )}
+            <CharRing
+              progress={Math.min(content.length / MAX_CHARS, 1)}
+              color={over ? T.error : content.length > WARN_AT ? T.textSub : T.accent}
+              track={T.border}
+              bg={T.bg}
+            />
+          </View>
+        )}
       </View>
+
       <BottomSheet
         visible={discardSheet}
         onClose={() => setDiscardSheet(false)}
@@ -276,63 +407,184 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   );
 }
 
+function ToolButton({ icon, onPress, disabled, color, label }: {
+  icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean; color: string; label: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+        disabled && { opacity: 0.4 },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <Ionicons name={icon} size={22} color={color} />
+    </Pressable>
+  );
+}
+
+/** Progress ring built from two clipped half-discs (no SVG needed). */
+function CharRing({ progress, color, track, bg, size = 22, stroke = 2.5 }: {
+  progress: number; color: string; track: string; bg: string; size?: number; stroke?: number;
+}) {
+  const angle = progress * 360;
+  const half = size / 2;
+  const right = Math.min(angle, 180);
+  const left = Math.max(angle - 180, 0);
+  return (
+    <View style={{ width: size, height: size, borderRadius: half, backgroundColor: track, overflow: 'hidden' }}>
+      {/* Right half: reveals 12 → 6 o'clock */}
+      <View style={{ position: 'absolute', left: half, top: 0, width: half, height: size, overflow: 'hidden' }}>
+        <View style={{ position: 'absolute', left: -half, top: 0, width: size, height: size, transform: [{ rotate: `${right}deg` }] }}>
+          <View style={{ width: half, height: size, backgroundColor: color, borderTopLeftRadius: half, borderBottomLeftRadius: half }} />
+        </View>
+      </View>
+      {/* Left half: reveals 6 → 12 o'clock */}
+      <View style={{ position: 'absolute', left: 0, top: 0, width: half, height: size, overflow: 'hidden' }}>
+        <View style={{ position: 'absolute', left: 0, top: 0, width: size, height: size, transform: [{ rotate: `${left}deg` }] }}>
+          <View style={{ marginLeft: half, width: half, height: size, backgroundColor: color, borderTopRightRadius: half, borderBottomRightRadius: half }} />
+        </View>
+      </View>
+      <View
+        style={{
+          position: 'absolute', left: stroke, top: stroke,
+          width: size - stroke * 2, height: size - stroke * 2,
+          borderRadius: (size - stroke * 2) / 2, backgroundColor: bg,
+        }}
+      />
+    </View>
+  );
+}
+
 function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
+    pressed: { opacity: 0.7 },
+    disabled: { opacity: 0.4 },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 16,
-      paddingTop: 52,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: T.borderLight,
+      paddingHorizontal: 16,
       backgroundColor: T.bg,
     },
-    cancelBtn: { padding: 4 },
-    cancelText: { fontSize: 16, color: T.textSub },
-    headerTitle: { fontSize: 16, fontWeight: '700', color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
-    postBtn: {
-      backgroundColor: T.accent,
-      paddingHorizontal: 20,
-      paddingVertical: 8,
-      borderRadius: 20,
-      minWidth: 70,
-      alignItems: 'center',
+    cancelBtn: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
+    cancelText: { fontSize: 16, color: T.text },
+    headerTitleWrap: {
+      position: 'absolute', left: 0, right: 0, bottom: 0, height: 50,
+      alignItems: 'center', justifyContent: 'center',
     },
-    postBtnDisabled: { backgroundColor: T.surface2 },
-    postText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    headerTitle: { fontSize: 17, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },
+    postBtn: {
+      height: 34,
+      borderRadius: 17,
+      paddingHorizontal: 16,
+      minWidth: 64,
+      backgroundColor: T.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    postText: { color: '#000', fontWeight: '700', fontSize: 15 },
     body: { flex: 1 },
-    row: { flexDirection: 'row', padding: 16, gap: 12 },
-    inputContainer: { flex: 1 },
-    mediaSingle: { marginTop: 8 },
-    mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-    mediaItem: { position: 'relative' },
-    mediaThumb: { width: 100, height: 100, borderRadius: 8 },
-    mediaThumbFull: { width: '100%', height: '100%', borderRadius: 12 },
-    videoThumb: { backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', gap: 4 },
-    videoLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
-    removeMedia: { position: 'absolute', top: -6, right: -6 },
-    uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-    uploadingText: { color: T.textSub, fontSize: 13 },
+    bodyContent: { paddingBottom: 24 },
+    row: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, gap: 12 },
+    rail: { width: 40, alignItems: 'center' },
+    connector: { width: 2, flex: 1, minHeight: 24, borderRadius: 1, backgroundColor: T.border, marginTop: 8 },
+    main: { flex: 1, minWidth: 0 },
+    nameRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+    name: { fontSize: 15, fontWeight: '700', color: T.text, flexShrink: 1 },
+    handle: { fontSize: 14, color: T.textMuted, flexShrink: 1 },
+    input: {
+      fontSize: 17,
+      lineHeight: 24,
+      color: T.text,
+      minHeight: 72,
+      textAlignVertical: 'top',
+      paddingTop: 4,
+      paddingBottom: 8,
+      paddingHorizontal: 0,
+    },
+    suggestions: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: T.border,
+      borderRadius: 14,
+      backgroundColor: T.surface,
+      overflow: 'hidden',
+      marginBottom: 8,
+    },
+    suggestion: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      minHeight: 48,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    suggestionName: { fontSize: 14, fontWeight: '600', color: T.text },
+    suggestionHandle: { fontSize: 13, color: T.textMuted },
+    mediaScroll: { marginTop: 4, marginRight: -16 },
+    mediaRow: { gap: 8, paddingRight: 16 },
+    thumb: {
+      height: THUMB_H,
+      borderRadius: 16,
+      overflow: 'hidden',
+      backgroundColor: T.surface2,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: T.border,
+    },
+    playBadge: {
+      position: 'absolute',
+      left: 10,
+      bottom: 10,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingLeft: 2,
+    },
+    removeBadge: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+    uploadingText: { color: T.textMuted, fontSize: 13 },
     toolbar: {
       flexDirection: 'row',
       alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingTop: 4,
+      backgroundColor: T.bg,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: T.borderLight,
-      padding: 12,
-      paddingBottom: 28,
-      backgroundColor: T.bg,
     },
-    toolbarBtn: { padding: 8 },
     visPill: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
-      borderWidth: 1, borderColor: T.acc25, backgroundColor: T.acc10, marginLeft: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      height: 32,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: T.border,
+      marginLeft: 4,
+      flexShrink: 1,
     },
-    visText: { fontSize: 12, color: T.accent, fontWeight: '600' },
+    visText: { fontSize: 13, color: T.textSub, fontWeight: '600' },
     flex: { flex: 1 },
-    charCount: { fontSize: 14, color: T.textMuted, marginRight: 4 },
-    charCountWarn: { color: T.error },
+    counterWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, minHeight: 44 },
+    counterText: { fontSize: 13, color: T.textMuted, fontVariant: ['tabular-nums'] },
   });
 }

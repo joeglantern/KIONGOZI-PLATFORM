@@ -1,21 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, FlatList,
-  TouchableOpacity, RefreshControl, Image,
+  Pressable, RefreshControl,
 } from 'react-native';
-
-import LottieView from 'lottie-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, AppTheme } from '../../hooks/useTheme';
 
 export default function FindFriendsScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
 
@@ -27,6 +28,7 @@ export default function FindFriendsScreen() {
   const [following, setFollowing] = useState<Record<string, boolean>>({});
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
   // Load explore feed + current user's following list on mount
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function FindFriendsScreen() {
     const seen = new Set<string>();
     const users: any[] = [];
     for (const post of explorePosts) {
-      const p = post.profiles ?? post;
+      const p: any = post.profiles ?? post;
       const id = p.id ?? post.user_id;
       if (!id || seen.has(id)) continue;
       if (id === user?.id) continue;           // skip own profile
@@ -88,7 +90,14 @@ export default function FindFriendsScreen() {
     searchTimer.current = setTimeout(() => doSearch(text), 350);
   }, [doSearch]);
 
+  const clearSearch = () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setQuery('');
+    setResults(null);
+  };
+
   const handleFollowToggle = useCallback(async (targetId: string, currentlyFollowing: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setFollowing(prev => ({ ...prev, [targetId]: !currentlyFollowing }));
     try {
       if (currentlyFollowing) {
@@ -105,77 +114,77 @@ export default function FindFriendsScreen() {
 
   const isSearching = query.length > 0;
   const displayList = isSearching ? (results ?? []) : suggestedUsers;
-  const isLoading = isSearching ? searchLoading : exploreLoading;
+  const isLoading = isSearching ? (searchLoading || results === null) : exploreLoading;
 
   const renderUser = ({ item }: { item: any }) => {
     const isFollowing = following[item.id] ?? item.is_following ?? false;
     return (
-      <TouchableOpacity
-        style={styles.userRow}
-        activeOpacity={0.7}
+      <Pressable
+        style={({ pressed }) => [styles.userRow, pressed && { backgroundColor: T.surface }]}
         onPress={() => navigation.navigate('PublicProfile', { username: item.username })}
       >
         <UserAvatar
           avatarUrl={item.avatar_url}
-          size={48}
+          size={44}
           isVerified={item.is_verified}
           isBot={item.is_bot}
         />
         <View style={styles.userInfo}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+          <View style={styles.nameRow}>
             <Text style={styles.userName} numberOfLines={1}>{item.full_name || item.username}</Text>
-            {item.is_verified && (
-              <VerifiedBadge size={15} />
-            )}
+            {item.is_verified && <VerifiedBadge size={14} />}
           </View>
-          <Text style={styles.userHandle}>@{item.username}</Text>
+          <Text style={styles.userHandle} numberOfLines={1}>@{item.username}</Text>
           {item.bio ? <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text> : null}
         </View>
-        <TouchableOpacity
-          style={[styles.followBtn, isFollowing && styles.followingBtn]}
+        <Pressable
           onPress={() => handleFollowToggle(item.id, isFollowing)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={6}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.pill,
+            isFollowing ? styles.pillSecondary : styles.pillPrimary,
+            pressed && { opacity: 0.7 },
+          ]}
         >
-          <Text style={[styles.followBtnText, isFollowing && styles.followingBtnText]}>
+          <Text style={[styles.pillText, { color: isFollowing ? T.text : T.bg }]}>
             {isFollowing ? 'Following' : 'Follow'}
           </Text>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </Pressable>
+      </Pressable>
     );
   };
 
   const ListHeader = !isSearching ? (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionLabel}>PEOPLE TO FOLLOW</Text>
-    </View>
-  ) : results !== null ? (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionLabel}>RESULTS</Text>
-    </View>
+    displayList.length > 0 ? <Text style={styles.sectionLabel}>Suggested for you</Text> : null
+  ) : results !== null && results.length > 0 ? (
+    <Text style={styles.sectionLabel}>People</Text>
   ) : null;
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
           <Ionicons name="chevron-back" size={26} color={T.text} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Find Friends</Text>
-          {!isSearching && suggestedUsers.length > 0 && (
-            <Text style={styles.headerSub}>Active people from your community</Text>
-          )}
-        </View>
+        </Pressable>
+        <Text style={styles.headerTitle}>Find friends</Text>
+        <View style={{ width: 44 }} />
       </View>
 
-      {/* Search bar */}
-      <View style={styles.searchWrap}>
-        <Ionicons name="search" size={18} color={T.textSub} />
+      {/* Search */}
+      <Pressable style={styles.searchWrap} onPress={() => inputRef.current?.focus()}>
+        <Ionicons name="search" size={18} color={T.textMuted} />
         <TextInput
+          ref={inputRef}
           style={styles.searchInput}
-          placeholder="Search people..."
-          placeholderTextColor={T.placeholder}
+          placeholder="Search people"
+          placeholderTextColor={T.textMuted}
           value={query}
           onChangeText={handleSearch}
           returnKeyType="search"
@@ -184,52 +193,54 @@ export default function FindFriendsScreen() {
           autoCapitalize="none"
         />
         {query.length > 0 && (
-          <TouchableOpacity onPress={() => { setQuery(''); setResults(null); }}>
-            <Ionicons name="close-circle" size={18} color={T.placeholder} />
-          </TouchableOpacity>
+          <Pressable onPress={clearSearch} hitSlop={10} accessibilityLabel="Clear search">
+            <Ionicons name="close-circle" size={18} color={T.textMuted} />
+          </Pressable>
         )}
-      </View>
+      </Pressable>
 
       {isLoading && displayList.length === 0 ? (
-        <View style={styles.loadingWrap}>
-          <LottieView
-            source={require('../../../assets/lottie/community.json')}
-            autoPlay
-            loop
-            style={styles.lottie}
-          />
-          <Text style={styles.loadingText}>Finding people to follow…</Text>
-        </View>
+        <PeopleSkeleton T={T} />
       ) : (
         <FlatList
           data={displayList}
           keyExtractor={item => item.id}
           renderItem={renderUser}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           ListHeaderComponent={ListHeader}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           refreshControl={
             !isSearching ? (
               <RefreshControl
                 refreshing={exploreLoading && suggestedUsers.length > 0}
                 onRefresh={() => fetchExploreFeed(true)}
-                tintColor={T.accent}
+                tintColor={T.textMuted}
+                colors={[T.accent]}
               />
             ) : undefined
           }
           ListEmptyComponent={
             isLoading ? null : (
-              <View style={styles.emptyState}>
-                <LottieView
-                  source={require('../../../assets/lottie/community.json')}
-                  autoPlay
-                  loop
-                  style={styles.lottie}
-                />
+              <View style={styles.empty}>
+                <View style={styles.emptyIcon}>
+                  <Ionicons name={isSearching ? 'search-outline' : 'people-outline'} size={28} color={T.textMuted} />
+                </View>
                 <Text style={styles.emptyTitle}>
-                  {isSearching ? `No results for "${query}"` : 'No suggestions yet'}
+                  {isSearching ? 'No matches' : 'No suggestions yet'}
+                </Text>
+                <Text style={styles.emptySub}>
+                  {isSearching
+                    ? `Nobody found for “${query.trim()}”. Check the spelling or try a username.`
+                    : 'Search for people you know by name or username.'}
                 </Text>
                 {!isSearching && (
-                  <Text style={styles.emptyHint}>Try searching for people you know</Text>
+                  <Pressable
+                    onPress={() => inputRef.current?.focus()}
+                    style={({ pressed }) => [styles.pill, styles.pillSecondary, { marginTop: 20 }, pressed && { opacity: 0.7 }]}
+                  >
+                    <Text style={[styles.pillText, { color: T.text }]}>Search people</Text>
+                  </Pressable>
                 )}
               </View>
             )
@@ -240,61 +251,67 @@ export default function FindFriendsScreen() {
   );
 }
 
-function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+function PeopleSkeleton({ T }: { T: AppTheme }) {
+  return (
+    <View style={{ paddingTop: 12 }}>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingHorizontal: 16, gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2 }} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <View style={{ width: `${45 + ((i * 17) % 30)}%`, height: 12, borderRadius: 6, backgroundColor: T.surface2 }} />
+            <View style={{ width: '30%', height: 10, borderRadius: 5, backgroundColor: T.surface2 }} />
+          </View>
+          <View style={{ width: 76, height: 32, borderRadius: 16, backgroundColor: T.surface2 }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function makeStyles(T: AppTheme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
     header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingTop: 56,
-      paddingHorizontal: 16,
-      paddingBottom: 12,
-      gap: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: T.borderLight,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 4, backgroundColor: T.bg,
     },
-    backBtn: { marginRight: 4 },
+    backBtn: { width: 44, height: 50, alignItems: 'center', justifyContent: 'center' },
     headerTitle: {
-      fontSize: 22, fontWeight: '700', color: T.text,
-      letterSpacing: -0.5, fontFamily: 'SpaceGrotesk_700Bold',
+      flex: 1, textAlign: 'center', fontSize: 17,
+      fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text,
     },
-    headerSub: { fontSize: 13, color: T.textSub, marginTop: 1 },
     searchWrap: {
-      flexDirection: 'row', alignItems: 'center',
-      margin: 16, marginBottom: 4,
-      backgroundColor: T.inputBg, borderRadius: 14,
-      paddingHorizontal: 13, paddingVertical: 11,
-      gap: 8, borderWidth: 1, borderColor: T.border,
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      height: 42, borderRadius: 21, backgroundColor: T.surface2,
+      marginHorizontal: 16, marginTop: 4, marginBottom: 8, paddingHorizontal: 14,
     },
-    searchInput: { flex: 1, fontSize: 15, color: T.text },
-    sectionHeader: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6,
-    },
+    searchInput: { flex: 1, fontSize: 15, color: T.text, paddingVertical: 0 },
     sectionLabel: {
-      fontSize: 11, fontWeight: '800', color: T.textMuted, letterSpacing: 0.9,
+      fontSize: 13, color: T.textMuted,
+      paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4,
     },
     userRow: {
       flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 16, paddingVertical: 12, gap: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
+      minHeight: 64, paddingHorizontal: 16, paddingVertical: 10, gap: 12,
     },
-    userInfo: { flex: 1 },
-    userName: { fontSize: 15, fontWeight: '700', color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
-    userHandle: { fontSize: 13, color: T.textSub, marginTop: 1 },
-    userBio: { fontSize: 13, color: T.textMuted, marginTop: 2 },
-    followBtn: {
-      paddingHorizontal: 16, paddingVertical: 7,
-      borderRadius: 20, backgroundColor: T.accent,
+    userInfo: { flex: 1, minWidth: 0 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    userName: { fontSize: 15, fontWeight: '700', color: T.text, flexShrink: 1 },
+    userHandle: { fontSize: 14, color: T.textMuted, marginTop: 1 },
+    userBio: { fontSize: 14, color: T.textSub, marginTop: 3 },
+    pill: {
+      height: 32, borderRadius: 16, paddingHorizontal: 14,
+      alignItems: 'center', justifyContent: 'center',
     },
-    followBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
-    followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border },
-    followingBtnText: { color: T.text },
-    lottie: { width: 200, height: 200 },
-    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingTop: 40 },
-    loadingText: { fontSize: 14, color: T.textSub },
-    emptyState: { alignItems: 'center', paddingTop: 40, gap: 8 },
-    emptyTitle: { fontSize: 15, color: T.textSub, textAlign: 'center', fontWeight: '600' },
-    emptyHint: { fontSize: 13, color: T.textMuted, textAlign: 'center' },
+    pillPrimary: { backgroundColor: T.text },
+    pillSecondary: { borderWidth: 1, borderColor: T.border },
+    pillText: { fontSize: 14, fontWeight: '600' },
+    empty: { alignItems: 'center', paddingTop: 64, paddingHorizontal: 40 },
+    emptyIcon: {
+      width: 64, height: 64, borderRadius: 32, backgroundColor: T.surface,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    },
+    emptyTitle: { fontSize: 17, fontWeight: '700', color: T.text, textAlign: 'center' },
+    emptySub: { fontSize: 14, color: T.textMuted, textAlign: 'center', marginTop: 6, lineHeight: 20 },
   });
 }

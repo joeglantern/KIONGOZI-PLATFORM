@@ -4,13 +4,15 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   Image,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,13 +21,16 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 
-const COVER_HEIGHT = 140;
-const AVATAR_SIZE = 80;
+const COVER_HEIGHT = 150;
+const AVATAR_SIZE = 84;
+const AVATAR_RING = 4;
+const BIO_MAX = 160;
 
 export default function EditProfileScreen() {
   const navigation = useNavigation<any>();
   const { currentUserProfile, updateCurrentUserProfile } = useProfileStore();
   const T = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(T), [T]);
 
   const [bio, setBio] = useState('');
@@ -144,129 +149,173 @@ export default function EditProfileScreen() {
     : null;
 
   const avatarUrl = avatarUri ?? currentUserProfile?.avatar_url;
+  const usernameBad = usernameStatus === 'taken' || usernameStatus === 'reserved';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* ── Header bar ───────────────────────────────────────────────── */}
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Ionicons name="close" size={24} color={T.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtn}>
+    <View style={styles.container}>
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <View style={[styles.header, { paddingTop: insets.top + 4, height: insets.top + 4 + 50 }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={4}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Ionicons name="close" size={26} color={T.text} />
+        </Pressable>
+        <View style={styles.headerTitleWrap} pointerEvents="none">
+          <Text style={styles.headerTitle}>Edit profile</Text>
+        </View>
+        <Pressable
+          onPress={handleSave}
+          disabled={saving}
+          hitSlop={6}
+          style={({ pressed }) => [styles.savePill, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: saving, busy: saving }}
+        >
           {saving ? (
-            <ActivityIndicator size="small" color="#5CB85C" />
+            <ActivityIndicator size="small" color="#000" />
           ) : (
             <Text style={styles.saveText}>Save</Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* ── Cover + Avatar section ────────────────────────────────── */}
-        <View style={styles.photoSection}>
-          {/* Cover */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => pickImage('banner')}
-            style={styles.cover}
-          >
-            {bannerSource ? (
-              <Image source={bannerSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-            ) : null}
-            <View style={styles.coverTint} />
-            <View style={styles.coverCameraHint}>
-              <Ionicons name="camera-outline" size={16} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.coverCameraText}>Change cover</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Avatar overlapping cover */}
-          <View style={styles.avatarArea}>
-            <View style={styles.avatarBorder}>
-              <UserAvatar
-                avatarUrl={avatarUrl}
-                size={AVATAR_SIZE}
-                editable
-                onPress={() => pickImage('avatar')}
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* ── Form fields ──────────────────────────────────────────── */}
-        <View style={styles.form}>
-          <Field label="Display Name">
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Your display name"
-              placeholderTextColor="#a0aec0"
-            />
-          </Field>
-
-          <Field label="Username">
-            <View style={styles.usernameRow}>
-              <TextInput
-                style={[
-                  styles.input,
-                  { flex: 1 },
-                  (usernameStatus === 'taken' || usernameStatus === 'reserved') && styles.inputError,
-                  usernameStatus === 'available' && styles.inputSuccess,
-                ]}
-                value={username}
-                onChangeText={text =>
-                  setUsername(text.toLowerCase().replace(/[^a-z0-9_]/g, ''))
-                }
-                placeholder="username"
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor="#a0aec0"
-              />
-              <View style={styles.usernameIcon}>
-                {usernameStatus === 'checking' && (
-                  <ActivityIndicator size="small" color="#a0aec0" />
-                )}
-                {usernameStatus === 'available' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
-                )}
-                {(usernameStatus === 'taken' || usernameStatus === 'reserved') && (
-                  <Ionicons name="close-circle" size={20} color="#ef4444" />
-                )}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        >
+          {/* ── Banner + avatar ──────────────────────────────────── */}
+          <View style={styles.photoSection}>
+            <Pressable
+              onPress={() => pickImage('banner')}
+              style={({ pressed }) => [styles.cover, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Change cover photo"
+            >
+              {bannerSource ? (
+                <Image source={bannerSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+              ) : null}
+              <View style={styles.coverBadge}>
+                <Ionicons name="camera" size={16} color="#fff" />
               </View>
-            </View>
-            {(usernameStatus === 'taken' || usernameStatus === 'reserved') && (
-              <Text style={styles.fieldError}>
-                {usernameStatus === 'reserved' ? 'That username is reserved' : 'Username already taken'}
-              </Text>
-            )}
-          </Field>
+            </Pressable>
 
-          <Field label="Bio">
-            <TextInput
-              style={[styles.input, styles.bioInput]}
-              value={bio}
-              onChangeText={setBio}
-              placeholder="Tell people about yourself…"
-              multiline
-              maxLength={160}
-              placeholderTextColor="#a0aec0"
-            />
-            <Text style={styles.charCount}>{bio.length}/160</Text>
-          </Field>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            <Pressable
+              onPress={() => pickImage('avatar')}
+              style={({ pressed }) => [styles.avatarArea, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+            >
+              <View style={styles.avatarRing}>
+                <UserAvatar avatarUrl={avatarUrl ?? undefined} size={AVATAR_SIZE} />
+              </View>
+              <View style={styles.avatarBadge}>
+                <Ionicons name="camera" size={14} color="#000" />
+              </View>
+            </Pressable>
+          </View>
+
+          {/* ── Fields ───────────────────────────────────────────── */}
+          <View style={styles.form}>
+            <Field label="Name">
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Your name"
+                placeholderTextColor={T.placeholder}
+                selectionColor={T.accent}
+                returnKeyType="next"
+              />
+            </Field>
+
+            <Field
+              label="Username"
+              error={usernameBad ? (usernameStatus === 'reserved' ? 'That username is reserved' : 'Username already taken') : undefined}
+              hint={usernameStatus === 'available' ? 'Username available' : undefined}
+            >
+              <View style={styles.usernameRow}>
+                <Text style={styles.at}>@</Text>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={username}
+                  onChangeText={text =>
+                    setUsername(text.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+                  }
+                  placeholder="username"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholderTextColor={T.placeholder}
+                  selectionColor={T.accent}
+                />
+                <View style={styles.usernameIcon}>
+                  {usernameStatus === 'checking' && (
+                    <ActivityIndicator size="small" color={T.textMuted} />
+                  )}
+                  {usernameStatus === 'available' && (
+                    <Ionicons name="checkmark-circle" size={18} color={T.accent} />
+                  )}
+                  {usernameBad && (
+                    <Ionicons name="alert-circle" size={18} color={T.error} />
+                  )}
+                </View>
+              </View>
+            </Field>
+
+            <Field label="Bio" counter={`${bio.length}/${BIO_MAX}`}>
+              <TextInput
+                style={[styles.input, styles.bioInput]}
+                value={bio}
+                onChangeText={setBio}
+                placeholder="Tell people about yourself"
+                multiline
+                maxLength={BIO_MAX}
+                placeholderTextColor={T.placeholder}
+                selectionColor={T.accent}
+              />
+            </Field>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, error, hint, counter }: {
+  label: string;
+  children: React.ReactNode;
+  error?: string;
+  hint?: string;
+  counter?: string;
+}) {
   const T = useTheme();
   return (
-    <View style={{ marginBottom: 20 }}>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: T.textSub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</Text>
-      {children}
+    <View style={{ marginBottom: 22 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={{ fontSize: 13, color: T.textMuted }}>{label}</Text>
+        {counter ? <Text style={{ fontSize: 12, color: T.textMuted, fontVariant: ['tabular-nums'] }}>{counter}</Text> : null}
+      </View>
+      <View
+        style={{
+          borderBottomWidth: error ? 1 : StyleSheet.hairlineWidth,
+          borderBottomColor: error ? T.error : T.border,
+        }}
+      >
+        {children}
+      </View>
+      {error ? (
+        <Text style={{ fontSize: 13, color: T.error, marginTop: 6 }}>{error}</Text>
+      ) : hint ? (
+        <Text style={{ fontSize: 13, color: T.textMuted, marginTop: 6 }}>{hint}</Text>
+      ) : null}
     </View>
   );
 }
@@ -274,79 +323,86 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
+    pressed: { opacity: 0.7 },
 
-    headerBar: {
+    header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 8,
-      paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: T.borderLight,
+      paddingRight: 16,
       backgroundColor: T.bg,
     },
-    headerBtn: { padding: 8, minWidth: 48, alignItems: 'center' },
-    headerTitle: { fontSize: 17, fontWeight: '700', color: T.text },
-    saveText: { fontSize: 16, fontWeight: '700', color: T.accent },
+    iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    headerTitleWrap: {
+      position: 'absolute', left: 0, right: 0, bottom: 0, height: 50,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    headerTitle: { fontSize: 17, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },
+    savePill: {
+      height: 34,
+      borderRadius: 17,
+      paddingHorizontal: 16,
+      minWidth: 64,
+      backgroundColor: T.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    saveText: { fontSize: 15, fontWeight: '700', color: '#000' },
 
-    photoSection: { marginBottom: AVATAR_SIZE / 2 + 8 },
+    photoSection: { height: COVER_HEIGHT + AVATAR_SIZE / 2 + AVATAR_RING, marginBottom: 20 },
     cover: {
       height: COVER_HEIGHT,
-      backgroundColor: T.surface,
+      backgroundColor: T.surface2,
       overflow: 'hidden',
     },
-    coverTint: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.2)',
-    },
-    coverCameraHint: {
+    coverBadge: {
       position: 'absolute',
-      bottom: 10,
-      alignSelf: 'center',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      paddingHorizontal: 12,
-      paddingVertical: 5,
+      right: 12,
+      bottom: 12,
+      width: 32,
+      height: 32,
       borderRadius: 16,
-    },
-    coverCameraText: {
-      color: 'rgba(255,255,255,0.9)',
-      fontSize: 12,
-      fontWeight: '500',
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     avatarArea: {
       position: 'absolute',
-      bottom: -(AVATAR_SIZE / 2),
-      left: 20,
+      top: COVER_HEIGHT - AVATAR_SIZE / 2 - AVATAR_RING,
+      left: 16 - AVATAR_RING,
     },
-    avatarBorder: {
-      borderWidth: 3,
+    avatarRing: {
+      padding: AVATAR_RING,
+      borderRadius: (AVATAR_SIZE + AVATAR_RING * 2) / 2,
+      backgroundColor: T.bg,
+    },
+    avatarBadge: {
+      position: 'absolute',
+      right: 2,
+      bottom: 2,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: T.accent,
+      borderWidth: 2,
       borderColor: T.bg,
-      borderRadius: (AVATAR_SIZE + 6) / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
-    form: {
-      paddingHorizontal: 20,
-      paddingTop: 8,
-    },
+    form: { paddingHorizontal: 16 },
     input: {
-      borderWidth: 1,
-      borderColor: T.border,
-      borderRadius: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      fontSize: 15,
+      fontSize: 16,
       color: T.text,
-      backgroundColor: T.inputBg,
+      paddingHorizontal: 0,
+      paddingTop: 6,
+      paddingBottom: 10,
+      minHeight: 40,
     },
-    inputError: { borderColor: T.error },
-    inputSuccess: { borderColor: T.accent },
-    bioInput: { minHeight: 90, textAlignVertical: 'top' },
-    charCount: { textAlign: 'right', color: T.textMuted, fontSize: 12, marginTop: 4 },
-    usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    usernameIcon: { width: 24, alignItems: 'center' },
-    fieldError: { fontSize: 12, color: T.error, marginTop: 4 },
+    bioInput: { minHeight: 72, textAlignVertical: 'top' },
+    usernameRow: { flexDirection: 'row', alignItems: 'center' },
+    at: { fontSize: 16, color: T.textMuted, marginRight: 1, paddingTop: 6, paddingBottom: 10 },
+    usernameIcon: { width: 24, alignItems: 'flex-end' },
   });
 }

@@ -1,19 +1,20 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator,
+  View, Text, FlatList, Pressable, StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, AppTheme } from '../../hooks/useTheme';
 import { BottomSheet } from '../../components/social/BottomSheet';
 
 export default function MutedUsersScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { unmuteUser } = useSocialStore();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +26,7 @@ export default function MutedUsersScreen() {
     setLoading(true);
     try {
       const res = await apiClient.getMutedUsers();
-      if (res.success) setUsers(res.data || []);
+      if (res.success) setUsers((res.data as any[]) || []);
     } catch {}
     setLoading(false);
   }, []);
@@ -41,41 +42,62 @@ export default function MutedUsersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Muted Users</Text>
-        <View style={{ width: 40 }} />
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <Ionicons name="chevron-back" size={26} color={T.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Muted accounts</Text>
+        <View style={{ width: 44 }} />
       </View>
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 60 }} color="#5CB85C" />
+        <PeopleSkeleton T={T} />
       ) : (
         <FlatList
           data={users}
           keyExtractor={item => item.id}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          ListHeaderComponent={
+            users.length > 0 ? (
+              <Text style={styles.note}>You won’t see posts from these accounts in your feed. They aren’t notified.</Text>
+            ) : null
+          }
           renderItem={({ item }) => (
-            <View style={styles.row}>
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && { backgroundColor: T.surface }]}
+              onPress={() => item.username && navigation.navigate('PublicProfile', { username: item.username })}
+            >
               <UserAvatar avatarUrl={item.avatar_url} size={44} isVerified={item.is_verified} />
               <View style={styles.info}>
-                <Text style={styles.name}>{item.full_name}</Text>
-                <Text style={styles.username}>@{item.username}</Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>{item.full_name || item.username}</Text>
+                  {item.is_verified && <VerifiedBadge size={14} />}
+                </View>
+                <Text style={styles.username} numberOfLines={1}>@{item.username}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.unmuteBtn}
+              <Pressable
                 onPress={() => handleUnmute(item)}
+                hitSlop={6}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]}
               >
-                <Text style={styles.unmuteText}>Unmute</Text>
-              </TouchableOpacity>
-            </View>
+                <Text style={styles.pillText}>Unmute</Text>
+              </Pressable>
+            </Pressable>
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="volume-mute-outline" size={48} color="#2A2A2A" />
-              <Text style={styles.emptyTitle}>No muted users</Text>
-              <Text style={styles.emptySub}>You haven't muted anyone.</Text>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="volume-mute-outline" size={28} color={T.textMuted} />
+              </View>
+              <Text style={styles.emptyTitle}>No muted accounts</Text>
+              <Text style={styles.emptySub}>When you mute someone, their posts stop showing in your feed. You can unmute them here anytime.</Text>
             </View>
           }
         />
@@ -90,24 +112,60 @@ export default function MutedUsersScreen() {
           { icon: 'volume-high-outline', label: 'Unmute', onPress: doUnmute },
         ]}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
-function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+function PeopleSkeleton({ T }: { T: AppTheme }) {
+  return (
+    <View style={{ paddingTop: 8 }}>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingHorizontal: 16, gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2 }} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <View style={{ width: `${45 + ((i * 17) % 30)}%`, height: 12, borderRadius: 6, backgroundColor: T.surface2 }} />
+            <View style={{ width: '30%', height: 10, borderRadius: 5, backgroundColor: T.surface2 }} />
+          </View>
+          <View style={{ width: 80, height: 32, borderRadius: 16, backgroundColor: T.surface2 }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function makeStyles(T: AppTheme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 12, backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight },
-    backBtn: { padding: 8 },
-    headerTitle: { fontSize: 17, fontWeight: '700', color: T.text },
-    row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, gap: 12 },
-    info: { flex: 1 },
-    name: { fontSize: 15, fontWeight: '700', color: T.text },
-    username: { fontSize: 13, color: T.textSub, marginTop: 1 },
-    unmuteBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: T.accent },
-    unmuteText: { color: T.accent, fontWeight: '600', fontSize: 14 },
-    empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 10 },
-    emptyTitle: { fontSize: 18, fontWeight: '700', color: T.text },
-    emptySub: { fontSize: 14, color: T.textSub, textAlign: 'center' },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 4, backgroundColor: T.bg,
+    },
+    backBtn: { width: 44, height: 50, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: {
+      flex: 1, textAlign: 'center', fontSize: 17,
+      fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text,
+    },
+    note: { fontSize: 13, color: T.textMuted, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, lineHeight: 18 },
+    row: {
+      flexDirection: 'row', alignItems: 'center',
+      minHeight: 64, paddingHorizontal: 16, paddingVertical: 10, gap: 12,
+    },
+    info: { flex: 1, minWidth: 0 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    name: { fontSize: 15, fontWeight: '700', color: T.text, flexShrink: 1 },
+    username: { fontSize: 14, color: T.textMuted, marginTop: 1 },
+    pill: {
+      height: 32, borderRadius: 16, paddingHorizontal: 14,
+      alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1, borderColor: T.border,
+    },
+    pillText: { fontSize: 14, fontWeight: '600', color: T.text },
+    empty: { alignItems: 'center', paddingTop: 96, paddingHorizontal: 40 },
+    emptyIcon: {
+      width: 64, height: 64, borderRadius: 32, backgroundColor: T.surface,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    },
+    emptyTitle: { fontSize: 17, fontWeight: '700', color: T.text, textAlign: 'center' },
+    emptySub: { fontSize: 14, color: T.textMuted, textAlign: 'center', marginTop: 6, lineHeight: 20 },
   });
 }

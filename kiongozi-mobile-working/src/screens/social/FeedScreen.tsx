@@ -148,7 +148,6 @@ export default function FeedScreen() {
   const stackIn = y.interpolate({ inputRange: [R * 0.55, R], outputRange: [0, 1], extrapolate: 'clamp' });
   const stackRise = y.interpolate({ inputRange: [R * 0.55, R], outputRange: [14, 0], extrapolate: 'clamp' });
   const stackScale = y.interpolate({ inputRange: [R * 0.55, R], outputRange: [0.6, 1], extrapolate: 'clamp' });
-  const edge = y.interpolate({ inputRange: [R - 1, R], outputRange: [0, 1], extrapolate: 'clamp' });
 
   const onScrollFor = (i: number) => Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollYs[i] } } }],
@@ -277,7 +276,6 @@ export default function FeedScreen() {
             <Text style={[styles.tabLabel, activeTab === 1 ? styles.tabLabelOn : styles.tabLabelOff]}>Following</Text>
           </TouchableOpacity>
         </View>
-        <Animated.View style={[styles.headerEdge, { opacity: edge }]} pointerEvents="none" />
 
         {/* Logo bar: drawn last so the folding rail slides underneath it */}
         <Animated.View
@@ -351,7 +349,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       position: 'absolute', left: 0, right: 0, top: 52, bottom: 8,
       alignItems: 'center', justifyContent: 'center',
     },
-    headerEdge: { height: StyleSheet.hairlineWidth, backgroundColor: T.borderLight },
     headerLogo: {
       width: 120, height: 42, flexShrink: 0,
     },
@@ -365,15 +362,13 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       paddingHorizontal: 3, borderWidth: 1.5,
     },
     iconBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800', lineHeight: 11 },
-    tabs: { flexDirection: 'row', gap: 8, paddingVertical: 10, paddingHorizontal: 16, backgroundColor: T.bg },
-    tabPill: {
-      paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20,
-      borderWidth: 1, borderColor: T.borderLight, backgroundColor: T.surface,
-    },
-    tabPillOn: { backgroundColor: T.acc10, borderColor: T.acc25 },
-    tabLabel: { fontSize: 15, fontWeight: '600' },
-    tabLabelOn: { color: T.accent },
-    tabLabelOff: { color: T.textSub },
+    // Equal-width underline tabs (Threads-style)
+    tabs: { flexDirection: 'row', backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
+    tabPill: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+    tabPillOn: { borderBottomColor: T.text },
+    tabLabel: { fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold' },
+    tabLabelOn: { color: T.text },
+    tabLabelOff: { color: T.textMuted },
     empty: { padding: 32, alignItems: 'center' },
     emptyText: { fontSize: 17, fontWeight: '600', color: T.textSub, marginBottom: 8, textAlign: 'center' },
     emptySubtext: { fontSize: 14, color: T.textMuted, textAlign: 'center' },

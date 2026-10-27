@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ScrollView,
   Alert,
@@ -12,19 +12,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
-  Animated,
   Switch,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
-import { useSocialStore } from '../../stores/socialStore';
 import { useThemeStore } from '../../stores/themeStore';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme, AppTheme } from '../../hooks/useTheme';
 import { BottomSheet } from '../../components/social/BottomSheet';
 import { supabase } from '../../utils/supabaseClient';
 import { registerForPushNotifications, unregisterPushNotifications } from '../../utils/pushNotifications';
@@ -36,11 +35,13 @@ const PUSH_TOKEN_KEY = 'push_token';
 const PRIVACY_POLICY_URL = 'https://chat.kiongozi.org/privacy-policy';
 const TERMS_URL = 'https://chat.kiongozi.org/terms';
 
+type IconName = keyof typeof Ionicons.glyphMap;
+
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { signOut } = useAuthStore();
   const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
-  const { loadBlockedAndMuted } = useSocialStore();
   const { isDark, toggleTheme } = useThemeStore();
   const T = useTheme();
   const styles = React.useMemo(() => makeStyles(T), [T]);
@@ -73,7 +74,13 @@ export default function SettingsScreen() {
     }
   }, [currentUserProfile?.is_private]);
 
+  const handleThemeToggle = () => {
+    Haptics.selectionAsync().catch(() => {});
+    toggleTheme();
+  };
+
   const handlePushToggle = async (value: boolean) => {
+    Haptics.selectionAsync().catch(() => {});
     setPushLoading(true);
     try {
       if (value) {
@@ -103,6 +110,7 @@ export default function SettingsScreen() {
   };
 
   const handlePrivateToggle = async (value: boolean) => {
+    Haptics.selectionAsync().catch(() => {});
     setPrivacyLoading(true);
     const prev = privateAccount;
     setPrivateAccount(value);
@@ -187,163 +195,103 @@ export default function SettingsScreen() {
   const appVersion =
     Constants.expoConfig?.version ?? (Constants as any).manifest?.version ?? '1.0.0';
 
+  const switchProps = {
+    trackColor: { false: T.surface2, true: T.accent },
+    thumbColor: '#FFFFFF',
+    ios_backgroundColor: T.surface2,
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
           <Ionicons name="chevron-back" size={26} color={T.text} />
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* APPEARANCE */}
-        <SectionHeader label="Appearance" />
-        <View style={styles.section}>
-          <View style={[styles.row, styles.rowLast]}>
-            <View style={styles.rowLeft}>
-              <View style={styles.iconSquare}>
-                <Ionicons name={isDark ? 'moon' : 'sunny'} size={18} color={T.textSub} />
-              </View>
-              <View>
-                <Text style={styles.rowLabel}>Dark Mode</Text>
-                <Text style={styles.rowSub}>Switch between dark and light theme</Text>
-              </View>
-            </View>
-            <AnimatedToggle value={isDark} onValueChange={toggleTheme} />
-          </View>
-        </View>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Group label="Appearance">
+          <Row
+            icon={isDark ? 'moon-outline' : 'sunny-outline'}
+            label="Dark mode"
+            onPress={handleThemeToggle}
+            isLast
+            right={<Switch value={isDark} onValueChange={handleThemeToggle} {...switchProps} />}
+          />
+        </Group>
 
-        {/* ACCOUNT */}
-        <SectionHeader label="Account" />
-        <View style={styles.section}>
-          <SettingsRow
-            icon="person-outline"
-            label="Edit Profile"
-            onPress={() => navigation.navigate('EditProfile')}
-          />
-          <SettingsRow
-            icon="lock-closed-outline"
-            label="Change Password"
-            onPress={() => setPasswordModalVisible(true)}
-          />
-          <SettingsRow
+        <Group label="Account">
+          <Row icon="person-outline" label="Edit profile" chevron onPress={() => navigation.navigate('EditProfile')} />
+          <Row icon="key-outline" label="Change password" chevron onPress={() => setPasswordModalVisible(true)} />
+          <Row
             icon="download-outline"
-            label={exportLoading ? 'Exporting...' : 'Export My Data'}
+            label="Export my data"
             onPress={handleExportData}
             isLast
+            chevron={!exportLoading}
+            right={exportLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : undefined}
           />
-        </View>
+        </Group>
 
-        {/* PRIVACY */}
-        <SectionHeader label="Privacy" />
-        <View style={styles.section}>
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <View style={styles.iconSquare}>
-                <Ionicons name="lock-closed-outline" size={18} color={T.textSub} />
-              </View>
-              <View>
-                <Text style={styles.rowLabel}>Private Account</Text>
-                <Text style={styles.rowSub}>New followers must be approved</Text>
-              </View>
-            </View>
-            {privacyLoading ? (
-              <ActivityIndicator size="small" color="#5CB85C" />
-            ) : (
-              <Switch
-                value={privateAccount}
-                onValueChange={handlePrivateToggle}
-                trackColor={{ false: '#767577', true: T.accent }}
-                thumbColor="#FFFFFF"
-              />
-            )}
-          </View>
-          <SettingsRow
-            icon="ban-outline"
-            label="Blocked Users"
-            onPress={() => navigation.navigate('BlockedUsers')}
+        <Group label="Privacy">
+          <Row
+            icon="lock-closed-outline"
+            label="Private account"
+            sub="New followers must be approved"
+            right={
+              privacyLoading ? (
+                <ActivityIndicator size="small" color={T.textMuted} />
+              ) : (
+                <Switch value={privateAccount} onValueChange={handlePrivateToggle} {...switchProps} />
+              )
+            }
           />
-          <SettingsRow
-            icon="volume-mute-outline"
-            label="Muted Users"
-            onPress={() => navigation.navigate('MutedUsers')}
+          <Row icon="ban-outline" label="Blocked accounts" chevron onPress={() => navigation.navigate('BlockedUsers')} />
+          <Row icon="volume-mute-outline" label="Muted accounts" chevron onPress={() => navigation.navigate('MutedUsers')} isLast />
+        </Group>
+
+        <Group label="Notifications">
+          <Row
+            icon="notifications-outline"
+            label="Push notifications"
             isLast
+            right={
+              pushLoading ? (
+                <ActivityIndicator size="small" color={T.textMuted} />
+              ) : (
+                <Switch value={pushEnabled} onValueChange={handlePushToggle} {...switchProps} />
+              )
+            }
           />
-        </View>
+        </Group>
 
-        {/* NOTIFICATIONS */}
-        <SectionHeader label="Notifications" />
-        <View style={styles.section}>
-          <View style={[styles.row, styles.rowLast]}>
-            <View style={styles.rowLeft}>
-              <View style={styles.iconSquare}>
-                <Ionicons name="notifications-outline" size={18} color={T.textSub} />
-              </View>
-              <Text style={styles.rowLabel}>Push Notifications</Text>
-            </View>
-            {pushLoading ? (
-              <ActivityIndicator size="small" color="#5CB85C" />
-            ) : (
-              <Switch
-                value={pushEnabled}
-                onValueChange={handlePushToggle}
-                trackColor={{ false: '#767577', true: T.accent }}
-                thumbColor="#FFFFFF"
-              />
-            )}
-          </View>
-        </View>
+        <Group label="About">
+          <Row icon="document-text-outline" label="Privacy policy" external onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} />
+          <Row icon="reader-outline" label="Terms of service" external onPress={() => Linking.openURL(TERMS_URL)} />
+          <Row icon="information-circle-outline" label="Version" value={appVersion} isLast />
+        </Group>
 
-        {/* ABOUT */}
-        <SectionHeader label="About" />
-        <View style={styles.section}>
-          <SettingsRow
-            icon="document-text-outline"
-            label="Privacy Policy"
-            onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
-          />
-          <SettingsRow
-            icon="reader-outline"
-            label="Terms of Service"
-            onPress={() => Linking.openURL(TERMS_URL)}
-          />
-          <View style={[styles.row, styles.rowLast]}>
-            <View style={styles.rowLeft}>
-              <View style={styles.iconSquare}>
-                <Ionicons name="information-circle-outline" size={18} color={T.textSub} />
-              </View>
-              <Text style={styles.rowLabel}>Version</Text>
-            </View>
-            <Text style={styles.rowValue}>{appVersion}</Text>
-          </View>
-        </View>
-
-        {/* DANGER ZONE */}
-        <SectionHeader label="Danger Zone" danger />
-        <View style={[styles.section, styles.dangerSection]}>
-          <SettingsRow
-            icon="log-out-outline"
-            label="Sign Out"
-            onPress={handleSignOut}
-            danger
-          />
-          <SettingsRow
-            icon="trash-outline"
-            label="Delete Account"
-            onPress={handleDeleteAccount}
-            danger
-            isLast
-          />
-        </View>
+        <Group>
+          <Row icon="log-out-outline" label="Log out" destructive onPress={handleSignOut} />
+          <Row icon="trash-outline" label="Delete account" destructive onPress={handleDeleteAccount} isLast />
+        </Group>
       </ScrollView>
 
       <BottomSheet
         visible={exportSheet}
         onClose={() => setExportSheet(false)}
-        title="Export My Data"
+        title="Export my data"
         subtitle="This will package all your Kiongozi data (posts, follows, bookmarks) into a JSON file."
         actions={[
           { icon: 'download-outline', label: 'Export', onPress: doExportData },
@@ -353,24 +301,24 @@ export default function SettingsScreen() {
       <BottomSheet
         visible={signOutSheet}
         onClose={() => setSignOutSheet(false)}
-        title="Sign Out"
-        subtitle="Are you sure you want to sign out?"
+        title="Log out"
+        subtitle="Are you sure you want to log out?"
         actions={[
-          { icon: 'log-out-outline', label: 'Sign Out', onPress: doSignOut, destructive: true },
+          { icon: 'log-out-outline', label: 'Log out', onPress: doSignOut, destructive: true },
         ]}
       />
 
       <BottomSheet
         visible={deleteAccountSheet}
         onClose={() => setDeleteAccountSheet(false)}
-        title="Delete Account"
+        title="Delete account"
         subtitle="This is permanent and cannot be undone. All your data will be deleted."
         actions={[
-          { icon: 'trash-outline', label: 'Delete Account', onPress: doDeleteAccount, destructive: true },
+          { icon: 'trash-outline', label: 'Delete account', onPress: doDeleteAccount, destructive: true },
         ]}
       />
 
-      {/* Change Password Modal */}
+      {/* Change password modal */}
       <Modal
         visible={passwordModalVisible}
         animationType="slide"
@@ -383,144 +331,164 @@ export default function SettingsScreen() {
         >
           <SafeAreaView style={{ flex: 1 }} edges={['top']}>
             <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
+              <Pressable
+                onPress={() => setPasswordModalVisible(false)}
+                style={({ pressed }) => [styles.modalHeaderBtn, pressed && { opacity: 0.5 }]}
+              >
                 <Text style={styles.modalCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Change Password</Text>
-              <TouchableOpacity onPress={handleChangePassword} disabled={passwordLoading}>
+              </Pressable>
+              <Text style={styles.modalTitle}>Change password</Text>
+              <Pressable
+                onPress={handleChangePassword}
+                disabled={passwordLoading}
+                style={({ pressed }) => [styles.modalHeaderBtn, { alignItems: 'flex-end' }, pressed && { opacity: 0.5 }]}
+              >
                 {passwordLoading ? (
-                  <ActivityIndicator size="small" color="#5CB85C" />
+                  <ActivityIndicator size="small" color={T.accent} />
                 ) : (
                   <Text style={styles.modalSave}>Save</Text>
                 )}
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>New Password</Text>
+              <Text style={styles.inputLabel}>New password</Text>
               <TextInput
                 style={styles.input}
                 value={newPassword}
                 onChangeText={setNewPassword}
                 secureTextEntry
                 placeholder="At least 6 characters"
-                placeholderTextColor="#a0aec0"
+                placeholderTextColor={T.placeholder}
                 autoCapitalize="none"
               />
 
-              <Text style={styles.inputLabel}>Confirm Password</Text>
+              <Text style={styles.inputLabel}>Confirm password</Text>
               <TextInput
                 style={styles.input}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
                 placeholder="Repeat new password"
-                placeholderTextColor="#a0aec0"
+                placeholderTextColor={T.placeholder}
                 autoCapitalize="none"
               />
             </View>
           </SafeAreaView>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
-function SectionHeader({ label, danger = false }: { label: string; danger?: boolean }) {
+function Group({ label, children }: { label?: string; children: React.ReactNode }) {
   const T = useTheme();
   return (
-    <Text style={{ fontSize: 11, fontWeight: '800', color: danger ? '#FF3B30' : T.textMuted, letterSpacing: 0.9, marginTop: 24, marginBottom: 4, paddingHorizontal: 20 }}>
-      {label.toUpperCase()}
-    </Text>
+    <View style={{ marginTop: label ? 24 : 32 }}>
+      {label ? (
+        <Text style={{ fontSize: 13, color: T.textMuted, paddingHorizontal: 32, marginBottom: 8 }}>
+          {label}
+        </Text>
+      ) : null}
+      <View style={{ backgroundColor: T.surface, borderRadius: 16, marginHorizontal: 16, overflow: 'hidden' }}>
+        {children}
+      </View>
+    </View>
   );
 }
 
-function AnimatedToggle({ value, onValueChange }: { value: boolean; onValueChange: (v: boolean) => void }) {
-  const T = useTheme();
-  const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(anim, { toValue: value ? 1 : 0, duration: 200, useNativeDriver: false }).start();
-  }, [value]);
-
-  const trackColor = anim.interpolate({ inputRange: [0, 1], outputRange: [T.surface2, T.accent] });
-  const thumbX = anim.interpolate({ inputRange: [0, 1], outputRange: [3, 24] });
-
-  return (
-    <TouchableOpacity activeOpacity={0.85} onPress={() => onValueChange(!value)}>
-      <Animated.View style={[styles.toggleTrack, { backgroundColor: trackColor }]}>
-        <Animated.View style={[styles.toggleThumb, { transform: [{ translateX: thumbX }] }]}>
-          <Ionicons name={value ? 'sunny' : 'moon'} size={13} color={value ? T.accent : '#8E8E93'} />
-        </Animated.View>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-}
-
-function SettingsRow({
+function Row({
   icon,
   label,
+  sub,
+  value,
+  right,
   onPress,
-  danger = false,
+  chevron = false,
+  external = false,
+  destructive = false,
   isLast = false,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   label: string;
-  onPress: () => void;
-  danger?: boolean;
+  sub?: string;
+  value?: string;
+  right?: React.ReactNode;
+  onPress?: () => void;
+  chevron?: boolean;
+  external?: boolean;
+  destructive?: boolean;
   isLast?: boolean;
 }) {
   const T = useTheme();
   const s = React.useMemo(() => makeStyles(T), [T]);
-  return (
-    <TouchableOpacity style={[s.row, isLast && s.rowLast, danger && s.dangerRow]} onPress={onPress}>
-      <View style={s.rowLeft}>
-        <View style={[s.iconSquare, danger && s.dangerIconSquare]}>
-          <Ionicons name={icon} size={18} color={danger ? '#FF3B30' : T.textSub} />
-        </View>
-        <Text style={[s.rowLabel, danger && s.dangerLabel]}>{label}</Text>
+  const tint = destructive ? T.error : T.text;
+
+  const content = (
+    <>
+      <Ionicons name={icon} size={20} color={tint} style={s.rowIcon} />
+      <View style={{ flex: 1 }}>
+        <Text style={[s.rowLabel, { color: tint }]} numberOfLines={1}>{label}</Text>
+        {sub ? <Text style={s.rowSub}>{sub}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={danger ? 'rgba(255,59,48,0.4)' : T.textMuted} />
-    </TouchableOpacity>
+      {value ? <Text style={s.rowValue}>{value}</Text> : null}
+      {right}
+      {chevron ? <Ionicons name="chevron-forward" size={18} color={T.textMuted} /> : null}
+      {external ? <Ionicons name="open-outline" size={17} color={T.textMuted} /> : null}
+      {!isLast ? <View style={s.separator} /> : null}
+    </>
+  );
+
+  if (!onPress) return <View style={s.row}>{content}</View>;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [s.row, pressed && { backgroundColor: T.surface2 }]}
+    >
+      {content}
+    </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  toggleTrack: { width: 52, height: 31, borderRadius: 16, justifyContent: 'center' },
-  toggleThumb: { width: 25, height: 25, borderRadius: 13, backgroundColor: '#FFFFFF', position: 'absolute', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 },
-});
-
-function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+function makeStyles(T: AppTheme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 8, paddingVertical: 12,
-      backgroundColor: T.bg,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
+      paddingHorizontal: 4, backgroundColor: T.bg,
     },
-    backBtn: { padding: 8 },
-    headerTitle: { fontSize: 17, fontWeight: '700', color: T.text },
-    content: { paddingBottom: 48 },
-    section: { backgroundColor: T.surface, borderRadius: 16, marginHorizontal: 16, overflow: 'hidden' },
-    dangerSection: { backgroundColor: T.dangerBg, borderWidth: 1, borderColor: 'rgba(255,59,48,0.2)' },
-    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
-    rowLast: { borderBottomWidth: 0 },
-    dangerRow: { borderBottomColor: 'rgba(255,59,48,0.14)' },
-    rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-    iconSquare: { width: 30, height: 30, borderRadius: 9, backgroundColor: T.surface2, justifyContent: 'center', alignItems: 'center' },
-    dangerIconSquare: { backgroundColor: 'rgba(255,59,48,0.15)' },
+    backBtn: { width: 44, height: 50, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: {
+      flex: 1, textAlign: 'center', fontSize: 17,
+      fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text,
+    },
+    row: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      minHeight: 52, paddingHorizontal: 16, paddingVertical: 10,
+    },
+    rowIcon: { width: 24 },
+    separator: {
+      position: 'absolute', left: 52, right: 0, bottom: 0,
+      height: StyleSheet.hairlineWidth, backgroundColor: T.border,
+    },
     rowLabel: { fontSize: 16, color: T.text },
-    rowSub: { fontSize: 12, color: T.textMuted, marginTop: 1 },
+    rowSub: { fontSize: 13, color: T.textMuted, marginTop: 2 },
     rowValue: { fontSize: 15, color: T.textMuted },
-    dangerLabel: { color: '#FF3B30', fontWeight: '600' },
     modalContainer: { flex: 1, backgroundColor: T.bg },
-    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight },
+    modalHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 12, height: 56,
+    },
+    modalHeaderBtn: { minWidth: 64, height: 44, justifyContent: 'center', paddingHorizontal: 4 },
     modalCancel: { fontSize: 16, color: T.textSub },
-    modalTitle: { fontSize: 17, fontWeight: '700', color: T.text },
+    modalTitle: { fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text },
     modalSave: { fontSize: 16, fontWeight: '700', color: T.accent },
-    modalBody: { padding: 20, gap: 4 },
-    inputLabel: { fontSize: 13, color: T.textSub, marginBottom: 4, marginTop: 12 },
-    input: { backgroundColor: T.inputBg, borderRadius: 10, borderWidth: 1, borderColor: T.border, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: T.text },
+    modalBody: { paddingHorizontal: 20, paddingTop: 8 },
+    inputLabel: { fontSize: 13, color: T.textMuted, marginBottom: 8, marginTop: 16 },
+    input: {
+      height: 48, borderRadius: 14, borderWidth: 1, borderColor: T.border,
+      backgroundColor: T.bg, paddingHorizontal: 14, fontSize: 16, color: T.text,
+    },
   });
 }
