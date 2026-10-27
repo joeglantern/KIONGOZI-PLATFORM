@@ -1,83 +1,41 @@
+// Kiongozi AI chat — clean, Apple-like: small living orb, time-aware greeting, compact suggestion
+// pills, soft input card, and a ChatGPT-style history drawer that follows your finger (UI thread).
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  SectionList,
-  StyleSheet,
-  Platform,
-  Alert,
-  ActivityIndicator,
-  Dimensions,
-  Keyboard,
-  Animated,
-  KeyboardAvoidingView,
-  Image,
-  PanResponder,
-  StatusBar,
+  View, Text, TextInput, TouchableOpacity, Pressable, FlatList, SectionList, StyleSheet, Platform, Alert,
+  ActivityIndicator, Dimensions, Keyboard, KeyboardAvoidingView, StatusBar, ScrollView, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import Reanimated, {
+  FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withTiming, interpolate, Extrapolation, runOnJS,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
+import { useProfileStore } from '../stores/profileStore';
 import apiClient from '../utils/apiClient';
-import { TypingDots } from '../components/social/TypingDots';
 import MarkdownRenderer from '../components/MarkdownRenderer';
-import Reanimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
-import { AIOrb } from '../components/ai/AIOrb';
-import { AIWelcome } from '../components/ai/Suggestions';
+import { UserAvatar } from '../components/social/UserAvatar';
+import { OrbVideo, OrbStill } from '../components/ai/OrbVideo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SIDEBAR_WIDTH = Math.min(300, SCREEN_WIDTH * 0.78);
-const EDGE_HIT = 30;
+const DRAWER_W = Math.min(330, SCREEN_WIDTH * 0.84);
+const SPRING = { damping: 26, stiffness: 260, mass: 0.9 };
 
-// ─── Glowing logo ────────────────────────────────────────────────────────────
+const SUGGESTIONS: { icon: keyof typeof Ionicons.glyphMap; label: string; prompt: string }[] = [
+  { icon: 'leaf-outline', label: 'Green careers', prompt: 'What green jobs can a young person in Kenya start preparing for this year?' },
+  { icon: 'shield-checkmark-outline', label: 'Know my rights', prompt: 'Explain my key civic rights as a young Kenyan in simple terms.' },
+  { icon: 'laptop-outline', label: 'Digital skills', prompt: 'Which digital skills should I learn first to get online work, and where can I start for free?' },
+  { icon: 'people-outline', label: 'Community project', prompt: 'Give me a simple plan to start a climate action project in my community.' },
+];
 
-function GlowingLogo() {
-  const isDark = useThemeStore(s => s.isDark);
-  const glowAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, { toValue: 1, duration: 1300, useNativeDriver: false }),
-        Animated.timing(glowAnim, { toValue: 0, duration: 1300, useNativeDriver: false }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, []);
-
-  const shadowRadius = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 8] });
-
-  return (
-    <Animated.View style={[
-      glowStyles.circle,
-      {
-        backgroundColor: isDark ? '#0D1F0D' : '#EAF6EA',
-        shadowRadius,
-        shadowColor: '#5CB85C',
-        shadowOpacity: 1,
-        shadowOffset: { width: 0, height: 0 },
-      },
-    ]}>
-      <Image source={require('../../assets/kchat-logo.png')} style={glowStyles.logo} resizeMode="contain" />
-    </Animated.View>
-  );
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
-
-const glowStyles = StyleSheet.create({
-  circle: {
-    width: 38, height: 38, borderRadius: 19,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: '#2A3A2A',
-  },
-  logo: { width: 26, height: 26 },
-});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -142,21 +100,20 @@ interface ChatScreenProps {
 
 export default function ChatScreen({ onClose }: ChatScreenProps) {
   const { user } = useAuthStore();
+  const me = useProfileStore(s => s.currentUserProfile);
   const isDark = useThemeStore(s => s.isDark);
   const insets = useSafeAreaInsets();
 
   const C = {
     bg:         isDark ? '#000000' : '#FFFFFF',
-    surface:    isDark ? '#111111' : '#F2F2F7',
-    surface2:   isDark ? '#1A1A1A' : '#E5E5EA',
-    border:     isDark ? '#2A2A2A' : '#D1D1D6',
-    borderLight: isDark ? '#1A1A1A' : '#E9E9EE',
-    text:       isDark ? '#FFFFFF' : '#000000',
-    textSub:    isDark ? '#8E8E93' : '#6C6C70',
-    textMuted:  isDark ? '#7C7C80' : '#9A9AA0',
-    userBubble: isDark ? '#1A1A1A' : '#E9E9EB',
+    drawer:     isDark ? '#0B0B0B' : '#F7F7F8',
+    surface:    isDark ? '#141414' : '#F2F2F5',
+    surface2:   isDark ? '#1E1E1E' : '#E8E8ED',
+    border:     isDark ? '#262626' : '#E2E2E7',
+    text:       isDark ? '#FFFFFF' : '#0A0A0A',
+    textSub:    isDark ? '#A1A1A6' : '#5E5E63',
+    textMuted:  isDark ? '#6E6E73' : '#8E8E93',
     accent:     '#5CB85C',
-    sidebar:    isDark ? '#000000' : '#F8F8F8',
   };
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -175,62 +132,45 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   // Keep ref in sync so async callbacks have the latest id
   useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
 
-  // ─── Sidebar ───────────────────────────────────────────────────────────────
-  const sidebarAnim = useRef(new Animated.Value(0)).current;
-  const sidebarVal = useRef(0);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // ─── History drawer (Gesture Handler + Reanimated: follows the finger, springs) ──
+  const progress = useSharedValue(0); // 0 closed → 1 open
+  const startP = useSharedValue(0);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    const id = sidebarAnim.addListener(({ value }) => { sidebarVal.current = value; });
-    return () => sidebarAnim.removeListener(id);
-  }, []);
-
-  const openSidebar = useCallback((velocity = 0) => {
+  const setOpenJS = useCallback((o: boolean) => setDrawerOpen(o), []);
+  const openSidebar = useCallback(() => {
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSidebarOpen(true);
-    Animated.spring(sidebarAnim, { toValue: 1, useNativeDriver: true, velocity, tension: 65, friction: 11 }).start();
-  }, [sidebarAnim]);
+    setDrawerOpen(true);
+    progress.value = withSpring(1, SPRING);
+  }, []);
+  const closeSidebar = useCallback(() => {
+    progress.value = withSpring(0, SPRING, done => { if (done) runOnJS(setOpenJS)(false); });
+  }, []);
 
-  const closeSidebar = useCallback((velocity = 0) => {
-    Animated.spring(sidebarAnim, { toValue: 0, useNativeDriver: true, velocity, tension: 65, friction: 11 })
-      .start(({ finished }) => { if (finished) setSidebarOpen(false); });
-  }, [sidebarAnim]);
+  const drawerPan = Gesture.Pan()
+    .activeOffsetX([-12, 12])
+    .failOffsetY([-14, 14])
+    .hitSlop(drawerOpen ? undefined : { left: 0, width: 28 })
+    .onStart(() => { startP.value = progress.value; runOnJS(setOpenJS)(true); })
+    .onUpdate(e => { progress.value = Math.min(1, Math.max(0, startP.value + e.translationX / DRAWER_W)); })
+    .onEnd(e => {
+      const open = e.velocityX > 500 || (e.velocityX > -500 && progress.value > 0.5);
+      progress.value = withSpring(open ? 1 : 0, { ...SPRING, velocity: e.velocityX / DRAWER_W }, done => {
+        if (done && !open) runOnJS(setOpenJS)(false);
+      });
+    });
 
-  const sidebarTranslateX = sidebarAnim.interpolate({ inputRange: [0, 1], outputRange: [-SIDEBAR_WIDTH, 0] });
-  const contentTranslateX = sidebarAnim.interpolate({ inputRange: [0, 1], outputRange: [0, SIDEBAR_WIDTH] });
-  const overlayOpacity = sidebarAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] });
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gs) => {
-        const { dx, dy } = gs;
-        if (Math.abs(dx) < Math.abs(dy) * 1.4 || Math.abs(dx) < 6) return false;
-        const isOpen = sidebarVal.current > 0.3;
-        if (!isOpen && dx > 0 && evt.nativeEvent.pageX < EDGE_HIT) return true;
-        if (isOpen && dx < 0) return true;
-        return false;
-      },
-      onPanResponderGrant: () => {
-        sidebarAnim.stopAnimation();
-        if (sidebarVal.current > 0.05) setSidebarOpen(true);
-      },
-      onPanResponderMove: (_, gs) => {
-        const base = sidebarVal.current > 0.5 ? 1 : 0;
-        const next = Math.max(0, Math.min(1, base + gs.dx / SIDEBAR_WIDTH));
-        sidebarAnim.setValue(next);
-        if (next > 0.05) setSidebarOpen(true);
-      },
-      onPanResponderRelease: (_, gs) => {
-        const cur = sidebarVal.current;
-        const shouldOpen = gs.vx > 0.3 || (gs.vx >= -0.3 && cur > 0.4);
-        if (shouldOpen) openSidebar(gs.vx); else closeSidebar(-gs.vx);
-      },
-      onPanResponderTerminate: (_, gs) => {
-        if (sidebarVal.current > 0.5) openSidebar(gs.vx); else closeSidebar(-gs.vx);
-      },
-    })
-  ).current;
+  const mainStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: progress.value * DRAWER_W }],
+    borderRadius: interpolate(progress.value, [0, 1], [0, 24], Extrapolation.CLAMP),
+  }));
+  const dimStyle = useAnimatedStyle(() => ({ opacity: progress.value * (isDark ? 0.5 : 0.18) }));
+  const drawerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: interpolate(progress.value, [0, 1], [-DRAWER_W * 0.25, 0]) }],
+    opacity: interpolate(progress.value, [0, 0.4, 1], [0, 0.8, 1]),
+  }));
 
   // ─── Data loading ─────────────────────────────────────────────────────────
   const loadConversations = useCallback(async () => {
@@ -289,8 +229,8 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   };
 
   // ─── Send message ─────────────────────────────────────────────────────────
-  const sendMessage = async () => {
-    const text = inputText.trim();
+  const sendMessage = async (override?: string) => {
+    const text = (override ?? inputText).trim();
     if (!text || isGenerating) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -372,380 +312,266 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  // ─── Grouped sidebar sections ─────────────────────────────────────────────
-  const sidebarSections = useMemo(() => groupConversations(conversations), [conversations]);
+  // ─── Grouped, searchable history ──────────────────────────────────────────
+  const sidebarSections = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return groupConversations(q ? conversations.filter(c => (c.title || 'New conversation').toLowerCase().includes(q)) : conversations);
+  }, [conversations, search]);
+
+  const firstName = ((me?.full_name || (user as any)?.user_metadata?.full_name || '') as string).trim().split(/\s+/)[0];
+  const canSend = inputText.trim().length > 0;
 
   // ─── Renderers ────────────────────────────────────────────────────────────
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     if (item.isUser) {
       return (
-        <Reanimated.View entering={FadeInDown.duration(240)} style={styles.userRow}>
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onLongPress={() => copyMessage(item.text)}
-            style={[styles.userBubble, { backgroundColor: C.userBubble }]}
-          >
+        <Reanimated.View entering={FadeInDown.duration(220)} style={styles.userRow}>
+          <TouchableOpacity activeOpacity={0.8} onLongPress={() => copyMessage(item.text)} style={[styles.userBubble, { backgroundColor: C.surface2 }]}>
             <Text style={[styles.userText, { color: C.text }]}>{item.text}</Text>
           </TouchableOpacity>
         </Reanimated.View>
       );
     }
+    if (item.isLoading) {
+      return (
+        <Reanimated.View entering={FadeIn.duration(200)} style={styles.thinking}>
+          <OrbVideo size={22} />
+          <Text style={[styles.thinkingText, { color: C.textMuted }]}>Thinking…</Text>
+        </Reanimated.View>
+      );
+    }
     return (
-      <Reanimated.View entering={FadeIn.duration(260)} style={styles.aiRow}>
-        <View style={styles.aiAvatarWrap}>
-          <AIOrb size={28} state={item.isLoading ? 'thinking' : 'idle'} />
-        </View>
-        <View style={styles.aiContent}>
-          <Text style={[styles.aiName, { color: C.textMuted }]}>Kiongozi AI</Text>
-          {item.isLoading ? (
-            <View style={styles.thinkingRow}>
-              <TypingDots />
-              <Text style={[styles.thinkingText, { color: C.textMuted }]}>Thinking…</Text>
-            </View>
-          ) : (
-            <TouchableOpacity activeOpacity={1} onLongPress={() => copyMessage(item.text)}>
-              <MarkdownRenderer content={item.text} darkMode={isDark} />
-              <View style={styles.aiActions}>
-                <TouchableOpacity
-                  onPress={() => copyMessage(item.text)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={[styles.aiActionBtn, { borderColor: C.border }]}
-                  accessibilityLabel="Copy reply"
-                >
-                  <Ionicons name="copy-outline" size={14} color={C.textSub} />
-                  <Text style={[styles.aiActionText, { color: C.textSub }]}>Copy</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          )}
+      <Reanimated.View entering={FadeIn.duration(240)} style={styles.aiRow}>
+        <TouchableOpacity activeOpacity={1} onLongPress={() => copyMessage(item.text)}>
+          <MarkdownRenderer content={item.text} darkMode={isDark} />
+        </TouchableOpacity>
+        <View style={styles.aiActions}>
+          <TouchableOpacity onPress={() => copyMessage(item.text)} style={styles.aiAction} accessibilityLabel="Copy reply">
+            <Ionicons name="copy-outline" size={17} color={C.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Share.share({ message: item.text }).catch(() => {})} style={styles.aiAction} accessibilityLabel="Share reply">
+            <Ionicons name="share-outline" size={18} color={C.textMuted} />
+          </TouchableOpacity>
         </View>
       </Reanimated.View>
     );
-  }, [C, isDark]);
-
-  const renderConversationItem = useCallback(({ item }: { item: Conversation }) => (
-    <TouchableOpacity
-      style={[styles.convItem, item.id === conversationId && { backgroundColor: C.surface2 }]}
-      onPress={() => loadConversationMessages(item.id)}
-      onLongPress={() => deleteConversation(item.id)}
-      activeOpacity={0.65}
-    >
-      <Ionicons name="chatbubble-ellipses-outline" size={15} color={C.textSub} style={{ marginTop: 2 }} />
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.convTitle, { color: C.text }]} numberOfLines={1}>
-          {item.title || 'New conversation'}
-        </Text>
-        <Text style={[styles.convTime, { color: C.textSub }]}>{timeLabel(item.updated_at)}</Text>
-      </View>
-    </TouchableOpacity>
-  ), [conversationId, C]);
-
-  const renderSectionHeader = useCallback(({ section }: { section: ConvSection }) => (
-    <Text style={[styles.sectionHeader, { color: C.textMuted, backgroundColor: C.sidebar }]}>
-      {section.title.toUpperCase()}
-    </Text>
-  ), [C]);
+  }, [isDark]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.root, { backgroundColor: C.sidebar }]} {...panResponder.panHandlers}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={[styles.root, { backgroundColor: C.drawer }]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
-      {/* Sidebar */}
-      <Animated.View
-        style={[
-          styles.sidebar,
-          {
-            width: SIDEBAR_WIDTH,
-            backgroundColor: C.sidebar,
-            borderRightColor: C.border,
-            paddingTop: insets.top,
-            paddingBottom: Math.max(insets.bottom, 16),
-            transform: [{ translateX: sidebarTranslateX }],
-          },
-        ]}
-      >
-        {/* Sidebar header */}
-        <View style={styles.sidebarHeader}>
-          <View style={styles.sidebarLogoWrap}>
-            <Image source={require('../../assets/kchat-logo.png')} style={styles.sidebarLogoImg} resizeMode="contain" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.sidebarHeading, { color: C.text }]}>Kiongozi AI</Text>
-            <Text style={[styles.sidebarSubheading, { color: C.textSub }]}>Chat history</Text>
-          </View>
-          <TouchableOpacity
-            onPress={startNewChat}
-            style={[styles.newChatIconBtn, { borderColor: C.border, backgroundColor: 'transparent' }]}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="create-outline" size={18} color={C.text} />
-          </TouchableOpacity>
-        </View>
-
-        {loadingConversations ? (
-          <ActivityIndicator color={C.accent} style={{ marginTop: 28 }} />
-        ) : sidebarSections.length === 0 ? (
-          <View style={styles.noChatsWrap}>
-            <Ionicons name="chatbubble-ellipses-outline" size={36} color={C.border} />
-            <Text style={[styles.noChats, { color: C.textSub }]}>No chats yet</Text>
-            <Text style={[styles.noChatsHint, { color: C.textMuted }]}>Start a new conversation</Text>
-          </View>
-        ) : (
-          <SectionList
-            sections={sidebarSections}
-            keyExtractor={c => c.id}
-            renderItem={renderConversationItem}
-            renderSectionHeader={renderSectionHeader}
-            contentContainerStyle={{ paddingBottom: 24 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            stickySectionHeadersEnabled={false}
-          />
-        )}
-      </Animated.View>
-
-      {/* Main content */}
-      <Animated.View
-        style={[styles.main, { backgroundColor: C.bg, transform: [{ translateX: contentTranslateX }] }]}
-      >
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity
-            onPress={() => isSidebarOpen() ? closeSidebar() : openSidebar()}
-            style={styles.headerBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="albums-outline" size={22} color={C.text} />
-          </TouchableOpacity>
-
-          <View style={styles.headerCenter}>
-            <AIOrb size={22} state={isGenerating ? 'thinking' : 'idle'} />
-            <View style={[styles.headerTitleBlock, { alignItems: 'flex-start' }]}>
-              <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>Kiongozi AI</Text>
-              <Text style={[styles.headerSub, { color: C.textMuted }]}>{isGenerating ? 'Thinking…' : 'Green & Digital Transition'}</Text>
+        {/* History drawer (sits under the chat, revealed as it slides) */}
+        <Reanimated.View style={[styles.drawer, { width: DRAWER_W, paddingTop: insets.top + 8, paddingBottom: Math.max(insets.bottom, 12) }, drawerStyle]}>
+          <View style={styles.drawerTop}>
+            <View style={[styles.search, { backgroundColor: C.surface2 }]}>
+              <Ionicons name="search" size={16} color={C.textMuted} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search"
+                placeholderTextColor={C.textMuted}
+                style={[styles.searchInput, { color: C.text }]}
+                autoCorrect={false}
+              />
             </View>
-          </View>
-
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              onPress={startNewChat}
-              style={styles.headerBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
+            <TouchableOpacity onPress={startNewChat} style={styles.iconBtn} accessibilityLabel="New chat">
               <Ionicons name="create-outline" size={22} color={C.text} />
             </TouchableOpacity>
-            {onClose && (
-              <TouchableOpacity
-                onPress={onClose}
-                style={styles.headerBtn}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="chevron-down" size={24} color={C.text} />
-              </TouchableOpacity>
-            )}
           </View>
-        </View>
 
-        {/* Messages + Input */}
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          {loadingMessages ? (
-            <ActivityIndicator color={C.accent} style={{ flex: 1 }} />
+          <TouchableOpacity onPress={startNewChat} style={styles.drawerRow} activeOpacity={0.6}>
+            <OrbStill size={24} />
+            <Text style={[styles.drawerRowText, { color: C.text }]}>Kiongozi AI</Text>
+          </TouchableOpacity>
+
+          {loadingConversations ? (
+            <ActivityIndicator color={C.textMuted} style={{ marginTop: 28 }} />
+          ) : sidebarSections.length === 0 ? (
+            <Text style={[styles.noChats, { color: C.textMuted }]}>{search ? 'No chats found' : 'Your chats will show up here'}</Text>
           ) : (
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              keyExtractor={m => String(m.id)}
-              renderItem={renderMessage}
-              contentContainerStyle={[
-                styles.messageList,
-                messages.length === 0 && styles.messageListEmpty,
-              ]}
-              ListEmptyComponent={
-                <AIWelcome
-                  name={(user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name}
-                  C={C}
-                  onPick={(prompt) => { setInputText(prompt); setTimeout(() => inputRef.current?.focus(), 50); }}
-                />
-              }
-              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-              keyboardShouldPersistTaps="handled"
-              onScrollBeginDrag={Keyboard.dismiss}
+            <SectionList
+              sections={sidebarSections}
+              keyExtractor={c => c.id}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => loadConversationMessages(item.id)}
+                  onLongPress={() => deleteConversation(item.id)}
+                  style={({ pressed }) => [styles.convItem, (item.id === conversationId || pressed) && { backgroundColor: C.surface2 }]}
+                >
+                  <Text style={[styles.convTitle, { color: C.text }]} numberOfLines={1}>{item.title || 'New conversation'}</Text>
+                </Pressable>
+              )}
+              renderSectionHeader={({ section }) => <Text style={[styles.sectionHeader, { color: C.textMuted }]}>{section.title}</Text>}
+              contentContainerStyle={{ paddingBottom: 16 }}
               showsVerticalScrollIndicator={false}
-              onContentSizeChange={() => {
-                if (messages.length > 0) flatListRef.current?.scrollToEnd({ animated: false });
-              }}
+              keyboardShouldPersistTaps="handled"
+              stickySectionHeadersEnabled={false}
             />
           )}
 
-          {/* Input bar */}
-          <View
-            style={[
-              styles.inputWrap,
-              { backgroundColor: C.bg, paddingBottom: Math.max(insets.bottom, 10) },
-            ]}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              style={[styles.inputRow, { backgroundColor: 'transparent', borderColor: C.border }]}
-              onPress={() => inputRef.current?.focus()}
-            >
-              <TextInput
-                ref={inputRef}
-                style={[styles.input, { color: C.text }]}
-                placeholder="Ask Kiongozi AI anything…"
-                placeholderTextColor={C.textMuted}
-                value={inputText}
-                onChangeText={setInputText}
-                multiline
-                maxLength={4000}
-                returnKeyType="default"
-                blurOnSubmit={false}
-                scrollEnabled
-              />
-              {isGenerating ? (
-                <TouchableOpacity
-                  onPress={stopGeneration}
-                  style={[styles.sendBtn, { backgroundColor: C.surface2 }]}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                >
-                  <Ionicons name="stop" size={15} color={C.text} />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={sendMessage}
-                  disabled={!inputText.trim()}
-                  style={[styles.sendBtn, { backgroundColor: inputText.trim() ? C.accent : C.surface2 }]}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                >
-                  <Ionicons name="arrow-up" size={18} color={inputText.trim() ? '#000000' : C.textMuted} />
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
+          <View style={[styles.profileRow, { borderTopColor: C.border }]}>
+            <UserAvatar avatarUrl={me?.avatar_url} size={32} />
+            <Text style={[styles.profileName, { color: C.text }]} numberOfLines={1}>{me?.full_name || me?.username || 'You'}</Text>
           </View>
-        </KeyboardAvoidingView>
+        </Reanimated.View>
 
-        {/* Tap-to-close overlay */}
-        {sidebarOpen && (
-          <>
-            <Animated.View
-              style={[StyleSheet.absoluteFill, { backgroundColor: '#000000', opacity: overlayOpacity }]}
-              pointerEvents="none"
-            />
-            <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => closeSidebar()} activeOpacity={1} />
-          </>
-        )}
-      </Animated.View>
-    </View>
+        {/* Chat */}
+        <GestureDetector gesture={drawerPan}>
+          <Reanimated.View style={[styles.main, { backgroundColor: C.bg }, mainStyle]}>
+            <View style={[styles.header, { paddingTop: insets.top }]}>
+              <TouchableOpacity onPress={() => (drawerOpen ? closeSidebar() : openSidebar())} style={styles.iconBtn} accessibilityLabel="Chat history">
+                <Ionicons name="reorder-two" size={26} color={C.text} />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>
+                {isGenerating ? 'Thinking…' : 'Kiongozi AI'}
+              </Text>
+              <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity onPress={startNewChat} style={styles.iconBtn} accessibilityLabel="New chat">
+                  <Ionicons name="create-outline" size={22} color={C.text} />
+                </TouchableOpacity>
+                {onClose && (
+                  <TouchableOpacity onPress={onClose} style={styles.iconBtn} accessibilityLabel="Close">
+                    <View style={[styles.closeCircle, { backgroundColor: C.surface2 }]}>
+                      <Ionicons name="chevron-down" size={18} color={C.text} />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+              {loadingMessages ? (
+                <ActivityIndicator color={C.textMuted} style={{ flex: 1 }} />
+              ) : (
+                <FlatList
+                  ref={flatListRef}
+                  data={messages}
+                  keyExtractor={m => String(m.id)}
+                  renderItem={renderMessage}
+                  contentContainerStyle={[styles.messageList, messages.length === 0 && { flexGrow: 1 }]}
+                  ListEmptyComponent={
+                    <Reanimated.View entering={FadeIn.duration(400)} style={styles.empty}>
+                      <OrbVideo size={64} />
+                      <Text style={[styles.greet, { color: C.textSub }]}>{greeting()}{firstName ? `, ${firstName}` : ''}</Text>
+                      <Text style={[styles.title, { color: C.text }]}>What can I help with?</Text>
+                    </Reanimated.View>
+                  }
+                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  onContentSizeChange={() => { if (messages.length > 0) flatListRef.current?.scrollToEnd({ animated: false }); }}
+                />
+              )}
+
+              {messages.length === 0 && !loadingMessages && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.pills}>
+                  {SUGGESTIONS.map((sg, i) => (
+                    <Reanimated.View key={sg.label} entering={FadeInDown.delay(120 + i * 60).duration(320)}>
+                      <Pressable
+                        onPress={() => { Haptics.selectionAsync(); sendMessage(sg.prompt); }}
+                        style={({ pressed }) => [styles.pill, { backgroundColor: C.surface, borderColor: C.border }, pressed && { opacity: 0.7 }]}
+                      >
+                        <Ionicons name={sg.icon} size={16} color={C.text} />
+                        <Text style={[styles.pillText, { color: C.text }]}>{sg.label}</Text>
+                      </Pressable>
+                    </Reanimated.View>
+                  ))}
+                </ScrollView>
+              )}
+
+              <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+                <View style={[styles.inputCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+                  <TextInput
+                    ref={inputRef}
+                    style={[styles.input, { color: C.text }]}
+                    placeholder="Ask anything"
+                    placeholderTextColor={C.textMuted}
+                    value={inputText}
+                    onChangeText={setInputText}
+                    multiline
+                    maxLength={4000}
+                    scrollEnabled
+                  />
+                  {isGenerating ? (
+                    <TouchableOpacity onPress={stopGeneration} style={[styles.sendBtn, { backgroundColor: C.text }]} accessibilityLabel="Stop">
+                      <View style={[styles.stopSquare, { backgroundColor: C.bg }]} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => sendMessage()}
+                      disabled={!canSend}
+                      style={[styles.sendBtn, { backgroundColor: canSend ? C.text : C.surface2 }]}
+                      accessibilityLabel="Send"
+                    >
+                      <Ionicons name="arrow-up" size={18} color={canSend ? C.bg : C.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={[styles.disclaimer, { color: C.textMuted }]}>Kiongozi AI can make mistakes. Check important info.</Text>
+              </View>
+            </KeyboardAvoidingView>
+
+            {drawerOpen && (
+              <Reanimated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }, dimStyle]}>
+                <Pressable style={StyleSheet.absoluteFill} onPress={closeSidebar} accessibilityLabel="Close history" />
+              </Reanimated.View>
+            )}
+          </Reanimated.View>
+        </GestureDetector>
+      </View>
+    </GestureHandlerRootView>
   );
-
-  function isSidebarOpen() {
-    return sidebarVal.current > 0.5;
-  }
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden' },
 
-  // Sidebar
-  sidebar: {
-    position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 10,
-    borderRightWidth: 1,
-  },
-  sidebarHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16,
-  },
-  sidebarLogoWrap: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: '#2A2A2A',
-  },
-  sidebarLogoImg: { width: 22, height: 22 },
-  sidebarHeading: { fontSize: 17, fontWeight: '600', fontFamily: 'SpaceGrotesk_600SemiBold', letterSpacing: -0.3 },
-  sidebarSubheading: { fontSize: 13, marginTop: 2 },
-  newChatIconBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  sectionHeader: {
-    fontSize: 11, fontWeight: '600', letterSpacing: 0.6,
-    paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8,
-  },
-  convItem: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    paddingHorizontal: 12, paddingVertical: 11,
-    marginHorizontal: 8, marginVertical: 1, borderRadius: 12,
-  },
-  convTitle: { fontSize: 15, fontWeight: '500', marginBottom: 2 },
-  convTime: { fontSize: 12 },
-  noChatsWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60, gap: 8 },
-  noChats: { fontSize: 16, fontWeight: '600', fontFamily: 'SpaceGrotesk_600SemiBold' },
-  noChatsHint: { fontSize: 14 },
+  // Drawer
+  drawer: { position: 'absolute', top: 0, left: 0, bottom: 0 },
+  drawerTop: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingBottom: 8 },
+  search: { flex: 1, height: 40, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12 },
+  searchInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
+  drawerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 8, paddingHorizontal: 10, height: 44, borderRadius: 12 },
+  drawerRowText: { fontSize: 16, fontWeight: '600' },
+  sectionHeader: { fontSize: 13, fontWeight: '600', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 6 },
+  convItem: { marginHorizontal: 8, paddingHorizontal: 10, height: 42, borderRadius: 12, justifyContent: 'center' },
+  convTitle: { fontSize: 15.5 },
+  noChats: { fontSize: 14, textAlign: 'center', marginTop: 32, paddingHorizontal: 24 },
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 12, marginTop: 'auto', borderTopWidth: StyleSheet.hairlineWidth },
+  profileName: { fontSize: 15, fontWeight: '600', flex: 1 },
 
-  // Main
-  main: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 },
+  // Chat
+  main: { flex: 1, overflow: 'hidden' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, minHeight: 48 },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  closeCircle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
 
-  // Header
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 6, paddingBottom: 2, minHeight: 50, borderBottomWidth: 0,
-  },
-  headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  headerRight: { flexDirection: 'row', alignItems: 'center' },
-  headerCenter: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 8,
-  },
-  headerTitleBlock: { flexDirection: 'column', alignItems: 'center', flexShrink: 1 },
-  headerTitle: { fontSize: 17, fontWeight: '600', fontFamily: 'SpaceGrotesk_600SemiBold', letterSpacing: -0.3, flexShrink: 1 },
-  headerSub: { fontSize: 12, fontWeight: '400', marginTop: 1 },
+  messageList: { paddingTop: 12, paddingHorizontal: 18, paddingBottom: 8 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 40 },
+  greet: { marginTop: 20, fontSize: 17, fontWeight: '500' },
+  title: { marginTop: 4, fontSize: 26, fontWeight: '600', letterSpacing: -0.6, textAlign: 'center' },
 
-  // Messages
-  messageList: { paddingTop: 16, paddingHorizontal: 18, paddingBottom: 12 },
-  messageListEmpty: { flexGrow: 1 },
-  aiRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 26, gap: 12 },
-  aiAvatarWrap: { marginTop: 1 },
-  aiContent: { flex: 1, minWidth: 0 },
-  aiName: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
-  aiText: { fontSize: 16, lineHeight: 25 },
-  thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-  thinkingText: { fontSize: 14 },
-  aiActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  aiActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 30, paddingHorizontal: 10, borderRadius: 15, borderWidth: StyleSheet.hairlineWidth },
-  aiActionText: { fontSize: 12.5, fontWeight: '600' },
-  userRow: { alignItems: 'flex-end', marginBottom: 28 },
-  userBubble: {
-    maxWidth: '80%', borderRadius: 22, borderBottomRightRadius: 6,
-    paddingHorizontal: 16, paddingVertical: 11,
-  },
-  userText: { fontSize: 16, lineHeight: 23 },
+  userRow: { alignItems: 'flex-end', marginBottom: 22 },
+  userBubble: { maxWidth: '82%', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10 },
+  userText: { fontSize: 16, lineHeight: 22 },
+  thinking: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 22 },
+  thinkingText: { fontSize: 15 },
+  aiRow: { marginBottom: 22 },
+  aiActions: { flexDirection: 'row', gap: 2, marginTop: 6, marginLeft: -8 },
+  aiAction: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
 
-  // Empty state
-  emptyWrap: {
-    flex: 1, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 32, paddingBottom: 60,
-  },
-  emptyLogo: { width: 64, height: 44, marginBottom: 24 },
-  emptyTitle: {
-    fontSize: 32, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold',
-    marginBottom: 12, textAlign: 'center', letterSpacing: -0.8, lineHeight: 38,
-  },
-  emptySub: { fontSize: 16, textAlign: 'center', lineHeight: 24 },
+  pills: { paddingHorizontal: 14, gap: 8, paddingBottom: 10 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 38, paddingHorizontal: 14, borderRadius: 19, borderWidth: StyleSheet.hairlineWidth },
+  pillText: { fontSize: 14.5, fontWeight: '500' },
 
-  // Input
-  inputWrap: { paddingHorizontal: 16, paddingTop: 8, borderTopWidth: 0 },
-  inputRow: {
-    flexDirection: 'row', alignItems: 'flex-end', borderRadius: 22, minHeight: 44,
-    borderWidth: 1, paddingLeft: 16, paddingRight: 3, paddingVertical: 3, gap: 6,
-  },
-  input: { flex: 1, fontSize: 16, maxHeight: 130, paddingTop: 8, paddingBottom: 8, lineHeight: 21 },
-  sendBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    justifyContent: 'center', alignItems: 'center',
-  },
+  composer: { paddingHorizontal: 12, paddingTop: 4 },
+  inputCard: { flexDirection: 'row', alignItems: 'flex-end', borderRadius: 26, borderWidth: StyleSheet.hairlineWidth, paddingLeft: 16, paddingRight: 6, paddingVertical: 6, minHeight: 52 },
+  input: { flex: 1, fontSize: 16, lineHeight: 21, maxHeight: 140, paddingTop: Platform.OS === 'ios' ? 9 : 6, paddingBottom: Platform.OS === 'ios' ? 9 : 6 },
+  sendBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+  stopSquare: { width: 12, height: 12, borderRadius: 3 },
+  disclaimer: { fontSize: 11.5, textAlign: 'center', marginTop: 8 },
 });

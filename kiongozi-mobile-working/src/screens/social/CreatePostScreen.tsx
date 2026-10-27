@@ -1,14 +1,19 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, Pressable, StyleSheet, TextInput, Keyboard,
-  ScrollView, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  View, Text, Pressable, StyleSheet, TextInput, Keyboard, ScrollView, Image, Alert,
+  ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions, LayoutChangeEvent,
+  ImageSourcePropType,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, FadeIn, FadeOut,
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { ComposerMedia, ComposerMediaItem, UploadStatus } from '../../components/social/ComposerMedia';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useSocialStore } from '../../stores/socialStore';
@@ -22,14 +27,28 @@ interface CreatePostScreenProps {
   parentPostId?: string;
 }
 
-type MediaItem = { uri: string; type: 'image' | 'video'; width?: number; height?: number; thumbnailUri?: string };
+type MediaItem = ComposerMediaItem;
 type MentionUser = { id: string; username: string; full_name: string; avatar_url?: string };
 
 const MAX_CHARS = 280;
 const WARN_AT = 240;
 const MAX_MEDIA = 4;
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
-const THUMB_H = 180;
+const SIDE = 16;
+const HEADER_H = 52;
+
+const ICONS: Record<'gallery' | 'camera' | 'video' | 'everyone' | 'followers', ImageSourcePropType> = {
+  gallery: require('../../../assets/composer/gallery.png'),
+  camera: require('../../../assets/composer/camera.png'),
+  video: require('../../../assets/composer/video.png'),
+  everyone: require('../../../assets/composer/everyone.png'),
+  followers: require('../../../assets/composer/followers.png'),
+};
+
+const HINTS = ["What's happening?", 'Share something…', "What's on your mind?", 'Got a thought? Drop it here…'];
+
+const tap = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+const newId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
 export default function CreatePostScreen({ onClose, parentPostId }: CreatePostScreenProps) {
   const { user } = useAuthStore();
@@ -37,35 +56,113 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const { prependPost } = useSocialStore();
   const T = useTheme();
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(T), [T]);
   const [content, setContent] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'followers'>('public');
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [posting, setPosting] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<Record<string, UploadStatus | undefined>>({});
   const [discardSheet, setDiscardSheet] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [hint] = useState(() => HINTS[Math.floor(Math.random() * HINTS.length)]);
 
   // @mention autocomplete
   const [suggestions, setSuggestions] = useState<MentionUser[]>([]);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const inputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollY = useRef(0);
+  const viewportH = useRef(0);
+  const inputTop = useRef(0);
+  const inputH = useRef(0);
+  const caretAtEnd = useRef(true);
+
+  // ── Keyboard ────────────────────────────────────────────────────────────────
+  // iOS: KeyboardAvoidingView (padding) lifts the whole column; we only swap the
+  // toolbar's safe-area padding. Android (edge-to-edge, inside a Modal): the window
+  // is usually NOT resized, so we add a spacer equal to the keyboard overlap. The
+  // overlap is computed against the root's measured height so that, if the window
+  // DOES resize, the spacer collapses to 0 instead of double-counting.
+  const [kbHeight, setKbHeight] = useState(0);
+  const [rootH, setRootH] = useState(0);
+  const fullH = useRef(0);
+  const rootW = useRef(0);
+  const androidPad = useSharedValue(0);
+
+  const ensureCaretVisible = useCallback((contentH?: number) => {
+    if (!caretAtEnd.current || viewportH.current <= 0) return;
+    const bottom = inputTop.current + (contentH ?? inputH.current) + 16;
+    if (bottom > scrollY.current + viewportH.current) {
+      scrollRef.current?.scrollTo({ y: bottom - viewportH.current, animated: true });
+    }
+  }, []);
+
   useEffect(() => {
-    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const s = Keyboard.addListener(showEvt, () => setKeyboardOpen(true));
-    const h = Keyboard.addListener(hideEvt, () => setKeyboardOpen(false));
+    const ios = Platform.OS === 'ios';
+    const showEvt = ios ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = ios ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s = Keyboard.addListener(showEvt, e => {
+      setKeyboardOpen(true);
+      setKbHeight(e.endCoordinates?.height ?? 0);
+      setTimeout(() => ensureCaretVisible(), ios ? 280 : 120);
+    });
+    const h = Keyboard.addListener(hideEvt, () => {
+      setKeyboardOpen(false);
+      setKbHeight(0);
+    });
+    // autoFocus is unreliable inside an Android Modal while it slides in.
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), Platform.OS === 'android' ? 350 : 0);
     return () => {
       s.remove();
       h.remove();
+      clearTimeout(focusTimer);
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
-  }, []);
+  }, [ensureCaretVisible]);
 
+  const onRootLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (Math.abs(width - rootW.current) > 1) {
+      rootW.current = width;
+      fullH.current = height;
+    } else {
+      fullH.current = Math.max(fullH.current, height);
+    }
+    setRootH(height);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const shrunk = Math.max(0, fullH.current - rootH);
+    const target = keyboardOpen ? Math.max(0, kbHeight + insets.bottom - shrunk) : 0;
+    androidPad.value = withTiming(target, { duration: keyboardOpen ? 220 : 180 });
+  }, [keyboardOpen, kbHeight, rootH, insets.bottom, androidPad]);
+
+  const androidSpacer = useAnimatedStyle(() => ({ height: androidPad.value }));
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
   const canPost = content.trim().length > 0 && content.length <= MAX_CHARS && !posting;
   const displayName = currentUserProfile?.full_name || (user as any)?.full_name || 'You';
   const handle = currentUserProfile?.username || (user as any)?.username;
+  const contentW = Math.max(200, winW - SIDE * 2);
 
+  // Post button springs when it becomes enabled.
+  const postScale = useSharedValue(1);
+  const prevCanPost = useRef(canPost);
+  useEffect(() => {
+    if (canPost && !prevCanPost.current) {
+      postScale.value = withSequence(
+        withTiming(0.9, { duration: 70 }),
+        withSpring(1, { damping: 9, stiffness: 320, mass: 0.7 }),
+      );
+    }
+    prevCanPost.current = canPost;
+  }, [canPost, postScale]);
+  const postAnim = useAnimatedStyle(() => ({ transform: [{ scale: postScale.value }] }));
+
+  // ── Text / mentions ─────────────────────────────────────────────────────────
   const handleChangeText = (text: string) => {
     setContent(text);
     const match = text.match(/@(\w*)$/);
@@ -89,8 +186,10 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const insertMention = (username: string) => {
     setContent(prev => prev.replace(/@\w*$/, `@${username} `));
     setSuggestions([]);
+    Haptics.selectionAsync().catch(() => {});
   };
 
+  // ── Media ───────────────────────────────────────────────────────────────────
   const addAssets = async (assets: ImagePicker.ImagePickerAsset[], type: 'image' | 'video') => {
     const oversized = assets.filter(a => a.fileSize && a.fileSize > MAX_BYTES);
     if (oversized.length > 0) {
@@ -99,17 +198,30 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     const validAssets = assets.filter(a => !a.fileSize || a.fileSize <= MAX_BYTES);
     if (validAssets.length === 0) return;
 
-    const newMedia = await Promise.all(validAssets.map(async a => {
+    const newMedia = await Promise.all(validAssets.map(async (a): Promise<MediaItem> => {
       let thumbnailUri: string | undefined;
+      let previewRatio: number | undefined;
       if (type === 'video') {
         try {
           const thumb = await VideoThumbnails.getThumbnailAsync(a.uri, { time: 0 });
           thumbnailUri = thumb.uri;
+          // Thumbnails are correctly oriented; picker dims can ignore rotation.
+          if (thumb.width && thumb.height) previewRatio = thumb.width / thumb.height;
         } catch {}
       }
-      return { uri: a.uri, type, width: a.width, height: a.height, thumbnailUri };
+      return {
+        id: newId(),
+        uri: a.uri,
+        type,
+        width: a.width,
+        height: a.height,
+        thumbnailUri,
+        previewRatio,
+        durationMs: type === 'video' && a.duration ? a.duration : undefined,
+      };
     }));
     setMedia(prev => [...prev, ...newMedia].slice(0, MAX_MEDIA));
+    tap();
   };
 
   const pickMedia = async (type: 'image' | 'video') => {
@@ -123,7 +235,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
       mediaTypes: type === 'image' ? 'images' : 'videos',
       quality: 0.9,
       allowsMultipleSelection: true,
-      selectionLimit: MAX_MEDIA,
+      selectionLimit: Math.max(1, MAX_MEDIA - media.length),
     });
 
     if (!result.canceled) await addAssets(result.assets, type);
@@ -139,16 +251,19 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     if (!result.canceled) await addAssets(result.assets, 'image');
   };
 
-  const removeMedia = (index: number) => {
-    setMedia(prev => prev.filter((_, i) => i !== index));
+  const removeMedia = (id: string) => {
+    tap();
+    setMedia(prev => prev.filter(m => m.id !== id));
+    setUploadStatus(prev => ({ ...prev, [id]: undefined }));
   };
 
   const uploadMedia = async (): Promise<{ uploaded: Array<{ url: string; storage_path: string; media_type: string }>; lastError?: string }> => {
     const uploaded: Array<{ url: string; storage_path: string; media_type: string; width?: number; height?: number }> = [];
     let lastError: string | undefined;
-    setUploading(true);
+    setUploadStatus(Object.fromEntries(media.map(m => [m.id, 'pending' as UploadStatus])));
 
     for (const m of media) {
+      setUploadStatus(prev => ({ ...prev, [m.id]: 'uploading' }));
       try {
         const uriParts = m.uri.split('.');
         const ext = uriParts[uriParts.length - 1]?.toLowerCase() || (m.type === 'image' ? 'jpg' : 'mp4');
@@ -179,19 +294,20 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
           .getPublicUrl(storagePath);
 
         uploaded.push({ url: urlData.publicUrl, storage_path: storagePath, media_type: m.type, width: m.width, height: m.height });
+        setUploadStatus(prev => ({ ...prev, [m.id]: 'done' }));
       } catch (e: any) {
         lastError = e?.message || 'Upload error';
         console.error('Upload error:', e);
+        setUploadStatus(prev => ({ ...prev, [m.id]: 'error' }));
       }
     }
 
-    setUploading(false);
     return { uploaded, lastError };
   };
 
   const handlePost = async () => {
     if (!canPost) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setPosting(true);
 
     try {
@@ -200,6 +316,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         const { uploaded, lastError } = await uploadMedia();
         // Block posting if any uploads failed
         if (uploaded.length < media.length) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
           Alert.alert('Upload failed', lastError || `${media.length - uploaded.length} file(s) could not be uploaded. Please try again.`);
           setPosting(false);
           return;
@@ -209,14 +326,17 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 
       const res = await apiClient.createPost(content.trim(), uploadedMedia, parentPostId, visibility);
       if (res.success && res.data) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         if (!parentPostId) {
           prependPost(res.data as any);
         }
         onClose();
       } else {
+        setUploadStatus({});
         Alert.alert('Error', res.error || 'Failed to post. Try again.');
       }
     } catch (e) {
+      setUploadStatus({});
       Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setPosting(false);
@@ -232,167 +352,173 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     }
   };
 
+  const toggleVisibility = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setVisibility(v => (v === 'public' ? 'followers' : 'public'));
+  };
+
   const mediaFull = media.length >= MAX_MEDIA;
+  const toolsDisabled = mediaFull || posting;
   const remaining = MAX_CHARS - content.length;
   const over = remaining < 0;
   const isPublic = visibility === 'public';
+  const isIOS = Platform.OS === 'ios';
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 4, height: insets.top + 4 + 50 }]}>
-        <Pressable
-          onPress={handleCancel}
-          hitSlop={8}
-          style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressed]}
-          accessibilityRole="button"
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap} pointerEvents="none">
-          <Text style={styles.headerTitle}>{parentPostId ? 'Reply' : 'New post'}</Text>
-        </View>
-        <Pressable
-          onPress={handlePost}
-          disabled={!canPost}
-          hitSlop={6}
-          style={({ pressed }) => [styles.postBtn, !canPost && !posting && styles.disabled, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canPost }}
-        >
-          {posting ? (
-            <ActivityIndicator size="small" color="#000" />
-          ) : (
-            <Text style={styles.postText}>Post</Text>
-          )}
-        </Pressable>
-      </View>
-
-      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.row}>
-          {/* Avatar + thread connector */}
-          <View style={styles.rail}>
-            <UserAvatar avatarUrl={currentUserProfile?.avatar_url} size={40} />
-            <View style={styles.connector} />
+    <View style={styles.container} onLayout={onRootLayout}>
+      <KeyboardAvoidingView style={styles.flex} behavior={isIOS ? 'padding' : undefined} enabled={isIOS}>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top, height: insets.top + HEADER_H }]}>
+          <Pressable
+            onPress={handleCancel}
+            hitSlop={8}
+            style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.cancelText}>Cancel</Text>
+          </Pressable>
+          <View style={styles.headerTitleWrap} pointerEvents="none">
+            <Text style={styles.headerTitle}>{parentPostId ? 'Reply' : 'New post'}</Text>
           </View>
+          <Animated.View style={[postAnim, { opacity: canPost || posting ? 1 : 0.35 }]}>
+            <Pressable
+              onPress={handlePost}
+              disabled={!canPost}
+              hitSlop={8}
+              style={({ pressed }) => [styles.postBtn, pressed && { transform: [{ scale: 0.94 }] }]}
+              accessibilityRole="button"
+              accessibilityLabel={parentPostId ? 'Post reply' : 'Post'}
+              accessibilityState={{ disabled: !canPost, busy: posting }}
+            >
+              <LinearGradient
+                colors={['rgba(255,255,255,0.32)', 'rgba(255,255,255,0)']}
+                style={styles.postGloss}
+                pointerEvents="none"
+              />
+              {posting ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={styles.postText}>Post</Text>
+              )}
+            </Pressable>
+          </Animated.View>
+        </View>
 
-          <View style={styles.main}>
-            <View style={styles.nameRow}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.flex}
+          contentContainerStyle={styles.bodyContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          onLayout={e => { viewportH.current = e.nativeEvent.layout.height; }}
+          onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={32}
+        >
+          <View style={styles.identity}>
+            <UserAvatar avatarUrl={currentUserProfile?.avatar_url} size={40} />
+            <View style={styles.identityText}>
               <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
               {handle ? <Text style={styles.handle} numberOfLines={1}>@{handle}</Text> : null}
             </View>
+          </View>
 
+          <View
+            onLayout={e => {
+              inputTop.current = e.nativeEvent.layout.y;
+              inputH.current = e.nativeEvent.layout.height;
+            }}
+          >
             <TextInput
+              ref={inputRef}
               value={content}
               onChangeText={handleChangeText}
-              placeholder={parentPostId ? 'Post your reply' : "What's happening?"}
+              onSelectionChange={e => {
+                caretAtEnd.current = e.nativeEvent.selection.end >= content.length - 1;
+              }}
+              onContentSizeChange={e => ensureCaretVisible(e.nativeEvent.contentSize.height)}
+              placeholder={parentPostId ? 'Post your reply' : hint}
               placeholderTextColor={T.placeholder}
               multiline
+              scrollEnabled={false}
               maxLength={MAX_CHARS + 10}
-              autoFocus
+              autoFocus={isIOS}
               style={styles.input}
               selectionColor={T.accent}
+              cursorColor={T.accent}
             />
-
-            {suggestions.length > 0 && (
-              <View style={styles.suggestions}>
-                {suggestions.map(u => (
-                  <Pressable
-                    key={u.id}
-                    onPress={() => insertMention(u.username)}
-                    style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}
-                  >
-                    <UserAvatar avatarUrl={u.avatar_url} size={28} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.suggestionName} numberOfLines={1}>{u.full_name}</Text>
-                      <Text style={styles.suggestionHandle} numberOfLines={1}>@{u.username}</Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-
-            {/* Media previews */}
-            {media.length > 0 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.mediaScroll}
-                contentContainerStyle={styles.mediaRow}
-                keyboardShouldPersistTaps="handled"
-              >
-                {media.map((m, i) => {
-                  const ratio = (m.width && m.height) ? Math.min(Math.max(m.width / m.height, 0.6), 1.6) : 0.8;
-                  const src = m.type === 'video' ? m.thumbnailUri : m.uri;
-                  return (
-                    <View key={`${m.uri}-${i}`} style={[styles.thumb, { width: THUMB_H * ratio }]}>
-                      {src ? (
-                        <Image source={{ uri: src }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                      ) : null}
-                      {m.type === 'video' && (
-                        <View style={styles.playBadge} pointerEvents="none">
-                          <Ionicons name="play" size={16} color="#fff" />
-                        </View>
-                      )}
-                      <Pressable
-                        onPress={() => removeMedia(i)}
-                        hitSlop={10}
-                        style={({ pressed }) => [styles.removeBadge, pressed && styles.pressed]}
-                        accessibilityLabel="Remove media"
-                      >
-                        <Ionicons name="close" size={16} color="#fff" />
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            )}
-
-            {uploading && (
-              <View style={styles.uploadingRow}>
-                <ActivityIndicator size="small" color={T.textMuted} />
-                <Text style={styles.uploadingText}>Uploading media…</Text>
-              </View>
-            )}
           </View>
+
+          {suggestions.length > 0 && (
+            <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(120)} style={styles.suggestions}>
+              {suggestions.map(u => (
+                <Pressable
+                  key={u.id}
+                  onPress={() => insertMention(u.username)}
+                  style={({ pressed }) => [styles.suggestion, pressed && { backgroundColor: T.surface2 }]}
+                >
+                  <UserAvatar avatarUrl={u.avatar_url} size={30} />
+                  <View style={styles.flex}>
+                    <Text style={styles.suggestionName} numberOfLines={1}>{u.full_name}</Text>
+                    <Text style={styles.suggestionHandle} numberOfLines={1}>@{u.username}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </Animated.View>
+          )}
+
+          <ComposerMedia
+            items={media}
+            width={contentW}
+            onRemove={removeMedia}
+            status={uploadStatus}
+            locked={posting}
+          />
+
+          {posting && media.length > 0 && (
+            <Animated.View entering={FadeIn.duration(160)} style={styles.uploadingRow}>
+              <ActivityIndicator size="small" color={T.textMuted} />
+              <Text style={styles.uploadingText}>
+                Uploading {Object.values(uploadStatus).filter(s => s === 'done').length}/{media.length}…
+              </Text>
+            </Animated.View>
+          )}
+        </ScrollView>
+
+        {/* Toolbar — always directly above the keyboard */}
+        <View style={[styles.toolbar, { paddingBottom: keyboardOpen ? 8 : Math.max(insets.bottom, 8) }]}>
+          <View style={styles.tools}>
+            <ToolButton icon={ICONS.gallery} label="Add photos" disabled={toolsDisabled} onPress={() => pickMedia('image')} />
+            <ToolButton icon={ICONS.camera} label="Take a photo" disabled={toolsDisabled} onPress={takePhoto} />
+            <ToolButton icon={ICONS.video} label="Add video" disabled={toolsDisabled} onPress={() => pickMedia('video')} />
+          </View>
+
+          <View style={styles.flex} />
+
+          {content.length > 0 && (
+            <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(120)} style={styles.counterWrap}>
+              {content.length > WARN_AT && (
+                <Text style={[styles.counterText, over && { color: T.error }]}>{remaining}</Text>
+              )}
+              <CharRing
+                progress={Math.min(content.length / MAX_CHARS, 1)}
+                color={over ? T.error : content.length > WARN_AT ? '#F5A623' : T.accent}
+                track={T.border}
+                bg={T.bg}
+              />
+            </Animated.View>
+          )}
+
+          <VisibilityChip
+            isPublic={isPublic}
+            onPress={toggleVisibility}
+            disabled={posting}
+            styles={styles}
+          />
         </View>
-      </ScrollView>
 
-      {/* Toolbar — sits above the keyboard */}
-      <View style={[styles.toolbar, { paddingBottom: keyboardOpen ? 6 : Math.max(insets.bottom, 8) }]}>
-        <ToolButton icon="image-outline" onPress={() => pickMedia('image')} disabled={mediaFull} color={T.textSub} label="Add photos" />
-        <ToolButton icon="camera-outline" onPress={takePhoto} disabled={mediaFull} color={T.textSub} label="Take a photo" />
-        <ToolButton icon="videocam-outline" onPress={() => pickMedia('video')} disabled={mediaFull} color={T.textSub} label="Add video" />
-
-        <Pressable
-          style={({ pressed }) => [styles.visPill, pressed && styles.pressed]}
-          onPress={() => setVisibility(v => v === 'public' ? 'followers' : 'public')}
-          accessibilityRole="button"
-          accessibilityLabel={isPublic ? 'Visible to everyone. Tap to limit to followers' : 'Visible to followers. Tap to make public'}
-        >
-          <Ionicons name={isPublic ? 'globe-outline' : 'people-outline'} size={14} color={T.textSub} />
-          <Text style={styles.visText} numberOfLines={1}>{isPublic ? 'Everyone can see' : 'Followers only'}</Text>
-        </Pressable>
-
-        <View style={styles.flex} />
-
-        {content.length > 0 && (
-          <View style={styles.counterWrap}>
-            {content.length > WARN_AT && (
-              <Text style={[styles.counterText, over && { color: T.error }]}>{remaining}</Text>
-            )}
-            <CharRing
-              progress={Math.min(content.length / MAX_CHARS, 1)}
-              color={over ? T.error : content.length > WARN_AT ? T.textSub : T.accent}
-              track={T.border}
-              bg={T.bg}
-            />
-          </View>
-        )}
-      </View>
+        {/* Android: lifts the column above the keyboard when the window isn't resized */}
+        {!isIOS && <Animated.View style={androidSpacer} />}
+      </KeyboardAvoidingView>
 
       <BottomSheet
         visible={discardSheet}
@@ -403,32 +529,70 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
           { icon: 'trash-outline', label: 'Discard', onPress: onClose, destructive: true },
         ]}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
-function ToolButton({ icon, onPress, disabled, color, label }: {
-  icon: keyof typeof Ionicons.glyphMap; onPress: () => void; disabled?: boolean; color: string; label: string;
+function usePressSpring() {
+  const scale = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const onPressIn = () => { scale.value = withSpring(0.88, { damping: 15, stiffness: 400 }); };
+  const onPressOut = () => { scale.value = withSpring(1, { damping: 8, stiffness: 300, mass: 0.6 }); };
+  return { style, onPressIn, onPressOut };
+}
+
+function ToolButton({ icon, onPress, disabled, label }: {
+  icon: ImageSourcePropType; onPress: () => void; disabled?: boolean; label: string;
 }) {
+  const spring = usePressSpring();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => { tap(); onPress(); }}
+      onPressIn={spring.onPressIn}
+      onPressOut={spring.onPressOut}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [
-        { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-        disabled && { opacity: 0.4 },
-        pressed && { opacity: 0.7 },
-      ]}
+      accessibilityState={{ disabled }}
+      style={toolStyles.btn}
     >
-      <Ionicons name={icon} size={22} color={color} />
+      <Animated.View style={[spring.style, disabled && { opacity: 0.35 }]}>
+        <Image source={icon} style={toolStyles.icon} resizeMode="contain" />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function VisibilityChip({ isPublic, onPress, disabled, styles }: {
+  isPublic: boolean; onPress: () => void; disabled?: boolean; styles: ReturnType<typeof makeStyles>;
+}) {
+  const spring = usePressSpring();
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={spring.onPressIn}
+      onPressOut={spring.onPressOut}
+      disabled={disabled}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={isPublic ? 'Visible to everyone. Tap to limit to followers' : 'Visible to followers. Tap to make public'}
+    >
+      <Animated.View style={[styles.visChip, spring.style, disabled && { opacity: 0.5 }]}>
+        <Animated.Image
+          key={isPublic ? 'everyone' : 'followers'}
+          entering={FadeIn.duration(180)}
+          source={isPublic ? ICONS.everyone : ICONS.followers}
+          style={styles.visIcon}
+          resizeMode="contain"
+        />
+        <Text style={styles.visText} numberOfLines={1}>{isPublic ? 'Everyone' : 'Followers'}</Text>
+      </Animated.View>
     </Pressable>
   );
 }
 
 /** Progress ring built from two clipped half-discs (no SVG needed). */
-function CharRing({ progress, color, track, bg, size = 22, stroke = 2.5 }: {
+function CharRing({ progress, color, track, bg, size = 24, stroke = 2.5 }: {
   progress: number; color: string; track: string; bg: string; size?: number; stroke?: number;
 }) {
   const angle = progress * 360;
@@ -460,58 +624,61 @@ function CharRing({ progress, color, track, bg, size = 22, stroke = 2.5 }: {
   );
 }
 
+const toolStyles = StyleSheet.create({
+  btn: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 32, height: 32 },
+});
+
 function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
-    pressed: { opacity: 0.7 },
-    disabled: { opacity: 0.4 },
+    flex: { flex: 1 },
+    pressed: { opacity: 0.6 },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: SIDE,
       backgroundColor: T.bg,
     },
     cancelBtn: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
     cancelText: { fontSize: 16, color: T.text },
     headerTitleWrap: {
-      position: 'absolute', left: 0, right: 0, bottom: 0, height: 50,
+      position: 'absolute', left: 96, right: 96, bottom: 0, height: HEADER_H,
       alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: { fontSize: 17, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },
     postBtn: {
-      height: 34,
-      borderRadius: 17,
-      paddingHorizontal: 16,
-      minWidth: 64,
+      height: 36,
+      borderRadius: 18,
+      paddingHorizontal: 18,
+      minWidth: 68,
       backgroundColor: T.accent,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
     },
+    postGloss: { position: 'absolute', left: 0, right: 0, top: 0, height: 18 },
     postText: { color: '#000', fontWeight: '700', fontSize: 15 },
-    body: { flex: 1 },
-    bodyContent: { paddingBottom: 24 },
-    row: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, gap: 12 },
-    rail: { width: 40, alignItems: 'center' },
-    connector: { width: 2, flex: 1, minHeight: 24, borderRadius: 1, backgroundColor: T.border, marginTop: 8 },
-    main: { flex: 1, minWidth: 0 },
-    nameRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-    name: { fontSize: 15, fontWeight: '700', color: T.text, flexShrink: 1 },
-    handle: { fontSize: 14, color: T.textMuted, flexShrink: 1 },
+    bodyContent: { paddingHorizontal: SIDE, paddingTop: 8, paddingBottom: 24 },
+    identity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    identityText: { flex: 1, minWidth: 0 },
+    name: { fontSize: 15, fontWeight: '700', color: T.text },
+    handle: { fontSize: 13, color: T.textMuted, marginTop: 1 },
     input: {
-      fontSize: 17,
-      lineHeight: 24,
+      fontSize: 18,
+      lineHeight: 25,
       color: T.text,
-      minHeight: 72,
+      minHeight: 110,
       textAlignVertical: 'top',
-      paddingTop: 4,
+      paddingTop: 12,
       paddingBottom: 8,
       paddingHorizontal: 0,
     },
     suggestions: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: T.border,
-      borderRadius: 14,
+      borderRadius: 16,
       backgroundColor: T.surface,
       overflow: 'hidden',
       marginBottom: 8,
@@ -520,71 +687,40 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      minHeight: 48,
+      minHeight: 50,
       paddingHorizontal: 12,
       paddingVertical: 8,
     },
     suggestionName: { fontSize: 14, fontWeight: '600', color: T.text },
     suggestionHandle: { fontSize: 13, color: T.textMuted },
-    mediaScroll: { marginTop: 4, marginRight: -16 },
-    mediaRow: { gap: 8, paddingRight: 16 },
-    thumb: {
-      height: THUMB_H,
-      borderRadius: 16,
-      overflow: 'hidden',
-      backgroundColor: T.surface2,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: T.border,
-    },
-    playBadge: {
-      position: 'absolute',
-      left: 10,
-      bottom: 10,
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      backgroundColor: 'rgba(0,0,0,0.6)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingLeft: 2,
-    },
-    removeBadge: {
-      position: 'absolute',
-      top: 8,
-      right: 8,
-      width: 26,
-      height: 26,
-      borderRadius: 13,
-      backgroundColor: 'rgba(0,0,0,0.6)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+    uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
     uploadingText: { color: T.textMuted, fontSize: 13 },
     toolbar: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 8,
-      paddingTop: 4,
+      paddingHorizontal: 12,
+      paddingTop: 8,
       backgroundColor: T.bg,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: T.borderLight,
+      borderTopColor: T.border,
     },
-    visPill: {
+    tools: { flexDirection: 'row', alignItems: 'center', marginLeft: -6 },
+    visChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 5,
-      height: 32,
-      paddingHorizontal: 12,
-      borderRadius: 16,
-      borderWidth: 1,
+      gap: 6,
+      height: 36,
+      paddingLeft: 6,
+      paddingRight: 12,
+      borderRadius: 18,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: T.border,
-      marginLeft: 4,
-      flexShrink: 1,
+      backgroundColor: T.surface,
+      marginLeft: 6,
     },
-    visText: { fontSize: 13, color: T.textSub, fontWeight: '600' },
-    flex: { flex: 1 },
-    counterWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, minHeight: 44 },
+    visIcon: { width: 24, height: 24 },
+    visText: { fontSize: 13, color: T.text, fontWeight: '600' },
+    counterWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, minHeight: 44 },
     counterText: { fontSize: 13, color: T.textMuted, fontVariant: ['tabular-nums'] },
   });
 }
