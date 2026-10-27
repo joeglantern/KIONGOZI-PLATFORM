@@ -161,7 +161,7 @@ export default function OnboardingScreen({ onDone }: Props) {
         </View>
 
         <TouchableOpacity style={styles.btn} onPress={handleNext} activeOpacity={0.82}>
-          <Text style={styles.btnText}>{isLast ? 'Get Started' : 'Continue'}</Text>
+          <Text style={styles.btnText}>{isLast ? 'Get started' : 'Next'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -175,8 +175,11 @@ const styles = StyleSheet.create({
   },
   skip: {
     alignSelf: 'flex-end',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   skipPlaceholder: {
     height: 44,
@@ -184,7 +187,8 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 15,
     color: GRAY,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   slide: {
     width,
@@ -192,12 +196,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   imageWrapper: {
-    width: width - 32,
-    height: height * 0.42,
+    width: width - 48,
+    height: height * 0.4,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
-    borderRadius: 20,
+    marginTop: 12,
+    borderRadius: 24,
     overflow: 'hidden',
   },
   image: {
@@ -205,41 +209,41 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    color: NAVY,
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginTop: 28,
-    letterSpacing: -0.6,
-    lineHeight: 36,
+    marginTop: 36,
+    letterSpacing: -0.8,
+    lineHeight: 38,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   subtitle: {
-    fontSize: 15.5,
-    color: '#8E8E93',
+    fontSize: 16,
+    color: GRAY,
     textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 25,
+    marginTop: 14,
+    lineHeight: 24,
     fontWeight: '400',
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
   },
   footer: {
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 16,
   },
   dots: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   dot: {
     height: 6,
     borderRadius: 3,
   },
   dotActive: {
-    width: 22,
+    width: 20,
     backgroundColor: NAVY,
   },
   dotInactive: {
@@ -249,18 +253,13 @@ const styles = StyleSheet.create({
   btn: {
     backgroundColor: NAVY,
     width: width - 48,
-    height: 54,
-    borderRadius: 27,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: NAVY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 5,
   },
   btnText: {
-    color: '#ffffff',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',

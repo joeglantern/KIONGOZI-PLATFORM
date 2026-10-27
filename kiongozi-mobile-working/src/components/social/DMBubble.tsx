@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
+import { FitImage, VideoTile } from './media';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore } from '../../stores/themeStore';
 
@@ -105,14 +106,25 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
           )}
 
           {message.media_url && message.media_type === 'image' && (
-            <Pressable onPress={onMediaPress} accessibilityLabel="Open photo">
-              <Image source={{ uri: message.media_url }} style={[styles.image, mediaOnly ? styles.imageOnly : styles.imageWithText]} resizeMode="cover" />
-            </Pressable>
+            // Real shape (portrait 3:4 … wide 16:9); anything beyond is shown whole over a blur
+            <FitImage
+              uri={message.media_url}
+              minRatio={0.75}
+              maxRatio={1.78}
+              width={240}
+              radius={mediaOnly ? 0 : 14}
+              bg={'rgba(127,127,127,0.2)'}
+              onPress={onMediaPress}
+              style={mediaOnly ? undefined : { marginBottom: 6, marginTop: 2 }}
+            />
           )}
           {message.media_url && message.media_type === 'video' && (
-            <Pressable onPress={onMediaPress} style={[styles.video, mediaOnly ? styles.imageOnly : styles.imageWithText]} accessibilityLabel="Play video">
-              <View style={styles.playCircle}><Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 3 }} /></View>
-            </Pressable>
+            <VideoTile
+              url={message.media_url}
+              onPress={onMediaPress}
+              bg="#111"
+              style={[{ width: 240, aspectRatio: 0.8 }, mediaOnly ? null : { borderRadius: 14, marginBottom: 6, marginTop: 2 }]}
+            />
           )}
 
           {message.content ? (

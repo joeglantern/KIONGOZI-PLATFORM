@@ -1,18 +1,17 @@
+// Full-screen media viewer. All gestures run on the native UI thread (Gesture Handler + Reanimated),
+// so swiping to close follows the finger at full frame rate, with no JS-thread stutter.
+//  • Swipe up/down to close (follows the finger, shrinks + fades, flings away or springs back)
+//  • Swipe left/right between items
+//  • Photos: pinch to zoom, double-tap to zoom in/out, drag while zoomed, single tap hides the chrome
+//  • Videos: play with sound, tap to pause, seekable progress, mute
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
-  Modal,
-  View,
-  Text,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  Pressable,
-  StyleSheet,
-  Dimensions,
-  Animated,
-  PanResponder,
-  ActivityIndicator,
+  Modal, View, Text, TouchableOpacity, Pressable, StyleSheet, Dimensions, ActivityIndicator, Image,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -53,10 +52,122 @@ export interface MediaViewerModalProps {
 }
 
 const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n));
+const SPRING = { damping: 22, stiffness: 240, mass: 0.9 };
+const MAX_ZOOM = 5;
 
-// ---- Video page --------------------------------------------------------------
+// ---- Zoomable photo ------------------------------------------------------------
+function ZoomableImage({ uri, active, onZoomChange, onTap }: {
+  uri: string; active: boolean; onZoomChange: (zoomed: boolean) => void; onTap: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const savedTx = useSharedValue(0);
+  const savedTy = useSharedValue(0);
+  const shown = useSharedValue(0);
+  const [zoomed, setZoomed] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const reportZoom = useCallback((z: boolean) => { setZoomed(z); onZoomChange(z); }, [onZoomChange]);
+
+  // Leaving this page resets the zoom
+  useEffect(() => {
+    if (!active && zoomed) {
+      scale.value = 1; tx.value = 0; ty.value = 0; savedScale.value = 1;
+      reportZoom(false);
+    }
+  }, [active]);
+
+  const clampXY = (s: number) => {
+    'worklet';
+    const maxX = Math.max(0, (SCREEN_W * s - SCREEN_W) / 2);
+    const maxY = Math.max(0, (SCREEN_H * s - SCREEN_H) / 2);
+    tx.value = Math.min(maxX, Math.max(-maxX, tx.value));
+    ty.value = Math.min(maxY, Math.max(-maxY, ty.value));
+  };
+
+  const pinch = Gesture.Pinch()
+    .onStart(() => { savedScale.value = scale.value; })
+    .onUpdate(e => { scale.value = Math.min(MAX_ZOOM, Math.max(0.85, savedScale.value * e.scale)); })
+    .onEnd(() => {
+      if (scale.value <= 1.02) {
+        scale.value = withSpring(1, SPRING);
+        tx.value = withSpring(0, SPRING);
+        ty.value = withSpring(0, SPRING);
+        runOnJS(reportZoom)(false);
+      } else {
+        clampXY(scale.value);
+        runOnJS(reportZoom)(true);
+      }
+    });
+
+  const panZoomed = Gesture.Pan()
+    .enabled(zoomed)
+    .maxPointers(1)
+    .onStart(() => { savedTx.value = tx.value; savedTy.value = ty.value; })
+    .onUpdate(e => {
+      tx.value = savedTx.value + e.translationX;
+      ty.value = savedTy.value + e.translationY;
+    })
+    .onEnd(e => {
+      const maxX = Math.max(0, (SCREEN_W * scale.value - SCREEN_W) / 2);
+      const maxY = Math.max(0, (SCREEN_H * scale.value - SCREEN_H) / 2);
+      tx.value = withSpring(Math.min(maxX, Math.max(-maxX, tx.value + e.velocityX * 0.08)), SPRING);
+      ty.value = withSpring(Math.min(maxY, Math.max(-maxY, ty.value + e.velocityY * 0.08)), SPRING);
+    });
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDuration(250)
+    .onEnd(e => {
+      if (scale.value > 1.02) {
+        scale.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
+        tx.value = withTiming(0, { duration: 220 });
+        ty.value = withTiming(0, { duration: 220 });
+        runOnJS(reportZoom)(false);
+      } else {
+        const s = 2.5;
+        // Zoom towards where you tapped
+        const maxX = (SCREEN_W * s - SCREEN_W) / 2;
+        const maxY = (SCREEN_H * s - SCREEN_H) / 2;
+        const toX = Math.min(maxX, Math.max(-maxX, (SCREEN_W / 2 - e.x) * (s - 1)));
+        const toY = Math.min(maxY, Math.max(-maxY, (SCREEN_H / 2 - e.y) * (s - 1)));
+        scale.value = withTiming(s, { duration: 240, easing: Easing.out(Easing.cubic) });
+        tx.value = withTiming(toX, { duration: 240 });
+        ty.value = withTiming(toY, { duration: 240 });
+        runOnJS(reportZoom)(true);
+      }
+    });
+
+  const singleTap = Gesture.Tap().onEnd(() => { runOnJS(onTap)(); });
+
+  const gesture = Gesture.Simultaneous(pinch, panZoomed, Gesture.Exclusive(doubleTap, singleTap));
+
+  const imgStyle = useAnimatedStyle(() => ({
+    opacity: shown.value,
+    transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: scale.value }],
+  }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <View style={styles.page} collapsable={false}>
+        <Reanimated.Image
+          source={{ uri }}
+          style={[StyleSheet.absoluteFill, imgStyle]}
+          resizeMode="contain"
+          onLoad={() => { setLoading(false); shown.value = withTiming(1, { duration: 180 }); }}
+          onError={() => setLoading(false)}
+        />
+        {loading && <ActivityIndicator style={StyleSheet.absoluteFill} color="#fff" />}
+      </View>
+    </GestureDetector>
+  );
+}
+
+// ---- Video page ----------------------------------------------------------------
 // Plays with sound when it is the current page, continues from where the feed was,
-// tap to pause/play, thin seekable progress bar. No native controls so swipes reach the modal.
+// tap to pause/play, thin seekable progress bar. No native controls so swipes reach the viewer.
 function VideoPage({ url, active, bottomInset }: { url: string; active: boolean; bottomInset: number }) {
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -87,7 +198,6 @@ function VideoPage({ url, active, bottomInset }: { url: string; active: boolean;
     if (active && !paused) player.play(); else player.pause();
   }, [active, paused, player]);
 
-  // Leaving the viewer: keep the feed muted again (sound is a viewer thing) and remember position.
   useEffect(() => () => { try { setPosition(url, player.currentTime); } catch {} }, [player]);
 
   const seek = (x: number) => {
@@ -101,13 +211,7 @@ function VideoPage({ url, active, bottomInset }: { url: string; active: boolean;
   return (
     <View style={styles.page}>
       <Pressable style={StyleSheet.absoluteFill} onPress={() => setPaused(p => !p)}>
-        <VideoView
-          player={player}
-          style={StyleSheet.absoluteFill}
-          contentFit="contain"
-          nativeControls={false}
-          allowsFullscreen={false}
-        />
+        <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} allowsFullscreen={false} />
         {(paused || loading) && (
           <View style={styles.centerOverlay} pointerEvents="none">
             {loading && !paused ? (
@@ -125,11 +229,11 @@ function VideoPage({ url, active, bottomInset }: { url: string; active: boolean;
         style={[styles.roundBtn, styles.muteBtn]}
         onPress={() => { const m = !muted; setMutedState(m); player.muted = m; }}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityLabel={muted ? 'Unmute' : 'Mute'}
       >
         <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={20} color="#fff" />
       </TouchableOpacity>
 
-      {/* Progress bar, sits at the very bottom under the caption overlay */}
       <Pressable
         style={[styles.progressHit, { bottom: bottomInset + 2 }]}
         onLayout={e => { barWidth.current = e.nativeEvent.layout.width; }}
@@ -143,82 +247,83 @@ function VideoPage({ url, active, bottomInset }: { url: string; active: boolean;
   );
 }
 
-// ---- Viewer -------------------------------------------------------------------
-export function MediaViewerModal({
-  visible,
-  onClose,
-  media,
-  initialIndex = 0,
-  caption,
-  postContext,
-}: MediaViewerModalProps) {
+// ---- Viewer --------------------------------------------------------------------
+export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, caption, postContext }: MediaViewerModalProps) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [captionOpen, setCaptionOpen] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const [zoomed, setZoomed] = useState(false);
+  const [chromeOn, setChromeOn] = useState(true);
+  const scrollRef = useRef<any>(null);
 
-  // Swipe up or down anywhere to dismiss.
-  const translateY = useRef(new Animated.Value(0)).current;
-  const fade = translateY.interpolate({
-    inputRange: [-SCREEN_H * 0.4, 0, SCREEN_H * 0.4],
-    outputRange: [0, 1, 0],
-    extrapolate: 'clamp',
-  });
-  const scale = translateY.interpolate({
-    inputRange: [-SCREEN_H, 0, SCREEN_H],
-    outputRange: [0.85, 1, 0.85],
-    extrapolate: 'clamp',
-  });
+  const dragY = useSharedValue(0);   // finger drag (swipe to close)
+  const open = useSharedValue(0);    // 0 → 1 open animation
+  const chrome = useSharedValue(1);  // caption/buttons visibility
 
-  const dismiss = useCallback((dir: 1 | -1 = 1) => {
-    Animated.timing(translateY, {
-      toValue: dir * SCREEN_H,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      onClose();
-      translateY.setValue(0);
-    });
-  }, [onClose, translateY]);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const finishClose = useCallback(() => { onCloseRef.current(); }, []);
 
-  const pan = useRef(
-    PanResponder.create({
-      // Claim clearly vertical drags before the horizontal pager or taps get them.
-      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dy) > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.4,
-      onPanResponderMove: (_, g) => translateY.setValue(g.dy),
-      onPanResponderRelease: (_, g) => {
-        if (Math.abs(g.dy) > 110 || Math.abs(g.vy) > 1.1) {
-          dismissRef.current(g.dy > 0 ? 1 : -1);
-        } else {
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 16, stiffness: 160 }).start();
-        }
-      },
-      onPanResponderTerminate: () => {
-        Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
-      },
-    })
-  ).current;
-  const dismissRef = useRef(dismiss);
-  dismissRef.current = dismiss;
+  const close = useCallback((dir: 1 | -1 = 1) => {
+    dragY.value = withTiming(dir * SCREEN_H * 0.6, { duration: 200, easing: Easing.in(Easing.quad) });
+    open.value = withTiming(0, { duration: 200 }, finished => { if (finished) runOnJS(finishClose)(); });
+  }, []);
 
   useEffect(() => {
     if (visible) {
-      translateY.setValue(0);
+      dragY.value = 0;
+      chrome.value = 1;
+      open.value = 0;
+      open.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.cubic) });
       setCurrentIndex(initialIndex);
       setCaptionOpen(false);
-      setTimeout(() => {
-        scrollRef.current?.scrollTo({ x: initialIndex * SCREEN_W, animated: false });
-      }, 0);
+      setZoomed(false);
+      setChromeOn(true);
+      requestAnimationFrame(() => scrollRef.current?.scrollTo({ x: initialIndex * SCREEN_W, animated: false }));
     }
-    // Pause feed videos underneath while the viewer is open.
     setFeedPaused('viewer', visible);
     return () => setFeedPaused('viewer', false);
   }, [visible, initialIndex]);
 
-  const handleScroll = useCallback((event: any) => {
-    const idx = Math.round(event.nativeEvent.contentOffset.x / SCREEN_W);
-    setCurrentIndex(idx);
+  const toggleChrome = useCallback(() => {
+    setChromeOn(c => {
+      chrome.value = withTiming(c ? 0 : 1, { duration: 160 });
+      return !c;
+    });
   }, []);
+
+  // Swipe up/down to close — one finger, clearly vertical, not while zoomed
+  const dismissPan = Gesture.Pan()
+    .enabled(!zoomed)
+    .maxPointers(1)
+    .activeOffsetY([-12, 12])
+    .failOffsetX([-18, 18])
+    .onUpdate(e => { dragY.value = e.translationY; })
+    .onEnd(e => {
+      const far = Math.abs(e.translationY) > 120;
+      const fast = Math.abs(e.velocityY) > 900;
+      if (far || fast) {
+        const dir = (fast ? e.velocityY : e.translationY) > 0 ? 1 : -1;
+        dragY.value = withTiming(dir * SCREEN_H, { duration: 220, easing: Easing.out(Easing.quad) });
+        open.value = withTiming(0, { duration: 220 }, finished => { if (finished) runOnJS(finishClose)(); });
+      } else {
+        dragY.value = withSpring(0, { ...SPRING, velocity: e.velocityY });
+      }
+    });
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: open.value * interpolate(Math.abs(dragY.value), [0, SCREEN_H * 0.5], [1, 0.15], Extrapolation.CLAMP),
+  }));
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(open.value, [0, 1], [0, 1]),
+    transform: [
+      { translateY: dragY.value },
+      { scale: interpolate(Math.abs(dragY.value), [0, SCREEN_H], [1, 0.82], Extrapolation.CLAMP) * interpolate(open.value, [0, 1], [0.96, 1]) },
+    ],
+  }));
+  const chromeStyle = useAnimatedStyle(() => ({
+    opacity: open.value * chrome.value * interpolate(Math.abs(dragY.value), [0, 140], [1, 0], Extrapolation.CLAMP),
+  }));
 
   if (!media.length) return null;
 
@@ -227,51 +332,45 @@ export function MediaViewerModal({
   const progressSpace = media.some(m => m.media_type === 'video') ? 14 : 0;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      onRequestClose={() => dismiss(1)}
-      statusBarTranslucent
-      transparent
-    >
-      <Animated.View style={[StyleSheet.absoluteFillObject, styles.backdrop, { opacity: fade }]} />
+    <Modal visible={visible} animationType="none" onRequestClose={() => close(1)} statusBarTranslucent transparent>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Reanimated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]} />
 
-      <Animated.View
-        style={[styles.container, { transform: [{ translateY }, { scale }] }]}
-        {...pan.panHandlers}
-      >
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={handleScroll}
-          scrollEventThrottle={16}
-          style={StyleSheet.absoluteFill}
-        >
-          {media.map((item, index) =>
-            item.media_type === 'video' ? (
-              visible ? (
-                <VideoPage
-                  key={`${item.url}_${index}`}
-                  url={item.url}
-                  active={index === currentIndex}
-                  bottomInset={insets.bottom}
-                />
-              ) : (
-                <View key={`${item.url}_${index}`} style={styles.page} />
-              )
-            ) : (
-              <View key={`${item.url}_${index}`} style={styles.page}>
-                <Image source={{ uri: item.url }} style={StyleSheet.absoluteFill} resizeMode="contain" />
-              </View>
-            )
-          )}
-        </ScrollView>
+        <GestureDetector gesture={dismissPan}>
+          <Reanimated.View style={[styles.container, contentStyle]}>
+            <GHScrollView
+              ref={scrollRef}
+              horizontal
+              pagingEnabled
+              scrollEnabled={!zoomed}
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e: any) => setCurrentIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_W))}
+              style={StyleSheet.absoluteFill}
+            >
+              {media.map((item, index) =>
+                item.media_type === 'video' ? (
+                  visible && Math.abs(index - currentIndex) <= 1 ? (
+                    <VideoPage key={`${item.url}_${index}`} url={item.url} active={index === currentIndex} bottomInset={insets.bottom} />
+                  ) : (
+                    <View key={`${item.url}_${index}`} style={styles.page} />
+                  )
+                ) : (
+                  <ZoomableImage
+                    key={`${item.url}_${index}`}
+                    uri={item.url}
+                    active={index === currentIndex}
+                    onZoomChange={setZoomed}
+                    onTap={toggleChrome}
+                  />
+                ),
+              )}
+            </GHScrollView>
+          </Reanimated.View>
+        </GestureDetector>
 
-        {/* Bottom overlay: soft gradient instead of a solid box, so the video stays visible */}
+        {/* Bottom overlay: soft gradient so the media stays visible */}
         {showBottom && (
-          <Animated.View style={[styles.bottom, { opacity: fade }]} pointerEvents="box-none">
+          <Reanimated.View style={[styles.bottom, chromeStyle]} pointerEvents={chromeOn ? 'box-none' : 'none'}>
             <LinearGradient
               colors={['rgba(0,0,0,0)', captionOpen ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.7)']}
               locations={[0, 0.45, 1]}
@@ -288,65 +387,46 @@ export function MediaViewerModal({
               )}
               {caption ? (
                 <Pressable onPress={() => setCaptionOpen(o => !o)} hitSlop={6}>
-                  <Text style={styles.caption} numberOfLines={captionOpen ? undefined : 2}>
-                    {caption}
-                  </Text>
+                  <Text style={styles.caption} numberOfLines={captionOpen ? undefined : 2}>{caption}</Text>
                   {!captionOpen && caption.length > 90 && <Text style={styles.more}>more</Text>}
                 </Pressable>
               ) : null}
               {postContext && (
                 <View style={styles.actions}>
-                  <TouchableOpacity style={styles.action} onPress={() => { dismiss(1); setTimeout(postContext.onReply, 220); }}>
+                  <TouchableOpacity style={styles.action} onPress={() => { close(1); setTimeout(postContext.onReply, 220); }} accessibilityLabel="Reply">
                     <Ionicons name="chatbubble-outline" size={22} color="#fff" />
                     {postContext.commentCount > 0 && <Text style={styles.actionCount}>{compact(postContext.commentCount)}</Text>}
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.action} onPress={postContext.onRepost}>
-                    <Ionicons name="repeat-outline" size={22} color="#fff" />
+                  <TouchableOpacity style={styles.action} onPress={postContext.onRepost} accessibilityLabel="Repost">
+                    <Ionicons name="repeat" size={23} color="#fff" />
                     {postContext.repostCount > 0 && <Text style={styles.actionCount}>{compact(postContext.repostCount)}</Text>}
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.action} onPress={postContext.onLike}>
-                    <Ionicons
-                      name={postContext.isLiked ? 'heart' : 'heart-outline'}
-                      size={22}
-                      color={postContext.isLiked ? '#fc8181' : '#fff'}
-                    />
+                  <TouchableOpacity style={styles.action} onPress={postContext.onLike} accessibilityLabel={postContext.isLiked ? 'Unlike' : 'Like'}>
+                    <Ionicons name={postContext.isLiked ? 'heart' : 'heart-outline'} size={23} color={postContext.isLiked ? '#FF3040' : '#fff'} />
                     {postContext.likeCount > 0 && (
-                      <Text style={[styles.actionCount, postContext.isLiked && styles.likedCount]}>
-                        {compact(postContext.likeCount)}
-                      </Text>
+                      <Text style={[styles.actionCount, postContext.isLiked && styles.likedCount]}>{compact(postContext.likeCount)}</Text>
                     )}
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.action} onPress={postContext.onBookmark}>
-                    <Ionicons
-                      name={postContext.isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                      size={21}
-                      color={postContext.isBookmarked ? '#90cdf4' : '#fff'}
-                    />
+                  <TouchableOpacity style={styles.action} onPress={postContext.onBookmark} accessibilityLabel="Bookmark">
+                    <Ionicons name={postContext.isBookmarked ? 'bookmark' : 'bookmark-outline'} size={21} color={postContext.isBookmarked ? '#5CB85C' : '#fff'} />
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.action, { marginLeft: 'auto' }]} onPress={postContext.onShare}>
-                    <Ionicons name="share-outline" size={21} color="#fff" />
+                  <TouchableOpacity style={[styles.action, { marginLeft: 'auto' }]} onPress={postContext.onShare} accessibilityLabel="Share">
+                    <Ionicons name="paper-plane-outline" size={21} color="#fff" />
                   </TouchableOpacity>
                 </View>
               )}
             </View>
-          </Animated.View>
+          </Reanimated.View>
         )}
 
         {/* Top bar */}
-        <Animated.View style={[styles.topBar, { paddingTop: insets.top + 8, opacity: fade }]} pointerEvents="box-none">
-          <TouchableOpacity
-            style={styles.roundBtn}
-            onPress={() => dismiss(1)}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityLabel="Close"
-          >
+        <Reanimated.View style={[styles.topBar, { paddingTop: insets.top + 8 }, chromeStyle]} pointerEvents={chromeOn ? 'box-none' : 'none'}>
+          <TouchableOpacity style={styles.roundBtn} onPress={() => close(1)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} accessibilityLabel="Close">
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
-          {media.length > 1 && (
-            <Text style={styles.counter}>{currentIndex + 1} / {media.length}</Text>
-          )}
-        </Animated.View>
-      </Animated.View>
+          {media.length > 1 && <Text style={styles.counter}>{currentIndex + 1} / {media.length}</Text>}
+        </Reanimated.View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -355,35 +435,25 @@ const textShadow = { textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { wid
 
 const styles = StyleSheet.create({
   backdrop: { backgroundColor: '#000' },
-  container: { flex: 1, backgroundColor: '#000' },
-  page: { width: SCREEN_W, height: SCREEN_H, backgroundColor: '#000' },
+  container: { flex: 1 },
+  page: { width: SCREEN_W, height: SCREEN_H, overflow: 'hidden' },
   centerOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  bigPlay: {
-    width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  roundBtn: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 20, padding: 8 },
-  muteBtn: { position: 'absolute', right: 16, top: '50%', marginTop: -20 },
+  bigPlay: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  roundBtn: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  muteBtn: { position: 'absolute', right: 16, top: '50%', marginTop: -22 },
   progressHit: { position: 'absolute', left: 16, right: 16, height: 18, justifyContent: 'center', zIndex: 5 },
   progressTrack: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.3)', overflow: 'hidden' },
   progressFill: { height: 3, backgroundColor: '#fff' },
-  topBar: {
-    position: 'absolute', top: 0, left: 0, right: 0,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  counter: {
-    color: '#fff', fontSize: 15, fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, overflow: 'hidden',
-  },
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16 },
+  counter: { color: '#fff', fontSize: 15, fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, overflow: 'hidden' },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   bottomInner: { paddingHorizontal: 16, paddingTop: 48 },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   authorName: { color: '#fff', fontSize: 15, fontWeight: '700', flexShrink: 1, ...textShadow },
-  caption: { color: '#fff', fontSize: 14.5, lineHeight: 20, ...textShadow },
+  caption: { color: '#fff', fontSize: 15, lineHeight: 21, ...textShadow },
   more: { color: 'rgba(255,255,255,0.75)', fontSize: 13.5, fontWeight: '600', marginTop: 2 },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 26, marginTop: 14 },
-  action: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  actionCount: { color: '#fff', fontSize: 13.5, fontWeight: '600', ...textShadow },
-  likedCount: { color: '#fc8181' },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 22, marginTop: 14 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 40 },
+  actionCount: { color: '#fff', fontSize: 14, fontWeight: '600', ...textShadow },
+  likedCount: { color: '#FF3040' },
 });

@@ -12,6 +12,7 @@ import apiClient from '../../utils/apiClient';
 import { useSocialStore } from '../../stores/socialStore';
 import { VerifiedBadge } from './VerifiedBadge';
 import { FeedVideo } from './FeedVideo';
+import { FitImage, VideoTile, useImageRatio } from './media';
 import { toggleInteraction, markInteraction } from '../../stores/interactionSync';
 
 const fmtCount = (n: number) =>
@@ -137,44 +138,12 @@ interface PostCardProps {
   onReportPress?: (postId: string) => void;
 }
 
-function SmartImage({ url, onPress }: { url: string; onPress: () => void }) {
+function SmartImage({ url, onPress, w, h }: { url: string; onPress: () => void; w?: number; h?: number }) {
   const T = useTheme();
-  // Default 4:3 landscape while dimensions load — prevents zero-height container
-  const [ratio, setRatio] = useState(1.33);
-
-  useEffect(() => {
-    Image.getSize(
-      url,
-      (w, h) => {
-        if (w > 0 && h > 0) {
-          // Clamp between 9:16 portrait (0.56) and 16:9 landscape (1.78)
-          setRatio(Math.min(Math.max(w / h, 0.56), 1.78));
-        }
-      },
-      () => {}
-    );
-  }, [url]);
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.9}
-      style={{
-        width: '100%',
-        aspectRatio: ratio,
-        borderRadius: 12,
-        overflow: 'hidden',
-        backgroundColor: T.surface2,
-        marginTop: 4,
-      }}
-    >
-      <Image
-        source={{ uri: url }}
-        style={{ width: '100%', height: '100%' }}
-        resizeMode="cover"
-      />
-    </TouchableOpacity>
-  );
+  // Real shape from the stored size (no layout jump) or measured; tall/wide photos are shown
+  // whole over a blurred copy instead of being cropped.
+  const ratio = useImageRatio(url, w && h ? w / h : null);
+  return <FitImage uri={url} ratio={ratio} onPress={onPress} bg={T.surface2} radius={14} minRatio={0.75} maxRatio={1.91} style={{ marginTop: 4 }} />;
 }
 
 function timeAgo(dateStr: string): string {
@@ -509,7 +478,7 @@ export function PostCard({
                       onWatched={recordView}
                     />
                   ) : (
-                    <SmartImage url={activePost.post_media[0].url} onPress={() => openViewer(0)} />
+                    <SmartImage url={activePost.post_media[0].url} w={activePost.post_media[0].width} h={activePost.post_media[0].height} onPress={() => openViewer(0)} />
                   )}
                 </View>
               ) : (
@@ -835,6 +804,10 @@ function PostMediaCarousel({
   const ITEM_RATIO = 0.88;
   const ITEM_GAP = 8;
   const itemWidth = containerWidth > 0 ? containerWidth * ITEM_RATIO : 0;
+  // All slides share one frame shaped like the first item (clamped 4:5 … 1.91:1)
+  const first = media[0];
+  const firstRatio = useImageRatio(first?.media_type === 'image' ? first.url : null, first?.width && first?.height ? first.width / first.height : null);
+  const frameRatio = Math.min(Math.max(firstRatio || 1, 0.8), 1.91);
 
   return (
     <View
@@ -856,20 +829,28 @@ function PostMediaCarousel({
           scrollEventThrottle={16}
         >
           {media.slice(0, 4).map((m, index) => (
-            <TouchableOpacity
-              key={m.id}
-              activeOpacity={0.92}
-              onPress={() => onOpenViewer(index)}
-              style={{ width: itemWidth, height: 220, borderRadius: 14, overflow: 'hidden', backgroundColor: T.surface2 }}
-            >
-              {m.media_type === 'video' ? (
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.surface2 }}>
-                  <Ionicons name="play-circle" size={44} color="rgba(255,255,255,0.85)" />
-                </View>
-              ) : (
-                <Image source={{ uri: m.url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-              )}
-            </TouchableOpacity>
+            m.media_type === 'video' ? (
+              <VideoTile
+                key={m.id}
+                url={m.url}
+                thumbnail={m.thumbnail_url}
+                onPress={() => onOpenViewer(index)}
+                bg={T.surface2}
+                style={{ width: itemWidth, aspectRatio: frameRatio, borderRadius: 14 }}
+              />
+            ) : (
+              <FitImage
+                key={m.id}
+                uri={m.url}
+                ratio={m.width && m.height ? m.width / m.height : null}
+                minRatio={frameRatio}
+                maxRatio={frameRatio}
+                width={itemWidth}
+                radius={14}
+                bg={T.surface2}
+                onPress={() => onOpenViewer(index)}
+              />
+            )
           ))}
         </ScrollView>
       )}

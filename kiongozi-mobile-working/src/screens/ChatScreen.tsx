@@ -144,15 +144,15 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const C = {
     bg:         isDark ? '#000000' : '#FFFFFF',
     surface:    isDark ? '#111111' : '#F2F2F7',
-    surface2:   isDark ? '#1C1C1E' : '#E5E5EA',
-    border:     isDark ? '#2C2C2E' : '#D1D1D6',
-    borderLight: isDark ? '#222222' : '#E9E9EE',
+    surface2:   isDark ? '#1A1A1A' : '#E5E5EA',
+    border:     isDark ? '#2A2A2A' : '#D1D1D6',
+    borderLight: isDark ? '#1A1A1A' : '#E9E9EE',
     text:       isDark ? '#FFFFFF' : '#000000',
     textSub:    isDark ? '#8E8E93' : '#6C6C70',
-    textMuted:  isDark ? '#636366' : '#9A9AA0',
-    userBubble: isDark ? '#1C1C1E' : '#E9E9EB',
+    textMuted:  isDark ? '#7C7C80' : '#9A9AA0',
+    userBubble: isDark ? '#1A1A1A' : '#E9E9EB',
     accent:     '#5CB85C',
-    sidebar:    isDark ? '#0D0D0D' : '#F8F8F8',
+    sidebar:    isDark ? '#000000' : '#F8F8F8',
   };
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -452,7 +452,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
         ]}
       >
         {/* Sidebar header */}
-        <View style={[styles.sidebarHeader, { borderBottomColor: C.border }]}>
+        <View style={styles.sidebarHeader}>
           <View style={styles.sidebarLogoWrap}>
             <Image source={require('../../assets/kchat-logo.png')} style={styles.sidebarLogoImg} resizeMode="contain" />
           </View>
@@ -462,10 +462,10 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           </View>
           <TouchableOpacity
             onPress={startNewChat}
-            style={[styles.newChatIconBtn, { borderColor: C.border, backgroundColor: C.surface }]}
+            style={[styles.newChatIconBtn, { borderColor: C.border, backgroundColor: 'transparent' }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="create-outline" size={18} color={C.accent} />
+            <Ionicons name="create-outline" size={18} color={C.text} />
           </TouchableOpacity>
         </View>
 
@@ -496,20 +496,19 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
         style={[styles.main, { backgroundColor: C.bg, transform: [{ translateX: contentTranslateX }] }]}
       >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: C.border, paddingTop: insets.top + 6 }]}>
+        <View style={[styles.header, { paddingTop: insets.top }]}>
           <TouchableOpacity
             onPress={() => isSidebarOpen() ? closeSidebar() : openSidebar()}
             style={styles.headerBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="albums-outline" size={24} color={C.text} />
+            <Ionicons name="albums-outline" size={22} color={C.text} />
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <GlowingLogo />
             <View style={styles.headerTitleBlock}>
               <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>Kiongozi AI</Text>
-              <Text style={styles.headerSub}>Green &amp; Digital Transition</Text>
+              <Text style={[styles.headerSub, { color: C.textMuted }]}>Green &amp; Digital Transition</Text>
             </View>
           </View>
 
@@ -519,7 +518,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
               style={styles.headerBtn}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="create-outline" size={23} color={C.text} />
+              <Ionicons name="create-outline" size={22} color={C.text} />
             </TouchableOpacity>
             {onClose && (
               <TouchableOpacity
@@ -527,7 +526,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                 style={styles.headerBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="chevron-down" size={26} color={C.text} />
+                <Ionicons name="chevron-down" size={24} color={C.text} />
               </TouchableOpacity>
             )}
           </View>
@@ -574,19 +573,19 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           <View
             style={[
               styles.inputWrap,
-              { backgroundColor: C.bg, borderTopColor: C.border, paddingBottom: Math.max(insets.bottom, 12) },
+              { backgroundColor: C.bg, paddingBottom: Math.max(insets.bottom, 10) },
             ]}
           >
             <TouchableOpacity
               activeOpacity={1}
-              style={[styles.inputRow, { backgroundColor: C.surface, borderColor: C.border }]}
+              style={[styles.inputRow, { backgroundColor: 'transparent', borderColor: C.border }]}
               onPress={() => inputRef.current?.focus()}
             >
               <TextInput
                 ref={inputRef}
                 style={[styles.input, { color: C.text }]}
                 placeholder="Message Kiongozi AI…"
-                placeholderTextColor={C.textSub}
+                placeholderTextColor={C.textMuted}
                 value={inputText}
                 onChangeText={setInputText}
                 multiline
@@ -601,7 +600,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                   style={[styles.sendBtn, { backgroundColor: C.surface2 }]}
                   hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 >
-                  <Ionicons name="stop" size={17} color={C.text} />
+                  <Ionicons name="stop" size={15} color={C.text} />
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -610,7 +609,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                   style={[styles.sendBtn, { backgroundColor: inputText.trim() ? C.accent : C.surface2 }]}
                   hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 >
-                  <Ionicons name="arrow-up" size={17} color={inputText.trim() ? '#FFFFFF' : C.textSub} />
+                  <Ionicons name="arrow-up" size={18} color={inputText.trim() ? '#000000' : C.textMuted} />
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
@@ -642,39 +641,38 @@ const styles = StyleSheet.create({
   // Sidebar
   sidebar: {
     position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 10,
-    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: 1,
   },
   sidebarHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16,
   },
   sidebarLogoWrap: {
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: '#0D1F0D', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: '#2A3A2A',
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#2A2A2A',
   },
   sidebarLogoImg: { width: 22, height: 22 },
-  sidebarHeading: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
-  sidebarSubheading: { fontSize: 12, marginTop: 1 },
+  sidebarHeading: { fontSize: 17, fontWeight: '600', fontFamily: 'SpaceGrotesk_600SemiBold', letterSpacing: -0.3 },
+  sidebarSubheading: { fontSize: 13, marginTop: 2 },
   newChatIconBtn: {
-    width: 34, height: 34, borderRadius: 10,
+    width: 40, height: 40, borderRadius: 20,
     borderWidth: 1, alignItems: 'center', justifyContent: 'center',
   },
   sectionHeader: {
-    fontSize: 10, fontWeight: '800', letterSpacing: 0.8,
-    paddingHorizontal: 14, paddingTop: 16, paddingBottom: 6,
+    fontSize: 11, fontWeight: '600', letterSpacing: 0.6,
+    paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8,
   },
   convItem: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 11,
-    marginHorizontal: 6, marginVertical: 1, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 11,
+    marginHorizontal: 8, marginVertical: 1, borderRadius: 12,
   },
-  convTitle: { fontSize: 14, fontWeight: '500', marginBottom: 2 },
-  convTime: { fontSize: 11 },
+  convTitle: { fontSize: 15, fontWeight: '500', marginBottom: 2 },
+  convTime: { fontSize: 12 },
   noChatsWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60, gap: 8 },
-  noChats: { fontSize: 15, fontWeight: '600' },
-  noChatsHint: { fontSize: 13 },
+  noChats: { fontSize: 16, fontWeight: '600', fontFamily: 'SpaceGrotesk_600SemiBold' },
+  noChatsHint: { fontSize: 14 },
 
   // Main
   main: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 },
@@ -682,7 +680,7 @@ const styles = StyleSheet.create({
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 8, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 6, paddingBottom: 2, minHeight: 50, borderBottomWidth: 0,
   },
   headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
@@ -691,42 +689,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center', gap: 8,
   },
   headerTitleBlock: { flexDirection: 'column', alignItems: 'center', flexShrink: 1 },
-  headerTitle: { fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold', flexShrink: 1 },
-  headerSub: { fontSize: 11.5, fontWeight: '600', color: '#5CB85C', marginTop: 1 },
+  headerTitle: { fontSize: 17, fontWeight: '600', fontFamily: 'SpaceGrotesk_600SemiBold', letterSpacing: -0.3, flexShrink: 1 },
+  headerSub: { fontSize: 12, fontWeight: '400', marginTop: 1 },
 
   // Messages
-  messageList: { paddingTop: 16, paddingHorizontal: 16, paddingBottom: 8 },
+  messageList: { paddingTop: 20, paddingHorizontal: 20, paddingBottom: 12 },
   messageListEmpty: { flexGrow: 1 },
-  aiRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 22, gap: 10 },
-  aiAvatar: { width: 22, height: 16, marginTop: 4 },
+  aiRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 28, gap: 12 },
+  aiAvatar: { width: 22, height: 16, marginTop: 5 },
   aiContent: { flex: 1 },
-  aiText: { fontSize: 15, lineHeight: 24 },
-  copyBtn: { marginTop: 8 },
-  userRow: { alignItems: 'flex-end', marginBottom: 22 },
+  aiText: { fontSize: 16, lineHeight: 25 },
+  copyBtn: { marginTop: 10, alignSelf: 'flex-start' },
+  userRow: { alignItems: 'flex-end', marginBottom: 28 },
   userBubble: {
-    maxWidth: '80%', borderRadius: 20, borderBottomRightRadius: 5,
-    paddingHorizontal: 14, paddingVertical: 10,
+    maxWidth: '80%', borderRadius: 22, borderBottomRightRadius: 6,
+    paddingHorizontal: 16, paddingVertical: 11,
   },
-  userText: { fontSize: 15, lineHeight: 22 },
+  userText: { fontSize: 16, lineHeight: 23 },
 
   // Empty state
   emptyWrap: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 36, paddingBottom: 60,
+    paddingHorizontal: 32, paddingBottom: 60,
   },
-  emptyLogo: { width: 72, height: 50, marginBottom: 22, opacity: 0.6 },
-  emptyTitle: { fontSize: 22, fontWeight: '600', marginBottom: 10, textAlign: 'center', letterSpacing: -0.4 },
-  emptySub: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  emptyLogo: { width: 64, height: 44, marginBottom: 24 },
+  emptyTitle: {
+    fontSize: 32, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 12, textAlign: 'center', letterSpacing: -0.8, lineHeight: 38,
+  },
+  emptySub: { fontSize: 16, textAlign: 'center', lineHeight: 24 },
 
   // Input
-  inputWrap: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  inputWrap: { paddingHorizontal: 16, paddingTop: 8, borderTopWidth: 0 },
   inputRow: {
-    flexDirection: 'row', alignItems: 'flex-end', borderRadius: 26,
-    borderWidth: 1, paddingLeft: 16, paddingRight: 6, paddingVertical: 5, gap: 6,
+    flexDirection: 'row', alignItems: 'flex-end', borderRadius: 22, minHeight: 44,
+    borderWidth: 1, paddingLeft: 16, paddingRight: 3, paddingVertical: 3, gap: 6,
   },
-  input: { flex: 1, fontSize: 16, maxHeight: 130, paddingVertical: 7, lineHeight: 22 },
+  input: { flex: 1, fontSize: 16, maxHeight: 130, paddingTop: 8, paddingBottom: 8, lineHeight: 21 },
   sendBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 1,
+    width: 36, height: 36, borderRadius: 18,
+    justifyContent: 'center', alignItems: 'center',
   },
 });

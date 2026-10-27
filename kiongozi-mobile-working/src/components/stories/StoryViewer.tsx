@@ -3,10 +3,12 @@
 // Replies and reactions go to the author as DMs. Your own stories show who has seen them.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, Image, Modal, Pressable, StyleSheet, Animated, PanResponder, Dimensions, TextInput,
+  View, Text, Image, Modal, Pressable, StyleSheet, Animated, Dimensions, TextInput,
   KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert, Keyboard, StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing } from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,7 +36,9 @@ export function StoryViewer() {
 
   return (
     <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={closeViewer}>
-      {viewer && <ViewerBody groups={viewer.groups} startIndex={viewer.index} onClose={closeViewer} />}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        {viewer && <ViewerBody groups={viewer.groups} startIndex={viewer.index} onClose={closeViewer} />}
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -43,7 +47,7 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
   const listRef = useRef<FlatList>(null);
   const [page, setPage] = useState(Math.max(0, startIndex));
   const scrollX = useRef(new Animated.Value(startIndex * W)).current;
-  const drag = useRef(new Animated.Value(0)).current;
+  const drag = useSharedValue(0); // swipe-down distance, driven on the UI thread
 
   const goPage = useCallback((next: number) => {
     if (next < 0) return;
@@ -52,27 +56,40 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
     setPage(next);
   }, [groups.length, onClose]);
 
-  // Swipe down anywhere to close
-  const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponderCapture: (_, g) => g.dy > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.4,
-    onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
-    onPanResponderRelease: (_, g) => {
-      if (g.dy > 120 || g.vy > 0.8) {
-        Animated.timing(drag, { toValue: H, duration: 180, useNativeDriver: true }).start(onClose);
+  // Swipe down anywhere to close — runs on the native UI thread, so it follows the finger smoothly
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const finish = useCallback(() => closeRef.current(), []);
+  const dismiss = Gesture.Pan()
+    .maxPointers(1)
+    .activeOffsetY(14)
+    .failOffsetX([-18, 18])
+    .onUpdate(e => { drag.value = Math.max(0, e.translationY); })
+    .onEnd(e => {
+      if (e.translationY > 120 || e.velocityY > 800) {
+        drag.value = withTiming(H, { duration: 200, easing: Easing.out(Easing.quad) }, done => { if (done) runOnJS(finish)(); });
       } else {
-        Animated.spring(drag, { toValue: 0, useNativeDriver: true, damping: 18, stiffness: 220 }).start();
+        drag.value = withSpring(0, { damping: 22, stiffness: 240, velocity: e.velocityY });
       }
-    },
-    onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true }).start(),
-  })).current;
+    });
 
-  const scale = drag.interpolate({ inputRange: [0, H], outputRange: [1, 0.75], extrapolate: 'clamp' });
-  const backdrop = drag.interpolate({ inputRange: [0, 300], outputRange: [1, 0.2], extrapolate: 'clamp' });
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(drag.value, [0, 300], [1, 0.2], Extrapolation.CLAMP),
+  }));
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: drag.value },
+      { scale: interpolate(drag.value, [0, H], [1, 0.75], Extrapolation.CLAMP) },
+    ],
+    borderRadius: interpolate(drag.value, [0, 80], [0, 24], Extrapolation.CLAMP),
+    overflow: 'hidden',
+  }));
 
   return (
-    <Animated.View style={[styles.backdrop, { opacity: backdrop }]}>
+    <Reanimated.View style={[styles.backdrop, backdropStyle]}>
       <StatusBar barStyle="light-content" />
-      <Animated.View style={{ flex: 1, transform: [{ translateY: drag }, { scale }] }} {...pan.panHandlers}>
+      <GestureDetector gesture={dismiss}>
+      <Reanimated.View style={[{ flex: 1 }, cardStyle]}>
         <Animated.FlatList
           ref={listRef as any}
           data={groups}
@@ -108,8 +125,9 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
             );
           }}
         />
-      </Animated.View>
-    </Animated.View>
+      </Reanimated.View>
+      </GestureDetector>
+    </Reanimated.View>
   );
 }
 

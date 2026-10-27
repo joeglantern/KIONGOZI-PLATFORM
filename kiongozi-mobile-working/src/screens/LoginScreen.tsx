@@ -16,7 +16,6 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../stores/authStore';
@@ -228,12 +227,6 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      {/* Subtle gradient stripe at top */}
-      <LinearGradient
-        colors={['rgba(92,184,92,0.18)', 'transparent']}
-        style={styles.topGradient}
-        pointerEvents="none"
-      />
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -259,7 +252,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     style={styles.backBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+                    <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
                   </TouchableOpacity>
                   <Text style={styles.title}>Reset Password</Text>
                   <View style={styles.backBtnPlaceholder} />
@@ -273,6 +266,9 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   />
                   <Text style={styles.title}>
                     {isSignUp ? 'Create an account' : 'Sign in'}
+                  </Text>
+                  <Text style={styles.subtitle}>
+                    {isSignUp ? 'Join the conversation shaping Kenya.' : 'Welcome back. Pick up where you left off.'}
                   </Text>
                 </View>
               )}
@@ -288,11 +284,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       Enter your email and we'll send you a 6-digit code to reset your password.
                     </Text>
                     <View style={styles.inputContainer}>
-                      <Ionicons name="mail-outline" size={20} color="#555555" style={styles.inputIcon} />
+                      <Ionicons name="mail-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
                       <TextInput
                         style={[styles.input, styles.inputWithIcon]}
                         placeholder="Email address"
-                        placeholderTextColor="#9ca3af"
+                        placeholderTextColor="#636366"
                         value={resetEmail}
                         onChangeText={setResetEmail}
                         keyboardType="email-address"
@@ -317,7 +313,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       activeOpacity={0.8}
                     >
                       {resetLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color="#000000" size="small" />
                       ) : (
                         <Text style={styles.submitButtonText}>Send Code</Text>
                       )}
@@ -364,7 +360,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       activeOpacity={0.8}
                     >
                       {otpLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color="#000000" size="small" />
                       ) : (
                         <Text style={styles.submitButtonText}>Verify Code</Text>
                       )}
@@ -393,11 +389,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       Choose a new password for your account.
                     </Text>
                     <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#555555" style={styles.inputIcon} />
+                      <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
                       <TextInput
                         style={[styles.input, styles.inputWithIcon, styles.passwordInput]}
                         placeholder="New password (min. 8 characters)"
-                        placeholderTextColor="#9ca3af"
+                        placeholderTextColor="#636366"
                         value={newPassword}
                         onChangeText={setNewPassword}
                         secureTextEntry={!showNewPw}
@@ -409,11 +405,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       </TouchableOpacity>
                     </View>
                     <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#555555" style={styles.inputIcon} />
+                      <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
                       <TextInput
                         style={[styles.input, styles.inputWithIcon, styles.passwordInput]}
                         placeholder="Confirm new password"
-                        placeholderTextColor="#9ca3af"
+                        placeholderTextColor="#636366"
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
                         secureTextEntry={!showConfirmPw}
@@ -431,7 +427,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       activeOpacity={0.8}
                     >
                       {resetPwLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color="#000000" size="small" />
                       ) : (
                         <Text style={styles.submitButtonText}>Set New Password</Text>
                       )}
@@ -449,7 +445,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     <Ionicons
                       name="person-outline"
                       size={20}
-                      color="#555555"
+                      color="#8E8E93"
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -459,7 +455,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                         focusedField === 'firstName' && styles.inputFocused
                       ]}
                       placeholder="First Name"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor="#636366"
                       value={firstName}
                       onChangeText={setFirstName}
                       onFocus={handleFocusFirstName}
@@ -473,7 +469,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     <Ionicons
                       name="person-outline"
                       size={20}
-                      color="#555555"
+                      color="#8E8E93"
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -483,7 +479,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                         focusedField === 'lastName' && styles.inputFocused
                       ]}
                       placeholder="Last Name"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor="#636366"
                       value={lastName}
                       onChangeText={setLastName}
                       onFocus={handleFocusLastName}
@@ -506,7 +502,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                         usernameStatus === 'available' && styles.inputSuccess,
                       ]}
                       placeholder="username"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor="#636366"
                       value={username}
                       onChangeText={(text) => {
                         setUsernameTouched(true);
@@ -518,13 +514,13 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       autoCorrect={false}
                     />
                     {usernameStatus === 'checking' && (
-                      <ActivityIndicator size="small" color="#555555" style={styles.statusIcon} />
+                      <ActivityIndicator size="small" color="#8E8E93" style={styles.statusIcon} />
                     )}
                     {usernameStatus === 'available' && (
-                      <Ionicons name="checkmark-circle" size={20} color="#22c55e" style={styles.statusIcon} />
+                      <Ionicons name="checkmark-circle" size={20} color="#5CB85C" style={styles.statusIcon} />
                     )}
                     {(usernameStatus === 'taken' || usernameStatus === 'reserved') && (
-                      <Ionicons name="close-circle" size={20} color="#ef4444" style={styles.statusIcon} />
+                      <Ionicons name="close-circle" size={20} color="#FF3B30" style={styles.statusIcon} />
                     )}
                     {(usernameStatus === 'taken' || usernameStatus === 'reserved' || usernameStatus === 'short') && (
                       <Text style={styles.usernameHint}>
@@ -541,7 +537,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 <Ionicons
                   name="mail-outline"
                   size={20}
-                  color="#555555"
+                  color="#8E8E93"
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -551,7 +547,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     focusedField === 'email' && styles.inputFocused
                   ]}
                   placeholder="Email address"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor="#636366"
                   value={email}
                   onChangeText={setEmail}
                   onFocus={handleFocusEmail}
@@ -567,7 +563,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color="#555555"
+                  color="#8E8E93"
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -578,7 +574,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     focusedField === 'password' && styles.inputFocused
                   ]}
                   placeholder="Password"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor="#636366"
                   value={password}
                   onChangeText={setPassword}
                   onFocus={handleFocusPassword}
@@ -616,7 +612,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 activeOpacity={0.8}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color="#000000" size="small" />
                 ) : (
                   <Text style={styles.submitButtonText}>
                     {isSignUp ? 'Create Account' : 'Continue'}
@@ -688,20 +684,22 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   );
 }
 
+// Design tokens (screen is dark-only; values mirror src/theme/colors.ts)
+const BG = '#000000';
+const TEXT = '#FFFFFF';
+const MUTED = '#8E8E93';
+const FAINT = '#636366';
+const BORDER = '#2A2A2A';
+const ACCENT = '#5CB85C';
+const ERROR = '#FF3B30';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
-  },
-  topGradient: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: 180,
-    zIndex: 0,
+    backgroundColor: BG,
   },
   keyboardContainer: {
     flex: 1,
-    zIndex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -713,235 +711,183 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   header: {
-    marginBottom: 28,
+    marginBottom: 32,
     alignItems: 'center',
   },
   logoContainer: {
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 16,
     justifyContent: 'center',
   },
   logoImage: {
     width: 72,
     height: 48,
-  },
-  aiIconText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    marginBottom: 28,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 32,
+    color: TEXT,
     fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: -0.6,
+    letterSpacing: -0.8,
     textAlign: 'center',
   },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: MUTED,
+    textAlign: 'center',
+    marginTop: 8,
+  },
   formContainer: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
     position: 'relative',
   },
   inputIcon: {
     position: 'absolute',
     left: 16,
-    top: 14,
+    top: 16,
     zIndex: 1,
   },
   input: {
-    backgroundColor: '#161616',
-    borderWidth: 1.5,
-    borderColor: '#2A2A2A',
+    height: 52,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: BORDER,
     borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#FFFFFF',
+    paddingVertical: 0,
+    fontSize: 16,
+    color: TEXT,
   },
   inputWithIcon: {
-    paddingLeft: 48,
+    paddingLeft: 46,
   },
   usernameAt: {
     position: 'absolute',
     left: 16,
-    top: 14,
+    top: 15,
     zIndex: 1,
-    fontSize: 15,
-    color: '#555555',
+    fontSize: 16,
+    color: MUTED,
     fontWeight: '600',
   },
   inputWithAt: {
-    paddingLeft: 32,
+    paddingLeft: 34,
   },
   inputWithStatusIcon: {
-    paddingRight: 40,
+    paddingRight: 44,
   },
   inputError: {
-    borderColor: '#ef4444',
-    borderWidth: 2,
+    borderColor: ERROR,
   },
   inputSuccess: {
-    borderColor: '#22c55e',
-    borderWidth: 2,
+    borderColor: ACCENT,
   },
   statusIcon: {
     position: 'absolute',
-    right: 14,
-    top: 14,
+    right: 16,
+    top: 16,
   },
   usernameHint: {
-    fontSize: 12,
-    color: '#ef4444',
-    marginTop: 4,
+    fontSize: 13,
+    color: ERROR,
+    marginTop: 6,
     marginLeft: 4,
   },
   inputFocused: {
-    borderColor: '#5CB85C',
-    borderWidth: 2,
-    shadowOpacity: 0.2,
-    elevation: 2,
+    borderColor: ACCENT,
   },
   passwordInput: {
-    paddingRight: 50,
+    paddingRight: 52,
   },
   eyeButton: {
     position: 'absolute',
-    right: 16,
-    top: 14,
+    right: 12,
+    top: 12,
     padding: 4,
   },
   submitButton: {
-    backgroundColor: '#5CB85C',
+    height: 52,
+    backgroundColor: ACCENT,
     borderRadius: 26,
-    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    shadowColor: '#5CB85C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 5,
+    marginTop: 12,
   },
   submitButtonDisabled: {
-    backgroundColor: '#222222',
-    shadowOpacity: 0,
-    elevation: 0,
+    opacity: 0.4,
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e2e8f0',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: '#64748b',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  googleButton: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  googleIcon: {
-    marginRight: 10,
-  },
-  googleButtonText: {
-    color: '#374151',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 32,
-  },
   oauthSection: {
-    paddingHorizontal: 24,
-    marginTop: 4,
+    marginTop: 0,
     marginBottom: 8,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
     gap: 12,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: BORDER,
   },
   dividerText: {
-    color: '#8E8E93',
+    color: FAINT,
     fontSize: 13,
-    fontWeight: '500',
   },
   googleBtn: {
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#161616',
+    backgroundColor: 'transparent',
     borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
-    paddingVertical: 14,
+    borderColor: BORDER,
     paddingHorizontal: 20,
     gap: 10,
   },
   googleIcon: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
   },
   googleBtnText: {
-    color: '#FFFFFF',
+    color: TEXT,
     fontSize: 16,
     fontWeight: '600',
   },
   appleBtn: {
     width: '100%',
-    height: 50,
+    height: 52,
     marginTop: 12,
   },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+  },
   footerText: {
-    color: '#8E8E93',
-    fontSize: 14,
+    color: MUTED,
+    fontSize: 15,
   },
   switchButton: {
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 6,
   },
   switchText: {
-    color: '#5CB85C',
-    fontSize: 14,
+    color: ACCENT,
+    fontSize: 15,
     fontWeight: '600',
   },
   forgotHeader: {
@@ -951,33 +897,32 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   backBtn: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backBtnPlaceholder: {
-    width: 30,
+    width: 36,
   },
   forgotLink: {
     alignSelf: 'flex-end',
-    marginBottom: 8,
-    paddingVertical: 4,
+    marginBottom: 4,
+    paddingVertical: 6,
   },
   forgotText: {
-    color: '#5CB85C',
+    color: ACCENT,
     fontSize: 14,
+    fontWeight: '600',
   },
   resetSubtitle: {
     fontSize: 15,
-    color: '#8E8E93',
-    marginBottom: 20,
-  },
-  cancelForgotBtn: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 8,
-  },
-  cancelForgotText: {
-    color: '#8E8E93',
-    fontSize: 15,
+    lineHeight: 22,
+    color: MUTED,
+    marginBottom: 24,
   },
   otpWrapper: {
     position: 'relative',
@@ -991,24 +936,24 @@ const styles = StyleSheet.create({
   otpBox: {
     width: 46,
     height: 56,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#2A2A2A',
-    backgroundColor: '#161616',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   otpBoxActive: {
-    borderColor: '#5CB85C',
+    borderColor: ACCENT,
   },
   otpBoxFilled: {
     borderColor: '#3A3A3A',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#0E0E0E',
   },
   otpDigit: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    color: TEXT,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   otpHiddenInput: {
     position: 'absolute',
@@ -1023,8 +968,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   resendText: {
-    color: '#5CB85C',
+    color: ACCENT,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
