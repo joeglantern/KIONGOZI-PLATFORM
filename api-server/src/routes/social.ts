@@ -584,7 +584,7 @@ router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Res
             type: 'comment',
             title: 'New reply',
             message: `${replier?.full_name || 'Someone'} replied to your post`,
-            data: { post_id: parentPostId, from_user_id: userId, from_username: replier?.username, from_avatar_url: replier?.avatar_url },
+            data: { post_id: parentPostId, reply_id: post.id, reply_text: String(content || '').slice(0, 200), from_user_id: userId, from_username: replier?.username, from_avatar_url: replier?.avatar_url },
             io,
           });
         }
@@ -602,7 +602,7 @@ router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Res
               type: 'comment',
               title: 'New reply',
               message: `${replier?.full_name || 'Someone'} replied in your thread`,
-              data: { post_id: parent.parent_post_id, from_user_id: userId, from_username: replier?.username, from_avatar_url: replier?.avatar_url },
+              data: { post_id: parent.parent_post_id, reply_id: post.id, reply_text: String(content || '').slice(0, 200), from_user_id: userId, from_username: replier?.username, from_avatar_url: replier?.avatar_url },
               io,
             });
           }

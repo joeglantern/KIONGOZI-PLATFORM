@@ -15,9 +15,20 @@ router.post('/report', authenticateToken, async (req: Request, res: Response): P
       return;
     }
 
-    if (!['post', 'user'].includes(type)) {
-      res.status(400).json({ success: false, error: 'type must be post or user' });
+    if (!['post', 'user', 'story'].includes(type)) {
+      res.status(400).json({ success: false, error: 'type must be post, user or story' });
       return;
+    }
+
+    // Stories are reported against their author; the story id goes in the description so
+    // moderators can find it (the reports table only links posts and users).
+    let storyNote = '';
+    let targetUserId: string | null = type === 'user' ? id : null;
+    if (type === 'story') {
+      const { data: story } = await supabaseServiceClient.from('stories').select('user_id').eq('id', id).maybeSingle();
+      if (!story) { res.status(404).json({ success: false, error: 'Story not found' }); return; }
+      targetUserId = story.user_id;
+      storyNote = `[Story ${id}] `;
     }
 
     const validReasons = ['spam', 'harassment', 'hate_speech', 'misinformation', 'explicit_content', 'other'];
@@ -37,7 +48,8 @@ router.post('/report', authenticateToken, async (req: Request, res: Response): P
     if (type === 'post') {
       dupeQuery = dupeQuery.eq('reported_post_id', id);
     } else {
-      dupeQuery = dupeQuery.eq('reported_user_id', id);
+      dupeQuery = dupeQuery.eq('reported_user_id', targetUserId!);
+      if (type === 'story') dupeQuery = dupeQuery.like('description', `[Story ${id}]%`);
     }
 
     const { data: existing } = await dupeQuery.maybeSingle();
@@ -49,13 +61,13 @@ router.post('/report', authenticateToken, async (req: Request, res: Response): P
     const insertData: Record<string, any> = {
       reporter_id: reporterId,
       reason,
-      description: description || null,
+      description: storyNote || description ? `${storyNote}${description || ''}`.trim() : null,
     };
 
     if (type === 'post') {
       insertData.reported_post_id = id;
     } else {
-      insertData.reported_user_id = id;
+      insertData.reported_user_id = targetUserId;
     }
 
     const { error } = await supabaseServiceClient.from('reports').insert(insertData);

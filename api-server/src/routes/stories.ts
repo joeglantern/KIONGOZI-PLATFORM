@@ -8,7 +8,7 @@ import ModerationService from '../services/ModerationService';
 const router = Router();
 
 const PROFILE_FIELDS = 'id, username, full_name, avatar_url, is_verified, is_private';
-const STORY_FIELDS = 'id, user_id, media_type, media_url, thumbnail_url, width, height, duration_ms, text_content, bg, text_color, font, overlays, caption, audience, view_count, created_at, expires_at';
+const STORY_FIELDS = 'id, user_id, media_type, media_url, thumbnail_url, width, height, duration_ms, text_content, bg, text_color, font, text_style, overlays, caption, audience, view_count, created_at, expires_at';
 const MEDIA_HOST = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 
 async function blockedIds(userId: string): Promise<Set<string>> {
@@ -127,8 +127,14 @@ function cleanOverlays(raw: any): any[] {
   if (!Array.isArray(raw)) return [];
   const polls = raw.filter((o: any) => o?.type === 'poll').slice(0, 1); // at most one poll
   const rest = raw.filter((o: any) => o?.type !== 'poll');
+  const safeUrl = (u: any) => {
+    if (typeof u !== 'string') return undefined;
+    const t = u.trim().slice(0, 300);
+    return /^https?:\/\/[^\s]+$/i.test(t) ? t : undefined;
+  };
   return [...rest, ...polls].slice(0, 20).map((o: any) => ({
-    type: o?.type === 'text' ? 'text' : o?.type === 'poll' ? 'poll' : 'sticker',
+    type: o?.type === 'text' ? 'text' : o?.type === 'poll' ? 'poll' : o?.type === 'link' && safeUrl(o?.url) ? 'link' : 'sticker',
+    url: o?.type === 'link' ? safeUrl(o?.url) : undefined,
     options: o?.type === 'poll' && Array.isArray(o.options)
       ? o.options.slice(0, 2).map((x: any) => String(x ?? '').slice(0, 40))
       : undefined,
@@ -182,6 +188,7 @@ router.post('/stories', authenticateToken, async (req: Request, res: Response): 
       bg: typeof b.bg === 'string' ? b.bg.slice(0, 40) : null,
       text_color: typeof b.text_color === 'string' ? b.text_color.slice(0, 20) : null,
       font: typeof b.font === 'string' ? b.font.slice(0, 40) : null,
+      text_style: ['plain', 'pill', 'outline'].includes(b.text_style) ? b.text_style : null,
       overlays,
       caption,
       audience: b.audience === 'followers' ? 'followers' : 'everyone',
@@ -271,6 +278,36 @@ router.delete('/stories/:id', authenticateToken, async (req: Request, res: Respo
   } catch (err) {
     console.error('Delete story error:', err);
     res.status(500).json({ success: false, error: 'Failed to delete story' });
+  }
+});
+
+// GET /stories/:id/share — public link preview page (opens the app, else the store)
+const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+router.get('/stories/:id/share', async (req: Request, res: Response): Promise<void> => {
+  const store = 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile';
+  try {
+    const { id } = req.params;
+    const { data: s } = await db.from('stories')
+      .select('id, media_type, media_url, thumbnail_url, text_content, audience, expires_at, profiles:user_id(username, full_name, is_private)')
+      .eq('id', id).maybeSingle();
+    const p: any = (s as any)?.profiles;
+    const live = s && new Date((s as any).expires_at).getTime() > Date.now() && (s as any).audience === 'everyone' && !p?.is_private;
+    const name = live ? (p?.full_name || p?.username || 'Someone') : 'KChat';
+    const title = live ? `${name}'s story on KChat` : 'KChat — Kiongozi Chat';
+    const desc = live && (s as any).text_content ? String((s as any).text_content).slice(0, 140) : 'Stories, posts and conversations from young Kenyans. Open in KChat.';
+    const img = live ? ((s as any).media_type === 'image' ? (s as any).media_url : (s as any).thumbnail_url) : null;
+    const deep = `kiongozi://stories/${encodeURIComponent(id)}`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}</title><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
+${img ? `<meta property="og:image" content="${esc(img)}"><meta name="twitter:card" content="summary_large_image">` : ''}
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:-apple-system,system-ui,sans-serif}
+main{max-width:360px;padding:32px 24px;text-align:center}h1{font-size:22px;margin:0 0 8px}p{color:#a1a1a6;margin:0 0 24px;line-height:1.4}
+a{display:block;padding:14px;border-radius:26px;text-decoration:none;font-weight:700;margin-top:10px}.p{background:#5CB85C;color:#000}.s{border:1px solid #333;color:#fff}</style></head>
+<body><main><h1>${esc(title)}</h1><p>${esc(desc)}</p><a class="p" href="${deep}">Open in KChat</a><a class="s" href="${store}">Get KChat on Google Play</a></main>
+<script>setTimeout(function(){location.href=${JSON.stringify(deep)}},300)</script></body></html>`);
+  } catch {
+    res.redirect(store);
   }
 });
 
