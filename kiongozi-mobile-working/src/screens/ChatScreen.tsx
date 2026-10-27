@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Pressable, FlatList, SectionList, StyleSheet, Platform, Alert,
-  ActivityIndicator, Dimensions, Keyboard, KeyboardAvoidingView, StatusBar, Share, Image, Modal, ScrollView,
+  ActivityIndicator, useWindowDimensions, Keyboard, KeyboardAvoidingView, StatusBar, Share, Image, Modal, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,8 +22,6 @@ import { UserAvatar } from '../components/social/UserAvatar';
 import { OrbVideo, OrbStill } from '../components/ai/OrbVideo';
 import { ShineText, ReplyFx } from '../components/ai/StreamFx';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const DRAWER_W = Math.min(330, SCREEN_WIDTH * 0.84);
 const SPRING = { damping: 26, stiffness: 260, mass: 0.9 };
 
 const SUGGESTIONS: { art: any; label: string; hint: string; prompt: string }[] = [
@@ -104,6 +102,24 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const me = useProfileStore(s => s.currentUserProfile);
   const isDark = useThemeStore(s => s.isDark);
   const insets = useSafeAreaInsets();
+  const { width: winW, height: winH } = useWindowDimensions();
+  const DRAWER_W = Math.min(330, winW * 0.84);
+  const narrow = winW < 360; // SE 1st gen (320) and small Androids
+
+  // Track the keyboard so the 2×2 suggestion grid can step aside when it would squeeze the chat
+  const [kbH, setKbH] = useState(0);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', e => setKbH(e.endCoordinates?.height ?? 0));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbH(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  const kbOpen = kbH > 0;
+  // Height left for the empty state = window − top inset − header(48) − keyboard − composer(~90) − grid(2×60+8+10)
+  const GRID_H = 2 * 60 + 8 + 10;
+  const freeWithGrid = winH - insets.top - 48 - (kbOpen ? kbH : insets.bottom) - 90 - GRID_H;
+  const showGrid = !kbOpen || freeWithGrid >= 150;
+  const shortScreen = winH < 700;
 
   const C = {
     bg:         isDark ? '#000000' : '#FFFFFF',
@@ -481,6 +497,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                 renderSectionHeader={({ section }) => <Text style={[styles.blockLabel, { color: C.textMuted, marginHorizontal: 20 }]}>{section.title}</Text>}
                 contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
                 stickySectionHeadersEnabled={false}
+                automaticallyAdjustKeyboardInsets
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
               />
@@ -495,7 +512,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
               <TouchableOpacity onPress={() => (drawerOpen ? closeSidebar() : openSidebar())} style={styles.iconBtn} accessibilityLabel="Chat history">
                 <Ionicons name="reorder-two" size={24} color={C.text} />
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>
+              <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
                 {isGenerating ? 'Thinking…' : 'Kiongozi AI'}
               </Text>
               <View style={{ flexDirection: 'row' }}>
@@ -523,10 +540,10 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                   renderItem={renderMessage}
                   contentContainerStyle={[styles.messageList, messages.length === 0 && { flexGrow: 1 }]}
                   ListEmptyComponent={
-                    <Reanimated.View entering={FadeIn.duration(400)} style={styles.empty}>
-                      <OrbVideo size={64} />
-                      <Text style={[styles.greet, { color: C.textSub }]}>{greeting()}{firstName ? `, ${firstName}` : ''}</Text>
-                      <Text style={[styles.title, { color: C.text }]}>What can I help with?</Text>
+                    <Reanimated.View entering={FadeIn.duration(400)} style={[styles.empty, shortScreen && { paddingBottom: 12, paddingHorizontal: 20 }]}>
+                      <OrbVideo size={shortScreen ? 52 : 64} />
+                      <Text style={[styles.greet, shortScreen && { marginTop: 12 }, { color: C.textSub }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{greeting()}{firstName ? `, ${firstName}` : ''}</Text>
+                      <Text style={[styles.title, shortScreen && { fontSize: 23 }, { color: C.text }]} maxFontSizeMultiplier={1.25}>What can I help with?</Text>
                     </Reanimated.View>
                   }
                   keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -536,21 +553,22 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                 />
               )}
 
-              {messages.length === 0 && !loadingMessages && (
+              {messages.length === 0 && !loadingMessages && showGrid && (
                 // 2×2 grid: every suggestion fully visible, no sideways scrolling
                 <View style={styles.grid}>
                   {SUGGESTIONS.map((sg, i) => (
                     <Reanimated.View key={sg.label} entering={FadeInDown.delay(120 + i * 60).duration(320)} style={styles.gridCell}>
                       <Pressable
                         onPress={() => { Haptics.selectionAsync(); sendMessage(sg.prompt); }}
-                        style={({ pressed }) => [styles.tile, { backgroundColor: C.surface, borderColor: C.border }, pressed && { transform: [{ scale: 0.97 }], opacity: 0.85 }]}
+                        style={({ pressed }) => [styles.tile, narrow && styles.tileNarrow, { backgroundColor: C.surface, borderColor: C.border }, pressed && { transform: [{ scale: 0.97 }], opacity: 0.85 }]}
                         accessibilityRole="button"
                         accessibilityLabel={sg.label}
                       >
-                        <Image source={sg.art} style={styles.tileArt} />
+                        <Image source={sg.art} style={[styles.tileArt, narrow && styles.tileArtNarrow]} />
                         <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={[styles.tileLabel, { color: C.text }]} numberOfLines={1}>{sg.label}</Text>
-                          <Text style={[styles.tileHint, { color: C.textMuted }]} numberOfLines={1}>{sg.hint}</Text>
+                          {/* At 320pt a cell is ~145pt: 145 − pad 20 − border 2 − art 30 − gap 6 ≈ 87pt for text → allow 2 lines */}
+                          <Text style={[styles.tileLabel, narrow && styles.tileLabelNarrow, { color: C.text }]} numberOfLines={narrow ? 2 : 1} maxFontSizeMultiplier={1.25}>{sg.label}</Text>
+                          <Text style={[styles.tileHint, { color: C.textMuted }]} numberOfLines={1} maxFontSizeMultiplier={1.25}>{sg.hint}</Text>
                         </View>
                       </Pressable>
                     </Reanimated.View>
@@ -558,11 +576,11 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                 </View>
               )}
 
-              <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+              <View style={[styles.composer, { paddingBottom: kbOpen ? 8 : Math.max(insets.bottom, 10) }]}>
                 <View style={[styles.inputCard, { backgroundColor: C.surface, borderColor: C.border }]}>
                   <TextInput
                     ref={inputRef}
-                    style={[styles.input, { color: C.text }]}
+                    style={[styles.input, { color: C.text, maxHeight: shortScreen ? 96 : 140 }]}
                     placeholder="Ask anything"
                     placeholderTextColor={C.textMuted}
                     value={inputText}
@@ -586,7 +604,9 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                     </TouchableOpacity>
                   )}
                 </View>
-                <Text style={[styles.disclaimer, { color: C.textMuted }]}>Kiongozi AI can make mistakes. Check important info.</Text>
+                {!(kbOpen && shortScreen) && (
+                  <Text style={[styles.disclaimer, { color: C.textMuted }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.2}>Kiongozi AI can make mistakes. Check important info.</Text>
+                )}
               </View>
             </KeyboardAvoidingView>
 
@@ -619,7 +639,7 @@ const styles = StyleSheet.create({
   cardEmpty: { fontSize: 14, paddingHorizontal: 14, paddingVertical: 16 },
   recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, minHeight: 48 },
   recentTitle: { flex: 1, fontSize: 15.5 },
-  recentTime: { fontSize: 12.5 },
+  recentTime: { fontSize: 12.5, flexShrink: 0 },
   seeAll: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 18, marginTop: 10, height: 40 },
   seeAllText: { flex: 1, fontSize: 15, fontWeight: '600' },
   seeAllCount: { fontSize: 14 },
@@ -670,6 +690,9 @@ const styles = StyleSheet.create({
   tileArt: { width: 40, height: 40 },
   tileLabel: { fontSize: 14.5, fontWeight: '600' },
   tileHint: { fontSize: 12.5, marginTop: 1 },
+  tileNarrow: { gap: 6, paddingHorizontal: 8 },
+  tileArtNarrow: { width: 30, height: 30 },
+  tileLabelNarrow: { fontSize: 13.5, lineHeight: 17 },
 
   composer: { paddingHorizontal: 12, paddingTop: 4 },
   inputCard: { flexDirection: 'row', alignItems: 'flex-end', borderRadius: 26, borderWidth: 1, paddingLeft: 16, paddingRight: 6, paddingVertical: 6, minHeight: 52 },

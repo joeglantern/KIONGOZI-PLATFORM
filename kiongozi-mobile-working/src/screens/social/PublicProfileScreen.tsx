@@ -272,7 +272,7 @@ export default function PublicProfileScreen() {
       >
         <Ionicons name="chevron-back" size={24} color={T.text} />
       </Pressable>
-      <Text style={styles.headerTitle} numberOfLines={1}>{title ?? ''}</Text>
+      <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.2}>{title ?? ''}</Text>
       {showMore ? (
         <Pressable
           onPress={handleMoreOptions}
@@ -362,8 +362,8 @@ export default function PublicProfileScreen() {
           <View style={styles.wallIcon}>
             <Ionicons name="lock-closed-outline" size={26} color={T.textMuted} />
           </View>
-          <Text style={styles.wallTitle}>{profile.full_name}</Text>
-          <Text style={styles.wallHandle}>@{profile.username}</Text>
+          <Text style={styles.wallTitle} numberOfLines={2}>{profile.full_name}</Text>
+          <Text style={styles.wallHandle} numberOfLines={1}>@{profile.username}</Text>
           <Text style={styles.wallSub}>This account's content isn't available.</Text>
         </View>
       </View>
@@ -407,11 +407,11 @@ export default function PublicProfileScreen() {
         </View>
 
         <View style={styles.nameRow}>
-          <Text style={styles.fullName} numberOfLines={2}>{profile?.full_name}</Text>
+          <Text style={styles.fullName} numberOfLines={2} maxFontSizeMultiplier={1.3}>{profile?.full_name}</Text>
           {profile?.is_verified && <VerifiedBadge size={18} />}
         </View>
         <View style={styles.handleRow}>
-          <Text style={styles.username}>@{profile?.username}</Text>
+          <Text style={styles.username} numberOfLines={1}>@{profile?.username}</Text>
           {profile?.is_private && (
             <Ionicons name="lock-closed" size={13} color={T.textMuted} />
           )}
@@ -428,10 +428,10 @@ export default function PublicProfileScreen() {
         <View style={styles.statsRow}>
           {typeof profile?.post_count === 'number' && (
             <>
-              <Text style={styles.statText}>
+              <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
                 <Text style={styles.statNum}>{formatCount(profile.post_count)}</Text> posts
               </Text>
-              <Text style={styles.statText}>·</Text>
+              <Text style={styles.statText} maxFontSizeMultiplier={1.3}>·</Text>
             </>
           )}
           <Pressable
@@ -439,17 +439,17 @@ export default function PublicProfileScreen() {
             style={({ pressed }) => pressed && { opacity: 0.6 }}
             onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'followers' })}
           >
-            <Text style={styles.statText}>
+            <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
               <Text style={styles.statNum}>{formatCount(profile?.follower_count)}</Text> followers
             </Text>
           </Pressable>
-          <Text style={styles.statText}>·</Text>
+          <Text style={styles.statText} maxFontSizeMultiplier={1.3}>·</Text>
           <Pressable
             hitSlop={8}
             style={({ pressed }) => pressed && { opacity: 0.6 }}
             onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'following' })}
           >
-            <Text style={styles.statText}>
+            <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
               <Text style={styles.statNum}>{formatCount(profile?.following_count)}</Text> following
             </Text>
           </Pressable>
@@ -463,13 +463,13 @@ export default function PublicProfileScreen() {
                 onPress={() => navigation.navigate('EditProfile')}
                 style={({ pressed }) => [styles.actionBtn, styles.actionSecondary, pressed && { opacity: 0.7 }]}
               >
-                <Text style={styles.actionSecondaryText}>Edit profile</Text>
+                <Text style={styles.actionSecondaryText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Edit profile</Text>
               </Pressable>
               <Pressable
                 onPress={handleShareProfile}
                 style={({ pressed }) => [styles.actionBtn, styles.actionSecondary, pressed && { opacity: 0.7 }]}
               >
-                <Text style={styles.actionSecondaryText}>Share profile</Text>
+                <Text style={styles.actionSecondaryText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Share profile</Text>
               </Pressable>
             </>
           ) : (
@@ -484,10 +484,14 @@ export default function PublicProfileScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={isPending ? 'Cancel follow request' : getFollowLabel()}
               >
-                <Text style={[
-                  followIsPrimary ? styles.actionPrimaryText : styles.actionSecondaryText,
-                  isPending && { color: T.textMuted },
-                ]}>
+                <Text
+                  style={[
+                    followIsPrimary ? styles.actionPrimaryText : styles.actionSecondaryText,
+                    isPending && { color: T.textMuted },
+                  ]}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={1.3}
+                >
                   {getFollowLabel()}
                 </Text>
               </Pressable>
@@ -498,7 +502,7 @@ export default function PublicProfileScreen() {
               >
                 {messageLoading
                   ? <ActivityIndicator size="small" color={T.text} />
-                  : <Text style={styles.actionSecondaryText}>Message</Text>}
+                  : <Text style={styles.actionSecondaryText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Message</Text>}
               </Pressable>
             </>
           )}
@@ -530,7 +534,7 @@ export default function PublicProfileScreen() {
                 accessibilityState={{ selected: on }}
               >
                 <View style={styles.tabInner}>
-                  <Text style={[styles.tabLabel, { color: on ? T.text : T.textMuted }]}>{label}</Text>
+                  <Text style={[styles.tabLabel, { color: on ? T.text : T.textMuted }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{label}</Text>
                   {on && <View style={styles.tabUnderline} />}
                 </View>
               </Pressable>
@@ -688,7 +692,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     fullName: { fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.5, color: T.text, flexShrink: 1 },
     handleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-    username: { color: T.textMuted, fontSize: 15 },
+    username: { color: T.textMuted, fontSize: 15, flexShrink: 1 },
     bio: { color: T.text, fontSize: 15, lineHeight: 21, marginTop: 10 },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
     metaText: { fontSize: 13, color: T.textMuted },
@@ -698,7 +702,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     statNum: { fontWeight: '700', color: T.text },
 
     actionRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-    actionBtn: { flex: 1, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    // Pair at 320pt: (320 − 32 − 8) / 2 = 140pt each; "Requested"/"Message" @15pt bold ≈ 75pt (≈100pt at 1.3×).
+    actionBtn: { flex: 1, minHeight: 38, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
     actionPrimary: { backgroundColor: T.text },
     actionPrimaryText: { color: T.bg, fontWeight: '700', fontSize: 15 },
     actionSecondary: { borderWidth: 1, borderColor: T.border },

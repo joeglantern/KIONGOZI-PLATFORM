@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface SheetAction {
   icon: keyof typeof Ionicons.glyphMap;
@@ -24,6 +25,7 @@ interface BottomSheetProps {
 
 export function BottomSheet({ visible, onClose, title, subtitle, actions }: BottomSheetProps) {
   const T = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(T), [T]);
   const sheetY = useRef(new Animated.Value(300)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -53,7 +55,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, actions }: Bott
           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
         </Animated.View>
 
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
+        <Animated.View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + (Platform.OS === 'ios' ? 0 : 6), 16), transform: [{ translateY: sheetY }] }]}>
           <View style={styles.handle} />
 
           {(title || subtitle) && (

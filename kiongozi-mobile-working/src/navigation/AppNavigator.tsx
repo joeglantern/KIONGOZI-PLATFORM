@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, Image, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, Image, Animated, Platform, ScrollView, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -177,7 +177,13 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const insets = useSafeAreaInsets();
   const T = useTheme();
   const { isDark } = useThemeStore();
-  const TAB_BOTTOM = insets.bottom > 0 ? Math.max(insets.bottom - 12, 8) : 6;
+  const { height: winH } = useWindowDimensions();
+  // iOS: the home indicator only needs ~22pt of its 34pt inset, so trim it for a slim bar.
+  // Android (edge-to-edge, SDK 54): the inset IS the system nav bar (48dp 3-button / ~16-24dp gesture),
+  // so never trim it or the icons end up under the nav buttons / gesture zone. 0 inset → small pad.
+  const TAB_BOTTOM = Platform.OS === 'ios'
+    ? (insets.bottom > 0 ? Math.max(insets.bottom - 12, 8) : 6)
+    : Math.max(insets.bottom, 6);
   const TAB_BAR_HEIGHT = 48 + TAB_BOTTOM;
 
   // Prevents the white/light flash when navigating between screens in dark mode
@@ -304,11 +310,13 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 
       {/* Force update — non-dismissable */}
       <Modal visible={forceUpdate.required} transparent animationType="fade">
-        <View style={styles.updateOverlay}>
-          <View style={[styles.updateCard, { backgroundColor: T.bg, borderColor: T.border }]}>
+        <View style={[styles.updateOverlay, winH < 600 && { padding: 16 }]}>
+          <View style={[styles.updateCard, { backgroundColor: T.bg, borderColor: T.border, maxHeight: winH * 0.85 }, winH < 600 && { padding: 20 }]}>
             <Text style={styles.updateEmoji}>🚀</Text>
             <Text style={[styles.updateTitle, { color: T.text }]}>Update Required</Text>
-            <Text style={[styles.updateMessage, { color: T.textSub }]}>{forceUpdate.message}</Text>
+            <ScrollView style={{ flexGrow: 0, alignSelf: 'stretch' }} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.updateMessage, { color: T.textSub }]}>{forceUpdate.message}</Text>
+            </ScrollView>
             <TouchableOpacity
               style={[styles.updateBtn, { backgroundColor: T.accent }]}
               onPress={() => openStore(forceUpdate.storeUrl)}

@@ -920,7 +920,7 @@ class ApiClient {
   // ================================
 
   /** Report a post or user */
-  async reportContent(type: 'post' | 'user', id: string, reason: string, description?: string) {
+  async reportContent(type: 'post' | 'user' | 'story', id: string, reason: string, description?: string) {
     return this.request('/api/v1/social/report', {
       method: 'POST',
       body: JSON.stringify({ type, id, reason, description }),

@@ -262,7 +262,7 @@ export default function PostDetailScreen() {
       >
         <Ionicons name="chevron-back" size={24} color={T.text} />
       </Pressable>
-      <Text style={styles.headerTitle}>Thread</Text>
+      <Text style={styles.headerTitle} numberOfLines={1}>Thread</Text>
       <View style={styles.headerBtn} />
     </View>
   );
@@ -346,7 +346,7 @@ export default function PostDetailScreen() {
                 {author.username || 'user'}
               </Text>
               {!!author.is_verified && <VerifiedBadge size={14} />}
-              <Text style={styles.replyTime}>{` · ${pending ? 'now' : timeAgo(item.created_at)}`}</Text>
+              <Text style={styles.replyTime} numberOfLines={1}>{` · ${pending ? 'now' : timeAgo(item.created_at)}`}</Text>
             </View>
             {!!item.content && (
               <HashtagHighlight content={item.content} style={styles.replyText} onMentionPress={goProfile} onHashtagPress={goHashtag} />
@@ -384,9 +384,13 @@ export default function PostDetailScreen() {
 
   return (
     <View style={styles.root}>
+      {/* 'padding' on both platforms: SDK 54 Android is edge-to-edge, so the window is
+          not resized for the keyboard and the composer would sit under it. KAV pads by
+          the keyboard's overlap with its own frame, so if the window DOES resize the
+          overlap is 0 and nothing is double-counted. */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
       >
         {header}
 
@@ -413,7 +417,7 @@ export default function PostDetailScreen() {
         />
 
         {/* Reply composer */}
-        <View style={[styles.composer, { paddingBottom: keyboardShown ? 8 : Math.max(insets.bottom, 8) }]}>
+        <View style={[styles.composer, { paddingBottom: keyboardShown ? 8 : Math.max(insets.bottom, 12) }]}>
           <View style={styles.composerAvatar}>
             <UserAvatar avatarUrl={currentUserProfile?.avatar_url} size={32} />
           </View>
@@ -429,7 +433,7 @@ export default function PostDetailScreen() {
               maxLength={280}
             />
             {replyText.length > 240 && (
-              <Text style={[styles.counter, replyText.length >= 280 && { color: T.error }]}>
+              <Text style={[styles.counter, replyText.length >= 280 && { color: T.error }]} maxFontSizeMultiplier={1.2}>
                 {280 - replyText.length}
               </Text>
             )}

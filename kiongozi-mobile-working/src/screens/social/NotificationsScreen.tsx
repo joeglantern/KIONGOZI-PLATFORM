@@ -148,7 +148,7 @@ function FollowBack({ userId, T }: { userId?: string; T: Theme }) {
     >
       {state === 'busy'
         ? <ActivityIndicator size="small" color={T.bg} />
-        : <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]}>{done ? 'Unamfuata' : 'Fuata pia'}</Text>}
+        : <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{done ? 'Unamfuata' : 'Fuata pia'}</Text>}
     </Pressable>
   );
 }
@@ -171,10 +171,10 @@ function FollowRequestButtons({ item, onRemove, T }: { item: SocialNotification;
   return (
     <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
       <Pressable onPress={() => act('accept')} disabled={!!loading} style={[rowStyles.pill, { backgroundColor: T.accent, minWidth: 92 }]}>
-        {loading === 'accept' ? <ActivityIndicator size="small" color="#000" /> : <Text style={[rowStyles.pillText, { color: '#000' }]}>Kubali</Text>}
+        {loading === 'accept' ? <ActivityIndicator size="small" color="#000" /> : <Text style={[rowStyles.pillText, { color: '#000' }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Kubali</Text>}
       </Pressable>
       <Pressable onPress={() => act('decline')} disabled={!!loading} style={[rowStyles.pill, { borderWidth: 1, borderColor: T.border, paddingHorizontal: 15, minWidth: 92 }]}>
-        {loading === 'decline' ? <ActivityIndicator size="small" color={T.text} /> : <Text style={[rowStyles.pillText, { color: T.text }]}>Futa</Text>}
+        {loading === 'decline' ? <ActivityIndicator size="small" color={T.text} /> : <Text style={[rowStyles.pillText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Futa</Text>}
       </Pressable>
     </View>
   );
@@ -206,6 +206,38 @@ function ActorAvatars({ row, T }: { row: Row; T: Theme }) {
   );
 }
 
+/** A single reply notification shows what they said, with quick Like / Reply (like Threads). */
+function ReplyActions({ item, T }: { item: SocialNotification; T: Theme }) {
+  const navigation = useNavigation<any>();
+  const replyId = item.data?.reply_id as string | undefined;
+  const [liked, setLiked] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (!replyId) return null;
+  const like = async () => {
+    if (busy) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const want = !liked;
+    setLiked(want); setBusy(true);
+    try {
+      const r: any = await apiClient.likePost(replyId); // server toggles
+      if (r?.success) setLiked(!!r.liked); else setLiked(!want);
+    } catch { setLiked(!want); } finally { setBusy(false); }
+  };
+  return (
+    <View style={rowStyles.replyActions}>
+      <Pressable onPress={like} hitSlop={10} style={rowStyles.replyBtn} accessibilityRole="button" accessibilityLabel={liked ? 'Unlike reply' : 'Like reply'}>
+        <Ionicons name={liked ? 'heart' : 'heart-outline'} size={19} color={liked ? '#FF3040' : T.textSub} />
+      </Pressable>
+      <Pressable
+        onPress={() => navigation.navigate('PostDetail', { postId: replyId, focusReply: true })}
+        hitSlop={10} style={rowStyles.replyBtn} accessibilityRole="button" accessibilityLabel="Reply"
+      >
+        <Ionicons name="chatbubble-outline" size={18} color={T.textSub} />
+      </Pressable>
+    </View>
+  );
+}
+
 function NotificationRow({ row, onPress, onRemove, T }: { row: Row; onPress: () => void; onRemove: (id: string) => void; T: Theme }) {
   const first = row.items[0];
   const others = row.items.length - 1;
@@ -231,6 +263,12 @@ function NotificationRow({ row, onPress, onRemove, T }: { row: Row; onPress: () 
           )}
           <Text style={{ color: T.textMuted }}>{` · ${timeAgo(row.latest)}`}</Text>
         </Text>
+        {row.type === 'comment' && others === 0 && !!first.data?.reply_text && (
+          <>
+            <Text style={[rowStyles.replyText, { color: T.text }]} numberOfLines={2}>{String(first.data.reply_text)}</Text>
+            <ReplyActions item={first} T={T} />
+          </>
+        )}
         {isRequest && <FollowRequestButtons item={first} onRemove={onRemove} T={T} />}
       </View>
       {row.type === 'follow' && others === 0 && <FollowBack userId={first.fromUserId} T={T} />}
@@ -248,8 +286,12 @@ const rowStyles = StyleSheet.create({
   system: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   text: { fontSize: 15, lineHeight: 20 },
+  replyText: { fontSize: 15, lineHeight: 20, marginTop: 2 },
+  replyActions: { flexDirection: 'row', gap: 18, marginTop: 6 },
+  replyBtn: { height: 28, minWidth: 28, justifyContent: 'center' },
   name: { fontWeight: '600' },
-  pill: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 0, alignItems: 'center', justifyContent: 'center' },
+  // flexShrink 0: the text column (numberOfLines 3) gives way on narrow screens, not the button
+  pill: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 0, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   pillText: { fontSize: 14, fontWeight: '700' },
 });
 
@@ -303,7 +345,7 @@ export default function NotificationsScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.headerTitle}>Activity</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Activity</Text>
         {unreadCount > 0 && (
           <Pressable
             onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); markAllRead(); }}
@@ -329,8 +371,8 @@ export default function NotificationsScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
               >
-                <Text style={[styles.chipText, { color: on ? T.bg : T.text }]}>{f.label}</Text>
-                {count > 0 && <View style={styles.chipCount}><Text style={styles.chipCountText}>{count > 9 ? '9+' : count}</Text></View>}
+                <Text style={[styles.chipText, { color: on ? T.bg : T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{f.label}</Text>
+                {count > 0 && <View style={styles.chipCount}><Text style={styles.chipCountText} maxFontSizeMultiplier={1.15}>{count > 9 ? '9+' : count}</Text></View>}
               </Pressable>
             );
           })}

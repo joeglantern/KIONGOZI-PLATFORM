@@ -10,7 +10,7 @@ import Reanimated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring, withSequence, withDelay, Easing, runOnJS,
 } from 'react-native-reanimated';
 
-const { width: W, height: H } = Dimensions.get('window');
+const WIN = Dimensions.get('window');
 const SCENE = require('../../assets/splash/scene.mp4');
 const LOGO_CLIP = require('../../assets/splash/logo.mp4');
 const COMIC = require('../../assets/splash/comic.jpg');
@@ -19,14 +19,22 @@ const LOGO = require('../../assets/splash/logo_crop.png'); // tightly cropped to
 const SEEN_KEY = 'splash_full_seen_v1';
 
 // The logo clip is 2:3 and its final frame has the logo at 620/1024 of the width, centred.
-const CLIP_SCALE = Math.max(W / 2, H / 3);
-const LOGO_W = 2 * CLIP_SCALE * (620 / 1024);
-const LOGO_H = LOGO_W * (413 / 620);
+// With contentFit="cover" the clip renders max(W, 2H/3) wide, so the crisp overlay must use the
+// same math against the *actual* container size (measured on layout — on Android edge-to-edge the
+// splash covers more than Dimensions 'window', and foldables/tablets can be wider than 2:3).
+function logoSize(W: number, H: number) {
+  const clipW = Math.max(W, (2 * H) / 3);
+  const w = clipW * (620 / 1024);
+  return { w, h: w * (413 / 620) };
+}
 
 type Phase = 'boot' | 'scene' | 'comic' | 'logo' | 'hold' | 'reveal';
 
 export function AnimatedSplashScreen({ ready, onFinish }: { ready: boolean; onFinish: () => void }) {
   const [phase, setPhase] = useState<Phase>('boot');
+  const [box, setBox] = useState({ W: WIN.width, H: WIN.height });
+  const { w: LOGO_W, h: LOGO_H } = logoSize(box.W, box.H);
+  const { W, H } = box;
   const finished = useRef(false);
 
   const scene = useVideoPlayer(SCENE, p => { p.loop = false; p.volume = 0.7; });
@@ -111,7 +119,14 @@ export function AnimatedSplashScreen({ ready, onFinish }: { ready: boolean; onFi
   const showLogoClip = phase === 'logo' || phase === 'hold' || phase === 'reveal';
 
   return (
-    <Reanimated.View style={[StyleSheet.absoluteFill, styles.root, rootStyle]} pointerEvents={phase === 'reveal' ? 'none' : 'auto'}>
+    <Reanimated.View
+      style={[StyleSheet.absoluteFill, styles.root, rootStyle]}
+      pointerEvents={phase === 'reveal' ? 'none' : 'auto'}
+      onLayout={e => {
+        const { width, height } = e.nativeEvent.layout;
+        if (width > 0 && height > 0 && (Math.abs(width - box.W) > 1 || Math.abs(height - box.H) > 1)) setBox({ W: width, H: height });
+      }}
+    >
       <Pressable style={StyleSheet.absoluteFill} onPress={skip} accessibilityLabel="Skip intro">
         {showScene && (
           <VideoView player={scene} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} allowsFullscreen={false} />
@@ -119,7 +134,11 @@ export function AnimatedSplashScreen({ ready, onFinish }: { ready: boolean; onFi
         {phase === 'comic' && (
           <Reanimated.View style={[StyleSheet.absoluteFill, comicStyle]}>
             <Image source={COMIC} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            <Reanimated.Image source={BURST} style={[styles.burst, burstStyle]} resizeMode="contain" />
+            <Reanimated.Image
+              source={BURST}
+              style={[styles.burst, { width: W * 0.62, height: W * 0.42, right: -W * 0.06, top: H * 0.07 }, burstStyle]}
+              resizeMode="contain"
+            />
           </Reanimated.View>
         )}
         {showLogoClip && (
@@ -139,5 +158,5 @@ export function AnimatedSplashScreen({ ready, onFinish }: { ready: boolean; onFi
 const styles = StyleSheet.create({
   root: { backgroundColor: '#000', zIndex: 1000 },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  burst: { position: 'absolute', width: W * 0.62, height: W * 0.42, right: -W * 0.06, top: H * 0.07 },
+  burst: { position: 'absolute' },
 });

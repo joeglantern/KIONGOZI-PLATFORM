@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,8 +70,14 @@ export default function ResetPasswordScreen({ visible, onDismiss }: ResetPasswor
           style={styles.inner}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
+          {/* Scrolls on short screens / large text so the submit button never sits under the keyboard. */}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <View style={styles.header}>
-            <Text style={styles.title}>Set New Password</Text>
+            <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3}>Set New Password</Text>
             <TouchableOpacity onPress={onDismiss} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={24} color="#8E8E93" />
             </TouchableOpacity>
@@ -125,9 +132,10 @@ export default function ResetPasswordScreen({ visible, onDismiss }: ResetPasswor
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.submitBtnText}>Set New Password</Text>
+              <Text style={styles.submitBtnText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Set New Password</Text>
             )}
           </TouchableOpacity>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
@@ -141,8 +149,12 @@ const styles = StyleSheet.create({
   },
   inner: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
+    paddingBottom: 24,
   },
   header: {
     flexDirection: 'row',
@@ -151,6 +163,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
+    flexShrink: 1,
+    marginRight: 8,
     fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',

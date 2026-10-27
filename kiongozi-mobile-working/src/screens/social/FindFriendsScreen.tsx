@@ -147,7 +147,7 @@ export default function FindFriendsScreen() {
             pressed && { opacity: 0.7 },
           ]}
         >
-          <Text style={[styles.pillText, { color: isFollowing ? T.text : T.bg }]}>
+          <Text style={[styles.pillText, { color: isFollowing ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
             {isFollowing ? 'Following' : 'Follow'}
           </Text>
         </Pressable>
@@ -173,7 +173,7 @@ export default function FindFriendsScreen() {
         >
           <Ionicons name="chevron-back" size={26} color={T.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Find friends</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>Find friends</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -301,7 +301,7 @@ function makeStyles(T: AppTheme) {
     userBio: { fontSize: 14, color: T.textSub, marginTop: 3 },
     pill: {
       height: 32, borderRadius: 16, paddingHorizontal: 14,
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
     },
     pillPrimary: { backgroundColor: T.text },
     pillSecondary: { borderWidth: 1, borderColor: T.border },

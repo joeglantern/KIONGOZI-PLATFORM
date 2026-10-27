@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, Animated, Dimensions, TextInput,
-  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert, Keyboard, StatusBar, Share,
+  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert, Keyboard, StatusBar, Share, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing, SharedValue } from 'react-native-reanimated';
@@ -21,14 +21,22 @@ import apiClient from '../../utils/apiClient';
 import { setFeedPaused } from '../social/videoPlayback';
 import { UserAvatar } from '../social/UserAvatar';
 import { VerifiedBadge } from '../social/VerifiedBadge';
-import { StoryBackground, StoryText, StoryOverlays, POLL_H } from './StoryParts';
+import { StoryBackground, StoryText, StoryOverlays, POLL_H, FramedMedia, mediaFrameOf, LinkPill, LINK_H, linkLabel } from './StoryParts';
 import { PollCard, POLL_W } from './PollCard';
-import { REACTIONS, storyAge, APP_LINK, storyNav } from './storyAssets';
+import { REACTIONS, storyAge, storyNav } from './storyAssets';
+
+// Public preview page: opens the story in the app, or the store if it isn't installed
+const STORY_SHARE = (id: string) => `https://api.kiongozi.org/api/v1/social/stories/${id}/share`;
 
 const { width: W, height: H } = Dimensions.get('window');
 const IMAGE_MS = 5000;
 const textMs = (t?: string | null) => Math.min(10000, 5000 + (t?.length ?? 0) * 40);
-const SHEET_H = 470; // viewers sheet height (design)
+// Viewers sheet: 470 by design, but never more than ~62% of the screen so the shrunken story
+// card above it stays a usable size on 568/667-tall phones (568 -> 352, 667 -> 414, 844 -> 470).
+const SHEET_H = Math.min(470, Math.round(H * 0.62));
+// Quick reactions: 6 round buttons, 48px by design, shrunk to fit narrow screens (320 -> 41px)
+const REACT_GAP = 8;
+const REACT_SIZE = Math.min(48, Math.floor((W - 32 - 5 * REACT_GAP) / 6));
 const CLAMP = Extrapolation.CLAMP;
 
 export function StoryViewer() {
@@ -156,15 +164,15 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   const [typing, setTyping] = useState(false);     // reply box focused
   const [sheet, setSheet] = useState(false);       // viewers sheet open
   const [muted, setMuted] = useState(false);
-  const [report, setReport] = useState(false);     // report modal open
+  const [report, setReport] = useState<null | { type: 'story' | 'user'; id: string }>(null); // report modal target
   const [videoMs, setVideoMs] = useState<number | null>(null);
-  const paused = !active || holding || typing || sheet || report || !ready;
+  const paused = !active || holding || typing || sheet || !!report || !ready;
   const muteUser = useSocialStore(s => s.muteUser);
 
   // Own story + viewers sheet: the story shrinks into a small card above the sheet (UI thread)
   const sheetP = useSharedValue(0);
   const cardTop = insets.top + 12;
-  const cardH = Math.min(356, H - SHEET_H - cardTop + 38);
+  const cardH = Math.max(140, Math.min(356, H - SHEET_H - cardTop + 38)); // tucks 38px behind the sheet
   const cardW = (cardH * 200) / 356;
   const cardS = Math.max(cardW / W, cardH / H);
   const boxStyle = useAnimatedStyle(() => {
@@ -187,6 +195,11 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
     return { left: (bw - W) / 2, top: (bh - H) / 2, transform: [{ scale: interpolate(p, [0, 1], [1, cardS], CLAMP) }] };
   });
   const chromeFade = useAnimatedStyle(() => ({ opacity: interpolate(sheetP.value, [0, 0.35], [1, 0], CLAMP) }));
+
+  // Top edge of the bottom controls (reply bar + reactions, or the own-story footer), measured, so
+  // the caption and poll always sit above them whatever the screen size / inset / keyboard.
+  const [footerTop, setFooterTop] = useState(H - insets.bottom - (isMine ? 60 : 130));
+  const [pollH, setPollH] = useState(POLL_H * (W / 390)); // measured poll card height (unscaled)
 
   const progress = useRef(new Animated.Value(0)).current;
   const anim = useRef<Animated.CompositeAnimation | null>(null);
@@ -281,7 +294,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
           } catch { Alert.alert('Could not mute', 'Try again.'); }
         },
       },
-      { text: `Report @${u}`, style: 'destructive', onPress: () => { setHolding(false); setReport(true); } },
+      ...(story ? [{ text: 'Report story', style: 'destructive' as const, onPress: () => { setHolding(false); setReport({ type: 'story', id: story.id }); } }] : []),
+      { text: `Report @${u}`, style: 'destructive', onPress: () => { setHolding(false); setReport({ type: 'user', id: group.user.id }); } },
       { text: 'Cancel', style: 'cancel', onPress: () => setHolding(false) },
     ], { cancelable: true, onDismiss: () => setHolding(false) });
   };
@@ -294,22 +308,33 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         {story.media_type === 'text' && (
           <>
             <StoryBackground bg={story.bg} />
-            <StoryText text={story.text_content || ''} color={story.text_color} font={story.font} bg={story.bg} />
+            <StoryText text={story.text_content || ''} color={story.text_color} font={story.font} bg={story.bg} textStyle={story.text_style} />
           </>
         )}
-        {story.media_type === 'image' && !!story.media_url && (
-          <Image source={{ uri: story.media_url }} style={StyleSheet.absoluteFill} resizeMode="cover"
-            onLoad={() => setReady(true)} onError={() => setReady(true)} />
-        )}
-        {story.media_type === 'video' && !!story.media_url && (
-          <StoryVideo
-            key={story.id}
-            url={story.media_url}
-            poster={story.thumbnail_url}
-            playing={!paused || (!ready && active)}
-            muted={muted}
-            onReady={ms => { if (ms > 0) setVideoMs(Math.min(60000, ms)); setReady(true); }}
-          />
+        {story.media_type !== 'text' && !!story.media_url && (
+          // Applies the author's pinch/drag framing ('__media' overlay); plain cover-fill without one
+          <FramedMedia
+            frame={mediaFrameOf(story.overlays)}
+            mw={story.width}
+            mh={story.height}
+            width={W}
+            height={H}
+            backdropUri={story.media_type === 'image' ? story.media_url : story.thumbnail_url}
+          >
+            {story.media_type === 'image' ? (
+              <Image source={{ uri: story.media_url }} style={StyleSheet.absoluteFill} resizeMode="cover"
+                onLoad={() => setReady(true)} onError={() => setReady(true)} />
+            ) : (
+              <StoryVideo
+                key={story.id}
+                url={story.media_url}
+                poster={story.thumbnail_url}
+                playing={!paused || (!ready && active)}
+                muted={muted}
+                onReady={ms => { if (ms > 0) setVideoMs(Math.min(60000, ms)); setReady(true); }}
+              />
+            )}
+          </FramedMedia>
         )}
         <StoryOverlays overlays={story.overlays} width={W} height={H} skipPolls />
         {!ready && active && <ActivityIndicator style={StyleSheet.absoluteFill} color="#fff" />}
@@ -345,10 +370,17 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
           if (r?.success) setPoll(story.id, r.data);
           else setPoll(story.id, prevPoll);
         };
+        // Keep the card between the header and the bottom controls (it may have been dragged low
+        // in the composer, and screens differ in height); hidden while replying (keyboard is up).
+        const half = (pollH * (p.scale || 1)) / 2;
+        const minC = insets.top + 64 + half, maxC = footerTop - 12 - half;
+        const cy = maxC >= minC ? Math.min(maxC, Math.max(minC, p.y * H)) : (minC + maxC) / 2;
+        const hidden = longHold || sheet || typing;
         return (
           <View
-            style={{ position: 'absolute', left: p.x * W - (POLL_W * k) / 2, top: p.y * H - (POLL_H * k) / 2, transform: [{ rotate: `${p.rotation || 0}deg` }, { scale: p.scale || 1 }], opacity: longHold || sheet ? 0 : 1 }}
-            pointerEvents={sheet ? 'none' : 'auto'}
+            style={{ position: 'absolute', left: p.x * W - (POLL_W * k) / 2, top: cy - pollH / 2, transform: [{ rotate: `${p.rotation || 0}deg` }, { scale: p.scale || 1 }], opacity: hidden ? 0 : 1 }}
+            onLayout={e => { const h = e.nativeEvent.layout.height; if (Math.abs(h - pollH) > 1) setPollH(h); }}
+            pointerEvents={hidden ? 'none' : 'auto'}
             onTouchStart={() => setHolding(true)}
             onTouchEnd={() => setHolding(false)}
           >
@@ -364,6 +396,25 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
           </View>
         );
       })()}
+
+      {/* Link stickers: tappable, above the tap zones */}
+      {(story.overlays || []).filter(o => o.type === 'link' && o.url).map((o, i) => {
+        const k = W / 390;
+        const hidden = longHold || sheet || typing;
+        const minC = insets.top + 64, maxC = footerTop - 12 - (LINK_H * k) / 2;
+        const cy = maxC >= minC ? Math.min(maxC, Math.max(minC, o.y * H)) : (minC + maxC) / 2;
+        return (
+          <View key={`link${i}`} pointerEvents={hidden ? 'none' : 'box-none'}
+            style={{ position: 'absolute', left: 0, width: W, top: cy - (LINK_H * k) / 2, alignItems: 'center', opacity: hidden ? 0 : 1, transform: [{ translateX: (o.x - 0.5) * W }, { rotate: `${o.rotation || 0}deg` }, { scale: o.scale || 1 }] }}>
+            <Pressable
+              onPress={() => { setHolding(true); Linking.openURL(o.url!).catch(() => {}).finally(() => setHolding(false)); }}
+              accessibilityRole="link" accessibilityLabel={`Open ${linkLabel(o.url!)}`}
+            >
+              <LinkPill url={o.url!} k={k} />
+            </Pressable>
+          </View>
+        );
+      })}
 
       {/* Chrome */}
       <View style={[styles.chrome, { opacity: longHold ? 0 : 1 }]} pointerEvents={sheet ? 'none' : 'box-none'}>
@@ -407,7 +458,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         </View>
 
         {!!story.caption && (
-          <Text style={[styles.caption, { bottom: insets.bottom + (isMine ? 86 : 150) }]} numberOfLines={3}>{story.caption}</Text>
+          <Text style={[styles.caption, { bottom: H - footerTop + 10 }]} numberOfLines={3}>{story.caption}</Text>
         )}
 
         {isMine ? (
@@ -416,6 +467,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             bottom={insets.bottom}
             onOpenViewers={() => setSheet(true)}
             onDelete={confirmDelete}
+            onTop={setFooterTop}
           />
         ) : (
           <ReplyBar
@@ -424,6 +476,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             bottom={insets.bottom}
             onFocusChange={setTyping}
             onReact={emoji => setReaction(story.id, emoji)}
+            onTop={setFooterTop}
           />
         )}
       </Reanimated.View>
@@ -440,8 +493,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
       )}
       {report && (
         <ReportModal
-          target={{ type: 'user', id: group.user.id, displayName: group.user.username }}
-          onClose={() => setReport(false)}
+          target={{ type: report.type, id: report.id, displayName: report.type === 'story' ? `@${group.user.username}'s story` : group.user.username }}
+          onClose={() => setReport(null)}
         />
       )}
     </View>
@@ -478,8 +531,9 @@ function StoryVideo({ url, poster, playing, muted, onReady }: {
 }
 
 /** Reply box + quick reactions; both arrive in the author's DMs. */
-function ReplyBar({ story, group, bottom, onFocusChange, onReact }: {
+function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
   story: Story; group: StoryGroup; bottom: number; onFocusChange: (f: boolean) => void; onReact: (e: string) => void;
+  onTop: (y: number) => void;
 }) {
   const [text, setText] = useState('');
   const [focused, setFocused] = useState(false);
@@ -527,7 +581,7 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact }: {
   const share = async () => {
     onFocusChange(true);
     try {
-      await Share.share({ message: `Check out @${group.user.username}'s story on KChat\n${APP_LINK}` });
+      await Share.share({ message: `Check out @${group.user.username}'s story on KChat\n${STORY_SHARE(story.id)}` });
     } catch {}
     onFocusChange(focused);
   };
@@ -535,12 +589,16 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact }: {
   const setFocus = (f: boolean) => { setFocused(f); onFocusChange(f); };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.footerWrap, { bottom: 0, paddingBottom: Math.max(bottom - 4, 14) }]}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[styles.footerWrap, { bottom: 0, paddingBottom: Math.max(bottom + 6, 14) }]}
+      onLayout={e => onTop(e.nativeEvent.layout.y)}
+    >
       {!!sent && <Text style={styles.sent}>{sent}</Text>}
       <View style={styles.reactRow}>
         {REACTIONS.map(e => (
           <Pressable key={e} onPress={() => react(e)} style={({ pressed }) => [styles.reactBtn, pressed && { transform: [{ scale: 0.9 }] }]} accessibilityLabel={`React ${e}`}>
-            <Text style={styles.reactEmoji}>{e}</Text>
+            <Text style={styles.reactEmoji} allowFontScaling={false}>{e}</Text>
           </Pressable>
         ))}
       </View>
@@ -586,12 +644,14 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact }: {
   );
 }
 
-function OwnFooter({ story, bottom, onOpenViewers, onDelete }: { story: Story; bottom: number; onOpenViewers: () => void; onDelete: () => void }) {
+function OwnFooter({ story, bottom, onOpenViewers, onDelete, onTop }: {
+  story: Story; bottom: number; onOpenViewers: () => void; onDelete: () => void; onTop: (y: number) => void;
+}) {
   return (
-    <View style={[styles.footer, { position: 'absolute', left: 0, right: 0, bottom: bottom + 14 }]}>
+    <View style={[styles.footer, { position: 'absolute', left: 0, right: 0, bottom: Math.max(bottom + 8, 14) }]} onLayout={e => onTop(e.nativeEvent.layout.y)}>
       <Pressable style={styles.seenBtn} onPress={onOpenViewers} accessibilityLabel="See who viewed your story">
         <Ionicons name="eye-outline" size={20} color="#fff" />
-        <Text style={styles.seenText}>Imeonekana na {story.view_count ?? 0}</Text>
+        <Text style={styles.seenText} numberOfLines={1}>Imeonekana na {story.view_count ?? 0}</Text>
       </Pressable>
       <View style={{ flex: 1 }} />
       <Pressable style={styles.footerBtn} onPress={onDelete} accessibilityLabel="Delete story">
@@ -731,16 +791,16 @@ const styles = StyleSheet.create({
   caption: { position: 'absolute', left: 20, right: 20, color: '#fff', fontSize: 15, lineHeight: 21, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 },
   footerWrap: { position: 'absolute', left: 0, right: 0 },
   footer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12, paddingRight: 8 },
-  replyPill: { flex: 1, height: 46, borderRadius: 23, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', paddingHorizontal: 16 },
+  replyPill: { flex: 1, minWidth: 0, height: 46, borderRadius: 23, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', paddingHorizontal: 16 },
   replyInput: { color: '#fff', fontSize: 15, paddingVertical: 0 },
   footerBtn: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
-  reactRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 },
-  reactBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
-  reactEmoji: { fontSize: 24 },
+  reactRow: { flexDirection: 'row', justifyContent: 'center', gap: REACT_GAP, marginBottom: H < 700 ? 10 : 16, paddingHorizontal: 16 },
+  reactBtn: { width: REACT_SIZE, height: REACT_SIZE, borderRadius: REACT_SIZE / 2, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  reactEmoji: { fontSize: Math.round(REACT_SIZE / 2) },
   sent: { alignSelf: 'center', color: '#fff', fontWeight: '600', marginBottom: 8, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14, overflow: 'hidden' },
   burst: { position: 'absolute', alignSelf: 'center', bottom: 70, fontSize: 64 },
-  seenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.45)' },
-  seenText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  seenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.45)', flexShrink: 1, minWidth: 0 },
+  seenText: { color: '#fff', fontWeight: '600', fontSize: 14, flexShrink: 1 },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, height: SHEET_H, backgroundColor: '#111', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, borderColor: '#FFFFFF14' },
   grabber: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: '#3A3A3C', marginTop: 10 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10 },

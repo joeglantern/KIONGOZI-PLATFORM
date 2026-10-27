@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Modal, TextInput, Image, Pressable, ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -223,7 +224,7 @@ export default function DMListScreen() {
         >
           <Ionicons name="chevron-back" size={24} color={T.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{showArchived ? 'Archived' : 'Messages'}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>{showArchived ? 'Archived' : 'Messages'}</Text>
         {showArchived ? (
           <View style={{ width: 44 }} />
         ) : (
@@ -258,7 +259,7 @@ export default function DMListScreen() {
             return (
               <Pressable key={id} onPress={() => { Haptics.selectionAsync(); setFilter(id); }}
                 style={[styles.chip, on ? { backgroundColor: T.text, borderColor: T.text } : { borderColor: T.border }]}>
-                <Text style={[styles.chipText, { color: on ? T.bg : T.text }]}>{label}</Text>
+                <Text style={[styles.chipText, { color: on ? T.bg : T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{label}</Text>
               </Pressable>
             );
           })}
@@ -268,7 +269,7 @@ export default function DMListScreen() {
             accessibilityRole="button"
             accessibilityLabel={archivedCount > 0 ? `Archived, ${archivedCount} chats` : 'Archived'}
           >
-            <Text style={[styles.chipText, { color: T.text }]}>Archived</Text>
+            <Text style={[styles.chipText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>Archived</Text>
           </Pressable>
         </ScrollView>
       )}
@@ -302,13 +303,21 @@ export default function DMListScreen() {
       )}
 
       {/* New DM picker */}
-      <Modal visible={newDMVisible} transparent animationType="slide" onRequestClose={closeModal}>
-        <View style={styles.sheetOverlay}>
+      {/* statusBarTranslucent: Android modal window starts at y=0, so KAV's local frame and
+          the keyboard's screenY share one coordinate space (else it under-pads by ~24dp). */}
+      <Modal visible={newDMVisible} transparent statusBarTranslucent animationType="slide" onRequestClose={closeModal}>
+        {/* Modals get their own window, so the screen never resizes for the keyboard:
+            pad the sheet up by the keyboard overlap on both platforms (KAV measures the
+            overlap against its own frame, so a resizing window yields 0, not double). */}
+        <KeyboardAvoidingView
+          style={styles.sheetOverlay}
+          behavior="padding"
+        >
           <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeModal} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>New message</Text>
-              <TouchableOpacity onPress={closeModal}>
+              <TouchableOpacity onPress={closeModal} hitSlop={10} accessibilityLabel="Close">
                 <Ionicons name="close" size={22} color={T.text} />
               </TouchableOpacity>
             </View>
@@ -348,12 +357,12 @@ export default function DMListScreen() {
                     <UserAvatar avatarUrl={item.avatar_url} size={44} isVerified={item.is_verified} isBot={item.is_bot} />
                     <View style={styles.userInfo}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                        <Text style={styles.userName}>{item.full_name}</Text>
+                        <Text style={styles.userName} numberOfLines={1}>{item.full_name}</Text>
                         {item.is_verified && (
                           <VerifiedBadge size={15} />
                         )}
                       </View>
-                      <Text style={styles.userHandle}>@{item.username}</Text>
+                      <Text style={styles.userHandle} numberOfLines={1}>@{item.username}</Text>
                     </View>
                     {startingFor === item.id
                       ? <ActivityIndicator size="small" color={T.accent} />
@@ -373,7 +382,7 @@ export default function DMListScreen() {
               />
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Conversation long-press sheet */}
@@ -444,14 +453,16 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     emptyBtnText: { color: T.bg, fontWeight: '700', fontSize: 14 },
     sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
     sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' },
-    sheet: { backgroundColor: T.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '80%', paddingBottom: 32 },
+    // flexShrink: when the keyboard pads the overlay, the sheet (and its list) shrink
+    // to the space left instead of overflowing off the top of short screens.
+    sheet: { backgroundColor: T.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '80%', flexShrink: 1 },
     sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
     sheetTitle: { fontSize: 17, fontWeight: '700', color: T.text },
     searchBar: { flexDirection: 'row', alignItems: 'center', margin: 12, paddingHorizontal: 14, height: 42, backgroundColor: T.surface2, borderRadius: 21, gap: 8 },
     searchInput: { flex: 1, fontSize: 15, color: T.text },
     userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
-    userInfo: { flex: 1 },
-    userName: { fontWeight: '600', fontSize: 15, color: T.text },
+    userInfo: { flex: 1, minWidth: 0 },
+    userName: { fontWeight: '600', fontSize: 15, color: T.text, flexShrink: 1 },
     userHandle: { color: T.textSub, fontSize: 13, marginTop: 1 },
     emptySearch: { alignItems: 'center', padding: 32 },
     emptySearchText: { color: T.textMuted, fontSize: 14, textAlign: 'center' },

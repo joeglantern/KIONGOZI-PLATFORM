@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore } from '../../stores/themeStore';
@@ -24,6 +25,43 @@ const fmtCount = (n: number) =>
   : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K`
   : String(n);
 
+// --- Action-row fitting ------------------------------------------------------
+// Row width = W - 16*2 (card pad) - 44 (avatar) - 12 (gap) + 2*pad (the row is pulled out by the
+// button padding so icons align with the text) = W - 88 + 2*pad.
+// Content without padding = like(23+gap+count) + reply(21+gap+count) + repost(23+gap+count)
+//                         + share 21 + bookmark 21 + 3 group gaps; each of the 5 buttons adds 2*pad.
+// W=320 (tier pad 5, gap 3, count min 12, icons 22/20): noPad = 37+35+37+20+20 = 149,
+//   pad = min(5, (232-149)/8) = 5, share/bookmark = 33 -> used 109+30+66 = 205 of row 242 -> 37 free:
+//   views hidden (< 340 wide). Big counts ("1.2K" x3, +63) shrink pad toward 2 and finally ellipsize.
+// W=375 (tier pad 6): noPad 175, row 299, used 241 -> 58 free -> "eye 523" compact views.
+// W=390+ (tier pad 8, the design): row 320, used 264 -> ~57 free -> "1.2K views" at >=0.8 scale (iOS).
+const COUNT_CH = 14 * 0.6;   // tabular digits ~0.6em
+const VIEWS_CH = 13 * 0.5;
+type ActionMetrics = { pad: number; igap: number; ggap: number; countMin: number; minW: number; big: number; small: number; pull: number; views: 'full' | 'icon' | 'none' };
+function actionMetrics(W: number, fontScale: number, counts: string[], viewsText: string | null): ActionMetrics {
+  const fs = Math.min(fontScale || 1, 1.2); // counts/views are capped at 1.2x (maxFontSizeMultiplier)
+  const tier = W >= 385 ? { pad: 8, igap: 5, ggap: 4, countMin: 16, big: 23, small: 21 }
+    : W >= 340 ? { pad: 6, igap: 4, ggap: 2, countMin: 16, big: 23, small: 21 }
+    : { pad: 5, igap: 3, ggap: 0, countMin: 12, big: 22, small: 20 };
+  const cw = (t: string) => Math.max(tier.countMin, t.length * COUNT_CH * fs);
+  const noPad = (tier.big + tier.igap + cw(counts[0])) + (tier.small + tier.igap + cw(counts[1]))
+    + (tier.big + tier.igap + cw(counts[2])) + tier.small * 2 + tier.ggap * 3;
+  // shrink padding (never below 2) if big counts would overflow the row
+  const pad = Math.max(2, Math.min(tier.pad, Math.floor((W - 88 - noPad) / 8)));
+  const minW = Math.min(40, 2 * pad + tier.small + 3);
+  const rowW = W - 88 + 2 * pad;
+  const btn = Math.max(minW, 2 * pad + tier.small); // share / bookmark buttons
+  const used = (noPad - tier.small * 2) + 6 * pad + 2 * btn;
+  const free = rowW - used;
+  let views: ActionMetrics['views'] = 'none';
+  if (viewsText) {
+    const full = `${viewsText} views`.length * VIEWS_CH * fs * (Platform.OS === 'ios' ? 0.8 : 1) + 4;
+    const icon = 14 + 3 + viewsText.length * VIEWS_CH * fs + 4;
+    views = free >= full ? 'full' : (W >= 340 && free >= icon) ? 'icon' : 'none';
+  }
+  return { ...tier, pad, minW, pull: pad, views };
+}
+
 // ─── Reusable action sheet — replaces all native Alert dialogs ───────────────
 
 interface SheetItem {
@@ -47,6 +85,8 @@ function ActionSheet({
   onClose: () => void;
 }) {
   const T = useTheme();
+  const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
   const sheetY = useRef(new Animated.Value(300)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
@@ -76,11 +116,11 @@ function ActionSheet({
         <Animated.View style={[asSheet.backdrop, { opacity: backdropOpacity }]}>
           <TouchableOpacity style={StyleSheet.absoluteFill} onPress={close} activeOpacity={1} />
         </Animated.View>
-        <Animated.View style={[asSheet.sheet, { backgroundColor: T.surface, transform: [{ translateY: sheetY }] }]}>
+        <Animated.View style={[asSheet.sheet, { backgroundColor: T.surface, paddingBottom: Math.max(insets.bottom + (Platform.OS === 'ios' ? 2 : 6), 18), maxHeight: winH * 0.85, transform: [{ translateY: sheetY }] }]}>
           <View style={[asSheet.handle, { backgroundColor: T.border }]} />
           {(title || description) && (
             <View style={asSheet.titleBlock}>
-              {title && <Text style={[asSheet.title, { color: T.text }]}>{title}</Text>}
+              {title && <Text style={[asSheet.title, { color: T.text }]} numberOfLines={2}>{title}</Text>}
               {description && <Text style={[asSheet.desc, { color: T.textSub }]}>{description}</Text>}
             </View>
           )}
@@ -92,7 +132,7 @@ function ActionSheet({
               activeOpacity={0.7}
             >
               <Ionicons name={item.icon as any} size={22} color={item.color ?? T.text} />
-              <Text style={[asSheet.itemText, { color: item.color ?? T.text }]}>{item.label}</Text>
+              <Text style={[asSheet.itemText, { color: item.color ?? T.text }]} numberOfLines={1}>{item.label}</Text>
             </TouchableOpacity>
           ))}
           <View style={[asSheet.divider, { backgroundColor: T.border }]} />
@@ -111,7 +151,7 @@ const asSheet = StyleSheet.create({
   sheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     borderTopLeftRadius: 22, borderTopRightRadius: 22,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 18, paddingTop: 8,
+    paddingTop: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.18, shadowRadius: 14, elevation: 24,
   },
@@ -120,7 +160,7 @@ const asSheet = StyleSheet.create({
   title: { fontSize: 15, fontWeight: '700', marginBottom: 3 },
   desc: { fontSize: 13, lineHeight: 18 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 16 },
-  itemText: { fontSize: 16, fontWeight: '500' },
+  itemText: { fontSize: 16, fontWeight: '500', flexShrink: 1 },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 16, marginVertical: 4 },
 });
 
@@ -182,6 +222,7 @@ export function PostCard({
   const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
   const styles = useMemo(() => makeStyles(T, isDark), [T, isDark]);
+  const { width: winW, fontScale } = useWindowDimensions();
   const repostScale = useRef(new Animated.Value(1)).current;
   const [repostSheetOpen, setRepostSheetOpen] = useState(false);
   const [optionsSheetOpen, setOptionsSheetOpen] = useState(false);
@@ -367,6 +408,14 @@ export function PostCard({
   if (!activePost.content?.trim() && (!activePost.post_media || activePost.post_media.length === 0)) return null;
 
   const hit = { top: 8, bottom: 8, left: 4, right: 4 };
+  const showViews = views > 0 && variant !== 'detail';
+  const M = actionMetrics(
+    winW, fontScale,
+    [likeCount > 0 ? fmtCount(likeCount) : '', activePost.comment_count > 0 ? fmtCount(activePost.comment_count) : '', repostCount > 0 ? fmtCount(repostCount) : ''],
+    showViews ? fmtCount(views) : null,
+  );
+  const actionBox = { paddingHorizontal: M.pad, gap: M.igap, minWidth: M.minW };
+  const countBox = { minWidth: M.countMin };
 
   return (
     <View style={[styles.container, style]}>
@@ -396,7 +445,7 @@ export function PostCard({
               onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}
             >
               <Ionicons name="repeat-outline" size={13} color={T.textMuted} />
-              <Text style={styles.repostBannerText}>{post.profiles?.full_name} reposted</Text>
+              <Text style={styles.repostBannerText} numberOfLines={1}>{post.profiles?.full_name} reposted</Text>
             </TouchableOpacity>
           )}
 
@@ -420,10 +469,10 @@ export function PostCard({
                 style={styles.nameBtn}
                 onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}
               >
-                <Text style={styles.name} numberOfLines={1}>{activePost.profiles?.full_name || activePost.profiles?.username}</Text>
+                <Text style={styles.name} numberOfLines={1} maxFontSizeMultiplier={1.4}>{activePost.profiles?.full_name || activePost.profiles?.username}</Text>
               </TouchableOpacity>
               {activePost.profiles?.is_verified && <VerifiedBadge size={16} />}
-              <Text style={styles.meta} numberOfLines={1}>
+              <Text style={styles.meta} numberOfLines={1} maxFontSizeMultiplier={1.4}>
                 {variant === 'detail'
                   ? (activePost.profiles?.username ? `@${activePost.profiles.username}` : '')
                   : <>{activePost.profiles?.username ? `@${activePost.profiles.username} · ` : ''}{timeAgo(activePost.created_at)}</>}
@@ -494,79 +543,86 @@ export function PostCard({
 
           {/* Actions: like · reply · repost · share on the left, then views + bookmark on the right.
               Counts always reserve a minimum width, so a 0→1 never nudges the buttons beside it. */}
-          <View style={styles.actions}>
-            <View style={styles.actionGroup}>
+          <View style={[styles.actions, { marginLeft: -M.pull, marginRight: -M.pull }]}>
+            <View style={[styles.actionGroup, { gap: M.ggap }]}>
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, actionBox, pressed && styles.actionPressed]}
               onPress={() => handleLike()}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel={isLiked ? 'Unlike' : 'Like'}
             >
               <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-                <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={23} color={isLiked ? LIKE_RED : T.text} />
+                <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={M.big} color={isLiked ? LIKE_RED : T.text} />
               </Animated.View>
-              <Text numberOfLines={1} style={[styles.actionCount, isLiked && styles.likedCount]}>{likeCount > 0 ? fmtCount(likeCount) : ''}</Text>
+              <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[styles.actionCount, countBox, isLiked && styles.likedCount]}>{likeCount > 0 ? fmtCount(likeCount) : ''}</Text>
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, actionBox, pressed && styles.actionPressed]}
               onPress={onReplyPress ?? onPress}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel="Reply"
             >
-              <Ionicons name="chatbubble-outline" size={21} color={T.text} />
-              <Text numberOfLines={1} style={styles.actionCount}>{activePost.comment_count > 0 ? fmtCount(activePost.comment_count) : ''}</Text>
+              <Ionicons name="chatbubble-outline" size={M.small} color={T.text} />
+              <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[styles.actionCount, countBox]}>{activePost.comment_count > 0 ? fmtCount(activePost.comment_count) : ''}</Text>
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, actionBox, pressed && styles.actionPressed]}
               onPress={handleRepost}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel={isReposted ? 'Undo repost' : 'Repost'}
             >
               <Animated.View style={{ transform: [{ scale: repostScale }] }}>
-                <Ionicons name="repeat" size={23} color={isReposted ? T.accent : T.text} />
+                <Ionicons name="repeat" size={M.big} color={isReposted ? T.accent : T.text} />
               </Animated.View>
-              <Text numberOfLines={1} style={[styles.actionCount, isReposted && { color: T.accent }]}>{repostCount > 0 ? fmtCount(repostCount) : ''}</Text>
+              <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[styles.actionCount, countBox, isReposted && { color: T.accent }]}>{repostCount > 0 ? fmtCount(repostCount) : ''}</Text>
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, actionBox, pressed && styles.actionPressed]}
               onPress={handleShare}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel="Share"
             >
-              <Ionicons name="paper-plane-outline" size={21} color={T.text} />
+              <Ionicons name="paper-plane-outline" size={M.small} color={T.text} />
             </Pressable>
             </View>
 
             <View style={styles.spacer} />
 
-            {views > 0 && variant !== 'detail' && (
+            {showViews && M.views === 'full' && (
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.8}
+                maxFontSizeMultiplier={1.2}
                 style={styles.views}
                 accessibilityLabel={`${views} views`}
               >
                 {fmtCount(views)} views
               </Text>
             )}
+            {showViews && M.views === 'icon' && (
+              <View style={styles.viewsCompact} accessible accessibilityLabel={`${views} views`}>
+                <Ionicons name="eye-outline" size={14} color={isDark ? '#8E8E93' : T.textSub} />
+                <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[styles.views, { paddingRight: 0 }]}>{fmtCount(views)}</Text>
+              </View>
+            )}
 
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, actionBox, pressed && styles.actionPressed]}
               onPress={handleBookmark}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
             >
               <Animated.View style={{ transform: [{ scale: bookmarkScale }] }}>
-                <Ionicons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={21} color={isBookmarked ? T.accent : T.text} />
+                <Ionicons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={M.small} color={isBookmarked ? T.accent : T.text} />
               </Animated.View>
             </Pressable>
           </View>
@@ -757,7 +813,9 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
+      flexShrink: 1, // last resort (huge counts at 320): counts ellipsize instead of pushing bookmark off
     },
+    viewsCompact: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingRight: 4, flexShrink: 1 },
     action: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -767,6 +825,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       paddingHorizontal: 8,
       borderRadius: 20,
       justifyContent: 'center',
+      flexShrink: 1,
     },
     actionPressed: {
       backgroundColor: T.border,
@@ -783,6 +842,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     actionCount: {
       minWidth: 16,
+      flexShrink: 1,
       fontSize: 14,
       fontWeight: '500',
       color: T.text,

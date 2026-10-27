@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, Modal, TextInput,
   StyleSheet, Alert, ActivityIndicator, ScrollView,
-  KeyboardAvoidingView, Platform, Animated, Dimensions,
+  KeyboardAvoidingView, Platform, Animated, Dimensions, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +22,7 @@ const REASONS: { value: string; label: string }[] = [
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 interface ReportTarget {
-  type: 'post' | 'user';
+  type: 'post' | 'user' | 'story';
   id: string;
   displayName: string;
 }
@@ -38,6 +38,8 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
   const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
   const [selectedReason, setSelectedReason] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -96,7 +98,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
     setSelectedReason(value);
   };
 
-  const noun = target?.type === 'user' ? 'account' : 'post';
+  const noun = target?.type === 'user' ? 'account' : target?.type === 'story' ? 'story' : 'post';
 
   return (
     <Modal
@@ -106,8 +108,11 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
       statusBarTranslucent
       onRequestClose={handleClose}
     >
+      {/* 'padding' on Android too: a Modal's window isn't resized for the keyboard, so the
+          details box would sit under it. KAV pads by its own measured overlap (0 if the
+          window does resize), and the sheet's flexShrink lets it give up that space. */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.root}
       >
         <Pressable style={styles.backdrop} onPress={handleClose} accessibilityLabel="Close" />
@@ -115,7 +120,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
         <Animated.View
           style={[
             styles.sheet,
-            { paddingBottom: Math.max(insets.bottom, 16), maxHeight: SCREEN_HEIGHT - insets.top - 24 },
+            { paddingBottom: Math.max(insets.bottom, 16), maxHeight: winH - insets.top - 24 },
             { transform: [{ translateY: sheetY }] },
           ]}
         >
@@ -144,6 +149,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
           ) : (
             <>
               <ScrollView
+                ref={scrollRef}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: 20 }}
@@ -169,7 +175,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
                           pressed && { backgroundColor: T.surface2 },
                         ]}
                       >
-                        <Text style={styles.reasonLabel}>{r.label}</Text>
+                        <Text style={styles.reasonLabel} numberOfLines={2}>{r.label}</Text>
                         <View style={[styles.radio, selected && styles.radioSelected]}>
                           {selected && <View style={styles.radioDot} />}
                         </View>
@@ -183,7 +189,11 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
                   style={[styles.textarea, detailsFocused && { borderColor: T.text }]}
                   value={description}
                   onChangeText={t => setDescription(t.slice(0, 500))}
-                  onFocus={() => setDetailsFocused(true)}
+                  onFocus={() => {
+                    setDetailsFocused(true);
+                    // The sheet shrinks above the keyboard; bring the details box into view.
+                    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), Platform.OS === 'ios' ? 300 : 150);
+                  }}
                   onBlur={() => setDetailsFocused(false)}
                   placeholder="Anything that helps us understand what’s wrong"
                   placeholderTextColor={T.placeholder}
@@ -234,6 +244,9 @@ function makeStyles(T: AppTheme) {
       borderTopLeftRadius: 28,
       borderTopRightRadius: 28,
       paddingTop: 10,
+      // Shrink (the reasons ScrollView gives way, footer stays) when the keyboard or a
+      // short screen leaves less room than the content needs.
+      flexShrink: 1,
     },
     grabber: {
       alignSelf: 'center', width: 36, height: 5, borderRadius: 3,

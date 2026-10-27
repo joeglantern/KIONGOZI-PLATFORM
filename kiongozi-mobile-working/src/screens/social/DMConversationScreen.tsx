@@ -360,7 +360,7 @@ export default function DMConversationScreen() {
               </View>
               <View style={styles.headerNames}>
                 <Text style={styles.headerName} numberOfLines={1}>Kiongozi AI</Text>
-                <Text style={[styles.headerHandle, { color: T.accent }]}>Always online</Text>
+                <Text style={[styles.headerHandle, { color: T.accent }]} numberOfLines={1}>Always online</Text>
               </View>
             </View>
           ) : (
@@ -376,7 +376,7 @@ export default function DMConversationScreen() {
                   {participantIsVerified && <VerifiedBadge size={15} />}
                 </View>
                 {participantUsername ? (
-                  <Text style={styles.headerHandle}>@{participantUsername}</Text>
+                  <Text style={styles.headerHandle} numberOfLines={1}>@{participantUsername}</Text>
                 ) : null}
               </View>
             </TouchableOpacity>
@@ -601,7 +601,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       alignItems: 'center',
       paddingHorizontal: 2,
       paddingVertical: 0,
-      height: 50,
+      // minHeight (not height) so a 1.3× system font can't clip the name + handle stack
+      minHeight: 50,
       backgroundColor: T.bg,
       gap: 4,
     },
@@ -614,7 +615,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       gap: 9,
     },
     headerNames: { flex: 1 },
-    headerName: { fontSize: 16, color: T.text, fontWeight: '600', letterSpacing: -0.2 },
+    headerName: { fontSize: 16, color: T.text, fontWeight: '600', letterSpacing: -0.2, flexShrink: 1 },
     headerHandle: { fontSize: 12, color: T.textMuted, marginTop: 0 },
     headerRight: { width: 44 },
 
@@ -634,7 +635,9 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     inputBar: {
       paddingHorizontal: 10,
       paddingTop: 6,
-      paddingBottom: 8,
+      // SafeAreaView adds the home-indicator / nav-bar inset below this; when Android
+      // reports 0 there, give the pill a little more room off the screen edge.
+      paddingBottom: bottomInset > 0 ? 8 : 12,
       backgroundColor: T.bg,
     },
     replyPreviewBar: {

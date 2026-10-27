@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View, Text, TextInput, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl,
-  ScrollView, Image, Dimensions,
+  ScrollView, Image, useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +20,6 @@ import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 
 type Theme = ReturnType<typeof useTheme>;
-const W = Dimensions.get('window').width;
 const RECENTS_KEY = 'explore_recent_searches';
 /** Full number with thousands separators: 1204 → "1,204" */
 const commas = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -69,15 +68,28 @@ const tileStyles = StyleSheet.create({
 });
 
 function Mosaic({ posts, onOpen, T }: { posts: Post[]; onOpen: (p: Post) => void; T: Theme }) {
+  const { width } = useWindowDimensions();
   const gap = 3;
-  const col = (W - 32 - gap * 2) / 3;
+  // Row = big column + gap + right block (flex: 1). 3 columns + 2 gaps fill width − 32.
+  // The right block is laid out as two explicit 2-tile rows with flex: 1 tiles instead of
+  // a flexWrap of fixed-width tiles: 2·col + gap must equal the leftover exactly, and
+  // sub-pixel rounding (e.g. 320 → col 94, 360 → col 107.33) could push the 2nd tile onto
+  // a new line and the 4-tile grid would collapse into a clipped column.
+  const col = Math.floor((width - 32 - gap * 2) / 3);
   const h = 112;
   const [big, ...rest] = posts;
+  const tiles = rest.slice(0, 4);
+  const rows = [tiles.slice(0, 2), tiles.slice(2, 4)];
   return (
     <View style={{ flexDirection: 'row', gap, height: h * 2 + gap, marginHorizontal: 16, borderRadius: 16, overflow: 'hidden' }}>
       <Tile post={big} T={T} onPress={() => onOpen(big)} style={{ width: col, height: h * 2 + gap }} />
-      <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap }}>
-        {rest.slice(0, 4).map(p => <Tile key={p.id} post={p} T={T} onPress={() => onOpen(p)} style={{ width: col, height: h }} />)}
+      <View style={{ flex: 1, gap }}>
+        {rows.map((row, ri) => (
+          <View key={ri} style={{ flexDirection: 'row', gap, height: h }}>
+            {row.map(p => <Tile key={p.id} post={p} T={T} onPress={() => onOpen(p)} style={{ flex: 1, height: h }} />)}
+            {row.length === 1 && <View style={{ flex: 1 }} />}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -95,7 +107,7 @@ function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () =
   return (
     <Pressable onPress={onOpen} style={[cardStyles.card, { backgroundColor: T.surface, borderColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA' }]} accessibilityLabel={`${person.full_name || person.username}'s profile`}>
       <UserAvatar avatarUrl={person.avatar_url} size={60} name={person.full_name || person.username} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, maxWidth: 112 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, maxWidth: 112 /* card 132 − 2×10 padding */ }}>
         <Text style={[cardStyles.name, { color: T.text }]} numberOfLines={1}>{person.full_name || person.username}</Text>
         {person.is_verified && <VerifiedBadge size={13} />}
       </View>
@@ -107,7 +119,7 @@ function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () =
         accessibilityLabel={done ? 'Following' : `Follow ${person.username}`}
       >
         {state === 'busy' ? <ActivityIndicator size="small" color={T.bg} /> : (
-          <Text style={[cardStyles.btnText, { color: done ? T.text : T.bg }]}>{done ? 'Following' : 'Follow'}</Text>
+          <Text style={[cardStyles.btnText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{done ? 'Following' : 'Follow'}</Text>
         )}
       </Pressable>
     </Pressable>
@@ -115,8 +127,8 @@ function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () =
 }
 const cardStyles = StyleSheet.create({
   card: { width: 132, borderRadius: 18, borderWidth: 1, paddingTop: 14, paddingBottom: 12, paddingHorizontal: 10, alignItems: 'center', gap: 6 },
-  name: { fontSize: 14, fontWeight: '700' },
-  handle: { fontSize: 12 },
+  name: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  handle: { fontSize: 12, maxWidth: '100%' },
   btn: { marginTop: 4, alignSelf: 'stretch', height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontSize: 14, fontWeight: '700' },
 });
@@ -259,7 +271,7 @@ export default function ExploreScreen() {
               accessibilityRole="button" accessibilityLabel={`Trending ${i + 1}: #${h.tag}`}>
               <Text style={styles.trendRank}>{i + 1}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.trendTag}>#{h.tag}</Text>
+                <Text style={styles.trendTag} numberOfLines={1}>#{h.tag}</Text>
                 {h.use_count > 0 && <Text style={styles.trendMeta}>{commas(h.use_count)} {h.use_count === 1 ? 'post' : 'posts'}</Text>}
               </View>
               <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
@@ -311,7 +323,7 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Explore</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
           <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('FindFriends')} accessibilityLabel="Find friends">
             <Ionicons name="person-add-outline" size={20} color={T.text} />
           </Pressable>
@@ -341,7 +353,7 @@ export default function ExploreScreen() {
           </View>
           {(focused || isSearching) && (
             <Pressable onPress={() => { clearSearch(); inputRef.current?.blur(); }} hitSlop={8} accessibilityRole="button">
-              <Text style={styles.cancel}>Cancel</Text>
+              <Text style={styles.cancel} numberOfLines={1} maxFontSizeMultiplier={1.3}>Cancel</Text>
             </Pressable>
           )}
         </View>
@@ -360,7 +372,7 @@ export default function ExploreScreen() {
               {recents.map(r => (
                 <Pressable key={r} onPress={() => runSearch(r)} style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]}>
                   <View style={styles.suggIconWrap}><Ionicons name={r.startsWith('#') ? 'pricetag-outline' : 'time-outline'} size={16} color={T.textSub} /></View>
-                  <Text style={[styles.suggName, { flex: 1 }]}>{r}</Text>
+                  <Text style={[styles.suggName, { flex: 1 }]} numberOfLines={1}>{r}</Text>
                   <Pressable hitSlop={10} accessibilityLabel={`Remove ${r}`} onPress={() => setRecents(prev => {
                     const next = prev.filter(x => x !== r);
                     AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(next)).catch(() => {});
@@ -381,14 +393,14 @@ export default function ExploreScreen() {
             <Pressable key={h.id} style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]} onPress={() => runSearch(`#${h.tag}`)}>
               <View style={styles.suggIconWrap}><Ionicons name="pricetag-outline" size={16} color={T.textSub} /></View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.suggName}>#{h.tag}</Text>
+                <Text style={styles.suggName} numberOfLines={1}>#{h.tag}</Text>
                 {h.use_count > 0 && <Text style={styles.suggSub}>{commas(h.use_count)} {h.use_count === 1 ? 'post' : 'posts'}</Text>}
               </View>
             </Pressable>
           ))}
           <Pressable style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]} onPress={() => runSearch(query)}>
             <View style={styles.suggIconWrap}><Ionicons name="search" size={16} color={T.textSub} /></View>
-            <Text style={styles.searchAllText}>Search for <Text style={{ color: T.text, fontWeight: '700' }}>"{query}"</Text></Text>
+            <Text style={[styles.searchAllText, { flex: 1 }]} numberOfLines={2}>Search for <Text style={{ color: T.text, fontWeight: '700' }}>"{query}"</Text></Text>
           </Pressable>
         </ScrollView>
       ) : searchLoading ? (
@@ -412,12 +424,12 @@ export default function ExploreScreen() {
               return (
                 <Pressable style={({ pressed }) => [styles.userRow, pressed && { backgroundColor: T.surface }]} onPress={() => openProfile(item.username)}>
                   <UserAvatar avatarUrl={item.avatar_url} size={46} isVerified={item.is_verified} isBot={item.is_bot} />
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                       <Text style={styles.userName} numberOfLines={1}>{item.full_name}</Text>
                       {item.is_verified && <VerifiedBadge size={15} />}
                     </View>
-                    <Text style={styles.userHandle}>@{item.username}</Text>
+                    <Text style={styles.userHandle} numberOfLines={1}>@{item.username}</Text>
                     {item.bio ? <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text> : null}
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={T.textMuted} />

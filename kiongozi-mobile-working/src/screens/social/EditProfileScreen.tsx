@@ -154,7 +154,7 @@ export default function EditProfileScreen() {
   return (
     <View style={styles.container}>
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: insets.top + 4, height: insets.top + 4 + 50 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 4, minHeight: insets.top + 4 + 50 }]}>
         <Pressable
           onPress={() => navigation.goBack()}
           hitSlop={4}
@@ -165,7 +165,7 @@ export default function EditProfileScreen() {
           <Ionicons name="close" size={26} color={T.text} />
         </Pressable>
         <View style={styles.headerTitleWrap} pointerEvents="none">
-          <Text style={styles.headerTitle}>Edit profile</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.2}>Edit profile</Text>
         </View>
         <Pressable
           onPress={handleSave}
@@ -178,7 +178,7 @@ export default function EditProfileScreen() {
           {saving ? (
             <ActivityIndicator size="small" color="#000" />
           ) : (
-            <Text style={styles.saveText}>Save</Text>
+            <Text style={styles.saveText} numberOfLines={1} maxFontSizeMultiplier={1.2}>Save</Text>
           )}
         </Pressable>
       </View>
@@ -190,7 +190,7 @@ export default function EditProfileScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 12) + 32 }}
         >
           {/* ── Banner + avatar ──────────────────────────────────── */}
           <View style={styles.photoSection}>
@@ -300,8 +300,8 @@ function Field({ label, children, error, hint, counter }: {
   return (
     <View style={{ marginBottom: 22 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ fontSize: 13, color: T.textMuted }}>{label}</Text>
-        {counter ? <Text style={{ fontSize: 12, color: T.textMuted, fontVariant: ['tabular-nums'] }}>{counter}</Text> : null}
+        <Text style={{ fontSize: 13, color: T.textMuted, flexShrink: 1 }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{label}</Text>
+        {counter ? <Text style={{ fontSize: 12, color: T.textMuted, fontVariant: ['tabular-nums'], marginLeft: 8 }} maxFontSizeMultiplier={1.3}>{counter}</Text> : null}
       </View>
       <View
         style={{
@@ -334,8 +334,9 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       backgroundColor: T.bg,
     },
     iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    // Centred over the full width; inset 80pt each side so it never runs under Close (8+44=52pt) or Save (≥64 pill + 16 pad = 80pt); 320pt → 160pt title box.
     headerTitleWrap: {
-      position: 'absolute', left: 0, right: 0, bottom: 0, height: 50,
+      position: 'absolute', left: 80, right: 80, bottom: 0, height: 50,
       alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: { fontSize: 17, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },

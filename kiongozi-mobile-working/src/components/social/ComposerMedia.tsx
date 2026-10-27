@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, Image, Pressable, StyleSheet, ScrollView, ActivityIndicator,
-  NativeSyntheticEvent, NativeScrollEvent,
+  NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions,
 } from 'react-native';
 import Animated, { ZoomIn, ZoomOut, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -57,6 +57,9 @@ export function ComposerMedia({
   locked?: boolean;
 }) {
   const [index, setIndex] = useState(0);
+  const { height: winH } = useWindowDimensions();
+  // Carousel tiles: 220 tall, but on a 568pt screen (keyboard up) cap at ~36% of the window
+  const tileH = Math.round(Math.min(TILE_H, Math.max(160, winH * 0.36)));
 
   const tiles = useMemo(() => {
     if (items.length <= 1) return [];
@@ -64,10 +67,10 @@ export function ComposerMedia({
     return items.map(m => {
       const r = ratioOf(m) ?? 1;
       const tileRatio = clamp(r, MIN_RATIO, MAX_RATIO);
-      const w = Math.round(Math.min(TILE_H * tileRatio, maxW));
-      return { w, letterbox: Math.abs(w / TILE_H - r) > 0.03 || !ratioOf(m) };
+      const w = Math.round(Math.min(tileH * tileRatio, maxW));
+      return { w, letterbox: Math.abs(w / tileH - r) > 0.03 || !ratioOf(m) };
     });
-  }, [items, width]);
+  }, [items, width, tileH]);
 
   const offsets = useMemo(() => {
     const out: number[] = [];
@@ -82,8 +85,11 @@ export function ComposerMedia({
     const m = items[0];
     const r = ratioOf(m);
     const boxRatio = clamp(r ?? 1, MIN_RATIO, MAX_RATIO);
-    const h = Math.round(width / boxRatio);
-    const letterbox = !r || Math.abs(boxRatio - r) > 0.01;
+    // A 4:5 photo at 288pt wide is 360pt tall: more than half of a 568pt screen. Cap the preview
+    // at 60% of the window height and letterbox (blurred fill) instead of growing further.
+    const maxH = Math.round(winH * 0.6);
+    const h = Math.min(Math.round(width / boxRatio), maxH);
+    const letterbox = !r || Math.abs(boxRatio - r) > 0.01 || h === maxH;
     return (
       <View style={styles.single}>
         <MediaTile
@@ -129,8 +135,8 @@ export function ComposerMedia({
           <MediaTile
             key={m.id}
             item={m}
-            w={tiles[i]?.w ?? TILE_H}
-            h={TILE_H}
+            w={tiles[i]?.w ?? tileH}
+            h={tileH}
             radius={16}
             letterbox={tiles[i]?.letterbox ?? true}
             onRemove={onRemove}
@@ -140,7 +146,7 @@ export function ComposerMedia({
         ))}
       </ScrollView>
       <Animated.View entering={FadeIn.duration(200)} style={styles.counter} pointerEvents="none">
-        <Text style={styles.counterText}>{Math.min(index, items.length - 1) + 1}/{items.length}</Text>
+        <Text style={styles.counterText} maxFontSizeMultiplier={1.2}>{Math.min(index, items.length - 1) + 1}/{items.length}</Text>
       </Animated.View>
     </View>
   );
@@ -207,7 +213,7 @@ function MediaTile({
             </View>
             {duration ? (
               <View style={styles.durationPill}>
-                <Text style={styles.durationText}>{duration}</Text>
+                <Text style={styles.durationText} maxFontSizeMultiplier={1.2}>{duration}</Text>
               </View>
             ) : null}
           </View>

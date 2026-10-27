@@ -147,6 +147,10 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const displayName = currentUserProfile?.full_name || (user as any)?.full_name || 'You';
   const handle = currentUserProfile?.username || (user as any)?.username;
   const contentW = Math.max(200, winW - SIDE * 2);
+  // Toolbar at 320: pad 24 + tools 3x46-6 (132) + counter "-12"+ring (62) + chip 6+24+6+"Followers"~64+12 (+6 margin = 118)
+  // = 336 > 320. Narrow screens use 40-wide tool buttons (-18) and drop the chip label while the
+  // warning counter is visible: 24 + 114 + 62 + 42 = 242.
+  const narrow = winW < 360;
 
   // Post button springs when it becomes enabled.
   const postScale = useSharedValue(1);
@@ -375,10 +379,10 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
             style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressed]}
             accessibilityRole="button"
           >
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={styles.cancelText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Cancel</Text>
           </Pressable>
           <View style={styles.headerTitleWrap} pointerEvents="none">
-            <Text style={styles.headerTitle}>{parentPostId ? 'Reply' : 'New post'}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>{parentPostId ? 'Reply' : 'New post'}</Text>
           </View>
           <Animated.View style={[postAnim, { opacity: canPost || posting ? 1 : 0.35 }]}>
             <Pressable
@@ -398,7 +402,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
               {posting ? (
                 <ActivityIndicator size="small" color="#000" />
               ) : (
-                <Text style={styles.postText}>Post</Text>
+                <Text style={styles.postText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Post</Text>
               )}
             </Pressable>
           </Animated.View>
@@ -487,9 +491,9 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         {/* Toolbar — always directly above the keyboard */}
         <View style={[styles.toolbar, { paddingBottom: keyboardOpen ? 8 : Math.max(insets.bottom, 8) }]}>
           <View style={styles.tools}>
-            <ToolButton icon={ICONS.gallery} label="Add photos" disabled={toolsDisabled} onPress={() => pickMedia('image')} />
-            <ToolButton icon={ICONS.camera} label="Take a photo" disabled={toolsDisabled} onPress={takePhoto} />
-            <ToolButton icon={ICONS.video} label="Add video" disabled={toolsDisabled} onPress={() => pickMedia('video')} />
+            <ToolButton icon={ICONS.gallery} label="Add photos" disabled={toolsDisabled} onPress={() => pickMedia('image')} compact={narrow} />
+            <ToolButton icon={ICONS.camera} label="Take a photo" disabled={toolsDisabled} onPress={takePhoto} compact={narrow} />
+            <ToolButton icon={ICONS.video} label="Add video" disabled={toolsDisabled} onPress={() => pickMedia('video')} compact={narrow} />
           </View>
 
           <View style={styles.flex} />
@@ -497,7 +501,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
           {content.length > 0 && (
             <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(120)} style={styles.counterWrap}>
               {content.length > WARN_AT && (
-                <Text style={[styles.counterText, over && { color: T.error }]}>{remaining}</Text>
+                <Text style={[styles.counterText, over && { color: T.error }]} maxFontSizeMultiplier={1.2}>{remaining}</Text>
               )}
               <CharRing
                 progress={Math.min(content.length / MAX_CHARS, 1)}
@@ -513,6 +517,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
             onPress={toggleVisibility}
             disabled={posting}
             styles={styles}
+            iconOnly={narrow && content.length > WARN_AT}
           />
         </View>
 
@@ -541,8 +546,8 @@ function usePressSpring() {
   return { style, onPressIn, onPressOut };
 }
 
-function ToolButton({ icon, onPress, disabled, label }: {
-  icon: ImageSourcePropType; onPress: () => void; disabled?: boolean; label: string;
+function ToolButton({ icon, onPress, disabled, label, compact }: {
+  icon: ImageSourcePropType; onPress: () => void; disabled?: boolean; label: string; compact?: boolean;
 }) {
   const spring = usePressSpring();
   return (
@@ -554,7 +559,8 @@ function ToolButton({ icon, onPress, disabled, label }: {
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
-      style={toolStyles.btn}
+      style={[toolStyles.btn, compact && toolStyles.btnCompact]}
+      hitSlop={compact ? { top: 4, bottom: 4 } : undefined}
     >
       <Animated.View style={[spring.style, disabled && { opacity: 0.35 }]}>
         <Image source={icon} style={toolStyles.icon} resizeMode="contain" />
@@ -563,8 +569,8 @@ function ToolButton({ icon, onPress, disabled, label }: {
   );
 }
 
-function VisibilityChip({ isPublic, onPress, disabled, styles }: {
-  isPublic: boolean; onPress: () => void; disabled?: boolean; styles: ReturnType<typeof makeStyles>;
+function VisibilityChip({ isPublic, onPress, disabled, styles, iconOnly }: {
+  isPublic: boolean; onPress: () => void; disabled?: boolean; styles: ReturnType<typeof makeStyles>; iconOnly?: boolean;
 }) {
   const spring = usePressSpring();
   return (
@@ -574,10 +580,11 @@ function VisibilityChip({ isPublic, onPress, disabled, styles }: {
       onPressOut={spring.onPressOut}
       disabled={disabled}
       hitSlop={6}
+      style={{ flexShrink: 1 }}
       accessibilityRole="button"
       accessibilityLabel={isPublic ? 'Visible to everyone. Tap to limit to followers' : 'Visible to followers. Tap to make public'}
     >
-      <Animated.View style={[styles.visChip, spring.style, disabled && { opacity: 0.5 }]}>
+      <Animated.View style={[styles.visChip, iconOnly && { paddingRight: 6 }, spring.style, disabled && { opacity: 0.5 }]}>
         <Animated.Image
           key={isPublic ? 'everyone' : 'followers'}
           entering={FadeIn.duration(180)}
@@ -585,7 +592,9 @@ function VisibilityChip({ isPublic, onPress, disabled, styles }: {
           style={styles.visIcon}
           resizeMode="contain"
         />
-        <Text style={styles.visText} numberOfLines={1}>{isPublic ? 'Everyone' : 'Followers'}</Text>
+        {!iconOnly && (
+          <Text style={styles.visText} numberOfLines={1} maxFontSizeMultiplier={1.2}>{isPublic ? 'Everyone' : 'Followers'}</Text>
+        )}
       </Animated.View>
     </Pressable>
   );
@@ -626,6 +635,7 @@ function CharRing({ progress, color, track, bg, size = 24, stroke = 2.5 }: {
 
 const toolStyles = StyleSheet.create({
   btn: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
+  btnCompact: { width: 40 },
   icon: { width: 32, height: 32 },
 });
 
@@ -704,7 +714,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: T.border,
     },
-    tools: { flexDirection: 'row', alignItems: 'center', marginLeft: -6 },
+    tools: { flexDirection: 'row', alignItems: 'center', marginLeft: -6, flexShrink: 0 },
     visChip: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -719,8 +729,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       marginLeft: 6,
     },
     visIcon: { width: 24, height: 24 },
-    visText: { fontSize: 13, color: T.text, fontWeight: '600' },
-    counterWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, minHeight: 44 },
+    visText: { fontSize: 13, color: T.text, fontWeight: '600', flexShrink: 1 },
+    counterWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, minHeight: 44, flexShrink: 0 },
     counterText: { fontSize: 13, color: T.textMuted, fontVariant: ['tabular-nums'] },
   });
 }

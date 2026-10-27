@@ -6,7 +6,7 @@
 //  • Videos: play with sound, tap to pause, seekable progress, mute
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
-  Modal, View, Text, TouchableOpacity, Pressable, StyleSheet, Dimensions, ActivityIndicator, Image,
+  Modal, View, Text, TouchableOpacity, Pressable, StyleSheet, Dimensions, ActivityIndicator, Image, ScrollView, useWindowDimensions,
 } from 'react-native';
 import Reanimated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing,
@@ -21,7 +21,9 @@ import { UserAvatar } from './UserAvatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { getPosition, setPosition, setFeedPaused } from './videoPlayback';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+// Initial guess only: the real page size is measured from the modal's root (on Android edge-to-edge
+// the translucent modal is taller than Dimensions 'window', which would leave photos off-centre).
+const WIN = Dimensions.get('window');
 
 export interface MediaItem {
   url: string;
@@ -56,8 +58,8 @@ const SPRING = { damping: 22, stiffness: 240, mass: 0.9 };
 const MAX_ZOOM = 5;
 
 // ---- Zoomable photo ------------------------------------------------------------
-function ZoomableImage({ uri, active, onZoomChange, onTap }: {
-  uri: string; active: boolean; onZoomChange: (zoomed: boolean) => void; onTap: () => void;
+function ZoomableImage({ uri, active, onZoomChange, onTap, pageW: SCREEN_W, pageH: SCREEN_H }: {
+  uri: string; active: boolean; onZoomChange: (zoomed: boolean) => void; onTap: () => void; pageW: number; pageH: number;
 }) {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -151,7 +153,7 @@ function ZoomableImage({ uri, active, onZoomChange, onTap }: {
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={styles.page} collapsable={false}>
+      <View style={[styles.page, { width: SCREEN_W, height: SCREEN_H }]} collapsable={false}>
         <Reanimated.Image
           source={{ uri }}
           style={[StyleSheet.absoluteFill, imgStyle]}
@@ -168,12 +170,12 @@ function ZoomableImage({ uri, active, onZoomChange, onTap }: {
 // ---- Video page ----------------------------------------------------------------
 // Plays with sound when it is the current page, continues from where the feed was,
 // tap to pause/play, thin seekable progress bar. No native controls so swipes reach the viewer.
-function VideoPage({ url, active, bottomInset }: { url: string; active: boolean; bottomInset: number }) {
+function VideoPage({ url, active, bottomInset, pageW, pageH }: { url: string; active: boolean; bottomInset: number; pageW: number; pageH: number }) {
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [muted, setMutedState] = useState(false);
-  const barWidth = useRef(SCREEN_W - 32);
+  const barWidth = useRef(pageW - 32);
 
   const player = useVideoPlayer(url, p => {
     p.loop = true;
@@ -209,7 +211,7 @@ function VideoPage({ url, active, bottomInset }: { url: string; active: boolean;
   };
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { width: pageW, height: pageH }]}>
       <Pressable style={StyleSheet.absoluteFill} onPress={() => setPaused(p => !p)}>
         <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} allowsFullscreen={false} />
         {(paused || loading) && (
@@ -250,6 +252,12 @@ function VideoPage({ url, active, bottomInset }: { url: string; active: boolean;
 // ---- Viewer --------------------------------------------------------------------
 export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, caption, postContext }: MediaViewerModalProps) {
   const insets = useSafeAreaInsets();
+  const win = useWindowDimensions();
+  const [box, setBox] = useState({ w: WIN.width, h: WIN.height });
+  const SCREEN_W = box.w || win.width;
+  const SCREEN_H = box.h || win.height;
+  const bottomInset = Math.max(insets.bottom, 8); // Android can report 0 with 3-button nav
+  const narrow = SCREEN_W < 360;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [captionOpen, setCaptionOpen] = useState(false);
   const [zoomed, setZoomed] = useState(false);
@@ -333,7 +341,13 @@ export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, ca
 
   return (
     <Modal visible={visible} animationType="none" onRequestClose={() => close(1)} statusBarTranslucent transparent>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView
+        style={{ flex: 1 }}
+        onLayout={e => {
+          const { width, height } = e.nativeEvent.layout;
+          if (width > 0 && height > 0 && (Math.abs(width - box.w) > 1 || Math.abs(height - box.h) > 1)) setBox({ w: width, h: height });
+        }}
+      >
         <Reanimated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]} />
 
         <GestureDetector gesture={dismissPan}>
@@ -350,9 +364,9 @@ export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, ca
               {media.map((item, index) =>
                 item.media_type === 'video' ? (
                   visible && Math.abs(index - currentIndex) <= 1 ? (
-                    <VideoPage key={`${item.url}_${index}`} url={item.url} active={index === currentIndex} bottomInset={insets.bottom} />
+                    <VideoPage key={`${item.url}_${index}`} url={item.url} active={index === currentIndex} bottomInset={bottomInset} pageW={SCREEN_W} pageH={SCREEN_H} />
                   ) : (
-                    <View key={`${item.url}_${index}`} style={styles.page} />
+                    <View key={`${item.url}_${index}`} style={[styles.page, { width: SCREEN_W, height: SCREEN_H }]} />
                   )
                 ) : (
                   <ZoomableImage
@@ -361,6 +375,8 @@ export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, ca
                     active={index === currentIndex}
                     onZoomChange={setZoomed}
                     onTap={toggleChrome}
+                    pageW={SCREEN_W}
+                    pageH={SCREEN_H}
                   />
                 ),
               )}
@@ -377,34 +393,44 @@ export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, ca
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
-            <View style={[styles.bottomInner, { paddingBottom: insets.bottom + progressSpace + 10 }]} pointerEvents="box-none">
+            <View style={[styles.bottomInner, { paddingBottom: bottomInset + progressSpace + 10 }]} pointerEvents="box-none">
               {author && (
                 <View style={styles.authorRow}>
                   <UserAvatar avatarUrl={author.avatar_url} size={30} isVerified={author.is_verified} />
-                  <Text style={styles.authorName} numberOfLines={1}>{author.full_name || author.username}</Text>
+                  <Text style={styles.authorName} numberOfLines={1} maxFontSizeMultiplier={1.3}>{author.full_name || author.username}</Text>
                   {author.is_verified && <VerifiedBadge size={14} />}
                 </View>
               )}
               {caption ? (
-                <Pressable onPress={() => setCaptionOpen(o => !o)} hitSlop={6}>
-                  <Text style={styles.caption} numberOfLines={captionOpen ? undefined : 2}>{caption}</Text>
-                  {!captionOpen && caption.length > 90 && <Text style={styles.more}>more</Text>}
-                </Pressable>
+                captionOpen ? (
+                  // Expanded caption is capped (568pt screen: 0.38*568 = 216pt) and scrolls, so it never
+                  // grows up under the close button.
+                  <ScrollView style={{ maxHeight: Math.round(SCREEN_H * 0.38) }} showsVerticalScrollIndicator={false}>
+                    <Pressable onPress={() => setCaptionOpen(false)} hitSlop={6}>
+                      <Text style={styles.caption}>{caption}</Text>
+                    </Pressable>
+                  </ScrollView>
+                ) : (
+                  <Pressable onPress={() => setCaptionOpen(true)} hitSlop={6}>
+                    <Text style={styles.caption} numberOfLines={2}>{caption}</Text>
+                    {caption.length > 90 && <Text style={styles.more}>more</Text>}
+                  </Pressable>
+                )
               ) : null}
               {postContext && (
-                <View style={styles.actions}>
+                <View style={[styles.actions, narrow && { gap: 16 }]}>
                   <TouchableOpacity style={styles.action} onPress={() => { close(1); setTimeout(postContext.onReply, 220); }} accessibilityLabel="Reply">
                     <Ionicons name="chatbubble-outline" size={22} color="#fff" />
-                    {postContext.commentCount > 0 && <Text style={styles.actionCount}>{compact(postContext.commentCount)}</Text>}
+                    {postContext.commentCount > 0 && <Text style={styles.actionCount} maxFontSizeMultiplier={1.2}>{compact(postContext.commentCount)}</Text>}
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.action} onPress={postContext.onRepost} accessibilityLabel="Repost">
                     <Ionicons name="repeat" size={23} color="#fff" />
-                    {postContext.repostCount > 0 && <Text style={styles.actionCount}>{compact(postContext.repostCount)}</Text>}
+                    {postContext.repostCount > 0 && <Text style={styles.actionCount} maxFontSizeMultiplier={1.2}>{compact(postContext.repostCount)}</Text>}
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.action} onPress={postContext.onLike} accessibilityLabel={postContext.isLiked ? 'Unlike' : 'Like'}>
                     <Ionicons name={postContext.isLiked ? 'heart' : 'heart-outline'} size={23} color={postContext.isLiked ? '#FF3040' : '#fff'} />
                     {postContext.likeCount > 0 && (
-                      <Text style={[styles.actionCount, postContext.isLiked && styles.likedCount]}>{compact(postContext.likeCount)}</Text>
+                      <Text style={[styles.actionCount, postContext.isLiked && styles.likedCount]} maxFontSizeMultiplier={1.2}>{compact(postContext.likeCount)}</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.action} onPress={postContext.onBookmark} accessibilityLabel="Bookmark">
@@ -424,7 +450,7 @@ export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, ca
           <TouchableOpacity style={styles.roundBtn} onPress={() => close(1)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} accessibilityLabel="Close">
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
-          {media.length > 1 && <Text style={styles.counter}>{currentIndex + 1} / {media.length}</Text>}
+          {media.length > 1 && <Text style={styles.counter} maxFontSizeMultiplier={1.2}>{currentIndex + 1} / {media.length}</Text>}
         </Reanimated.View>
       </GestureHandlerRootView>
     </Modal>
@@ -436,7 +462,7 @@ const textShadow = { textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { wid
 const styles = StyleSheet.create({
   backdrop: { backgroundColor: '#000' },
   container: { flex: 1 },
-  page: { width: SCREEN_W, height: SCREEN_H, overflow: 'hidden' },
+  page: { overflow: 'hidden' },
   centerOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   bigPlay: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   roundBtn: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

@@ -2,10 +2,13 @@
 import { create } from 'zustand';
 import apiClient from '../utils/apiClient';
 
+export type TextStyleId = 'plain' | 'pill' | 'outline';
+
 export interface StoryOverlay {
-  type: 'sticker' | 'text' | 'poll';
+  type: 'sticker' | 'text' | 'poll' | 'link';
+  url?: string;       // link sticker (http/https)
   options?: string[]; // poll answers (2)
-  key?: string;       // sticker id (see components/stories/storyAssets)
+  key?: string;       // sticker id (see components/stories/storyAssets); '__media' = photo/video framing (StoryParts MEDIA_KEY)
   text?: string;
   color?: string;
   bg?: string;
@@ -28,6 +31,7 @@ export interface Story {
   bg?: string | null;
   text_color?: string | null;
   font?: string | null;
+  text_style?: TextStyleId | null;
   overlays: StoryOverlay[];
   caption?: string | null;
   audience: 'everyone' | 'followers';

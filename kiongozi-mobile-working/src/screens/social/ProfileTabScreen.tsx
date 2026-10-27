@@ -308,12 +308,12 @@ export default function ProfileTabScreen() {
         </View>
 
         <View style={styles.nameRow}>
-          <Text style={styles.displayName} numberOfLines={2}>
+          <Text style={styles.displayName} numberOfLines={2} maxFontSizeMultiplier={1.3}>
             {profile?.full_name || user?.user_metadata?.full_name || 'Your profile'}
           </Text>
           {profile?.is_verified && <VerifiedBadge size={18} />}
         </View>
-        <Text style={styles.handle}>@{profile?.username || '—'}</Text>
+        <Text style={styles.handle} numberOfLines={1}>@{profile?.username || '—'}</Text>
         {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
         {!!joined && (
@@ -327,18 +327,18 @@ export default function ProfileTabScreen() {
 
         {profile && (
           <View style={styles.statsRow}>
-            <Text style={styles.statText}>
+            <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
               <Text style={styles.statNum}>{formatCount(profile.post_count ?? 0)}</Text> posts
             </Text>
-            <Text style={styles.statDot}>·</Text>
+            <Text style={styles.statDot} maxFontSizeMultiplier={1.3}>·</Text>
             <Pressable onPress={() => openFollowList('followers')} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.6 }}>
-              <Text style={styles.statText}>
+              <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
                 <Text style={styles.statNum}>{formatCount(profile.follower_count ?? 0)}</Text> followers
               </Text>
             </Pressable>
-            <Text style={styles.statDot}>·</Text>
+            <Text style={styles.statDot} maxFontSizeMultiplier={1.3}>·</Text>
             <Pressable onPress={() => openFollowList('following')} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.6 }}>
-              <Text style={styles.statText}>
+              <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
                 <Text style={styles.statNum}>{formatCount(profile.following_count ?? 0)}</Text> following
               </Text>
             </Pressable>
@@ -351,13 +351,13 @@ export default function ProfileTabScreen() {
             style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.7 }]}
             onPress={() => navigation.navigate('EditProfile')}
           >
-            <Text style={styles.actionBtnText}>Edit profile</Text>
+            <Text style={styles.actionBtnText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Edit profile</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.7 }]}
             onPress={handleShareProfile}
           >
-            <Text style={styles.actionBtnText}>Share profile</Text>
+            <Text style={styles.actionBtnText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Share profile</Text>
           </Pressable>
         </View>
       </View>
@@ -375,7 +375,7 @@ export default function ProfileTabScreen() {
               accessibilityState={{ selected: on }}
             >
               <View style={styles.tabInner}>
-                <Text style={[styles.tabLabel, { color: on ? T.text : T.textMuted }]}>{label}</Text>
+                <Text style={[styles.tabLabel, { color: on ? T.text : T.textMuted }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{label}</Text>
                 {on && <View style={styles.tabUnderline} />}
               </View>
             </Pressable>
@@ -387,7 +387,7 @@ export default function ProfileTabScreen() {
       {activeTab === 'saved' && (
         <View style={styles.savedNote}>
           <Ionicons name="lock-closed-outline" size={13} color={T.textMuted} />
-          <Text style={styles.savedNoteText}>Only you can see your saved posts.</Text>
+          <Text style={styles.savedNoteText} numberOfLines={2}>Only you can see your saved posts.</Text>
         </View>
       )}
     </View>
@@ -405,7 +405,7 @@ export default function ProfileTabScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.2}>Profile</Text>
         <Pressable
           onPress={handleGearPress}
           style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
@@ -517,7 +517,9 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
 
     actionRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
     actionBtn: {
-      flex: 1, height: 38, borderRadius: 12,
+      // Pair at 320pt: (320 − 32 gutter − 8 gap) / 2 = 140pt each; "Share profile" @15pt bold ≈ 95pt,
+      // ≈124pt at 1.3× text — fits with 8pt side padding; minHeight lets it grow instead of clipping.
+      flex: 1, minHeight: 38, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6,
       alignItems: 'center', justifyContent: 'center',
       borderWidth: 1, borderColor: T.border,
     },
@@ -537,7 +539,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       paddingHorizontal: 16, paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
     },
-    savedNoteText: { fontSize: 13, color: T.textMuted },
+    savedNoteText: { fontSize: 13, color: T.textMuted, flexShrink: 1 },
 
     emptyState: { paddingVertical: 48, paddingHorizontal: 32, alignItems: 'center' },
     emptyIcon: {

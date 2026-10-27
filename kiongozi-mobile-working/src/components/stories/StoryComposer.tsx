@@ -1,11 +1,15 @@
 // Story composer: text stories on Kenyan-pattern backgrounds, or a photo/video from gallery or camera,
 // with draggable / pinchable stickers and text labels. Posting uploads in the background.
-import React, { useEffect, useRef, useState } from 'react';
+// Photos/videos can be framed IG-style (pinch = zoom, drag = move, twist = rotate, double-tap = fit);
+// the framing is saved as a '__media' overlay entry (see StoryParts MEDIA_KEY).
+import React, { useMemo, useRef, useState } from 'react';
 import {
-  View, Text, Image, Modal, Pressable, StyleSheet, TextInput, Dimensions, PanResponder, Animated,
+  View, Text, Image, Modal, Pressable, StyleSheet, TextInput, Dimensions, PanResponder,
   Alert, KeyboardAvoidingView, Platform, ScrollView, Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, SharedValue } from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -16,26 +20,43 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
-import { StoryBackground, OverlayItem, STICKER_BASE, POLL_H } from './StoryParts';
+import { StoryBackground, OverlayItem, STICKER_BASE, POLL_H, MEDIA_KEY, coverBox, MediaBackdrop, TEXT_STYLES, textStyleFx } from './StoryParts';
 import { POLL_W } from './PollCard';
 import { celebrate } from '../Confetti';
 import { BACKGROUNDS, FONTS, TEXT_COLORS, STICKERS, fontById, fitFontSize, fitLineHeight, textAnchoredTop, TEXT_TOP, bgById } from './storyAssets';
 
 const { width: W, height: H } = Dimensions.get('window');
 const MAX_BYTES = 50 * 1024 * 1024;
-const TOOL = W < 380 ? 40 : 44; // top tool size; a touch smaller on narrow phones so the row fits
+const TOOL = W < 380 ? 40 : 44; // top tool size; a touch smaller on narrow phones
+const GAP = 6;                    // gap between top tools
+const NARROW = W < 360;           // 320-wide phones: tighter bottom row
+const SHORT = H < 700;            // 568/667-tall phones: tighter vertical spacing
+const FONT_PILL_W = TOOL + 14;    // "Aa" pill width (approx.)
+// Media framing limits + snapping
+const ZOOM_MIN = 0.5, ZOOM_MAX = 4;
+const SNAP_PX = 10, SNAP_ZOOM = 0.07, SNAP_DEG = 7;
+const SPRING = { damping: 20, stiffness: 220 };
 
 type Draft = StoryOverlay & { _id: number };
 let nextId = 1;
 
-type Picked = { uri: string; type: 'image' | 'video'; width?: number; height?: number; durationMs?: number };
+type Picked = { uri: string; type: 'image' | 'video'; width?: number; height?: number; durationMs?: number; thumb?: string };
+type Frame = { tx: SharedValue<number>; ty: SharedValue<number>; zoom: SharedValue<number>; rot: SharedValue<number> };
+
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+/** -180..180 */
+const normDeg = (d: number) => { const r = ((d % 360) + 360) % 360; return r > 180 ? r - 360 : r; };
 
 export function StoryComposer() {
   const open = useStoryStore(s => s.composerOpen);
   const setOpen = useStoryStore(s => s.setComposerOpen);
   return (
     <Modal visible={open} animationType="slide" statusBarTranslucent onRequestClose={() => setOpen(false)}>
-      {open && <ComposerBody onClose={() => setOpen(false)} />}
+      {/* RNGH needs its own root inside a Modal */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        {open && <ComposerBody onClose={() => setOpen(false)} />}
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -50,19 +71,35 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState('');
   const [bg, setBg] = useState(BACKGROUNDS[0].id);
   const [font, setFont] = useState(FONTS[0].id);
+  const [textStyle, setTextStyle] = useState<(typeof TEXT_STYLES)[number]>('plain');
   const [color, setColor] = useState<string | null>(null);
   const [overlays, setOverlays] = useState<Draft[]>([]);
   const [audience, setAudience] = useState<'everyone' | 'followers'>('everyone');
   const [trayOpen, setTrayOpen] = useState(false);
   const [labelDraft, setLabelDraft] = useState<string | null>(null);
+  const [linkDraft, setLinkDraft] = useState<string | null>(null);
   const [pollDraft, setPollDraft] = useState<{ q: string; a: string; b: string } | null>(null);
   const hasPoll = overlays.some(o => o.type === 'poll');
   const [dragging, setDragging] = useState(false);
   const [overTrash, setOverTrash] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  // Top of the bottom bar (dots + audience + Shiriki), measured; it moves up with the keyboard
+  const [bottomTop, setBottomTop] = useState(H);
+
+  // Media framing, in px offset from centre / zoom relative to cover-fill / degrees (UI thread)
+  const tx = useSharedValue(0), ty = useSharedValue(0), zoom = useSharedValue(1), rot = useSharedValue(0);
+  const frame: Frame = { tx, ty, zoom, rot };
+  const resetFrame = () => { tx.value = 0; ty.value = 0; zoom.value = 1; rot.value = 0; };
+  /** The framing as an overlay entry, or null when it is the default cover-fill. */
+  const frameOverlay = (): StoryOverlay | null => {
+    const x = 0.5 + tx.value / W, y = 0.5 + ty.value / H, s = zoom.value, r = normDeg(rot.value);
+    if (Math.abs(s - 1) < 0.005 && Math.abs(r) < 0.5 && Math.abs(x - 0.5) < 0.002 && Math.abs(y - 0.5) < 0.002) return null;
+    return { type: 'sticker', key: MEDIA_KEY, x: round4(clamp(x, 0, 1)), y: round4(clamp(y, 0, 1)), scale: round4(clamp(s, 0.2, 5)), rotation: Math.round(r * 10) / 10 };
+  };
 
   const isText = !media;
   const textColor = color || (bgById(bg).dark ? '#000000' : '#FFFFFF');
+  const styleFx = textStyleFx(textStyle, textColor);
   const shownText = text || 'Andika kitu…';
   const textSize = fitFontSize(shownText);
   const anchored = textAnchoredTop(shownText);
@@ -89,7 +126,21 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
       Alert.alert('Video too long', 'Stories can be up to 60 seconds. Trim it and try again.');
       return;
     }
-    setMedia({ uri: a.uri, type, width: a.width, height: a.height, durationMs: a.duration ?? undefined });
+    let width = a.width, height = a.height, thumb: string | undefined;
+    if (type === 'video') {
+      // The thumbnail is upright (rotation applied), so its size is the true display aspect;
+      // it is also the blurred backdrop while framing and is uploaded as the story thumbnail.
+      try {
+        const t = await VideoThumbnails.getThumbnailAsync(a.uri, { time: 0, quality: 0.6 });
+        thumb = t.uri;
+        if (t.width && t.height) { width = t.width; height = t.height; }
+      } catch {}
+    }
+    resetFrame();
+    setMedia({ uri: a.uri, type, width, height, durationMs: a.duration ?? undefined, thumb });
+    if (type === 'image' && (!width || !height)) {
+      Image.getSize(a.uri, (w, h) => setMedia(m => (m && m.uri === a.uri ? { ...m, width: w, height: h } : m)), () => {});
+    }
   };
 
   const addSticker = (key: string) => {
@@ -102,6 +153,14 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
     const t = (labelDraft || '').trim();
     if (t) setOverlays(o => [...o, { _id: nextId++, type: 'text', text: t, color: '#000000', bg: '#FFFFFF', x: 0.5, y: 0.3, scale: 1, rotation: -3 }]);
     setLabelDraft(null);
+  };
+
+  const addLink = () => {
+    let u = (linkDraft || '').trim();
+    if (u && !/^https?:\/\//i.test(u)) u = `https://${u}`;
+    const ok = /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(u) && u.length <= 300;
+    if (ok) setOverlays(o => [...o.filter(x => x.type !== 'link'), { _id: nextId++, type: 'link', url: u, x: 0.5, y: 0.72, scale: 1, rotation: 0 }]);
+    setLinkDraft(null);
   };
 
   const addPoll = () => {
@@ -119,7 +178,9 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const post = async () => {
     if (!user || !canPost) return;
     Keyboard.dismiss();
-    const draft = { media, text: text.trim(), bg, font, color: textColor, overlays: overlays.map(({ _id, ...rest }) => rest), audience };
+    const framed = media ? frameOverlay() : null;
+    // Framing goes first so the server's 20-overlay cap can never drop it
+    const draft = { media, text: text.trim(), bg, font, textStyle, color: textColor, overlays: [...(framed ? [framed] : []), ...overlays.map(({ _id, ...rest }) => rest)], audience };
     onClose();
     setPosting(true);
     try {
@@ -134,13 +195,13 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
         if (draft.media.type === 'video') {
           body.duration_ms = draft.media.durationMs;
           try {
-            const thumb = await VideoThumbnails.getThumbnailAsync(draft.media.uri, { time: 0, quality: 0.6 });
-            const t = await upload(thumb.uri, 'image', user.id);
+            const thumbUri = draft.media.thumb || (await VideoThumbnails.getThumbnailAsync(draft.media.uri, { time: 0, quality: 0.6 })).uri;
+            const t = await upload(thumbUri, 'image', user.id);
             body.thumbnail_url = t.url;
           } catch {}
         }
       } else {
-        Object.assign(body, { text_content: draft.text, bg: draft.bg, font: draft.font, text_color: draft.color });
+        Object.assign(body, { text_content: draft.text, bg: draft.bg, font: draft.font, text_color: draft.color, ...(draft.textStyle !== 'plain' ? { text_style: draft.textStyle } : {}) });
       }
       const res: any = await apiClient.createStory(body);
       if (!res.success) throw new Error(res.error || 'Could not post');
@@ -160,14 +221,67 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
     setOverlays(o => o.map(x => (x._id === id ? { ...x, ...patch } : x)));
   const removeOverlay = (id: number) => setOverlays(o => o.filter(x => x._id !== id));
 
+  // Secondary tools (everything but close). Text stories have up to 6, which does not fit beside
+  // close on 320-360 wide phones, so there they stack in a right-hand column instead.
+  const tools: React.ReactNode[] = [];
+  if (isText) {
+    tools.push(
+      <Pressable key="font" style={styles.fontPill} onPress={() => setFont(f => FONTS[(FONTS.findIndex(x => x.id === f) + 1) % FONTS.length].id)} accessibilityLabel="Change font">
+        <Text style={styles.fontPillText}>Aa</Text>
+      </Pressable>,
+      <Pressable key="bg" style={styles.tool} onPress={() => setBg(b => BACKGROUNDS[(BACKGROUNDS.findIndex(x => x.id === b) + 1) % BACKGROUNDS.length].id)} accessibilityLabel="Change background">
+        <Ionicons name="contrast-outline" size={20} color="#fff" />
+      </Pressable>,
+    );
+  } else {
+    tools.push(
+      <Pressable key="text" style={styles.tool} onPress={() => setLabelDraft('')} accessibilityLabel="Add text">
+        <Ionicons name="text" size={20} color="#fff" />
+      </Pressable>,
+    );
+  }
+  tools.push(
+    <Pressable key="sticker" style={styles.tool} onPress={() => { Keyboard.dismiss(); setTrayOpen(true); }} accessibilityLabel="Add sticker">
+      <Ionicons name="pricetag-outline" size={20} color="#fff" />
+    </Pressable>,
+  );
+  tools.push(
+    <Pressable key="link" style={styles.tool} onPress={() => { Keyboard.dismiss(); setLinkDraft(overlays.find(x => x.type === 'link')?.url || ''); }} accessibilityLabel="Add a link">
+      <Ionicons name="link" size={20} color="#fff" />
+    </Pressable>,
+  );
+  if (!hasPoll) {
+    tools.push(
+      <Pressable key="poll" style={styles.tool} onPress={() => { Keyboard.dismiss(); setPollDraft({ q: '', a: 'Ndiyo', b: 'Hapana' }); }} accessibilityLabel="Add a poll">
+        <Ionicons name="stats-chart" size={18} color="#fff" />
+      </Pressable>,
+    );
+  }
+  if (isText) {
+    tools.push(
+      <Pressable key="gallery" style={styles.tool} onPress={() => pick('library')} accessibilityLabel="Pick from gallery">
+        <Ionicons name="images-outline" size={20} color="#fff" />
+      </Pressable>,
+      <Pressable key="camera" style={styles.tool} onPress={() => pick('camera')} accessibilityLabel="Take a photo">
+        <Ionicons name="camera-outline" size={21} color="#fff" />
+      </Pressable>,
+    );
+  }
+  // close + tools + gaps + side padding (the Aa pill is wider than a circle), with 24px breathing room
+  const rowNeeded = 16 + TOOL * (tools.length + 1) + GAP * tools.length + (isText ? FONT_PILL_W - TOOL : 0);
+  const toolColumn = rowNeeded + 24 > W;
+
   return (
     <View style={styles.root}>
       {/* Canvas */}
-      <Pressable style={StyleSheet.absoluteFill} onPress={() => (isText ? inputRef.current?.focus() : Keyboard.dismiss())}>
-        {isText ? <StoryBackground bg={bg} /> : media!.type === 'image'
-          ? <Image source={{ uri: media!.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          : <ComposerVideo uri={media!.uri} />}
-      </Pressable>
+      {isText ? (
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => inputRef.current?.focus()}>
+          <StoryBackground bg={bg} />
+        </Pressable>
+      ) : (
+        // Sits under the overlays: touches on a sticker/text/poll hit that overlay, never this
+        <MediaCanvas media={media!} frame={frame} />
+      )}
 
       {isText && (
         <View style={[styles.textArea, anchored && { justifyContent: 'flex-start', paddingTop: Math.round(H * TEXT_TOP) }]} pointerEvents="box-none">
@@ -180,7 +294,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             multiline
             maxLength={700}
             autoFocus
-            style={[fontById(font), styles.textInput, { color: textColor, fontSize: textSize, lineHeight: fitLineHeight(textSize) }]}
+            style={[fontById(font), styles.textInput, { color: textColor, fontSize: textSize, lineHeight: fitLineHeight(textSize) }, styleFx.box && { ...styleFx.box, minWidth: 80 }, styleFx.text]}
           />
         </View>
       )}
@@ -202,54 +316,48 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
         </View>
       )}
 
-      {/* Top tools */}
+      {/* Top tools: one row when it fits, otherwise close on the left + an IG-style tool column on the right */}
       {!dragging && (
-        <View style={[styles.top, { top: insets.top + 8 }]}>
-          <Pressable style={styles.tool} onPress={() => (media ? setMedia(null) : onClose())} accessibilityLabel={media ? 'Remove photo' : 'Close'}>
-            <Ionicons name={media ? 'arrow-back' : 'close'} size={20} color="#fff" />
-          </Pressable>
-          <View style={{ flex: 1 }} />
-          {isText && (
-            <>
-              <Pressable style={styles.fontPill} onPress={() => setFont(f => FONTS[(FONTS.findIndex(x => x.id === f) + 1) % FONTS.length].id)} accessibilityLabel="Change font">
-                <Text style={styles.fontPillText}>Aa</Text>
-              </Pressable>
-              <Pressable style={styles.tool} onPress={() => setBg(b => BACKGROUNDS[(BACKGROUNDS.findIndex(x => x.id === b) + 1) % BACKGROUNDS.length].id)} accessibilityLabel="Change background">
-                <Ionicons name="contrast-outline" size={20} color="#fff" />
-              </Pressable>
-            </>
-          )}
-          {!isText && (
-            <Pressable style={styles.tool} onPress={() => setLabelDraft('')} accessibilityLabel="Add text">
-              <Ionicons name="text" size={20} color="#fff" />
+        <>
+          <View style={[styles.top, { top: insets.top + 8 }]} pointerEvents="box-none">
+            <Pressable style={styles.tool} onPress={() => (media ? setMedia(null) : onClose())} accessibilityLabel={media ? 'Remove photo' : 'Close'}>
+              <Ionicons name={media ? 'arrow-back' : 'close'} size={20} color="#fff" />
             </Pressable>
+            <View style={{ flex: 1 }} />
+            {!toolColumn && tools}
+          </View>
+          {toolColumn && (
+            <View style={[styles.column, { top: insets.top + 8 }]} pointerEvents="box-none">
+              <ScrollView
+                style={{ maxHeight: Math.max(TOOL, bottomTop - (insets.top + 8) - 12) }}
+                contentContainerStyle={styles.columnContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="always"
+              >
+                {tools}
+              </ScrollView>
+            </View>
           )}
-          <Pressable style={styles.tool} onPress={() => { Keyboard.dismiss(); setTrayOpen(true); }} accessibilityLabel="Add sticker">
-            <Ionicons name="pricetag-outline" size={20} color="#fff" />
-          </Pressable>
-          {!hasPoll && (
-            <Pressable style={styles.tool} onPress={() => { Keyboard.dismiss(); setPollDraft({ q: '', a: 'Ndiyo', b: 'Hapana' }); }} accessibilityLabel="Add a poll">
-              <Ionicons name="stats-chart" size={18} color="#fff" />
-            </Pressable>
-          )}
-          {isText && (
-            <>
-              <Pressable style={styles.tool} onPress={() => pick('library')} accessibilityLabel="Pick from gallery">
-                <Ionicons name="images-outline" size={20} color="#fff" />
-              </Pressable>
-              <Pressable style={styles.tool} onPress={() => pick('camera')} accessibilityLabel="Take a photo">
-                <Ionicons name="camera-outline" size={21} color="#fff" />
-              </Pressable>
-            </>
-          )}
-        </View>
+        </>
       )}
 
       {/* Bottom: colours (text), audience, share */}
       {!dragging && (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) }]} pointerEvents="box-none">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={[styles.bottom, { paddingBottom: Math.max(insets.bottom + 8, 16) }]}
+          onLayout={e => setBottomTop(e.nativeEvent.layout.y)}
+          pointerEvents="box-none"
+        >
           {isText && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dots} keyboardShouldPersistTaps="always">
+              <Pressable
+                onPress={() => { Haptics.selectionAsync().catch(() => {}); setTextStyle(s => TEXT_STYLES[(TEXT_STYLES.indexOf(s) + 1) % TEXT_STYLES.length]); }}
+                accessibilityLabel={`Text style: ${textStyle}`}
+                style={[styles.dot, styles.styleBtn, textStyle === 'pill' && { backgroundColor: '#fff' }]}
+              >
+                <Text style={[styles.styleBtnText, textStyle === 'pill' && { color: '#000' }, textStyle === 'outline' && { textShadowColor: '#000', textShadowRadius: 4, textShadowOffset: { width: 0, height: 0 } }]}>A</Text>
+              </Pressable>
               {TEXT_COLORS.map(c => (
                 <Pressable key={c} onPress={() => setColor(c)} accessibilityLabel={`Text colour ${c}`}
                   style={[styles.dot, { backgroundColor: c, borderWidth: textColor === c ? 3 : 2, borderColor: textColor === c ? '#fff' : 'rgba(255,255,255,0.5)' }]} />
@@ -259,10 +367,10 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
           <View style={styles.bottomRow}>
             <Pressable style={styles.audience} onPress={() => setAudience(a => (a === 'everyone' ? 'followers' : 'everyone'))} accessibilityLabel="Who can see this story">
               <Ionicons name={audience === 'everyone' ? 'globe-outline' : 'people-outline'} size={18} color="#fff" />
-              <Text style={styles.audienceText}>{audience === 'everyone' ? 'Kila mtu' : 'Wafuasi'} · 24h</Text>
+              <Text style={styles.audienceText} numberOfLines={1}>{audience === 'everyone' ? 'Kila mtu' : 'Wafuasi'}{NARROW ? '' : ' · 24h'}</Text>
             </Pressable>
-            <View style={{ flex: 1 }} />
-            <Pressable style={[styles.share, !canPost && { opacity: 0.4 }]} onPress={post} disabled={!canPost} accessibilityLabel="Share story">
+            <View style={{ flex: 1, minWidth: 0 }} />
+            <Pressable style={[styles.share, styles.shareMain, !canPost && { opacity: 0.4 }]} onPress={post} disabled={!canPost} accessibilityLabel="Share story">
               <Text style={styles.shareText}>Shiriki</Text>
               <Ionicons name="arrow-forward" size={18} color="#000" />
             </Pressable>
@@ -324,9 +432,32 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
         </KeyboardAvoidingView>
       )}
 
+      {/* Link entry */}
+      {linkDraft !== null && (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[StyleSheet.absoluteFill, styles.labelEntry]}>
+          <TextInput
+            autoFocus
+            value={linkDraft}
+            onChangeText={setLinkDraft}
+            placeholder="https://"
+            placeholderTextColor="#666"
+            style={styles.labelInput}
+            maxLength={300}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            onSubmitEditing={addLink}
+            returnKeyType="done"
+          />
+          <Pressable style={[styles.share, { marginTop: 18 }]} onPress={addLink}>
+            <Text style={styles.shareText}>Weka link</Text>
+          </Pressable>
+        </KeyboardAvoidingView>
+      )}
+
       {/* Text label entry */}
       {labelDraft !== null && (
-        <View style={[StyleSheet.absoluteFill, styles.labelEntry]}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[StyleSheet.absoluteFill, styles.labelEntry]}>
           <TextInput
             autoFocus
             value={labelDraft}
@@ -341,9 +472,88 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
           <Pressable style={[styles.share, { marginTop: 18 }]} onPress={addLabel}>
             <Text style={styles.shareText}>Weka</Text>
           </Pressable>
-        </View>
+        </KeyboardAvoidingView>
       )}
     </View>
+  );
+}
+
+/**
+ * The photo/video, framed with pinch (zoom about the fingers), pan (1-2 fingers), rotate and
+ * double-tap (back to fit). All on the UI thread. Snaps to centre lines / fit / right angles
+ * with a light haptic. When the media no longer covers the canvas, a blurred copy fills behind.
+ */
+function MediaCanvas({ media, frame }: { media: Picked; frame: Frame }) {
+  const { tx, ty, zoom, rot } = frame;
+  const box = coverBox(W, H, media.width, media.height);
+  const sTx = useSharedValue(0), sTy = useSharedValue(0), sZoom = useSharedValue(1), sRot = useSharedValue(0);
+  const guideX = useSharedValue(0), guideY = useSharedValue(0); // 1 while magnetised to a centre line
+
+  const gesture = useMemo(() => {
+    const tick = () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); };
+    const pan = Gesture.Pan()
+      .minPointers(1).maxPointers(2).averageTouches(true)
+      .onStart(() => { sTx.value = tx.value; sTy.value = ty.value; })
+      .onUpdate(e => {
+        const nx = Math.min(W / 2, Math.max(-W / 2, sTx.value + e.translationX));
+        const ny = Math.min(H / 2, Math.max(-H / 2, sTy.value + e.translationY));
+        const gx = Math.abs(nx) < SNAP_PX ? 1 : 0, gy = Math.abs(ny) < SNAP_PX ? 1 : 0;
+        if ((gx && !guideX.value) || (gy && !guideY.value)) runOnJS(tick)();
+        guideX.value = gx; guideY.value = gy;
+        tx.value = gx ? 0 : nx;
+        ty.value = gy ? 0 : ny;
+      })
+      .onFinalize(() => { guideX.value = 0; guideY.value = 0; });
+    const pinch = Gesture.Pinch()
+      .onStart(() => { sZoom.value = zoom.value; })
+      .onUpdate(e => {
+        const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, sZoom.value * e.scale));
+        const ratio = next / zoom.value;
+        // Zoom about the point between the fingers (focal is relative to the full canvas)
+        const fx = e.focalX - W / 2, fy = e.focalY - H / 2;
+        const dx = (tx.value - fx) * (ratio - 1), dy = (ty.value - fy) * (ratio - 1);
+        tx.value = Math.min(W / 2, Math.max(-W / 2, tx.value + dx));
+        ty.value = Math.min(H / 2, Math.max(-H / 2, ty.value + dy));
+        sTx.value += dx; sTy.value += dy; // keep a simultaneous pan in step
+        zoom.value = next;
+      })
+      .onEnd(() => {
+        if (zoom.value !== 1 && Math.abs(zoom.value - 1) < SNAP_ZOOM) { zoom.value = withSpring(1, SPRING); runOnJS(tick)(); }
+      });
+    const rotate = Gesture.Rotation()
+      .onStart(() => { sRot.value = rot.value; })
+      .onUpdate(e => { rot.value = sRot.value + (e.rotation * 180) / Math.PI; })
+      .onEnd(() => {
+        const nearest = Math.round(rot.value / 90) * 90;
+        if (rot.value !== nearest && Math.abs(rot.value - nearest) < SNAP_DEG) { rot.value = withSpring(nearest, SPRING); runOnJS(tick)(); }
+      });
+    const fit = Gesture.Tap().numberOfTaps(2).onEnd(() => {
+      tx.value = withSpring(0, SPRING); ty.value = withSpring(0, SPRING);
+      zoom.value = withSpring(1, SPRING); rot.value = withSpring(Math.round(rot.value / 360) * 360, SPRING);
+      runOnJS(tick)();
+    });
+    return Gesture.Simultaneous(pan, pinch, rotate, fit);
+  }, []);
+
+  const boxStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value }, { rotate: `${rot.value}deg` }, { scale: zoom.value }],
+  }));
+  const vGuide = useAnimatedStyle(() => ({ opacity: withTiming(guideX.value, { duration: 120 }) }));
+  const hGuide = useAnimatedStyle(() => ({ opacity: withTiming(guideY.value, { duration: 120 }) }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <View style={styles.canvas} collapsable={false} accessibilityLabel="Photo. Pinch to zoom, drag to move, double-tap to fit.">
+        <MediaBackdrop uri={media.type === 'image' ? media.uri : media.thumb} />
+        <Reanimated.View style={[{ position: 'absolute', left: (W - box.w) / 2, top: (H - box.h) / 2, width: box.w, height: box.h }, boxStyle]}>
+          {media.type === 'image'
+            ? <Image source={{ uri: media.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            : <ComposerVideo uri={media.uri} />}
+        </Reanimated.View>
+        <Reanimated.View pointerEvents="none" style={[styles.guideV, vGuide]} />
+        <Reanimated.View pointerEvents="none" style={[styles.guideH, hGuide]} />
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -435,19 +645,27 @@ async function upload(uri: string, type: 'image' | 'video', userId: string): Pro
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
+  canvas: { position: 'absolute', left: 0, top: 0, width: W, height: H, overflow: 'hidden', backgroundColor: '#000' },
+  guideV: { position: 'absolute', left: W / 2 - 0.5, top: 0, width: 1, height: H, backgroundColor: 'rgba(255,255,255,0.7)' },
+  guideH: { position: 'absolute', top: H / 2 - 0.5, left: 0, height: 1, width: W, backgroundColor: 'rgba(255,255,255,0.7)' },
   textArea: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', paddingHorizontal: 28 },
   textInput: { textAlign: 'center', padding: 0 },
-  top: { position: 'absolute', left: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  top: { position: 'absolute', left: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: GAP },
+  column: { position: 'absolute', right: 8 },
+  columnContent: { gap: SHORT ? 8 : 10, alignItems: 'flex-end' },
   tool: { width: TOOL, height: TOOL, borderRadius: TOOL / 2, backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
-  fontPill: { height: TOOL, paddingHorizontal: 14, borderRadius: TOOL / 2, backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
+  fontPill: { height: TOOL, minWidth: TOOL, paddingHorizontal: 12, borderRadius: TOOL / 2, backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
   fontPillText: { color: '#fff', fontSize: 17, fontFamily: 'SpaceGrotesk_700Bold' },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  dots: { paddingHorizontal: 16, gap: 10, paddingBottom: 38, justifyContent: 'center', flexGrow: 1 },
+  dots: { paddingHorizontal: 16, gap: NARROW ? 8 : 10, paddingBottom: SHORT ? 12 : 22, justifyContent: 'center', flexGrow: 1 },
   dot: { width: 30, height: 30, borderRadius: 15 },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16 },
-  audience: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingHorizontal: 16, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.3)' },
-  audienceText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  styleBtn: { borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.25)' },
+  styleBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  bottomRow: { flexDirection: 'row', alignItems: 'center', gap: NARROW ? 8 : 10, paddingHorizontal: NARROW ? 12 : 16 },
+  audience: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingHorizontal: NARROW ? 12 : 16, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.3)', flexShrink: 1, minWidth: 0 },
+  audienceText: { color: '#fff', fontWeight: '600', fontSize: 14, flexShrink: 1 },
   share: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingHorizontal: 22, borderRadius: 24, backgroundColor: '#fff' },
+  shareMain: { flexShrink: 0, paddingHorizontal: NARROW ? 16 : 22 },
   shareText: { color: '#000', fontWeight: '600', fontSize: 15 },
   trash: { position: 'absolute', alignSelf: 'center', width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' },
   trashOn: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#E53E3E', borderColor: '#E53E3E' },

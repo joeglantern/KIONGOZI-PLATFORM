@@ -14,6 +14,7 @@ import {
   StatusBar,
   ScrollView,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -219,6 +220,10 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   };
 
 
+  // Layout only: tighter spacing on short phones (SE1 568pt / SE2 667pt) so the form needs less scrolling.
+  const { height: winH } = useWindowDimensions();
+  const compact = winH < 700;
+
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [50, 0],
@@ -232,19 +237,20 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { minHeight: winH - 100 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={[
             styles.content,
+            compact && styles.contentCompact,
             {
               opacity: fadeAnim,
               transform: [{ translateY }],
             },
           ]}>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, compact && styles.headerCompact]}>
               {forgotMode ? (
                 <View style={styles.forgotHeader}>
                   <TouchableOpacity
@@ -254,20 +260,28 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   >
                     <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
                   </TouchableOpacity>
-                  <Text style={styles.title}>Reset Password</Text>
+                  <Text
+                    style={[styles.title, styles.forgotTitle, compact && styles.titleCompact]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                    maxFontSizeMultiplier={1.2}
+                  >
+                    Reset Password
+                  </Text>
                   <View style={styles.backBtnPlaceholder} />
                 </View>
               ) : (
                 <View style={styles.logoContainer}>
                   <Image
                     source={require('../../assets/kchat-logo.png')}
-                    style={styles.logoImage}
+                    style={[styles.logoImage, compact && styles.logoImageCompact]}
                     resizeMode="contain"
                   />
-                  <Text style={styles.title}>
+                  <Text style={[styles.title, compact && styles.titleCompact]} maxFontSizeMultiplier={1.2}>
                     {isSignUp ? 'Create an account' : 'Sign in'}
                   </Text>
-                  <Text style={styles.subtitle}>
+                  <Text style={styles.subtitle} maxFontSizeMultiplier={1.3}>
                     {isSignUp ? 'Join the conversation shaping Kenya.' : 'Welcome back. Pick up where you left off.'}
                   </Text>
                 </View>
@@ -315,7 +329,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       {resetLoading ? (
                         <ActivityIndicator color="#000000" size="small" />
                       ) : (
-                        <Text style={styles.submitButtonText}>Send Code</Text>
+                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Send Code</Text>
                       )}
                     </TouchableOpacity>
                   </>
@@ -338,7 +352,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                             styles.otpBox,
                             i < otpCode.length ? styles.otpBoxFilled : (i === otpCode.length && styles.otpBoxActive),
                           ]}>
-                            <Text style={styles.otpDigit}>{otpCode[i] || ''}</Text>
+                            <Text style={styles.otpDigit} maxFontSizeMultiplier={1.2}>{otpCode[i] || ''}</Text>
                           </View>
                         ))}
                       </View>
@@ -362,7 +376,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       {otpLoading ? (
                         <ActivityIndicator color="#000000" size="small" />
                       ) : (
-                        <Text style={styles.submitButtonText}>Verify Code</Text>
+                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Verify Code</Text>
                       )}
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -429,7 +443,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       {resetPwLoading ? (
                         <ActivityIndicator color="#000000" size="small" />
                       ) : (
-                        <Text style={styles.submitButtonText}>Set New Password</Text>
+                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Set New Password</Text>
                       )}
                     </TouchableOpacity>
                   </>
@@ -614,7 +628,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 {loading ? (
                   <ActivityIndicator color="#000000" size="small" />
                 ) : (
-                  <Text style={styles.submitButtonText}>
+                  <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>
                     {isSignUp ? 'Create Account' : 'Continue'}
                   </Text>
                 )}
@@ -645,7 +659,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     style={styles.googleIcon}
                     resizeMode="contain"
                   />
-                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                  <Text style={styles.googleBtnText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Continue with Google</Text>
                 </TouchableOpacity>
 
                 {appleAvailable && (
@@ -666,7 +680,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
             )}
 
             {/* Switch Auth Mode */}
-            {!forgotMode && <View style={styles.footer}>
+            {!forgotMode && <View style={[styles.footer, compact && { marginTop: 16 }]}>
               <Text style={styles.footerText}>
                 {isSignUp ? 'Already have an account?' : "Don't have an account?"}
               </Text>
@@ -704,15 +718,20 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    minHeight: Dimensions.get('window').height - 100,
   },
   content: {
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
+  contentCompact: {
+    paddingVertical: 16,
+  },
   header: {
     marginBottom: 32,
     alignItems: 'center',
+  },
+  headerCompact: {
+    marginBottom: 20,
   },
   logoContainer: {
     flexDirection: 'column',
@@ -724,12 +743,25 @@ const styles = StyleSheet.create({
     height: 48,
     marginBottom: 28,
   },
+  logoImageCompact: {
+    width: 60,
+    height: 40,
+    marginBottom: 16,
+  },
   title: {
     fontSize: 32,
     color: TEXT,
     fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: -0.8,
     textAlign: 'center',
+  },
+  titleCompact: {
+    fontSize: 28,
+  },
+  // Sits between two 36pt buttons: 320 − 48 gutter − 72 = 200pt, so it must shrink, not overflow.
+  forgotTitle: {
+    flex: 1,
+    marginHorizontal: 8,
   },
   subtitle: {
     fontSize: 15,
@@ -862,6 +894,7 @@ const styles = StyleSheet.create({
     height: 20,
   },
   googleBtnText: {
+    flexShrink: 1,
     color: TEXT,
     fontSize: 16,
     fontWeight: '600',
@@ -873,6 +906,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 24,
@@ -928,13 +962,16 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginVertical: 24,
   },
+  // 6×46 + 5×10 = 326pt overflowed the 272pt (320 wide) / 312pt (360 wide) content area.
+  // flex:1 + maxWidth keeps 46pt boxes where they fit and shrinks them (≈38pt at 320) otherwise.
   otpBoxRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
   },
   otpBox: {
-    width: 46,
+    flex: 1,
+    maxWidth: 46,
     height: 56,
     borderRadius: 14,
     borderWidth: 1,

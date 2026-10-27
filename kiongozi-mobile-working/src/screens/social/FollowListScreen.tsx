@@ -157,7 +157,7 @@ export default function FollowListScreen() {
               pressed && { opacity: 0.7 },
             ]}
           >
-            <Text style={[styles.pillText, { color: isFollowed ? T.text : T.bg }]}>
+            <Text style={[styles.pillText, { color: isFollowed ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
               {isFollowed ? 'Following' : 'Follow'}
             </Text>
           </Pressable>
@@ -215,10 +215,10 @@ export default function FollowListScreen() {
       {/* Tabs */}
       <View style={styles.tabs}>
         <Pressable style={styles.tab} onPress={() => switchTab('followers')} accessibilityRole="tab">
-          <Animated.Text style={[styles.tabText, { color: followersColor }]}>Followers</Animated.Text>
+          <Animated.Text style={[styles.tabText, { color: followersColor }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>Followers</Animated.Text>
         </Pressable>
         <Pressable style={styles.tab} onPress={() => switchTab('following')} accessibilityRole="tab">
-          <Animated.Text style={[styles.tabText, { color: followingColor }]}>Following</Animated.Text>
+          <Animated.Text style={[styles.tabText, { color: followingColor }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>Following</Animated.Text>
         </Pressable>
         <Animated.View style={[styles.tabIndicator, { transform: [{ translateX: underlineLeft }] }]} />
       </View>
@@ -315,7 +315,7 @@ function makeStyles(T: AppTheme) {
     handle: { fontSize: 14, color: T.textMuted, marginTop: 1 },
     pill: {
       height: 32, borderRadius: 16, paddingHorizontal: 14,
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
     },
     pillPrimary: { backgroundColor: T.text },
     pillSecondary: { borderWidth: 1, borderColor: T.border },

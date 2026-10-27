@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, RefreshControl, ActivityIndicator,
-  TouchableOpacity, ScrollView, Dimensions, Image, Modal, Animated, FlatList, Platform,
+  TouchableOpacity, ScrollView, useWindowDimensions, Image, Modal, Animated, FlatList, Platform,
 } from 'react-native';
 import CreatePostScreen from './CreatePostScreen';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 import { useSocialStore, Post } from '../../stores/socialStore';
 import { useDMStore } from '../../stores/dmStore';
 import { PostCard } from '../../components/social/PostCard';
@@ -38,6 +37,11 @@ export default function FeedScreen() {
   const [feedError, setFeedError] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
   const insets = useSafeAreaInsets();
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  // Logo bar: 16 pad + logo + [centred mini story stack ≈106 wide] + icons (2×44 + 4 gap) + 16 pad.
+  // The stack must clear the logo: logoRight ≤ W/2 − 53 − 4 → logoW ≤ W/2 − 73 (120 @≥390, ~84 @320).
+  const LOGO_W = Math.round(Math.min(120, Math.max(80, SCREEN_WIDTH / 2 - 76)));
+  const STACK_INSET = Math.max(16 + LOGO_W, 16 + 92) + 2;
   const [forYouError, setForYouError] = useState<string | null>(null);
 
   const {
@@ -115,7 +119,7 @@ export default function FeedScreen() {
   // away under the logo bar (tabs ride up and stay pinned) while a mini avatar stack rises
   // into the bar. All driven on the native thread from the active list's scroll position.
   const [railH, setRailH] = useState(118);
-  const [topH, setTopH] = useState(102);   // status bar + logo row
+  const [topH, setTopH] = useState(() => insets.top + 6 + 44);   // status bar + logo row
   const [tabsH, setTabsH] = useState(58);
   const headerH = topH + railH + tabsH;
   const scrollYs = useRef([new Animated.Value(0), new Animated.Value(0)]).current;
@@ -271,7 +275,7 @@ export default function FeedScreen() {
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === 0 }}
           >
-            <Text style={[styles.tabLabel, activeTab === 0 ? styles.tabLabelOn : styles.tabLabelOff]}>For You</Text>
+            <Text style={[styles.tabLabel, activeTab === 0 ? styles.tabLabelOn : styles.tabLabelOff]} numberOfLines={1} maxFontSizeMultiplier={1.3}>For You</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabPill, activeTab === 1 && styles.tabPillOn]}
@@ -279,7 +283,7 @@ export default function FeedScreen() {
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === 1 }}
           >
-            <Text style={[styles.tabLabel, activeTab === 1 ? styles.tabLabelOn : styles.tabLabelOff]}>Following</Text>
+            <Text style={[styles.tabLabel, activeTab === 1 ? styles.tabLabelOn : styles.tabLabelOff]} numberOfLines={1} maxFontSizeMultiplier={1.3}>Following</Text>
           </TouchableOpacity>
         </View>
 
@@ -289,7 +293,7 @@ export default function FeedScreen() {
           onLayout={e => setTopH(Math.round(e.nativeEvent.layout.height))}
         >
           <View style={styles.headerRow}>
-            <Image source={require('../../../assets/kchat-logo.png')} style={styles.headerLogo} resizeMode="contain" />
+            <Image source={require('../../../assets/kchat-logo.png')} style={[styles.headerLogo, { width: LOGO_W, height: Math.round(LOGO_W * 0.35) }]} resizeMode="contain" />
             <View style={styles.headerIcons}>
               <TouchableOpacity style={styles.headerIconBtn} onPress={() => setCreatePostVisible(true)} accessibilityRole="button" accessibilityLabel="New post">
                 {/* Rounded square with a plus (design: 18×18 rect rx6, 8px plus, 1.8 stroke) */}
@@ -302,7 +306,7 @@ export default function FeedScreen() {
                 <Ionicons name="paper-plane-outline" size={24} color={T.text} />
                 {unreadDMs > 0 && (
                   <View style={styles.iconBadge}>
-                    <Text style={styles.iconBadgeText}>{unreadDMs > 99 ? '99+' : String(unreadDMs)}</Text>
+                    <Text style={styles.iconBadgeText} maxFontSizeMultiplier={1.15}>{unreadDMs > 99 ? '99+' : String(unreadDMs)}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -310,7 +314,7 @@ export default function FeedScreen() {
           </View>
           {/* Mini story stack rises into the bar as the rail folds */}
           <Animated.View
-            style={[styles.stackSlot, { top: insets.top + 6, opacity: stackIn, transform: [{ translateY: stackRise }, { scale: stackScale }] }]}
+            style={[styles.stackSlot, { top: insets.top + 6, left: STACK_INSET, right: STACK_INSET, opacity: stackIn, transform: [{ translateY: stackRise }, { scale: stackScale }] }]}
             pointerEvents={folded ? 'box-none' : 'none'}
           >
             <StoryStack />
@@ -357,7 +361,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     stackSlot: {
       position: 'absolute', left: 0, right: 0, top: 52, bottom: 0,
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'center', overflow: 'visible',
     },
     headerLogo: {
       width: 120, height: 42, flexShrink: 0,

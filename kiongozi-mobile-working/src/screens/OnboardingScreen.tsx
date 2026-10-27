@@ -9,11 +9,14 @@ import {
   ViewToken,
   Image,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
+// Short phones (iPhone SE 1st gen 568pt, SE2/8 667pt) get tighter spacing.
+const COMPACT_HEIGHT = 700;
 
 const NAVY = '#5CB85C';
 const GRAY = '#8E8E93';
@@ -46,6 +49,8 @@ interface SlideItemProps {
 }
 
 function SlideItem({ item, isActive }: SlideItemProps) {
+  const { width: winW, height: winH } = useWindowDimensions();
+  const compact = winH < COMPACT_HEIGHT;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
 
@@ -71,10 +76,13 @@ function SlideItem({ item, isActive }: SlideItemProps) {
   }, [isActive]);
 
   return (
-    <View style={styles.slide}>
+    <View style={[styles.slide, { width: winW }]}>
+      {/* Image takes its preferred 40% of window height but shrinks (flexShrink) when the
+          slide area is shorter than image + text, so the text is never clipped on 320×568. */}
       <Animated.View
         style={[
           styles.imageWrapper,
+          { width: winW - 48, height: winH * (compact ? 0.34 : 0.4) },
           { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
         ]}
       >
@@ -84,8 +92,8 @@ function SlideItem({ item, isActive }: SlideItemProps) {
           resizeMode="contain"
         />
       </Animated.View>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.subtitle}>{item.subtitle}</Text>
+      <Text style={[styles.title, compact && styles.titleCompact]} maxFontSizeMultiplier={1.2}>{item.title}</Text>
+      <Text style={[styles.subtitle, compact && styles.subtitleCompact]} maxFontSizeMultiplier={1.3}>{item.subtitle}</Text>
     </View>
   );
 }
@@ -98,6 +106,8 @@ export default function OnboardingScreen({ onDone }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
+  const { width: winW, height: winH } = useWindowDimensions();
+  const compact = winH < COMPACT_HEIGHT;
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems[0]) {
@@ -130,7 +140,7 @@ export default function OnboardingScreen({ onDone }: Props) {
           onPress={finish}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.skipText}>Skip</Text>
+          <Text style={styles.skipText} maxFontSizeMultiplier={1.3}>Skip</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.skipPlaceholder} />
@@ -150,8 +160,9 @@ export default function OnboardingScreen({ onDone }: Props) {
         )}
       />
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 28 }]}>
-        <View style={styles.dots}>
+      {/* Android often reports insets.bottom 0 under 3-button/gesture nav, so keep a floor. */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + (compact ? 12 : 28) }]}>
+        <View style={[styles.dots, compact && { marginBottom: 16 }]}>
           {SLIDES.map((_, i) => (
             <View
               key={i}
@@ -160,8 +171,8 @@ export default function OnboardingScreen({ onDone }: Props) {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.btn} onPress={handleNext} activeOpacity={0.82}>
-          <Text style={styles.btnText}>{isLast ? 'Get started' : 'Next'}</Text>
+        <TouchableOpacity style={[styles.btn, { width: winW - 48 }]} onPress={handleNext} activeOpacity={0.82}>
+          <Text style={styles.btnText} maxFontSizeMultiplier={1.3} numberOfLines={1}>{isLast ? 'Get started' : 'Next'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -197,7 +208,8 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     width: width - 48,
-    height: height * 0.4,
+    flexShrink: 1,
+    minHeight: 96,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
@@ -218,6 +230,11 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
+  titleCompact: {
+    fontSize: 26,
+    lineHeight: 32,
+    marginTop: 20,
+  },
   subtitle: {
     fontSize: 16,
     color: GRAY,
@@ -226,6 +243,11 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '400',
     paddingHorizontal: 12,
+  },
+  subtitleCompact: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 10,
   },
   footer: {
     alignItems: 'center',
@@ -252,7 +274,6 @@ const styles = StyleSheet.create({
   },
   btn: {
     backgroundColor: NAVY,
-    width: width - 48,
     height: 52,
     borderRadius: 26,
     justifyContent: 'center',

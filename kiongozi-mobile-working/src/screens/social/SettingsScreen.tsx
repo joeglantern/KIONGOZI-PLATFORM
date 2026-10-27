@@ -213,12 +213,12 @@ export default function SettingsScreen() {
         >
           <Ionicons name="chevron-back" size={26} color={T.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.2}>Settings</Text>
         <View style={{ width: 44 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 12) + 40 }}
         showsVerticalScrollIndicator={false}
       >
         <Group label="Appearance">
@@ -335,9 +335,9 @@ export default function SettingsScreen() {
                 onPress={() => setPasswordModalVisible(false)}
                 style={({ pressed }) => [styles.modalHeaderBtn, pressed && { opacity: 0.5 }]}
               >
-                <Text style={styles.modalCancel}>Cancel</Text>
+                <Text style={styles.modalCancel} numberOfLines={1} maxFontSizeMultiplier={1.2}>Cancel</Text>
               </Pressable>
-              <Text style={styles.modalTitle}>Change password</Text>
+              <Text style={styles.modalTitle} numberOfLines={1} maxFontSizeMultiplier={1.2}>Change password</Text>
               <Pressable
                 onPress={handleChangePassword}
                 disabled={passwordLoading}
@@ -346,7 +346,7 @@ export default function SettingsScreen() {
                 {passwordLoading ? (
                   <ActivityIndicator size="small" color={T.accent} />
                 ) : (
-                  <Text style={styles.modalSave}>Save</Text>
+                  <Text style={styles.modalSave} numberOfLines={1} maxFontSizeMultiplier={1.2}>Save</Text>
                 )}
               </Pressable>
             </View>
@@ -386,7 +386,7 @@ function Group({ label, children }: { label?: string; children: React.ReactNode 
   return (
     <View style={{ marginTop: label ? 24 : 32 }}>
       {label ? (
-        <Text style={{ fontSize: 13, color: T.textMuted, paddingHorizontal: 32, marginBottom: 8 }}>
+        <Text style={{ fontSize: 13, color: T.textMuted, paddingHorizontal: 32, marginBottom: 8 }} maxFontSizeMultiplier={1.3}>
           {label}
         </Text>
       ) : null}
@@ -428,10 +428,10 @@ function Row({
     <>
       <Ionicons name={icon} size={20} color={tint} style={s.rowIcon} />
       <View style={{ flex: 1 }}>
-        <Text style={[s.rowLabel, { color: tint }]} numberOfLines={1}>{label}</Text>
-        {sub ? <Text style={s.rowSub}>{sub}</Text> : null}
+        <Text style={[s.rowLabel, { color: tint }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{label}</Text>
+        {sub ? <Text style={s.rowSub} numberOfLines={2} maxFontSizeMultiplier={1.3}>{sub}</Text> : null}
       </View>
-      {value ? <Text style={s.rowValue}>{value}</Text> : null}
+      {value ? <Text style={s.rowValue} numberOfLines={1} maxFontSizeMultiplier={1.3}>{value}</Text> : null}
       {right}
       {chevron ? <Ionicons name="chevron-forward" size={18} color={T.textMuted} /> : null}
       {external ? <Ionicons name="open-outline" size={17} color={T.textMuted} /> : null}
@@ -474,7 +474,7 @@ function makeStyles(T: AppTheme) {
     },
     rowLabel: { fontSize: 16, color: T.text },
     rowSub: { fontSize: 13, color: T.textMuted, marginTop: 2 },
-    rowValue: { fontSize: 15, color: T.textMuted },
+    rowValue: { fontSize: 15, color: T.textMuted, flexShrink: 1, maxWidth: '40%' },
     modalContainer: { flex: 1, backgroundColor: T.bg },
     modalHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -482,9 +482,10 @@ function makeStyles(T: AppTheme) {
     },
     modalHeaderBtn: { minWidth: 64, height: 44, justifyContent: 'center', paddingHorizontal: 4 },
     modalCancel: { fontSize: 16, color: T.textSub },
-    modalTitle: { fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text },
+    // 320pt: 320 − 24 padding − 2×64 buttons = 168pt for the title ("Change password" ≈ 135pt @17pt).
+    modalTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text },
     modalSave: { fontSize: 16, fontWeight: '700', color: T.accent },
-    modalBody: { paddingHorizontal: 20, paddingTop: 8 },
+    modalBody: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
     inputLabel: { fontSize: 13, color: T.textMuted, marginBottom: 8, marginTop: 16 },
     input: {
       height: 48, borderRadius: 14, borderWidth: 1, borderColor: T.border,
