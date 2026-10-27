@@ -49,6 +49,11 @@ export interface Post {
 export interface PostInteraction {
   isLiked: boolean;
   like_count: number;
+  isBookmarked: boolean;
+  isReposted: boolean;
+  repost_count: number;
+  /** set once the user taps something on this post; fresh server data then no longer overwrites it */
+  touched?: boolean;
 }
 
 interface SocialState {
@@ -86,8 +91,8 @@ interface SocialState {
   toggleBookmark: (postId: string) => Promise<void>;
   fetchBookmarks: (refresh?: boolean) => Promise<void>;
   prependPost: (post: Post) => void;
-  seedInteraction: (postId: string, isLiked: boolean, like_count: number) => void;
-  toggleLike: (postId: string) => void;
+  seedInteraction: (post: Post) => void;
+  setInteraction: (postId: string, patch: Partial<PostInteraction>) => void;
   toggleRepost: (postId: string, delta: 1 | -1) => void;
   deletePost: (postId: string) => void;
   updatePost: (postId: string, updates: Partial<Post>) => void;
@@ -252,47 +257,45 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }));
   },
 
-  // Seed the interaction map for a post — only writes if not already tracked
-  // so a user's in-flight toggle is never overwritten by a stale prop
-  seedInteraction: (postId: string, isLiked: boolean, like_count: number) => {
+  // Keep the interaction map in step with the latest server data for a post,
+  // unless the user has already tapped something on it this session.
+  seedInteraction: (post: Post) => {
     set(state => {
-      if (postId in state.postInteractions) return state;
-      return {
-        postInteractions: {
-          ...state.postInteractions,
-          [postId]: { isLiked, like_count },
-        },
+      const cur = state.postInteractions[post.id];
+      if (cur?.touched) return state;
+      const next: PostInteraction = {
+        isLiked: post.isLiked ?? false,
+        like_count: post.like_count ?? 0,
+        isBookmarked: post.isBookmarked ?? false,
+        isReposted: post.isReposted ?? false,
+        repost_count: post.repost_count ?? 0,
       };
+      if (cur && cur.isLiked === next.isLiked && cur.like_count === next.like_count &&
+          cur.isBookmarked === next.isBookmarked && cur.isReposted === next.isReposted &&
+          cur.repost_count === next.repost_count) return state;
+      return { postInteractions: { ...state.postInteractions, [post.id]: next } };
     });
   },
 
-  toggleLike: (postId: string) => {
+  // Change a post's interaction state everywhere: the map plus every cached list,
+  // including originals nested inside repost cards.
+  setInteraction: (postId: string, patch: Partial<PostInteraction>) => {
     set(state => {
-      const current = state.postInteractions[postId];
-      // If not seeded yet, skip — PostCard will seed on mount
-      if (!current) return state;
-
-      const newIsLiked = !current.isLiked;
-      const newCount = newIsLiked
-        ? current.like_count + 1
-        : Math.max(0, current.like_count - 1);
-
-      const applyToggle = (posts: Post[]) =>
-        posts.map(p =>
-          p.id === postId
-            ? { ...p, isLiked: newIsLiked, like_count: newCount }
-            : p
-        );
-
+      const cur = state.postInteractions[postId];
+      if (!cur) return state;
+      const next = { ...cur, ...patch, touched: true };
+      const { touched, ...fields } = next;
+      const apply = (posts: Post[]) => posts.map(p => {
+        if (p.id === postId) return { ...p, ...fields };
+        if (p.repost_of?.id === postId) return { ...p, repost_of: { ...p.repost_of, ...fields } };
+        return p;
+      });
       return {
-        postInteractions: {
-          ...state.postInteractions,
-          [postId]: { isLiked: newIsLiked, like_count: newCount },
-        },
-        feedPosts: applyToggle(state.feedPosts),
-        explorePosts: applyToggle(state.explorePosts),
-        forYouPosts: applyToggle(state.forYouPosts),
-        bookmarkPosts: applyToggle(state.bookmarkPosts),
+        postInteractions: { ...state.postInteractions, [postId]: next },
+        feedPosts: apply(state.feedPosts),
+        explorePosts: apply(state.explorePosts),
+        forYouPosts: apply(state.forYouPosts),
+        bookmarkPosts: apply(state.bookmarkPosts),
       };
     });
   },

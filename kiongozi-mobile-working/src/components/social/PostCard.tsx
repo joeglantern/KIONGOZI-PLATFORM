@@ -12,6 +12,13 @@ import apiClient from '../../utils/apiClient';
 import { useSocialStore } from '../../stores/socialStore';
 import { VerifiedBadge } from './VerifiedBadge';
 import { FeedVideo } from './FeedVideo';
+import { toggleInteraction, markInteraction } from '../../stores/interactionSync';
+
+const fmtCount = (n: number) =>
+  n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
+  : n >= 1e4 ? `${Math.round(n / 1e3)}K`
+  : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K`
+  : String(n);
 
 // ─── Reusable action sheet — replaces all native Alert dialogs ───────────────
 
@@ -196,7 +203,7 @@ export function PostCard({
   onEditPress,
   onReportPress,
 }: PostCardProps) {
-  const { toggleLike, toggleBookmark, toggleRepost, seedInteraction, postInteractions, deletePost } = useSocialStore();
+  const { seedInteraction, postInteractions, deletePost } = useSocialStore();
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
   const repostScale = useRef(new Animated.Value(1)).current;
@@ -237,36 +244,38 @@ export function PostCard({
     }
   }, [onMentionPress, onProfilePress]);
 
-  // Orphaned repost — original was deleted; render nothing
-  if (post.repost_of_id && !post.repost_of) return null;
-
-  // When this is a repost, all interactions target the ORIGINAL post
+  // When this is a repost, all interactions target the ORIGINAL post.
+  // (The "render nothing" checks live just above the JSX so hooks always run in the same order.)
   const isRepost = !!(post.repost_of_id && post.repost_of);
   const activePost = isRepost ? post.repost_of! : post;
 
-  // Empty post — no content and no media; render nothing
-  if (!activePost.content?.trim() && (!activePost.post_media || activePost.post_media.length === 0)) return null;
-  const isReposted = activePost.isReposted ?? false;
-
-  // Register the active (possibly original) post in the global interaction map
+  // Keep the shared interaction map in step with the newest server data for this post
   useEffect(() => {
-    seedInteraction(activePost.id, activePost.isLiked ?? false, activePost.like_count);
-  }, [activePost.id]);
+    seedInteraction(activePost);
+  }, [activePost.id, activePost.isLiked, activePost.like_count, activePost.isBookmarked, activePost.isReposted, activePost.repost_count]);
 
-  // Always read from global map — reflects toggles from any screen
+  // Always read from the shared map — reflects taps from any screen
   const interaction = postInteractions[activePost.id];
   const isLiked = interaction?.isLiked ?? activePost.isLiked ?? false;
-  const likeCount = interaction?.like_count ?? activePost.like_count;
+  const likeCount = interaction?.like_count ?? activePost.like_count ?? 0;
+  const isBookmarked = interaction?.isBookmarked ?? activePost.isBookmarked ?? false;
+  const isReposted = interaction?.isReposted ?? activePost.isReposted ?? false;
+  const repostCount = interaction?.repost_count ?? activePost.repost_count ?? 0;
 
-  const handleLike = useCallback(async () => {
+  const likeScale = useRef(new Animated.Value(1)).current;
+  const bookmarkScale = useRef(new Animated.Value(1)).current;
+  const pop = useCallback((v: Animated.Value) => {
+    Animated.sequence([
+      Animated.spring(v, { toValue: 1.3, useNativeDriver: true, damping: 6, stiffness: 400 }),
+      Animated.spring(v, { toValue: 1, useNativeDriver: true, damping: 10, stiffness: 250 }),
+    ]).start();
+  }, []);
+
+  const handleLike = useCallback((forceOn?: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toggleLike(activePost.id);
-    try {
-      await apiClient.likePost(activePost.id);
-    } catch {
-      toggleLike(activePost.id); // revert
-    }
-  }, [activePost.id, toggleLike]);
+    pop(likeScale);
+    toggleInteraction(activePost.id, 'like', forceOn);
+  }, [activePost.id, pop, likeScale]);
 
   const showHeartBurst = useCallback((x: number, y: number) => {
     tapPosRef.current = { x, y };
@@ -301,22 +310,15 @@ export function PostCard({
       Animated.spring(repostScale, { toValue: 1.5, useNativeDriver: true, damping: 6, stiffness: 300 }),
       Animated.spring(repostScale, { toValue: 1, useNativeDriver: true, damping: 10, stiffness: 200 }),
     ]).start();
-    toggleRepost(activePost.id, 1);
-    try {
-      const res = await apiClient.repostPost(activePost.id);
-      if (!res.success) toggleRepost(activePost.id, -1);
-    } catch { toggleRepost(activePost.id, -1); }
-  }, [activePost.id, toggleRepost, repostScale]);
+    toggleInteraction(activePost.id, 'repost', true);
+  }, [activePost.id, repostScale]);
 
   const doUnrepost = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toggleRepost(activePost.id, -1);
-    try {
-      await apiClient.unrepostPost(activePost.id);
-      // Remove the repost wrapper post from the feed so it doesn't linger as a blank card
-      if (isRepost) deletePost(post.id);
-    } catch { toggleRepost(activePost.id, 1); }
-  }, [activePost.id, isRepost, post.id, toggleRepost, deletePost]);
+    toggleInteraction(activePost.id, 'repost', false);
+    // Drop my own repost card from the feed (never someone else's)
+    if (isRepost && currentUserId && post.user_id === currentUserId) deletePost(post.id);
+  }, [activePost.id, isRepost, post.id, post.user_id, currentUserId, deletePost]);
 
   const handleRepost = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -340,10 +342,11 @@ export function PostCard({
     } catch {}
   }, [activePost.id, activePost.content, activePost.profiles?.full_name]);
 
-  const handleBookmark = useCallback(async () => {
+  const handleBookmark = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await toggleBookmark(activePost.id);
-  }, [activePost.id, toggleBookmark]);
+    pop(bookmarkScale);
+    toggleInteraction(activePost.id, 'bookmark');
+  }, [activePost.id, pop, bookmarkScale]);
 
   const isOwnPost = !!(currentUserId && currentUserId === activePost.user_id);
 
@@ -373,15 +376,21 @@ export function PostCard({
     post: activePost,
     isLiked,
     likeCount,
-    isBookmarked: activePost.isBookmarked ?? false,
-    repostCount: activePost.repost_count,
+    isBookmarked,
+    repostCount,
     commentCount: activePost.comment_count,
-    onLike: handleLike,
+    onLike: () => handleLike(),
     onRepost: handleRepost,
     onBookmark: handleBookmark,
     onReply: onReplyPress ?? (() => {}),
     onShare: handleShare,
   };
+
+  // Orphaned repost (original deleted) or an empty post: render nothing
+  if (post.repost_of_id && !post.repost_of) return null;
+  if (!activePost.content?.trim() && (!activePost.post_media || activePost.post_media.length === 0)) return null;
+
+  const hit = { top: 8, bottom: 8, left: 4, right: 4 };
 
   return (
     <View style={[styles.container, style]}>
@@ -420,7 +429,7 @@ export function PostCard({
               const now = Date.now();
               if (now - lastTapRef.current < 280) {
                 showHeartBurst(e.nativeEvent.locationX, e.nativeEvent.locationY);
-                if (!isLiked) handleLike();
+                if (!isLiked) handleLike(true);
                 lastTapRef.current = 0;
               } else {
                 lastTapRef.current = now;
@@ -509,56 +518,75 @@ export function PostCard({
             )}
           </Pressable>
 
-          {/* Actions — order and sizes match the design: comment · repost · like · bookmark · share (no ⋯ here — moved to header) */}
+          {/* Actions — Threads-style: like · comment · repost · share, then views and bookmark on the right */}
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.action} onPress={onReplyPress}>
-              <Ionicons name="chatbubble-outline" size={19} color={T.textMuted} />
-              {activePost.comment_count > 0 && <Text style={styles.actionCount}>{activePost.comment_count}</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.action} onPress={handleRepost}>
-              <Animated.View style={{ transform: [{ scale: repostScale }] }}>
-                <Ionicons
-                  name={isReposted ? 'repeat' : 'repeat-outline'}
-                  size={19}
-                  color={isReposted ? T.accent : T.textMuted}
-                />
+            <Pressable
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              onPress={() => handleLike()}
+              hitSlop={hit}
+              accessibilityRole="button"
+              accessibilityLabel={isLiked ? 'Unlike' : 'Like'}
+            >
+              <Animated.View style={{ transform: [{ scale: likeScale }] }}>
+                <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={23} color={isLiked ? '#ff3040' : T.text} />
               </Animated.View>
-              <RepostStack reposters={activePost.recentReposters ?? []} count={activePost.repost_count} />
-            </TouchableOpacity>
+              {likeCount > 0 && <Text style={[styles.actionCount, isLiked && styles.likedCount]}>{fmtCount(likeCount)}</Text>}
+            </Pressable>
 
-            <TouchableOpacity style={styles.action} onPress={handleLike}>
-              <Ionicons
-                name={isLiked ? 'heart' : 'heart-outline'}
-                size={19}
-                color={isLiked ? '#e53e3e' : T.textMuted}
-              />
-              {likeCount > 0 && (
-                <Text style={[styles.actionCount, isLiked && styles.likedCount]}>
-                  {likeCount}
-                </Text>
-              )}
-            </TouchableOpacity>
+            <Pressable
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              onPress={onReplyPress}
+              hitSlop={hit}
+              accessibilityRole="button"
+              accessibilityLabel="Reply"
+            >
+              <Ionicons name="chatbubble-outline" size={21} color={T.text} />
+              {activePost.comment_count > 0 && <Text style={styles.actionCount}>{fmtCount(activePost.comment_count)}</Text>}
+            </Pressable>
 
-            <TouchableOpacity style={styles.action} onPress={handleBookmark}>
-              <Ionicons
-                name={activePost.isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                size={19}
-                color={activePost.isBookmarked ? T.accent : T.textMuted}
-              />
-            </TouchableOpacity>
+            <Pressable
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              onPress={handleRepost}
+              hitSlop={hit}
+              accessibilityRole="button"
+              accessibilityLabel={isReposted ? 'Undo repost' : 'Repost'}
+            >
+              <Animated.View style={{ transform: [{ scale: repostScale }] }}>
+                <Ionicons name="repeat" size={24} color={isReposted ? T.accent : T.text} />
+              </Animated.View>
+              {repostCount > 0 && <Text style={[styles.actionCount, isReposted && { color: T.accent }]}>{fmtCount(repostCount)}</Text>}
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              onPress={handleShare}
+              hitSlop={hit}
+              accessibilityRole="button"
+              accessibilityLabel="Share"
+            >
+              <Ionicons name="paper-plane-outline" size={21} color={T.text} />
+            </Pressable>
+
+            <View style={{ flex: 1 }} />
 
             {views > 0 && (
-              <View style={styles.action} accessibilityLabel={`${views} views`}>
-                <Ionicons name="stats-chart" size={15} color={T.textMuted} />
-                <Text style={styles.actionCount}>{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views}</Text>
+              <View style={[styles.action, styles.viewsAction]} accessibilityLabel={`${views} views`}>
+                <Ionicons name="stats-chart-outline" size={16} color={T.textMuted} />
+                <Text style={[styles.actionCount, { color: T.textMuted }]}>{fmtCount(views)}</Text>
               </View>
             )}
 
-            {/* Share is pushed to the far right — matches the design's margin-left:auto */}
-            <TouchableOpacity style={[styles.action, { marginLeft: 'auto' }]} onPress={handleShare}>
-              <Ionicons name="share-outline" size={19} color={T.textMuted} />
-            </TouchableOpacity>
+            <Pressable
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              onPress={handleBookmark}
+              hitSlop={hit}
+              accessibilityRole="button"
+              accessibilityLabel={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+            >
+              <Animated.View style={{ transform: [{ scale: bookmarkScale }] }}>
+                <Ionicons name={isBookmarked ? 'bookmark' : 'bookmark-outline'} size={21} color={isBookmarked ? T.accent : T.text} />
+              </Animated.View>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -578,7 +606,7 @@ export function PostCard({
         visible={quoteVisible}
         post={activePost}
         onClose={() => setQuoteVisible(false)}
-        onPosted={() => { setQuoteVisible(false); toggleRepost(activePost.id, 1); }}
+        onPosted={() => { setQuoteVisible(false); markInteraction(activePost.id, 'repost', true); }}
       />
 
       {/* Repost / Undo-repost sheet */}
@@ -739,25 +767,36 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 26,
-      marginTop: 8,
-      paddingBottom: 12,
+      gap: 4,
+      marginTop: 6,
+      marginLeft: -10, // icons line up with the text above; the padding is tap area
+      paddingBottom: 6,
     },
     action: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
+      minHeight: 40,
+      minWidth: 44,
+      paddingHorizontal: 10,
+      borderRadius: 20,
+    },
+    actionPressed: {
+      backgroundColor: T.border,
+    },
+    viewsAction: {
+      minWidth: 0,
+      paddingHorizontal: 6,
     },
     actionCount: {
-      fontSize: 13,
-      color: T.textMuted,
+      fontSize: 14,
+      fontWeight: '500',
+      color: T.text,
+      fontVariant: ['tabular-nums'],
     },
     likedCount: {
-      color: '#e53e3e',
+      color: '#ff3040',
     },
-    repostStack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    repostAvatarWrap: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: T.bg, overflow: 'hidden' },
-    repostAvatarImg: { width: 16, height: 16 },
     translateLink: { fontSize: 12, color: T.accent, marginTop: 2, marginBottom: 4 },
     translatedText: { fontSize: 15, color: T.textSub, lineHeight: 22, marginTop: 4, marginBottom: 2, fontStyle: 'italic' },
     translateSpinner: { alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
@@ -834,21 +873,3 @@ function PostMediaCarousel({
   );
 }
 
-function RepostStack({ reposters, count }: { reposters: any[]; count: number }) {
-  const T = useTheme();
-  const styles = useMemo(() => makeStyles(T), [T]);
-  if (count === 0) return null;
-  if (reposters.length === 0) return <Text style={styles.actionCount}>{count}</Text>;
-  return (
-    <View style={styles.repostStack}>
-      {reposters.slice(0, 3).map((r, i) => (
-        <View key={i} style={[styles.repostAvatarWrap, { marginLeft: i === 0 ? 0 : -6, zIndex: 3 - i }]}>
-          {r?.avatar_url
-            ? <Image source={{ uri: r.avatar_url }} style={styles.repostAvatarImg} />
-            : <View style={[styles.repostAvatarImg, { backgroundColor: T.border }]} />}
-        </View>
-      ))}
-      <Text style={styles.actionCount}>{count}</Text>
-    </View>
-  );
-}

@@ -20,11 +20,14 @@ const POST_SELECT = `
 async function enrichWithUserState(posts: any[], userId?: string): Promise<any[]> {
   if (!userId || !posts.length) return posts;
 
-  const postIds = posts.map((p: any) => p.id);
+  // Include the originals inside repost cards: the app shows (and likes/bookmarks) those.
+  const postIds = [...new Set(posts.flatMap((p: any) => (p.repost_of?.id ? [p.id, p.repost_of.id] : [p.id])))];
 
-  const [{ data: likes }, { data: bookmarks }, { data: reposts }] = await Promise.all([
+  const [{ data: likes }, { data: bookmarks }, { data: mine }, { data: reposts }] = await Promise.all([
     supabaseServiceClient.from('post_likes').select('post_id').eq('user_id', userId).in('post_id', postIds),
     supabaseServiceClient.from('bookmarks').select('post_id').eq('user_id', userId).in('post_id', postIds),
+    // The user's own reposts, queried separately so popular posts can't push them out of the limit below
+    supabaseServiceClient.from('posts').select('repost_of_id').eq('user_id', userId).in('repost_of_id', postIds),
     supabaseServiceClient
       .from('posts')
       .select('repost_of_id, user_id, profiles:user_id(id, username, avatar_url)')
@@ -36,22 +39,27 @@ async function enrichWithUserState(posts: any[], userId?: string): Promise<any[]
 
   const likedSet = new Set((likes || []).map((l: any) => l.post_id));
   const bookmarkedSet = new Set((bookmarks || []).map((b: any) => b.post_id));
-  const repostedSet = new Set<string>();
+  const repostedSet = new Set((mine || []).map((r: any) => r.repost_of_id));
   const repostersMap: Record<string, any[]> = {};
 
   for (const r of (reposts || []) as any[]) {
-    if (r.user_id === userId) repostedSet.add(r.repost_of_id);
     if (!repostersMap[r.repost_of_id]) repostersMap[r.repost_of_id] = [];
     if (repostersMap[r.repost_of_id].length < 3) repostersMap[r.repost_of_id].push(r.profiles);
   }
 
-  return posts.map((p: any) => ({
+  const withState = (p: any) => ({
     ...p,
     isLiked: likedSet.has(p.id),
     isBookmarked: bookmarkedSet.has(p.id),
     isReposted: repostedSet.has(p.id),
     recentReposters: repostersMap[p.id] || [],
-  }));
+  });
+
+  return posts.map((p: any) => {
+    const out = withState(p);
+    if (p.repost_of?.id) out.repost_of = withState(p.repost_of);
+    return out;
+  });
 }
 
 export { enrichWithUserState };
