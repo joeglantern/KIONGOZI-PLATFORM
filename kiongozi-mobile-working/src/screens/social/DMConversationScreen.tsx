@@ -310,9 +310,7 @@ export default function DMConversationScreen() {
     if (item.type === 'date') {
       return (
         <View style={styles.dateSep}>
-          <View style={styles.dateLine} />
           <Text style={styles.dateLabel}>{item.label}</Text>
-          <View style={styles.dateLine} />
         </View>
       );
     }
@@ -345,8 +343,8 @@ export default function DMConversationScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={T.text} />
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={26} color={T.text} />
           </TouchableOpacity>
 
           {isBot ? (
@@ -370,7 +368,7 @@ export default function DMConversationScreen() {
               activeOpacity={0.7}
               onPress={() => participantUsername && navigation.navigate('PublicProfile', { username: participantUsername })}
             >
-              <UserAvatar avatarUrl={participantAvatar} size={36} />
+              <UserAvatar avatarUrl={participantAvatar} size={38} />
               <View style={styles.headerNames}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                   <Text style={styles.headerName} numberOfLines={1}>{participantName || 'Message'}</Text>
@@ -383,7 +381,15 @@ export default function DMConversationScreen() {
             </TouchableOpacity>
           )}
 
-          <View style={styles.headerRight} />
+          {!isBot && participantUsername ? (
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => navigation.navigate('PublicProfile', { username: participantUsername })}
+              accessibilityLabel="View profile"
+            >
+              <Ionicons name="information-circle-outline" size={24} color={T.text} />
+            </TouchableOpacity>
+          ) : <View style={styles.headerRight} />}
         </View>
 
         {/* Messages */}
@@ -407,8 +413,14 @@ export default function DMConversationScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="chatbubble-outline" size={40} color="#e2e8f0" />
-              <Text style={styles.emptyText}>Start the conversation</Text>
+              <UserAvatar avatarUrl={participantAvatar} size={84} />
+              <Text style={styles.emptyName}>{participantName || 'Say hello'}</Text>
+              {participantUsername ? <Text style={styles.emptyText}>@{participantUsername}</Text> : null}
+              {!isBot && (
+                <TouchableOpacity style={styles.waveBtn} onPress={() => setText('👋')} accessibilityLabel="Wave">
+                  <Text style={styles.waveText}>👋  Wave</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
         />
@@ -442,7 +454,7 @@ export default function DMConversationScreen() {
                     Replying to {replyingTo.sender_id === user?.id ? 'yourself' : participantName}
                   </Text>
                   <Text style={styles.replyPreviewText} numberOfLines={1}>
-                    {replyingTo.content || (replyingTo.media_url ? '📷 Photo' : 'Message')}
+                    {replyingTo.content || (replyingTo.media_url ? 'Photo' : 'Message')}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.replyDismiss}>
@@ -466,14 +478,14 @@ export default function DMConversationScreen() {
                 onPress={handlePickImage}
                 disabled={uploading}
               >
-                <Ionicons name="image-outline" size={22} color={uploading ? T.tabIconInactive : T.accent} />
+                <Ionicons name="image-outline" size={24} color={uploading ? T.textMuted : T.text} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.attachBtn}
                 onPress={handleCamera}
                 disabled={uploading}
               >
-                <Ionicons name="camera-outline" size={22} color={uploading ? T.tabIconInactive : T.accent} />
+                <Ionicons name="camera-outline" size={24} color={uploading ? T.textMuted : T.text} />
               </TouchableOpacity>
 
               <View style={styles.inputWrap}>
@@ -481,8 +493,8 @@ export default function DMConversationScreen() {
                   style={styles.input}
                   value={text}
                   onChangeText={setText}
-                  placeholder="Message..."
-                  placeholderTextColor="#b0bec5"
+                  placeholder="Message…"
+                  placeholderTextColor={T.placeholder}
                   multiline
                   maxLength={1000}
                 />
@@ -495,7 +507,7 @@ export default function DMConversationScreen() {
                   style={styles.sendBtn}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 2 }} />
+                  <Ionicons name="arrow-up" size={20} color="#000" />
                 </TouchableOpacity>
               </Animated.View>
             </View>
@@ -592,14 +604,15 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 4,
+      paddingVertical: 6,
       backgroundColor: T.bg,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: T.borderLight,
-      gap: 10,
+      gap: 6,
     },
-    backBtn: { padding: 4 },
+    backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    headerIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     headerCenter: {
       flex: 1,
       flexDirection: 'row',
@@ -607,24 +620,23 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       gap: 10,
     },
     headerNames: { flex: 1 },
-    headerName: { fontSize: 16, fontWeight: '700', color: T.text },
-    headerHandle: { fontSize: 13, color: T.textSub, marginTop: 1 },
-    headerRight: { width: 32 },
+    headerName: { fontSize: 16, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },
+    headerHandle: { fontSize: 13, color: T.textMuted, marginTop: 1 },
+    headerRight: { width: 44 },
 
     messageList: { paddingVertical: 12, paddingBottom: 4 },
 
-    dateSep: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginVertical: 16,
-      paddingHorizontal: 16,
-      gap: 10,
+    dateSep: { alignItems: 'center', marginTop: 18, marginBottom: 6 },
+    dateLabel: {
+      fontSize: 12, color: T.textSub, fontWeight: '600',
+      backgroundColor: T.surface, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, overflow: 'hidden',
     },
-    dateLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: T.border },
-    dateLabel: { fontSize: 12, color: T.accent, fontWeight: '700' },
 
-    empty: { alignItems: 'center', marginTop: 80, gap: 12 },
+    empty: { alignItems: 'center', marginTop: 70, gap: 6 },
+    emptyName: { color: T.text, fontSize: 20, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 8 },
     emptyText: { color: T.textMuted, fontSize: 15 },
+    waveBtn: { marginTop: 14, height: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: T.surface2, justifyContent: 'center' },
+    waveText: { color: T.text, fontSize: 15, fontWeight: '600' },
     loadOlderBtn: { alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 8, marginTop: 8, marginBottom: 4 },
     loadOlderText: { color: T.accent, fontSize: 14, fontWeight: '600' },
 
@@ -633,13 +645,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       paddingTop: 8,
       paddingBottom: 10,
       backgroundColor: T.bg,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: T.borderLight,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: -2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-      elevation: 6,
     },
     replyPreviewBar: {
       flexDirection: 'row',
@@ -656,8 +661,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     replyPreviewLabel: { fontSize: 12, fontWeight: '700', color: T.accent, marginBottom: 2 },
     replyPreviewText: { fontSize: 13, color: T.textSub },
     replyDismiss: { padding: 4, marginLeft: 8 },
-    editBar: { borderLeftColor: '#F59E0B' },
-    editBarLabel: { fontSize: 12, fontWeight: '700', color: '#F59E0B', marginBottom: 2 },
+    editBar: { borderLeftColor: T.text },
+    editBarLabel: { fontSize: 12, fontWeight: '700', color: T.text, marginBottom: 2 },
     mediaPreviewWrap: {
       position: 'relative',
       alignSelf: 'flex-start',
@@ -680,17 +685,15 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       gap: 8,
     },
     attachBtn: {
-      width: 36,
+      width: 38,
       height: 44,
       justifyContent: 'center',
       alignItems: 'center',
     },
     inputWrap: {
       flex: 1,
-      backgroundColor: T.inputBg,
-      borderRadius: 26,
-      borderWidth: 1,
-      borderColor: T.border,
+      backgroundColor: T.surface2,
+      borderRadius: 22,
       paddingHorizontal: 16,
       paddingVertical: Platform.OS === 'ios' ? 10 : 6,
       minHeight: 44,
@@ -704,16 +707,12 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     sendBtn: {
       backgroundColor: T.accent,
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      marginBottom: 2,
       justifyContent: 'center',
       alignItems: 'center',
-      shadowColor: T.acc25,
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 1,
-      shadowRadius: 8,
-      elevation: 5,
     },
 
     botAvatarWrap: {

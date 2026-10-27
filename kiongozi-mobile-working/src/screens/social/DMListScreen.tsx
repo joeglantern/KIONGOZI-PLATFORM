@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Modal, TextInput, Image,
+  ActivityIndicator, Modal, TextInput, Image, Pressable, ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,13 +19,17 @@ import { BottomSheet } from '../../components/social/BottomSheet';
 
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const d = new Date(dateStr);
+  const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'now';
   if (mins < 60) return `${mins}m`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return d.toLocaleDateString('en-US', { weekday: 'short' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 interface UserRow {
@@ -46,6 +52,9 @@ export default function DMListScreen() {
     loadPersistedDMState,
   } = useDMStore();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [listQuery, setListQuery] = useState('');
 
   const [newDMVisible, setNewDMVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,11 +122,23 @@ export default function DMListScreen() {
 
   // Filter conversations for main / archived views
   const visibleConversations = useMemo(() => {
-    if (showArchived) {
-      return conversations.filter(c => archivedIds.includes(c.id));
-    }
-    return conversations.filter(c => !archivedIds.includes(c.id));
-  }, [conversations, archivedIds, showArchived]);
+    let list = showArchived
+      ? conversations.filter(c => archivedIds.includes(c.id))
+      : conversations.filter(c => !archivedIds.includes(c.id));
+    if (!showArchived && filter === 'unread') list = list.filter(c => c.unread_count > 0);
+    const q = listQuery.trim().toLowerCase();
+    if (q) list = list.filter(c => {
+      const o: any = c.participants?.[0];
+      return o?.full_name?.toLowerCase().includes(q) || o?.username?.toLowerCase().includes(q)
+        || c.last_message?.content?.toLowerCase().includes(q);
+    });
+    return list;
+  }, [conversations, archivedIds, showArchived, filter, listQuery]);
+
+  const unreadChats = useMemo(
+    () => conversations.filter(c => !archivedIds.includes(c.id) && c.unread_count > 0).length,
+    [conversations, archivedIds]
+  );
 
   const archivedCount = useMemo(
     () => conversations.filter(c => archivedIds.includes(c.id)).length,
@@ -154,9 +175,17 @@ export default function DMListScreen() {
   const renderConversation = useCallback(({ item }: { item: any }) => {
     const other = item.participants[0];
     const isArchived = archivedIds.includes(item.id);
+    const unread = item.unread_count > 0;
+    const last = item.last_message;
+    const mine = last?.sender_id && last.sender_id === user?.id;
+    const body = last?.content
+      ? last.content
+      : last?.media_type === 'video' ? 'Sent a video'
+      : last?.media_type === 'image' ? 'Sent a photo'
+      : 'Say hello';
     return (
-      <TouchableOpacity
-        style={styles.convRow}
+      <Pressable
+        style={({ pressed }) => [styles.convRow, pressed && { backgroundColor: T.surface }]}
         onPress={() => navigation.navigate('DMConversation', {
           conversationId: item.id,
           participantName: other?.full_name,
@@ -164,94 +193,109 @@ export default function DMListScreen() {
           participantAvatar: other?.avatar_url,
           participantIsVerified: other?.is_verified,
         })}
-        onLongPress={() => handleLongPress(item.id, isArchived)}
+        onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleLongPress(item.id, isArchived); }}
         delayLongPress={400}
+        accessibilityLabel={`Chat with ${other?.full_name || other?.username}${unread ? `, ${item.unread_count} unread` : ''}`}
       >
-        <UserAvatar avatarUrl={other?.avatar_url} size={52} isBot={other?.is_bot} isVerified={other?.is_verified} />
+        <UserAvatar avatarUrl={other?.avatar_url} size={54} isBot={other?.is_bot} />
         <View style={styles.convInfo}>
-          <View style={styles.convHeader}>
-            <Text style={styles.convName}>{other?.full_name}</Text>
-            {other?.is_verified && <VerifiedBadge size={15} />}
-            <Text style={styles.convTime}>{timeAgo(item.last_message_at)}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={[styles.convName, unread && styles.convNameUnread]} numberOfLines={1}>{other?.full_name || other?.username}</Text>
+            {other?.is_verified && <VerifiedBadge size={14} />}
           </View>
-          <View style={styles.convPreview}>
-            <View style={styles.previewRow}>
-              {item.last_message?.media_type === 'image' && (
-                <Ionicons name="camera-outline" size={14} color={item.unread_count > 0 ? T.text : T.textSub} style={{ marginRight: 3 }} />
-              )}
-              {item.last_message?.media_type === 'video' && (
-                <Ionicons name="videocam-outline" size={14} color={item.unread_count > 0 ? T.text : T.textSub} style={{ marginRight: 3 }} />
-              )}
-              <Text style={[styles.convLastMsg, item.unread_count > 0 && styles.unreadMsg]} numberOfLines={1}>
-                {item.last_message?.content
-                  ? item.last_message.content
-                  : item.last_message?.media_type === 'video'
-                    ? 'Video'
-                    : item.last_message?.media_type === 'image'
-                      ? 'Photo'
-                      : 'Media message'}
-              </Text>
-            </View>
-            {item.unread_count > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{item.unread_count}</Text>
-              </View>
-            )}
-          </View>
+          <Text style={[styles.convLastMsg, unread && styles.unreadMsg]} numberOfLines={1}>
+            {mine ? 'You: ' : ''}{body}
+            <Text style={styles.convTime}>{`  ·  ${timeAgo(item.last_message_at)}`}</Text>
+          </Text>
         </View>
-      </TouchableOpacity>
+        {unread && (
+          item.unread_count > 1
+            ? <View style={styles.badge}><Text style={styles.badgeText}>{item.unread_count > 99 ? '99+' : item.unread_count}</Text></View>
+            : <View style={styles.unreadDot} />
+        )}
+      </Pressable>
     );
-  }, [navigation, archivedIds, handleLongPress]);
+  }, [navigation, archivedIds, handleLongPress, user?.id, styles, T]);
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => {
-          if (showArchived) { setShowArchived(false); } else { navigation.goBack(); }
-        }}>
-          <Ionicons name="arrow-back" size={24} color={T.text} />
+      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => { if (showArchived) { setShowArchived(false); } else { navigation.goBack(); } }}
+          accessibilityLabel="Back"
+        >
+          <Ionicons name="chevron-back" size={26} color={T.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {showArchived ? 'Archived' : 'Messages'}
-        </Text>
+        <Text style={styles.headerTitle}>{showArchived ? 'Archived' : 'Messages'}</Text>
         {showArchived ? (
-          <View style={{ width: 24 }} />
+          <View style={{ width: 44 }} />
         ) : (
-          <TouchableOpacity onPress={openNewDM}>
-            <Ionicons name="create-outline" size={24} color="#5CB85C" />
+          <TouchableOpacity style={styles.composeBtn} onPress={openNewDM} accessibilityLabel="New message">
+            <Ionicons name="create-outline" size={21} color={T.text} />
           </TouchableOpacity>
         )}
       </View>
 
+      <View style={styles.listSearch}>
+        <Ionicons name="search" size={17} color={T.textMuted} />
+        <TextInput
+          style={styles.listSearchInput}
+          placeholder="Search"
+          placeholderTextColor={T.placeholder}
+          value={listQuery}
+          onChangeText={setListQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {listQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setListQuery('')} hitSlop={10} accessibilityLabel="Clear search">
+            <Ionicons name="close-circle" size={17} color={T.placeholder} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {!showArchived && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.chips}>
+          {([['all', 'All'], ['unread', unreadChats ? `Unread ${unreadChats}` : 'Unread']] as const).map(([id, label]) => {
+            const on = filter === id;
+            return (
+              <Pressable key={id} onPress={() => { Haptics.selectionAsync(); setFilter(id); }}
+                style={[styles.chip, on ? { backgroundColor: T.text, borderColor: T.text } : { borderColor: T.border }]}>
+                <Text style={[styles.chipText, { color: on ? T.bg : T.text }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+          {archivedCount > 0 && (
+            <Pressable onPress={() => setShowArchived(true)} style={[styles.chip, { borderColor: T.border }]}>
+              <Text style={[styles.chipText, { color: T.text }]}>Archived {archivedCount}</Text>
+            </Pressable>
+          )}
+        </ScrollView>
+      )}
+
       {conversationsLoading && conversations.length === 0 ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color="#5CB85C" />
+        <ActivityIndicator style={{ marginTop: 40 }} color={T.accent} />
       ) : (
         <FlatList
           data={visibleConversations}
           keyExtractor={item => item.id}
           renderItem={renderConversation}
-          ListHeaderComponent={
-            !showArchived && archivedCount > 0 ? (
-              <TouchableOpacity style={styles.archivedRow} onPress={() => setShowArchived(true)}>
-                <View style={styles.archivedIcon}>
-                  <Ionicons name="archive-outline" size={20} color="#718096" />
-                </View>
-                <Text style={styles.archivedLabel}>Archived</Text>
-                <View style={styles.archivedRight}>
-                  <Text style={styles.archivedCount}>{archivedCount}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#a0aec0" />
-                </View>
-              </TouchableOpacity>
-            ) : null
-          }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name={showArchived ? 'archive-outline' : 'mail-outline'} size={48} color="#e2e8f0" />
+              <View style={styles.emptyIcon}>
+                <Ionicons name={showArchived ? 'archive-outline' : listQuery || filter === 'unread' ? 'search-outline' : 'chatbubbles-outline'} size={30} color={T.textSub} />
+              </View>
               <Text style={styles.emptyText}>
-                {showArchived ? 'No archived conversations' : 'No conversations yet'}
+                {showArchived ? 'No archived chats' : listQuery ? `No chats match "${listQuery}"` : filter === 'unread' ? "You're all caught up" : 'No messages yet'}
               </Text>
-              {!showArchived && (
-                <Text style={styles.emptySubtext}>Tap the compose icon to start a conversation</Text>
+              {!showArchived && !listQuery && filter === 'all' && (
+                <>
+                  <Text style={styles.emptySubtext}>Start a conversation with someone you follow.</Text>
+                  <TouchableOpacity style={styles.emptyBtn} onPress={openNewDM}>
+                    <Text style={styles.emptyBtnText}>New message</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </View>
           }
@@ -264,33 +308,33 @@ export default function DMListScreen() {
           <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeModal} />
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>New Message</Text>
+              <Text style={styles.sheetTitle}>New message</Text>
               <TouchableOpacity onPress={closeModal}>
-                <Ionicons name="close" size={22} color="#4a5568" />
+                <Ionicons name="close" size={22} color={T.text} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBar}>
-              <Ionicons name="search" size={16} color="#a0aec0" />
+              <Ionicons name="search" size={16} color={T.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search people..."
-                placeholderTextColor="#a0aec0"
+                placeholderTextColor={T.placeholder}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              {searching && <ActivityIndicator size="small" color="#a0aec0" />}
+              {searching && <ActivityIndicator size="small" color={T.textMuted} />}
               {searchQuery.length > 0 && !searching && (
                 <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); }}>
-                  <Ionicons name="close-circle" size={16} color="#a0aec0" />
+                  <Ionicons name="close-circle" size={16} color={T.placeholder} />
                 </TouchableOpacity>
               )}
             </View>
 
             {loadingFollowing ? (
-              <ActivityIndicator style={{ marginTop: 32 }} color="#5CB85C" />
+              <ActivityIndicator style={{ marginTop: 32 }} color={T.accent} />
             ) : (
               <FlatList
                 data={displayList}
@@ -313,8 +357,8 @@ export default function DMListScreen() {
                       <Text style={styles.userHandle}>@{item.username}</Text>
                     </View>
                     {startingFor === item.id
-                      ? <ActivityIndicator size="small" color="#5CB85C" />
-                      : <Ionicons name="chevron-forward" size={18} color="#cbd5e0" />
+                      ? <ActivityIndicator size="small" color={T.accent} />
+                      : <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
                     }
                   </TouchableOpacity>
                 )}
@@ -376,35 +420,39 @@ export default function DMListScreen() {
 function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
-    archivedRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.surface },
-    archivedIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: T.surface2, justifyContent: 'center', alignItems: 'center' },
-    archivedLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: T.textSub },
-    archivedRight: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    archivedCount: { fontSize: 14, color: T.textMuted, fontWeight: '500' },
-    convRow: { flexDirection: 'row', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
-    convInfo: { flex: 1 },
-    convHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-    convName: { fontWeight: '700', fontSize: 15, color: T.text, fontFamily: 'SpaceGrotesk_700Bold' },
-    convTime: { color: T.textMuted, fontSize: 13 },
-    convPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    previewRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    convLastMsg: { flex: 1, color: T.textSub, fontSize: 14 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingBottom: 4, backgroundColor: T.bg },
+    backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { flex: 1, marginLeft: 2, fontSize: 28, color: T.text, letterSpacing: -0.7, fontFamily: 'SpaceGrotesk_700Bold' },
+    composeBtn: { width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
+    listSearch: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 6, height: 42, borderRadius: 21, paddingHorizontal: 16, backgroundColor: T.surface2 },
+    listSearchInput: { flex: 1, fontSize: 15, color: T.text, paddingVertical: 0 },
+    chips: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 8 },
+    chip: { height: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, justifyContent: 'center' },
+    chipText: { fontSize: 14, fontWeight: '600' },
+    convRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12, backgroundColor: T.bg },
+    convInfo: { flex: 1, minWidth: 0, gap: 3 },
+    convName: { fontSize: 16, color: T.text, fontWeight: '500', flexShrink: 1 },
+    convNameUnread: { fontWeight: '700' },
+    convTime: { color: T.textMuted, fontWeight: '400' },
+    convLastMsg: { color: T.textSub, fontSize: 14 },
     unreadMsg: { fontWeight: '600', color: T.text },
-    badge: { backgroundColor: T.accent, borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
-    badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-    empty: { alignItems: 'center', padding: 48, gap: 12 },
-    emptyText: { fontSize: 16, fontWeight: '600', color: T.textSub },
+    unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: T.accent },
+    badge: { backgroundColor: T.accent, borderRadius: 11, minWidth: 22, height: 22, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
+    badgeText: { color: '#000', fontSize: 12, fontWeight: '800' },
+    empty: { alignItems: 'center', paddingTop: 70, paddingHorizontal: 40, gap: 10 },
+    emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+    emptyText: { fontSize: 17, fontWeight: '700', color: T.text, textAlign: 'center' },
     emptySubtext: { fontSize: 14, color: T.textMuted, textAlign: 'center' },
+    emptyBtn: { marginTop: 10, height: 40, paddingHorizontal: 20, borderRadius: 20, backgroundColor: T.text, justifyContent: 'center' },
+    emptyBtnText: { color: T.bg, fontWeight: '700', fontSize: 14 },
     sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
     sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' },
-    sheet: { backgroundColor: T.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%', paddingBottom: 32 },
+    sheet: { backgroundColor: T.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '80%', paddingBottom: 32 },
     sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
     sheetTitle: { fontSize: 17, fontWeight: '700', color: T.text },
-    searchBar: { flexDirection: 'row', alignItems: 'center', margin: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: T.inputBg, borderRadius: 10, borderWidth: 1, borderColor: T.border, gap: 8 },
+    searchBar: { flexDirection: 'row', alignItems: 'center', margin: 12, paddingHorizontal: 14, height: 42, backgroundColor: T.surface2, borderRadius: 21, gap: 8 },
     searchInput: { flex: 1, fontSize: 15, color: T.text },
-    userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight },
+    userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
     userInfo: { flex: 1 },
     userName: { fontWeight: '600', fontSize: 15, color: T.text },
     userHandle: { color: T.textSub, fontSize: 13, marginTop: 1 },

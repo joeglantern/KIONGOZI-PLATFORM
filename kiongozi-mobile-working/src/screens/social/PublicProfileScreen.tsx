@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Image, ActivityIndicator, FlatList,
+  View, Text, StyleSheet, Pressable,
+  Image, ActivityIndicator, FlatList, Share,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { UserAvatar } from '../../components/social/UserAvatar';
+import * as Haptics from 'expo-haptics';
 import { ProfileStoryAvatar } from '../../components/stories/ProfileStoryAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { PostCard } from '../../components/social/PostCard';
@@ -19,9 +20,35 @@ import ReportModal from './ReportModal';
 import { useTheme } from '../../hooks/useTheme';
 import { BottomSheet } from '../../components/social/BottomSheet';
 
+type Tab = 'posts' | 'reposts';
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'posts', label: 'Posts' },
+  { key: 'reposts', label: 'Reposts' },
+];
+const BANNER_HEIGHT = 150;
+const AVATAR_SIZE = 88;
+const RING = 4;
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function formatCount(n?: number | null) {
+  const v = typeof n === 'number' && isFinite(n) ? n : 0;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (v >= 10_000) return `${Math.floor(v / 1000)}K`;
+  if (v >= 1000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+  return String(v);
+}
+
+function formatJoined(iso?: string) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return `Joined ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export default function PublicProfileScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
   const { username } = route.params || {};
   const { user } = useAuthStore();
   const T = useTheme();
@@ -42,6 +69,7 @@ export default function PublicProfileScreen() {
   const [blockConfirmSheet, setBlockConfirmSheet] = useState(false);
   const [muteConfirmSheet, setMuteConfirmSheet] = useState(false);
   const [unblockConfirmSheet, setUnblockConfirmSheet] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('posts');
   const { deletePost: deleteFromStore } = useSocialStore();
 
   useEffect(() => {
@@ -132,6 +160,7 @@ export default function PublicProfileScreen() {
 
   const handleFollowToggle = useCallback(async () => {
     if (!profile) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // If already following → unfollow
     if (profile.isFollowing) {
@@ -216,26 +245,73 @@ export default function PublicProfileScreen() {
     await unblockUser(profile.id);
   };
 
+  const handleShareProfile = async () => {
+    if (!profile) return;
+    try {
+      await Share.share({
+        message: `Check out ${profile.full_name ?? profile.username}'s profile on Kiongozi!\nhttps://kiongozi.app/profile/${profile.username}`,
+        url: `https://kiongozi.app/profile/${profile.username}`,
+      });
+    } catch {}
+  };
+
+  const handleTabPress = (tab: Tab) => {
+    if (tab === activeTab) return;
+    Haptics.selectionAsync();
+    setActiveTab(tab);
+  };
+
+  const renderHeader = (title?: string, showMore = false) => (
+    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <Pressable
+        onPress={() => navigation.goBack()}
+        style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+      >
+        <Ionicons name="arrow-back" size={24} color={T.text} />
+      </Pressable>
+      <Text style={styles.headerTitle} numberOfLines={1}>{title ?? ''}</Text>
+      {showMore ? (
+        <Pressable
+          onPress={handleMoreOptions}
+          style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          accessibilityLabel="More options"
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color={T.text} />
+        </Pressable>
+      ) : (
+        <View style={styles.headerSpacer} />
+      )}
+    </View>
+  );
+
   if (loading) {
-    return <View style={styles.loading}><ActivityIndicator color="#5CB85C" /></View>;
+    return (
+      <View style={styles.container}>
+        {renderHeader()}
+        <View style={styles.loading}><ActivityIndicator color={T.accent} /></View>
+      </View>
+    );
   }
 
   if (notFound) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={T.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerName}>Profile</Text>
-        </View>
-        <View style={styles.notFound}>
-          <Ionicons name="person-outline" size={56} color="#e2e8f0" />
-          <Text style={styles.notFoundTitle}>User not found</Text>
-          <Text style={styles.notFoundSub}>@{username} doesn't exist or may have been removed.</Text>
-          <TouchableOpacity style={styles.goBackBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.goBackText}>Go back</Text>
-          </TouchableOpacity>
+        {renderHeader('Profile')}
+        <View style={styles.wall}>
+          <View style={styles.wallIcon}>
+            <Ionicons name="person-outline" size={26} color={T.textMuted} />
+          </View>
+          <Text style={styles.wallTitle}>User not found</Text>
+          <Text style={styles.wallSub}>@{username} doesn't exist or may have been removed.</Text>
+          <Pressable
+            style={({ pressed }) => [styles.wallPrimaryBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.wallPrimaryText}>Go back</Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -248,24 +324,30 @@ export default function PublicProfileScreen() {
   if (isBlocked) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={T.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerName}>@{profile?.username}</Text>
-          <View style={{ width: 36 }} />
-        </View>
-        <View style={styles.blockedWall}>
-          <Ionicons name="ban" size={52} color="#e2e8f0" />
-          <Text style={styles.blockedTitle}>You've blocked this user</Text>
-          <Text style={styles.blockedSub}>Unblock to see their profile and posts.</Text>
-          <TouchableOpacity
-            style={styles.unblockBtn}
+        {renderHeader(`@${profile?.username}`)}
+        <View style={styles.wall}>
+          <View style={styles.wallIcon}>
+            <Ionicons name="ban-outline" size={26} color={T.textMuted} />
+          </View>
+          <Text style={styles.wallTitle}>You've blocked this user</Text>
+          <Text style={styles.wallSub}>Unblock to see their profile and posts.</Text>
+          <Pressable
+            style={({ pressed }) => [styles.wallSecondaryBtn, pressed && { opacity: 0.7 }]}
             onPress={() => setUnblockConfirmSheet(true)}
           >
-            <Text style={styles.unblockText}>Unblock</Text>
-          </TouchableOpacity>
+            <Text style={styles.wallSecondaryText}>Unblock</Text>
+          </Pressable>
         </View>
+
+        <BottomSheet
+          visible={unblockConfirmSheet}
+          onClose={() => setUnblockConfirmSheet(false)}
+          title={`Unblock @${profile?.username}?`}
+          subtitle="They will be able to see your posts and interact with you again."
+          actions={[
+            { icon: 'shield-checkmark-outline', label: 'Unblock', onPress: doUnblockProfile },
+          ]}
+        />
       </View>
     );
   }
@@ -274,54 +356,198 @@ export default function PublicProfileScreen() {
   if (!isOwnProfile && profile?.isBlockedBy) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={T.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerName}>@{profile.username}</Text>
-          <View style={{ width: 36 }} />
-        </View>
-        <View style={styles.blockedWall}>
-          <View style={styles.blockedByIconWrap}>
-            <Ionicons name="lock-closed-outline" size={36} color="#94a3b8" />
+        {renderHeader(`@${profile.username}`)}
+        <View style={styles.wall}>
+          <View style={styles.wallIcon}>
+            <Ionicons name="lock-closed-outline" size={26} color={T.textMuted} />
           </View>
-          <Text style={styles.blockedByName}>{profile.full_name}</Text>
-          <Text style={styles.blockedByUsername}>@{profile.username}</Text>
-          <Text style={styles.blockedByMsg}>This account's content isn't available.</Text>
+          <Text style={styles.wallTitle}>{profile.full_name}</Text>
+          <Text style={styles.wallHandle}>@{profile.username}</Text>
+          <Text style={styles.wallSub}>This account's content isn't available.</Text>
         </View>
       </View>
     );
   }
 
+  const isPending = profile?.followRequestStatus === 'pending';
+  const isLocked = !!(profile?.is_private && !profile?.isFollowing && !isOwnProfile);
+  const hasBanner = !!profile?.banner_url;
+  const joined = formatJoined(profile?.created_at);
+  const displayPosts = activeTab === 'reposts'
+    ? posts.filter(p => p.repost_of_id && p.repost_of)
+    : posts;
+
   // Determine follow button label
   const getFollowLabel = () => {
     if (profile?.isFollowing) return 'Following';
-    if (profile?.followRequestStatus === 'pending') return 'Requested';
+    if (isPending) return 'Requested';
     return 'Follow';
   };
+  const followIsPrimary = !profile?.isFollowing && !isPending;
+
+  const ListHeader = (
+    <View>
+      {/* Banner — only when one exists */}
+      {hasBanner && (
+        <Image source={{ uri: profile.banner_url }} style={styles.banner} resizeMode="cover" />
+      )}
+
+      <View style={styles.body}>
+        <View style={[styles.avatarRing, { marginTop: hasBanner ? -(AVATAR_SIZE / 2 + RING) : 4 }]}>
+          <ProfileStoryAvatar
+            userId={profile?.id}
+            avatarUrl={profile?.avatar_url}
+            size={AVATAR_SIZE}
+            isBot={profile?.is_bot}
+            isVerified={profile?.is_verified}
+          />
+        </View>
+
+        <View style={styles.nameRow}>
+          <Text style={styles.fullName} numberOfLines={2}>{profile?.full_name}</Text>
+          {profile?.is_verified && <VerifiedBadge size={18} />}
+        </View>
+        <View style={styles.handleRow}>
+          <Text style={styles.username}>@{profile?.username}</Text>
+          {profile?.is_private && (
+            <Ionicons name="lock-closed" size={13} color={T.textMuted} />
+          )}
+        </View>
+        {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
+
+        {!!joined && (
+          <View style={styles.metaRow}>
+            <Ionicons name="calendar-outline" size={14} color={T.textMuted} />
+            <Text style={styles.metaText}>{joined}</Text>
+          </View>
+        )}
+
+        <View style={styles.statsRow}>
+          {typeof profile?.post_count === 'number' && (
+            <>
+              <Text style={styles.statText}>
+                <Text style={styles.statNum}>{formatCount(profile.post_count)}</Text> posts
+              </Text>
+              <Text style={styles.statText}>·</Text>
+            </>
+          )}
+          <Pressable
+            hitSlop={8}
+            style={({ pressed }) => pressed && { opacity: 0.6 }}
+            onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'followers' })}
+          >
+            <Text style={styles.statText}>
+              <Text style={styles.statNum}>{formatCount(profile?.follower_count)}</Text> followers
+            </Text>
+          </Pressable>
+          <Text style={styles.statText}>·</Text>
+          <Pressable
+            hitSlop={8}
+            style={({ pressed }) => pressed && { opacity: 0.6 }}
+            onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'following' })}
+          >
+            <Text style={styles.statText}>
+              <Text style={styles.statNum}>{formatCount(profile?.following_count)}</Text> following
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Actions */}
+        <View style={styles.actionRow}>
+          {isOwnProfile ? (
+            <>
+              <Pressable
+                onPress={() => navigation.navigate('EditProfile')}
+                style={({ pressed }) => [styles.actionBtn, styles.actionSecondary, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.actionSecondaryText}>Edit profile</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleShareProfile}
+                style={({ pressed }) => [styles.actionBtn, styles.actionSecondary, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.actionSecondaryText}>Share profile</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Pressable
+                onPress={handleFollowToggle}
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  followIsPrimary ? styles.actionPrimary : styles.actionSecondary,
+                  pressed && { opacity: 0.7 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={isPending ? 'Cancel follow request' : getFollowLabel()}
+              >
+                <Text style={[
+                  followIsPrimary ? styles.actionPrimaryText : styles.actionSecondaryText,
+                  isPending && { color: T.textMuted },
+                ]}>
+                  {getFollowLabel()}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={handleMessage}
+                disabled={messageLoading}
+                style={({ pressed }) => [styles.actionBtn, styles.actionSecondary, pressed && { opacity: 0.7 }]}
+              >
+                {messageLoading
+                  ? <ActivityIndicator size="small" color={T.text} />
+                  : <Text style={styles.actionSecondaryText}>Message</Text>}
+              </Pressable>
+            </>
+          )}
+        </View>
+      </View>
+
+      {isLocked ? (
+        <View style={[styles.wall, styles.lockedWall]}>
+          <View style={styles.wallIcon}>
+            <Ionicons name="lock-closed-outline" size={26} color={T.textMuted} />
+          </View>
+          <Text style={styles.wallTitle}>This account is private</Text>
+          <Text style={styles.wallSub}>
+            {isPending
+              ? 'Your follow request is pending. You’ll see their posts once it’s approved.'
+              : 'Follow this account to see their posts.'}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.tabBar}>
+          {TABS.map(({ key, label }) => {
+            const on = activeTab === key;
+            return (
+              <Pressable
+                key={key}
+                style={styles.tab}
+                onPress={() => handleTabPress(key)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+              >
+                <View style={styles.tabInner}>
+                  <Text style={[styles.tabLabel, { color: on ? T.text : T.textMuted }]}>{label}</Text>
+                  {on && <View style={styles.tabUnderline} />}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={T.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerName}>{profile?.full_name}</Text>
-        {!isOwnProfile ? (
-          <TouchableOpacity onPress={handleMoreOptions} style={styles.moreBtn}>
-            <Ionicons name="ellipsis-horizontal" size={22} color={T.text} />
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 36 }} />
-        )}
-      </View>
+      {renderHeader(profile?.full_name, !isOwnProfile)}
 
       <FlatList
-        data={posts}
+        data={isLocked ? [] : displayPosts}
         keyExtractor={item => item.id}
         onEndReached={loadMorePosts}
         onEndReachedThreshold={0.5}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <PostCard
             post={item}
@@ -336,117 +562,23 @@ export default function PublicProfileScreen() {
           />
         )}
         ListFooterComponent={
-          postsLoadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color="#5CB85C" /> : null
+          postsLoadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color={T.accent} /> : null
         }
-        ListHeaderComponent={
-          <View>
-            {/* Banner */}
-            {profile?.banner_url ? (
-              <Image source={{ uri: profile.banner_url }} style={styles.banner} />
-            ) : (
-              <View style={[styles.banner, { backgroundColor: T.surface }]} />
-            )}
-
-            {/* Profile info */}
-            <View style={styles.profileSection}>
-              <View style={styles.avatarRow}>
-                <ProfileStoryAvatar
-                  userId={profile?.id}
-                  avatarUrl={profile?.avatar_url}
-                  size={76}
-                  isBot={profile?.is_bot}
-                  isVerified={profile?.is_verified}
-                />
-                <View style={styles.actionButtons}>
-                  {!isOwnProfile && (
-                    <>
-                      <TouchableOpacity
-                        onPress={handleMessage}
-                        disabled={messageLoading}
-                        style={styles.messageBtn}
-                      >
-                        <Ionicons name="mail-outline" size={18} color="#5CB85C" />
-                        <Text style={styles.messageBtnText}>
-                          {messageLoading ? '...' : 'Message'}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={handleFollowToggle}
-                        style={[
-                          styles.followBtn,
-                          profile?.isFollowing && styles.followingBtn,
-                          profile?.followRequestStatus === 'pending' && styles.requestedBtn,
-                        ]}
-                      >
-                        <Text style={[
-                          styles.followText,
-                          (profile?.isFollowing || profile?.followRequestStatus === 'pending') && styles.followingText,
-                        ]}>
-                          {getFollowLabel()}
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                  {isOwnProfile && (
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate('EditProfile')}
-                      style={styles.editBtn}
-                    >
-                      <Text style={styles.editText}>Edit profile</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Text style={styles.fullName}>{profile?.full_name}</Text>
-                {profile?.is_verified && (
-                  <VerifiedBadge size={18} />
-                )}
-              </View>
-              <Text style={styles.username}>@{profile?.username}</Text>
-              {profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-
-              <View style={styles.statsRow}>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'following' })}
-                >
-                  <Text style={styles.stat}>
-                    <Text style={styles.statNum}>{profile?.following_count}</Text> Following
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'followers' })}
-                >
-                  <Text style={styles.stat}>
-                    <Text style={styles.statNum}>{profile?.follower_count}</Text> Followers
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {profile?.is_private && !profile?.isFollowing && !isOwnProfile ? (
-              <View style={styles.privateWall}>
-                <View style={styles.privateIconWrap}>
-                  <Ionicons name="lock-closed" size={28} color="#5CB85C" />
-                </View>
-                <Text style={styles.privateTitle}>This account is private</Text>
-                <Text style={styles.privateSub}>
-                  Follow this account to see their posts.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <View style={styles.divider} />
-                <Text style={styles.postsHeader}>Posts</Text>
-              </>
-            )}
-          </View>
-        }
+        ListHeaderComponent={ListHeader}
         ListEmptyComponent={
-          !(profile?.is_private && !profile?.isFollowing && !isOwnProfile)
-            ? <Text style={styles.noPosts}>No posts yet</Text>
-            : null
+          !isLocked ? (
+            <View style={styles.emptyState}>
+              <View style={styles.wallIcon}>
+                <Ionicons name={activeTab === 'reposts' ? 'repeat' : 'document-text-outline'} size={26} color={T.textMuted} />
+              </View>
+              <Text style={styles.wallTitle}>{activeTab === 'reposts' ? 'No reposts yet' : 'No posts yet'}</Text>
+              <Text style={styles.wallSub}>
+                {activeTab === 'reposts'
+                  ? `When @${profile?.username} reposts, it will show up here.`
+                  : `When @${profile?.username} posts, it will show up here.`}
+              </Text>
+            </View>
+          ) : null
         }
       />
 
@@ -525,109 +657,81 @@ export default function PublicProfileScreen() {
 function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
-    loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.bg },
+
     header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingTop: 52,
-      paddingHorizontal: 16,
-      paddingBottom: 12,
-      gap: 12,
-      backgroundColor: T.bg,
-      justifyContent: 'space-between',
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 8, paddingBottom: 6, backgroundColor: T.bg,
     },
-    headerName: { fontSize: 17, fontWeight: '700', color: T.text, flex: 1, textAlign: 'center' },
-    moreBtn: { padding: 4 },
-    banner: { width: '100%', height: 120 },
-    profileSection: { padding: 16 },
-    avatarRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-end',
-      marginBottom: 12,
-      marginTop: -36,
+    backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    iconBtn: {
+      width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2,
+      alignItems: 'center', justifyContent: 'center',
     },
-    actionButtons: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-    messageBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: T.accent,
+    headerSpacer: { width: 44, height: 44 },
+    headerTitle: {
+      flex: 1, textAlign: 'center', marginHorizontal: 8,
+      fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text,
     },
-    messageBtnText: { color: T.accent, fontWeight: '600', fontSize: 14 },
-    fullName: { fontSize: 20, fontWeight: '800', color: T.text },
-    username: { color: T.textSub, fontSize: 15, marginBottom: 6 },
-    bio: { color: T.text, fontSize: 15, lineHeight: 22, marginBottom: 12 },
-    statsRow: { flexDirection: 'row', gap: 16 },
-    stat: { fontSize: 14, color: T.textSub },
+
+    banner: { width: '100%', height: BANNER_HEIGHT, backgroundColor: T.surface },
+    body: { paddingHorizontal: 16, paddingBottom: 16 },
+    avatarRing: {
+      alignSelf: 'flex-start', marginBottom: 12,
+      borderWidth: RING, borderColor: T.bg, backgroundColor: T.bg,
+      borderRadius: (AVATAR_SIZE + RING * 2) / 2,
+    },
+
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    fullName: { fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.5, color: T.text, flexShrink: 1 },
+    handleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+    username: { color: T.textMuted, fontSize: 15 },
+    bio: { color: T.text, fontSize: 15, lineHeight: 21, marginTop: 10 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10 },
+    metaText: { fontSize: 13, color: T.textMuted },
+
+    statsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 },
+    statText: { fontSize: 14, color: T.textMuted },
     statNum: { fontWeight: '700', color: T.text },
-    followBtn: {
-      paddingHorizontal: 20,
-      paddingVertical: 8,
-      borderRadius: 20,
-      backgroundColor: T.text,
+
+    actionRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
+    actionBtn: { flex: 1, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    actionPrimary: { backgroundColor: T.text },
+    actionPrimaryText: { color: T.bg, fontWeight: '700', fontSize: 14 },
+    actionSecondary: { borderWidth: 1, borderColor: T.border },
+    actionSecondaryText: { color: T.text, fontWeight: '700', fontSize: 14 },
+
+    tabBar: {
+      flexDirection: 'row', backgroundColor: T.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border,
     },
-    followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border },
-    requestedBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.textMuted },
-    followText: { color: T.bg, fontWeight: '700', fontSize: 14 },
-    followingText: { color: T.text },
-    editBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: T.border },
-    editText: { fontWeight: '700', fontSize: 14, color: T.text },
-    divider: { height: 1, backgroundColor: T.borderLight, marginVertical: 8 },
-    postsHeader: { fontSize: 16, fontWeight: '700', color: T.text, paddingHorizontal: 16, paddingBottom: 8 },
-    noPosts: { padding: 24, textAlign: 'center', color: T.textMuted },
-    privateWall: {
-      alignItems: 'center',
-      paddingVertical: 48,
-      paddingHorizontal: 32,
-      gap: 10,
+    tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'flex-end' },
+    tabInner: { paddingHorizontal: 6, paddingBottom: 11 },
+    tabLabel: { fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold' },
+    tabUnderline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, borderRadius: 1, backgroundColor: T.text },
+
+    emptyState: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 32 },
+    wall: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingBottom: 48 },
+    lockedWall: {
+      flex: 0, paddingVertical: 40,
+      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.border,
     },
-    privateIconWrap: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: T.surface,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 4,
+    wallIcon: {
+      width: 64, height: 64, borderRadius: 32, backgroundColor: T.surface,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 14,
     },
-    privateTitle: { fontSize: 17, fontWeight: '700', color: T.text },
-    privateSub: { fontSize: 14, color: T.textSub, textAlign: 'center', lineHeight: 21 },
-    blockedWall: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
-    blockedTitle: { fontSize: 20, fontWeight: '700', color: T.text },
-    blockedSub: { fontSize: 15, color: T.textSub, textAlign: 'center' },
-    unblockBtn: {
-      marginTop: 8,
-      paddingHorizontal: 28,
-      paddingVertical: 10,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: T.accent,
+    wallTitle: { fontSize: 16, fontWeight: '700', color: T.text, marginBottom: 4, textAlign: 'center' },
+    wallHandle: { fontSize: 14, color: T.textMuted, marginBottom: 8 },
+    wallSub: { fontSize: 14, color: T.textMuted, textAlign: 'center', lineHeight: 20 },
+    wallPrimaryBtn: {
+      marginTop: 20, height: 38, paddingHorizontal: 24, borderRadius: 20,
+      backgroundColor: T.text, alignItems: 'center', justifyContent: 'center',
     },
-    unblockText: { color: T.accent, fontWeight: '700', fontSize: 15 },
-    blockedByIconWrap: {
-      width: 72, height: 72, borderRadius: 36,
-      backgroundColor: T.surface,
-      justifyContent: 'center', alignItems: 'center',
-      marginBottom: 4,
+    wallPrimaryText: { color: T.bg, fontWeight: '700', fontSize: 14 },
+    wallSecondaryBtn: {
+      marginTop: 20, height: 38, paddingHorizontal: 24, borderRadius: 20,
+      borderWidth: 1, borderColor: T.border, alignItems: 'center', justifyContent: 'center',
     },
-    blockedByName: { fontSize: 18, fontWeight: '700', color: T.text },
-    blockedByUsername: { fontSize: 14, color: T.textMuted, marginBottom: 6 },
-    blockedByMsg: { fontSize: 15, color: T.textMuted, textAlign: 'center' },
-    notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
-    notFoundTitle: { fontSize: 20, fontWeight: '700', color: T.text },
-    notFoundSub: { fontSize: 15, color: T.textSub, textAlign: 'center' },
-    goBackBtn: {
-      marginTop: 8,
-      paddingHorizontal: 28,
-      paddingVertical: 10,
-      backgroundColor: T.accent,
-      borderRadius: 20,
-    },
-    goBackText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    wallSecondaryText: { color: T.text, fontWeight: '700', fontSize: 14 },
   });
 }

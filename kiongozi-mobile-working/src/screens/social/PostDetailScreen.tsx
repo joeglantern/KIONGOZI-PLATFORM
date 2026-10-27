@@ -1,20 +1,44 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, ActivityIndicator,
-  TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Animated, Alert,
+  View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable,
+  TextInput, KeyboardAvoidingView, Platform, Alert, Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { PostCard } from '../../components/social/PostCard';
 import { EditPostModal } from '../../components/social/EditPostModal';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import ReportModal from './ReportModal';
 import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+
+type Theme = ReturnType<typeof useTheme>;
+type ThreadItem = any & { _role: 'ancestor' | 'main' | 'meta' | 'reply' };
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const fmtCount = (n: number) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+  : n >= 1_000 ? `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+  : String(n);
+
+/** "2:41 PM · Oct 27" (+ year when not the current year) */
+function fmtStamp(iso?: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const h = d.getHours();
+  const time = `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  const date = `${MONTHS[d.getMonth()]} ${d.getDate()}${sameYear ? '' : `, ${d.getFullYear()}`}`;
+  return `${time} · ${date}`;
+}
 
 export default function PostDetailScreen() {
   const navigation = useNavigation<any>();
@@ -24,6 +48,7 @@ export default function PostDetailScreen() {
   const { deletePost } = useSocialStore();
   const { currentUserProfile } = useProfileStore();
   const T = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(T), [T]);
 
   const [post, setPost]           = useState<any>(null);
@@ -33,20 +58,28 @@ export default function PostDetailScreen() {
   const [error, setError]         = useState<string | null>(null);
   const [replyText, setReplyText]  = useState('');
   const [sending, setSending]      = useState(false);
+  const [keyboardShown, setKeyboardShown] = useState(false);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
   const replyInputRef = useRef<TextInput>(null);
-  const sendScale = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
 
   const hasText = replyText.trim().length > 0;
-  useEffect(() => {
-    Animated.spring(sendScale, { toValue: hasText ? 1 : 0, useNativeDriver: true, damping: 14, stiffness: 180 }).start();
-  }, [hasText]);
+  const canSend = hasText && !sending;
 
   useEffect(() => { loadPost(); }, [postId]);
 
   useEffect(() => {
     if (focusReply) setTimeout(() => replyInputRef.current?.focus(), 300);
+  }, []);
+
+  // Drop the home-indicator inset from the composer while the keyboard is up
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s = Keyboard.addListener(showEvt, () => setKeyboardShown(true));
+    const h = Keyboard.addListener(hideEvt, () => setKeyboardShown(false));
+    return () => { s.remove(); h.remove(); };
   }, []);
 
   const loadPost = async () => {
@@ -60,8 +93,8 @@ export default function PostDetailScreen() {
       ]);
       if (postRes.success) setPost(postRes.data);
       else setError('Post not found');
-      if (repliesRes.success) setReplies(repliesRes.data || []);
-      if (ancestorsRes.success) setAncestors(ancestorsRes.data || []);
+      if (repliesRes.success) setReplies((repliesRes.data as any[]) || []);
+      if (ancestorsRes.success) setAncestors((ancestorsRes.data as any[]) || []);
     } catch (e: any) {
       setError(e?.message?.includes('Network') ? 'Network error — check your connection' : 'Failed to load post');
     }
@@ -81,7 +114,7 @@ export default function PostDetailScreen() {
           // Re-fetch the full replies list so bot grandchild replies also appear
           try {
             const res = await apiClient.getPostReplies(postId);
-            if (res.success) setReplies(res.data || []);
+            if (res.success) setReplies((res.data as any[]) || []);
           } catch {}
         }
       )
@@ -98,26 +131,35 @@ export default function PostDetailScreen() {
         'postgres_changes' as any,
         { event: 'INSERT', schema: 'public', table: 'post_likes', filter: `post_id=eq.${postId}` },
         () => {
-          setPost(p => p ? { ...p, like_count: p.like_count + 1 } : p);
+          setPost((p: any) => p ? { ...p, like_count: (p.like_count ?? 0) + 1 } : p);
         }
       )
       .on(
         'postgres_changes' as any,
         { event: 'DELETE', schema: 'public', table: 'post_likes', filter: `post_id=eq.${postId}` },
         () => {
-          setPost(p => p ? { ...p, like_count: Math.max(0, p.like_count - 1) } : p);
+          setPost((p: any) => p ? { ...p, like_count: Math.max(0, (p.like_count ?? 0) - 1) } : p);
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(likesChannel); };
   }, [postId]);
 
-  // Build flat thread array: ancestors → main post → replies
-  const threadItems = useMemo(() => [
+  // Flat thread: ancestors → main post → meta/“Replies” row → replies
+  const threadItems: ThreadItem[] = useMemo(() => [
     ...ancestors.map(a  => ({ ...a, _role: 'ancestor' as const })),
-    ...(post ? [{ ...post, _role: 'main' as const }] : []),
+    ...(post ? [{ ...post, _role: 'main' as const }, { id: '__meta__', _role: 'meta' as const }] : []),
     ...replies.map(r => ({ ...r, _role: 'reply'  as const })),
   ], [ancestors, post, replies]);
+
+  // Replies that have a child reply directly beneath them get a connector line
+  const repliesWithChild = useMemo(() => {
+    const set = new Set<string>();
+    for (let i = 0; i < replies.length - 1; i++) {
+      if (replies[i + 1]?.parent_post_id === replies[i]?.id) set.add(replies[i].id);
+    }
+    return set;
+  }, [replies]);
 
   // After load, scroll so the focused (main) post is at the top when ancestors exist
   useEffect(() => {
@@ -131,6 +173,7 @@ export default function PostDetailScreen() {
 
   const handleSendReply = useCallback(async () => {
     if (!replyText.trim() || sending) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setSending(true);
     const content = replyText.trim();
     setReplyText('');
@@ -143,7 +186,7 @@ export default function PostDetailScreen() {
       created_at: new Date().toISOString(),
       like_count: 0, comment_count: 0, repost_count: 0, view_count: 0,
       is_bot_reply: false, visibility: 'public', parent_post_id: postId,
-      profiles: post?.profiles,
+      profiles: currentUserProfile ?? post?.profiles,
       _pending: true,
     };
     setReplies(prev => [...prev, tempReply]);
@@ -153,6 +196,7 @@ export default function PostDetailScreen() {
       const res = await apiClient.replyToPost(postId, content);
       if (res.success && res.data) {
         setReplies(prev => prev.map(r => r.id === tempReply.id ? res.data : r));
+        setPost((p: any) => p ? { ...p, comment_count: (p.comment_count ?? 0) + 1 } : p);
       } else {
         setReplies(prev => prev.filter(r => r.id !== tempReply.id));
         setReplyText(content);
@@ -163,7 +207,7 @@ export default function PostDetailScreen() {
       Alert.alert('Failed to send', 'Your reply could not be sent. Please try again.');
     }
     setSending(false);
-  }, [replyText, sending, postId, user, post]);
+  }, [replyText, sending, postId, user, post, currentUserProfile]);
 
   const handleDeletePost = useCallback((pid: string) => {
     apiClient.deletePost(pid).then(() => {
@@ -182,106 +226,174 @@ export default function PostDetailScreen() {
     loadPost();
   }, [loadPost]);
 
+  const goProfile = useCallback((u: string) => navigation.navigate('PublicProfile', { username: u }), [navigation]);
+  const goHashtag = useCallback((tag: string) => navigation.navigate('Explore', {
+    screen: 'ExploreMain', params: { initialQuery: `#${tag}` },
+  }), [navigation]);
+
+  const header = (
+    <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+      <Pressable
+        onPress={() => navigation.goBack()}
+        style={({ pressed }) => [styles.headerBtn, pressed && styles.pressed]}
+        hitSlop={4}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
+        <Ionicons name="arrow-back" size={24} color={T.text} />
+      </Pressable>
+      <Text style={styles.headerTitle}>Thread</Text>
+      <View style={styles.headerBtn} />
+    </View>
+  );
+
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator color="#5CB85C" /></View>;
+    return (
+      <View style={styles.root}>
+        {header}
+        <ThreadSkeleton T={T} />
+      </View>
+    );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={T.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Post</Text>
-        </View>
+      <View style={styles.root}>
+        {header}
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={48} color={T.textMuted} />
+          <Ionicons name="cloud-offline-outline" size={40} color={T.textMuted} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={loadPost}>
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
+          <Pressable
+            onPress={loadPost}
+            style={({ pressed }) => [styles.retryBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.retryText}>Try again</Text>
+          </Pressable>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const parentAuthor = post?.profiles?.username;
+  const views = post?.view_count ?? 0;
+  const stamp = fmtStamp(post?.created_at);
+  const metaLine = [stamp, views > 0 ? `${fmtCount(views)} ${views === 1 ? 'view' : 'views'}` : '']
+    .filter(Boolean).join(' · ');
+
+  const renderItem = ({ item }: { item: ThreadItem }) => {
+    if (item._role === 'meta') {
+      return (
+        <View>
+          {!!metaLine && <Text style={styles.metaLine}>{metaLine}</Text>}
+          <View style={styles.divider} />
+          <View style={styles.repliesRow}>
+            <Text style={styles.repliesLabel}>Replies</Text>
+            {replies.length > 0 && <Text style={styles.repliesCount}>{fmtCount(replies.length)}</Text>}
+          </View>
+        </View>
+      );
+    }
+
+    const isAncestor = item._role === 'ancestor';
+    const isMain     = item._role === 'main';
+    const isReply    = item._role === 'reply';
+    const hasConnectorBelow = isAncestor || (isReply && repliesWithChild.has(item.id));
+
+    return (
+      <PostCard
+        post={item}
+        hasConnectorBelow={hasConnectorBelow}
+        style={
+          isMain ? styles.mainCard
+          : isAncestor ? styles.ancestorCard
+          : hasConnectorBelow ? styles.noBorder
+          : undefined
+        }
+        onPress={isMain ? undefined : () => navigation.push('PostDetail', { postId: item.id })}
+        onReplyPress={isMain
+          ? () => replyInputRef.current?.focus()
+          : () => navigation.push('PostDetail', { postId: item.id, focusReply: true })}
+        onProfilePress={goProfile}
+        onMentionPress={goProfile}
+        onHashtagPress={goHashtag}
+        currentUserId={user?.id}
+        onDeletePress={() => handleDeletePost(item.id)}
+        onEditPress={handleEditPress}
+        onReportPress={(id) => setReportTarget({ type: 'post', id, displayName: 'this post' })}
+      />
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <View style={styles.root}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={T.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Post</Text>
-        </View>
+        {header}
 
         <FlatList
           ref={flatListRef}
           data={threadItems}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => {
-            const isAncestor = item._role === 'ancestor';
-            const isMain     = item._role === 'main';
-            const isReply    = item._role === 'reply';
-            const hasConnectorBelow = isAncestor || (isMain && replies.length > 0);
-
-            return (
-              <PostCard
-                post={item}
-                hasConnectorBelow={hasConnectorBelow}
-                style={isAncestor ? { opacity: 0.72 } : undefined}
-                onPress={isReply ? () => navigation.push('PostDetail', { postId: item.id }) : undefined}
-                onProfilePress={(u) => navigation.navigate('PublicProfile', { username: u })}
-                onMentionPress={(u) => navigation.navigate('PublicProfile', { username: u })}
-                onHashtagPress={(tag) => navigation.navigate('Explore', {
-                  screen: 'ExploreMain', params: { initialQuery: `#${tag}` }
-                })}
-                currentUserId={user?.id}
-                onDeletePress={() => handleDeletePost(item.id)}
-                onEditPress={handleEditPress}
-              />
-            );
-          }}
-          ListEmptyComponent={
-            !loading ? <Text style={styles.noReplies}>No replies yet — be the first!</Text> : null
+          renderItem={renderItem}
+          ListFooterComponent={
+            post && replies.length === 0 ? (
+              <View style={styles.empty}>
+                <View style={styles.emptyIcon}>
+                  <Ionicons name="chatbubble-outline" size={26} color={T.textMuted} />
+                </View>
+                <Text style={styles.emptyTitle}>No replies yet</Text>
+                <Text style={styles.emptySub}>Start the conversation.</Text>
+              </View>
+            ) : null
           }
           onScrollToIndexFailed={() => {}}
-          contentContainerStyle={{ paddingBottom: 8 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          contentContainerStyle={{ paddingBottom: 16 }}
         />
 
-        {/* Reply compose bar */}
-        <View style={styles.replyBar}>
-          <UserAvatar avatarUrl={currentUserProfile?.avatar_url} size={28} />
-          <View style={styles.replyInputWrap}>
+        {/* Reply composer */}
+        <View style={[styles.composer, { paddingBottom: keyboardShown ? 8 : Math.max(insets.bottom, 8) }]}>
+          <View style={styles.composerAvatar}>
+            <UserAvatar avatarUrl={currentUserProfile?.avatar_url} size={32} />
+          </View>
+          <View style={styles.inputPill}>
             <TextInput
               ref={replyInputRef}
-              style={styles.replyInput}
+              style={styles.input}
               placeholder={`Reply to @${parentAuthor || 'post'}…`}
-              placeholderTextColor={T.textMuted}
+              placeholderTextColor={T.placeholder}
               value={replyText}
               onChangeText={setReplyText}
               multiline
               maxLength={280}
             />
+            {replyText.length > 240 && (
+              <Text style={[styles.counter, replyText.length >= 280 && { color: T.error }]}>
+                {280 - replyText.length}
+              </Text>
+            )}
           </View>
-          <Animated.View style={{ transform: [{ scale: sendScale }], opacity: sendScale }}>
-            <TouchableOpacity
-              onPress={handleSendReply}
-              disabled={!hasText || sending}
-              style={styles.sendBtn}
-              activeOpacity={0.8}
-            >
-              {sending
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Ionicons name="send" size={14} color="#fff" style={{ marginLeft: 2 }} />}
-            </TouchableOpacity>
-          </Animated.View>
+          <Pressable
+            onPress={handleSendReply}
+            disabled={!canSend}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel="Send reply"
+            accessibilityState={{ disabled: !canSend }}
+            style={({ pressed }) => [
+              styles.sendBtn,
+              !canSend && !sending && styles.sendDisabled,
+              pressed && { transform: [{ scale: 0.92 }] },
+            ]}
+          >
+            {sending
+              ? <ActivityIndicator size="small" color="#000" />
+              : <Ionicons name="arrow-up" size={20} color="#000" />}
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
 
@@ -294,40 +406,102 @@ export default function PostDetailScreen() {
           onClose={handleEditSaved}
         />
       )}
-    </SafeAreaView>
+      <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
+    </View>
   );
 }
 
-function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+/** Placeholder blocks shaped like a post + a couple of replies */
+function ThreadSkeleton({ T }: { T: Theme }) {
+  const block = (w: number | `${number}%`, h: number, extra?: object) => (
+    <View style={[{ width: w, height: h, borderRadius: 6, backgroundColor: T.surface2 }, extra]} />
+  );
+  const row = (key: string, lines: Array<number | `${number}%`>) => (
+    <View key={key} style={{ flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 14, gap: 10 }}>
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2 }} />
+      <View style={{ flex: 1, gap: 8, paddingTop: 4 }}>
+        {block(120, 12)}
+        {lines.map((w, i) => <React.Fragment key={i}>{block(w, 12)}</React.Fragment>)}
+      </View>
+    </View>
+  );
+  return (
+    <View accessibilityLabel="Loading thread">
+      {row('main', ['92%', '84%', '60%'])}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 14 }}>{block(170, 12)}</View>
+      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: T.borderLight }} />
+      <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>{block(70, 14)}</View>
+      {row('r1', ['80%'])}
+      {row('r2', ['70%', '45%'])}
+    </View>
+  );
+}
+
+function makeStyles(T: Theme) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: T.bg },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight, backgroundColor: T.bg },
-    backBtn: { padding: 4 },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: T.text },
-    errorText: { fontSize: 15, color: T.textSub, textAlign: 'center' },
-    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: T.accent, borderRadius: 20 },
-    retryText: { color: '#000', fontWeight: '700' },
-    noReplies: { padding: 28, textAlign: 'center', color: T.textMuted, fontSize: 14 },
-    replyBar: {
-      flexDirection: 'row', alignItems: 'flex-end',
+    root: { flex: 1, backgroundColor: T.bg },
+    pressed: { opacity: 0.6 },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 32 },
+
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 4, paddingBottom: 4, backgroundColor: T.bg,
+    },
+    headerBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: 17, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },
+
+    errorText: { fontSize: 15, color: T.textSub, textAlign: 'center', lineHeight: 21 },
+    retryBtn: {
+      marginTop: 4, minHeight: 44, paddingHorizontal: 24, justifyContent: 'center',
+      backgroundColor: T.accent, borderRadius: 22,
+    },
+    retryText: { color: '#000', fontWeight: '700', fontSize: 15 },
+
+    mainCard: { borderBottomWidth: 0, paddingTop: 2 },
+    ancestorCard: { borderBottomWidth: 0, opacity: 0.72 },
+    noBorder: { borderBottomWidth: 0 },
+
+    metaLine: { fontSize: 14, color: T.textMuted, paddingHorizontal: 16, paddingTop: 2, paddingBottom: 12 },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: T.borderLight },
+    repliesRow: {
+      flexDirection: 'row', alignItems: 'baseline', gap: 6,
+      paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
+    },
+    repliesLabel: { fontSize: 15, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },
+    repliesCount: { fontSize: 14, color: T.textMuted },
+
+    empty: { alignItems: 'center', paddingTop: 40, paddingBottom: 24, paddingHorizontal: 32 },
+    emptyIcon: {
+      width: 64, height: 64, borderRadius: 32, backgroundColor: T.surface,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+    },
+    emptyTitle: { fontSize: 16, fontWeight: '700', color: T.text, marginBottom: 4 },
+    emptySub: { fontSize: 14, color: T.textMuted },
+
+    composer: {
+      flexDirection: 'row', alignItems: 'flex-end', gap: 8,
       paddingHorizontal: 12, paddingTop: 8,
-      paddingBottom: Platform.OS === 'ios' ? 24 : 10,
       backgroundColor: T.bg,
       borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.borderLight,
-      gap: 8,
     },
-    replyInputWrap: {
-      flex: 1, backgroundColor: T.inputBg,
-      borderRadius: 20, borderWidth: 1, borderColor: T.border,
-      paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 7 : 5,
-      minHeight: 36, justifyContent: 'center',
+    composerAvatar: { height: 44, justifyContent: 'center' },
+    inputPill: {
+      flex: 1, flexDirection: 'row', alignItems: 'flex-end',
+      minHeight: 44, borderRadius: 22, backgroundColor: T.surface2,
+      paddingLeft: 16, paddingRight: 12,
     },
-    replyInput: { fontSize: 14, color: T.text, maxHeight: 90, padding: 0 },
+    input: {
+      flex: 1, fontSize: 15, color: T.text, maxHeight: 110,
+      paddingTop: Platform.OS === 'ios' ? 12 : 10,
+      paddingBottom: Platform.OS === 'ios' ? 12 : 10,
+      paddingHorizontal: 0,
+    },
+    counter: { fontSize: 12, color: T.textMuted, paddingBottom: 13, paddingLeft: 6 },
     sendBtn: {
-      backgroundColor: T.accent, width: 34, height: 34, borderRadius: 17,
-      justifyContent: 'center', alignItems: 'center',
-      shadowColor: T.accent, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 4,
+      width: 36, height: 36, borderRadius: 18, marginBottom: 4,
+      backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center',
     },
+    sendDisabled: { opacity: 0.4 },
   });
 }

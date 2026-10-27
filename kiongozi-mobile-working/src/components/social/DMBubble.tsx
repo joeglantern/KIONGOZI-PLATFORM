@@ -1,10 +1,12 @@
+// Chat bubble. Flat, modern: solid green for you, soft grey for them, tight grouping,
+// time + read ticks only on the last bubble of a group.
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
 import { useTheme } from '../../hooks/useTheme';
+import { useThemeStore } from '../../stores/themeStore';
 
 interface DMBubbleProps {
   message: DMMessage;
@@ -21,220 +23,131 @@ function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function ReadReceipt({ pending, read }: { pending?: boolean; read: boolean }) {
-  const T = useTheme();
-  if (pending) {
-    return <Ionicons name="time-outline" size={12} color={T.textMuted} style={{ marginLeft: 1 }} />;
-  }
-  if (read) {
-    return <Ionicons name="checkmark-done" size={13} color={T.accent} style={{ marginLeft: 1 }} />;
-  }
-  return <Ionicons name="checkmark" size={13} color={T.textSub} style={{ marginLeft: 1 }} />;
+/** Only-emoji messages (up to 3) render big, without a bubble. */
+function bigEmoji(text?: string | null) {
+  if (!text) return false;
+  const t = text.trim();
+  if (!t || t.length > 12) return false;
+  // Every character is a symbol/emoji code point (no letters, digits or punctuation)
+  return Array.from(t).every(ch => {
+    const c = ch.codePointAt(0) || 0;
+    return ch === ' ' || c === 0x200d || c === 0xfe0f || (c >= 0x2190 && !(c >= 0x2e80 && c <= 0xd7ff));
+  });
 }
 
 export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPress, onLongPress, replyPreview }: DMBubbleProps) {
   const T = useTheme();
-  const styles = useMemo(() => makeStyles(T), [T]);
+  const isDark = useThemeStore(s => s.isDark);
+  const C = useMemo(() => ({
+    own: isDark ? '#1F6B3A' : '#D3F2D5',
+    ownText: isDark ? '#FFFFFF' : '#0B2A13',
+    ownMeta: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(11,42,19,0.6)',
+    other: T.userBubble,
+    otherText: T.text,
+    otherMeta: T.textMuted,
+  }), [isDark, T]);
 
-  // Media-only: no padding so image fills the bubble edge-to-edge
-  const mediaOnly = !!(message.media_url) && !message.content;
-  const bubblePad = mediaOnly
-    ? { paddingHorizontal: 0, paddingVertical: 0, overflow: 'hidden' as const }
-    : undefined;
+  const mediaOnly = !!message.media_url && !message.content;
+  const emojiOnly = !message.media_url && !replyPreview && bigEmoji(message.content);
+  const bg = isOwn ? C.own : C.other;
+  const fg = isOwn ? C.ownText : C.otherText;
+  const meta = isOwn ? C.ownMeta : C.otherMeta;
 
-  const ownTailRadius = isLast ? styles.ownTail : styles.ownGrouped;
-  const otherTailRadius = isLast ? styles.otherTail : styles.otherGrouped;
+  // Grouped corners: the side facing the sender gets small radii inside a group
+  const r = 20, s = 6;
+  const corners = isOwn
+    ? { borderTopRightRadius: isFirst ? r : s, borderBottomRightRadius: isLast ? r : s }
+    : { borderTopLeftRadius: isFirst ? r : s, borderBottomLeftRadius: isLast ? r : s };
+
+  const metaRow = isLast ? (
+    <View style={[styles.meta, isOwn ? { justifyContent: 'flex-end' } : null, (mediaOnly || emojiOnly) && styles.metaFloating]}>
+      {message._edited && <Text style={[styles.time, { color: meta }]}>edited · </Text>}
+      <Text style={[styles.time, { color: (mediaOnly) ? '#fff' : meta }]}>{formatTime(message.created_at)}</Text>
+      {isOwn && (
+        message._pending
+          ? <Ionicons name="time-outline" size={12} color={mediaOnly ? '#fff' : meta} style={{ marginLeft: 3 }} />
+          : <Ionicons name={message.is_read ? 'checkmark-done' : 'checkmark'} size={14} color={message.is_read ? (isDark ? '#7FE0A0' : '#1F8A45') : (mediaOnly ? '#fff' : meta)} style={{ marginLeft: 3 }} />
+      )}
+    </View>
+  ) : null;
 
   return (
-    <View style={[styles.row, isOwn ? styles.rowOwn : styles.rowOther]}>
+    <View style={[styles.row, isOwn ? styles.rowOwn : styles.rowOther, isFirst && styles.groupStart]}>
       {!isOwn && (
-        <View style={styles.avatarSlot}>
-          {isLast ? <UserAvatar avatarUrl={avatarUrl} size={28} /> : null}
-        </View>
+        <View style={styles.avatarSlot}>{isLast ? <UserAvatar avatarUrl={avatarUrl} size={28} /> : null}</View>
       )}
 
-      {isOwn ? (
-        <LinearGradient
-          colors={[T.accent, T.accentDeep]}
-          start={{ x: 0.2, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.bubble,
-            ownTailRadius,
-            !isFirst && styles.grouped,
-            message._pending && styles.pending,
-            bubblePad,
-            { shadowColor: T.acc25, shadowOffset: { width: 0, height: 4 }, shadowRadius: 14, shadowOpacity: 1, elevation: 3 },
-          ]}
-        >
-          <TouchableOpacity activeOpacity={0.85} onLongPress={onLongPress} delayLongPress={350}>
-            {replyPreview && (
-              <View style={[styles.replyBar, styles.replyBarOwn, mediaOnly && { margin: 10, marginBottom: 0 }]}>
-                <Text style={styles.replyName} numberOfLines={1}>{replyPreview.senderName}</Text>
-                <Text style={styles.replyContent} numberOfLines={2}>{replyPreview.content}</Text>
-              </View>
-            )}
-            {message.media_url && message.media_type === 'image' && (
-              <TouchableOpacity onPress={onMediaPress} activeOpacity={0.9}>
-                <Image
-                  source={{ uri: message.media_url }}
-                  style={[styles.image, mediaOnly && styles.imageOnly]}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
-            )}
-            {message.media_url && message.media_type === 'video' && (
-              <TouchableOpacity onPress={onMediaPress} style={[styles.videoThumb, mediaOnly && styles.videoThumbOnly]} activeOpacity={0.9}>
-                <Ionicons name="play-circle" size={40} color="rgba(255,255,255,0.9)" />
-                <Text style={styles.videoLabel}>Video</Text>
-              </TouchableOpacity>
-            )}
-            {message.content ? (
-              <Text style={[styles.text, styles.ownText, mediaOnly && { paddingHorizontal: 14, paddingTop: 6 }]}>
-                {message.content}
-              </Text>
-            ) : null}
-            <View style={[styles.meta, styles.metaOwn, mediaOnly && { paddingHorizontal: 10, paddingBottom: 6 }]}>
-              {message._edited && <Text style={styles.editedLabel}>edited</Text>}
-              <Text style={[styles.time, styles.ownTime]}>{formatTime(message.created_at)}</Text>
-              <ReadReceipt pending={message._pending} read={message.is_read} />
-            </View>
-          </TouchableOpacity>
-        </LinearGradient>
+      {emojiOnly ? (
+        <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.emojiWrap, isOwn && { alignItems: 'flex-end' }]}>
+          <Text style={styles.emoji}>{message.content!.trim()}</Text>
+          {isLast && <Text style={[styles.time, { color: T.textMuted, marginTop: 2 }]}>{formatTime(message.created_at)}</Text>}
+        </Pressable>
       ) : (
-        <TouchableOpacity
-          activeOpacity={0.85}
+        <Pressable
           onLongPress={onLongPress}
-          delayLongPress={350}
-          style={[
+          delayLongPress={300}
+          style={({ pressed }) => [
             styles.bubble,
-            styles.otherBubble,
-            otherTailRadius,
-            !isFirst && styles.grouped,
-            message._pending && styles.pending,
-            bubblePad,
+            { backgroundColor: bg },
+            corners,
+            mediaOnly && styles.mediaBubble,
+            message._pending && { opacity: 0.6 },
+            pressed && { opacity: 0.85 },
           ]}
         >
           {replyPreview && (
-            <View style={[styles.replyBar, styles.replyBarOther, mediaOnly && { margin: 10, marginBottom: 0 }]}>
-              <Text style={styles.replyName} numberOfLines={1}>{replyPreview.senderName}</Text>
-              <Text style={styles.replyContent} numberOfLines={2}>{replyPreview.content}</Text>
+            <View style={[styles.reply, { backgroundColor: isOwn ? 'rgba(0,0,0,0.14)' : T.surface }, mediaOnly && { margin: 6 }]}>
+              <Text style={[styles.replyName, { color: isOwn ? fg : T.accent }]} numberOfLines={1}>{replyPreview.senderName}</Text>
+              <Text style={[styles.replyText, { color: isOwn ? meta : T.textSub }]} numberOfLines={2}>{replyPreview.content}</Text>
             </View>
           )}
+
           {message.media_url && message.media_type === 'image' && (
-            <TouchableOpacity onPress={onMediaPress} activeOpacity={0.9}>
-              <Image
-                source={{ uri: message.media_url }}
-                style={[styles.image, mediaOnly && styles.imageOnly]}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
+            <Pressable onPress={onMediaPress} accessibilityLabel="Open photo">
+              <Image source={{ uri: message.media_url }} style={[styles.image, mediaOnly ? styles.imageOnly : styles.imageWithText]} resizeMode="cover" />
+            </Pressable>
           )}
           {message.media_url && message.media_type === 'video' && (
-            <TouchableOpacity onPress={onMediaPress} style={[styles.videoThumb, mediaOnly && styles.videoThumbOnly]} activeOpacity={0.9}>
-              <Ionicons name="play-circle" size={40} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.videoLabel}>Video</Text>
-            </TouchableOpacity>
+            <Pressable onPress={onMediaPress} style={[styles.video, mediaOnly ? styles.imageOnly : styles.imageWithText]} accessibilityLabel="Play video">
+              <View style={styles.playCircle}><Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 3 }} /></View>
+            </Pressable>
           )}
+
           {message.content ? (
-            <Text style={[styles.text, styles.otherText, mediaOnly && { paddingHorizontal: 14, paddingTop: 6 }]}>
-              {message.content}
-            </Text>
+            <Text style={[styles.text, { color: fg }, mediaOnly && { paddingHorizontal: 12 }]}>{message.content}</Text>
           ) : null}
-          <View style={[styles.meta, styles.metaOther, mediaOnly && { paddingHorizontal: 10, paddingBottom: 6 }]}>
-            {message._edited && <Text style={styles.editedLabel}>edited</Text>}
-            <Text style={[styles.time, styles.otherTime]}>{formatTime(message.created_at)}</Text>
-          </View>
-        </TouchableOpacity>
+          {metaRow}
+        </Pressable>
       )}
     </View>
   );
 }
 
-const RADIUS = 20;
-const TAIL   = 4;
-const SOFT   = 8;
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 2, paddingHorizontal: 10 },
+  groupStart: { marginTop: 10 },
+  rowOwn: { justifyContent: 'flex-end' },
+  rowOther: { justifyContent: 'flex-start' },
+  avatarSlot: { width: 30, marginRight: 6, alignItems: 'flex-end' },
 
-function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
-  return StyleSheet.create({
-    row: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      marginVertical: 2,
-      paddingHorizontal: 12,
-    },
-    rowOwn:   { justifyContent: 'flex-end' },
-    rowOther: { justifyContent: 'flex-start' },
+  bubble: { maxWidth: '76%', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20 },
+  mediaBubble: { paddingHorizontal: 0, paddingVertical: 0, overflow: 'hidden' },
+  text: { fontSize: 16, lineHeight: 21 },
 
-    avatarSlot: { width: 34, marginRight: 6, alignItems: 'flex-end' },
+  meta: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  metaFloating: { position: 'absolute', right: 8, bottom: 6, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginTop: 0 },
+  time: { fontSize: 11, fontVariant: ['tabular-nums'] },
 
-    bubble: {
-      maxWidth: '74%',
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-      borderRadius: RADIUS,
-    },
-    ownBubble:   {},
-    otherBubble: { backgroundColor: T.frost, borderWidth: 1, borderColor: T.border },
+  image: { backgroundColor: 'rgba(127,127,127,0.2)' },
+  imageOnly: { width: 230, height: 280 },
+  imageWithText: { width: 230, height: 200, borderRadius: 14, marginBottom: 6, marginTop: 2 },
+  video: { backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
+  playCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
 
-    ownTail:    { borderBottomRightRadius: TAIL },
-    otherTail:  { borderBottomLeftRadius: TAIL },
-    ownGrouped: { borderBottomRightRadius: SOFT },
-    otherGrouped: { borderBottomLeftRadius: SOFT },
+  reply: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 6 },
+  replyName: { fontSize: 12, fontWeight: '700', marginBottom: 1 },
+  replyText: { fontSize: 13, lineHeight: 17 },
 
-    grouped: { marginTop: 1 },
-
-    text: { fontSize: 15, lineHeight: 22 },
-    ownText:   { color: '#FFFFFF' },
-    otherText: { color: T.text },
-
-    image: { width: 200, height: 150, borderRadius: 12, marginBottom: 4 },
-    // When there's no text: image fills the entire bubble (no margins/padding)
-    imageOnly: { width: 220, height: 165, borderRadius: 0, marginBottom: 0 },
-    videoThumb: {
-      width: 200,
-      height: 130,
-      borderRadius: 12,
-      backgroundColor: T.surface2,
-      marginBottom: 4,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-    },
-    videoThumbOnly: { width: 220, height: 150, borderRadius: 0, marginBottom: 0 },
-    videoLabel: {
-      color: T.text,
-      fontSize: 13,
-      fontWeight: '500',
-    },
-
-    meta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 4,
-      gap: 3,
-    },
-    metaOwn:   { justifyContent: 'flex-end' },
-    metaOther: { justifyContent: 'flex-start' },
-
-    time: { fontSize: 11 },
-    ownTime:   { color: 'rgba(255,255,255,0.7)' },
-    otherTime: { color: T.textSub },
-    editedLabel: { fontSize: 10, color: T.textMuted, fontStyle: 'italic', marginRight: 3 },
-
-    pending: { opacity: 0.6 },
-
-    replyBar: {
-      borderLeftWidth: 3,
-      borderLeftColor: T.accent,
-      paddingLeft: 8,
-      paddingVertical: 4,
-      marginBottom: 6,
-      borderRadius: 4,
-    },
-    replyBarOwn: { backgroundColor: 'rgba(0,0,0,0.15)' },
-    replyBarOther: { backgroundColor: T.surface2 },
-    replyName: { fontSize: 12, fontWeight: '700', color: T.accent, marginBottom: 2 },
-    replyContent: { fontSize: 12, color: T.textSub, lineHeight: 16 },
-  });
-}
+  emojiWrap: { maxWidth: '76%' },
+  emoji: { fontSize: 44, lineHeight: 54 },
+});
