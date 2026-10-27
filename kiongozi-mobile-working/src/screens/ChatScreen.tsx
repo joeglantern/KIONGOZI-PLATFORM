@@ -26,6 +26,10 @@ import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
 import apiClient from '../utils/apiClient';
 import { TypingDots } from '../components/social/TypingDots';
+import MarkdownRenderer from '../components/MarkdownRenderer';
+import Reanimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import { AIOrb } from '../components/ai/AIOrb';
+import { AIWelcome } from '../components/ai/Suggestions';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(300, SCREEN_WIDTH * 0.78);
@@ -375,7 +379,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     if (item.isUser) {
       return (
-        <View style={styles.userRow}>
+        <Reanimated.View entering={FadeInDown.duration(240)} style={styles.userRow}>
           <TouchableOpacity
             activeOpacity={0.75}
             onLongPress={() => copyMessage(item.text)}
@@ -383,31 +387,41 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           >
             <Text style={[styles.userText, { color: C.text }]}>{item.text}</Text>
           </TouchableOpacity>
-        </View>
+        </Reanimated.View>
       );
     }
     return (
-      <View style={styles.aiRow}>
-        <Image source={require('../../assets/kchat-logo.png')} style={styles.aiAvatar} resizeMode="contain" />
+      <Reanimated.View entering={FadeIn.duration(260)} style={styles.aiRow}>
+        <View style={styles.aiAvatarWrap}>
+          <AIOrb size={28} state={item.isLoading ? 'thinking' : 'idle'} />
+        </View>
         <View style={styles.aiContent}>
+          <Text style={[styles.aiName, { color: C.textMuted }]}>Kiongozi AI</Text>
           {item.isLoading ? (
-            <View style={{ paddingVertical: 2 }}><TypingDots /></View>
+            <View style={styles.thinkingRow}>
+              <TypingDots />
+              <Text style={[styles.thinkingText, { color: C.textMuted }]}>Thinking…</Text>
+            </View>
           ) : (
             <TouchableOpacity activeOpacity={1} onLongPress={() => copyMessage(item.text)}>
-              <Text style={[styles.aiText, { color: C.text }]}>{item.text}</Text>
-              <TouchableOpacity
-                onPress={() => copyMessage(item.text)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.copyBtn}
-              >
-                <Ionicons name="copy-outline" size={13} color={C.textSub} />
-              </TouchableOpacity>
+              <MarkdownRenderer content={item.text} darkMode={isDark} />
+              <View style={styles.aiActions}>
+                <TouchableOpacity
+                  onPress={() => copyMessage(item.text)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={[styles.aiActionBtn, { borderColor: C.border }]}
+                  accessibilityLabel="Copy reply"
+                >
+                  <Ionicons name="copy-outline" size={14} color={C.textSub} />
+                  <Text style={[styles.aiActionText, { color: C.textSub }]}>Copy</Text>
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </Reanimated.View>
     );
-  }, [C]);
+  }, [C, isDark]);
 
   const renderConversationItem = useCallback(({ item }: { item: Conversation }) => (
     <TouchableOpacity
@@ -506,9 +520,10 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <View style={styles.headerTitleBlock}>
+            <AIOrb size={22} state={isGenerating ? 'thinking' : 'idle'} />
+            <View style={[styles.headerTitleBlock, { alignItems: 'flex-start' }]}>
               <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>Kiongozi AI</Text>
-              <Text style={[styles.headerSub, { color: C.textMuted }]}>Green &amp; Digital Transition</Text>
+              <Text style={[styles.headerSub, { color: C.textMuted }]}>{isGenerating ? 'Thinking…' : 'Green & Digital Transition'}</Text>
             </View>
           </View>
 
@@ -551,13 +566,11 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                 messages.length === 0 && styles.messageListEmpty,
               ]}
               ListEmptyComponent={
-                <View style={styles.emptyWrap}>
-                  <Image source={require('../../assets/kchat-logo.png')} style={styles.emptyLogo} resizeMode="contain" />
-                  <Text style={[styles.emptyTitle, { color: C.text }]}>How can I help?</Text>
-                  <Text style={[styles.emptySub, { color: C.textSub }]}>
-                    Ask me anything about your learning journey, green careers, or civic rights.
-                  </Text>
-                </View>
+                <AIWelcome
+                  name={(user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name}
+                  C={C}
+                  onPick={(prompt) => { setInputText(prompt); setTimeout(() => inputRef.current?.focus(), 50); }}
+                />
               }
               keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
               keyboardShouldPersistTaps="handled"
@@ -584,7 +597,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
               <TextInput
                 ref={inputRef}
                 style={[styles.input, { color: C.text }]}
-                placeholder="Message Kiongozi AI…"
+                placeholder="Ask Kiongozi AI anything…"
                 placeholderTextColor={C.textMuted}
                 value={inputText}
                 onChangeText={setInputText}
@@ -693,13 +706,18 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 12, fontWeight: '400', marginTop: 1 },
 
   // Messages
-  messageList: { paddingTop: 20, paddingHorizontal: 20, paddingBottom: 12 },
+  messageList: { paddingTop: 16, paddingHorizontal: 18, paddingBottom: 12 },
   messageListEmpty: { flexGrow: 1 },
-  aiRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 28, gap: 12 },
-  aiAvatar: { width: 22, height: 16, marginTop: 5 },
-  aiContent: { flex: 1 },
+  aiRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 26, gap: 12 },
+  aiAvatarWrap: { marginTop: 1 },
+  aiContent: { flex: 1, minWidth: 0 },
+  aiName: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
   aiText: { fontSize: 16, lineHeight: 25 },
-  copyBtn: { marginTop: 10, alignSelf: 'flex-start' },
+  thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  thinkingText: { fontSize: 14 },
+  aiActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  aiActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 30, paddingHorizontal: 10, borderRadius: 15, borderWidth: StyleSheet.hairlineWidth },
+  aiActionText: { fontSize: 12.5, fontWeight: '600' },
   userRow: { alignItems: 'flex-end', marginBottom: 28 },
   userBubble: {
     maxWidth: '80%', borderRadius: 22, borderBottomRightRadius: 6,
