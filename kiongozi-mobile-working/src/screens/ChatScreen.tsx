@@ -24,12 +24,69 @@ import { ShineText, ReplyFx } from '../components/ai/StreamFx';
 
 const SPRING = { damping: 26, stiffness: 260, mass: 0.9 };
 
-const SUGGESTIONS: { art: any; label: string; hint: string; prompt: string }[] = [
-  { art: require('../../assets/ai/s_green.png'), label: 'Green careers', hint: 'Jobs that grow', prompt: 'What green jobs can a young person in Kenya start preparing for this year?' },
-  { art: require('../../assets/ai/s_rights.png'), label: 'Know my rights', hint: 'Simply explained', prompt: 'Explain my key civic rights as a young Kenyan in simple terms.' },
-  { art: require('../../assets/ai/s_digital.png'), label: 'Digital skills', hint: 'Where to start', prompt: 'Which digital skills should I learn first to get online work, and where can I start for free?' },
-  { art: require('../../assets/ai/s_community.png'), label: 'Community project', hint: 'Plan it together', prompt: 'Give me a simple plan to start a climate action project in my community.' },
+// Flat topic art (one per area), shown on a soft cream tile so it reads in light and dark.
+const ART = {
+  careers: require('../../assets/ai/t_careers.png'),
+  rights: require('../../assets/ai/t_rights.png'),
+  digital: require('../../assets/ai/t_digital.png'),
+  climate: require('../../assets/ai/t_climate.png'),
+  money: require('../../assets/ai/t_money.png'),
+  health: require('../../assets/ai/t_health.png'),
+  learning: require('../../assets/ai/t_learning.png'),
+  creative: require('../../assets/ai/t_creative.png'),
+  writing: require('../../assets/ai/t_writing.png'),
+  trending: require('../../assets/ai/t_trending.png'),
+  community: require('../../assets/ai/t_community.png'),
+  travel: require('../../assets/ai/t_travel.png'),
+};
+type Suggestion = { art: keyof typeof ART; label: string; hint: string; prompt: string };
+
+// A new chat shows 4 of these (each from a different area), so the ideas change every time.
+const POOL: Suggestion[] = [
+  { art: 'careers', label: 'Green careers', hint: 'Jobs that grow', prompt: 'What green jobs can a young person in Kenya start preparing for this year?' },
+  { art: 'careers', label: 'First job', hint: 'Get noticed', prompt: 'I am looking for my first job in Kenya. How do I stand out with little experience?' },
+  { art: 'careers', label: 'Interview prep', hint: 'Practice with me', prompt: 'Run a short mock job interview with me. Ask one question at a time and give feedback.' },
+  { art: 'rights', label: 'Know my rights', hint: 'Simply explained', prompt: 'Explain my key civic rights as a young Kenyan in simple terms.' },
+  { art: 'rights', label: 'Public participation', hint: 'Have your say', prompt: 'How can I take part in public participation on a county budget or a new bill?' },
+  { art: 'rights', label: 'Talk to my MCA', hint: 'Be heard', prompt: 'Help me write a short, respectful message to my MCA about a problem in my ward.' },
+  { art: 'digital', label: 'Digital skills', hint: 'Where to start', prompt: 'Which digital skills should I learn first to get online work, and where can I start for free?' },
+  { art: 'digital', label: 'Stay safe online', hint: 'Spot scams', prompt: 'What are the common online scams targeting young Kenyans and how do I avoid them?' },
+  { art: 'digital', label: 'Learn to code', hint: 'A 30-day plan', prompt: 'Make me a simple 30-day plan to start learning to code on a phone or a cheap laptop.' },
+  { art: 'climate', label: 'Climate action', hint: 'Start local', prompt: 'Give me a simple plan to start a climate action project in my community.' },
+  { art: 'climate', label: 'Climate explained', hint: 'In plain words', prompt: 'Explain how climate change affects farmers and cities in Kenya, in plain words.' },
+  { art: 'money', label: 'Side hustle', hint: 'Ideas that work', prompt: 'Suggest side hustles I can start in Kenya with less than KSh 5,000, with honest pros and cons.' },
+  { art: 'money', label: 'Budget my money', hint: 'Make it last', prompt: 'Help me make a simple monthly budget. Ask me about my income and costs first.' },
+  { art: 'money', label: 'Save smarter', hint: 'SACCOs and more', prompt: 'What are good ways for a young person in Kenya to save, like SACCOs, chamas or money market funds?' },
+  { art: 'health', label: 'Mental health', hint: 'Check in', prompt: 'I have been feeling stressed lately. Can you share some simple ways to cope, and where to find support in Kenya?' },
+  { art: 'health', label: 'Healthy habits', hint: 'Small wins', prompt: 'Suggest 5 small, cheap daily habits that improve health and energy.' },
+  { art: 'learning', label: 'Study plan', hint: 'Stay on track', prompt: 'Help me make a realistic study plan for my exams. Ask me what I am studying first.' },
+  { art: 'learning', label: 'Explain a topic', hint: 'Like I am 15', prompt: 'Explain how the Kenyan government is structured, like I am 15.' },
+  { art: 'learning', label: 'Scholarships', hint: 'Find funding', prompt: 'How can a Kenyan student find and apply for scholarships and bursaries?' },
+  { art: 'creative', label: 'Content ideas', hint: 'For your page', prompt: 'Give me 10 content ideas for a youth page about leadership and community in Kenya.' },
+  { art: 'creative', label: 'Start a brand', hint: 'Name and vibe', prompt: 'Help me name and describe a small creative brand. Ask me what I make first.' },
+  { art: 'writing', label: 'Fix my CV', hint: 'Make it shine', prompt: 'Help me improve my CV. I will paste it next; tell me what to change.' },
+  { art: 'writing', label: 'Write a proposal', hint: 'For a grant', prompt: 'Help me write a short grant proposal for a youth community project.' },
+  { art: 'community', label: 'Lead a team', hint: 'Bring people in', prompt: 'How do I get young people in my area to join and stay committed to a community group?' },
+  { art: 'community', label: 'Plan an event', hint: 'Step by step', prompt: 'Help me plan a small community clean-up event, step by step.' },
+  { art: 'travel', label: 'Explore Kenya', hint: 'On a budget', prompt: 'Suggest affordable weekend trips around Kenya for young people.' },
 ];
+
+/** 4 suggestions from different areas, shuffled; a live trending hashtag takes the first slot. */
+function pickSuggestions(trend?: string | null): Suggestion[] {
+  const shuffled = [...POOL].sort(() => Math.random() - 0.5);
+  const out: Suggestion[] = [];
+  const used = new Set<string>();
+  if (trend) {
+    out.push({ art: 'trending', label: `#${trend}`, hint: 'Trending now', prompt: `What is the conversation around #${trend} on KChat and in Kenya right now, and why does it matter for young people?` });
+  }
+  for (const sg of shuffled) {
+    if (out.length >= 4) break;
+    if (used.has(sg.art)) continue;
+    used.add(sg.art);
+    out.push(sg);
+  }
+  return out;
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -105,6 +162,19 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const { width: winW, height: winH } = useWindowDimensions();
   const DRAWER_W = Math.min(330, winW * 0.84);
   const narrow = winW < 360; // SE 1st gen (320) and small Androids
+  const [suggestions, setSuggestions] = useState(() => pickSuggestions());
+  const trendTag = useRef<string | null>(null);
+  // A hashtag people are actually using takes one suggestion slot
+  useEffect(() => {
+    let live = true;
+    apiClient.getTrending().then((r: any) => {
+      const tag = (r?.data?.hashtags || []).find((h: any) => (h.use_count || 0) >= 2 && /^[a-z0-9_]{2,24}$/i.test(h.tag || ''))?.tag;
+      if (!live || !tag) return;
+      trendTag.current = tag;
+      setSuggestions(pickSuggestions(tag));
+    }).catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   // Track the keyboard so the 2×2 suggestion grid can step aside when it would squeeze the chat
   const [kbH, setKbH] = useState(0);
@@ -228,6 +298,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
 
   const startNewChat = () => {
     closeSidebar();
+    setSuggestions(pickSuggestions(trendTag.current));
     setMessages([]);
     setConversationId(null);
     setInputText('');
@@ -556,7 +627,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
               {messages.length === 0 && !loadingMessages && showGrid && (
                 // 2×2 grid: every suggestion fully visible, no sideways scrolling
                 <View style={styles.grid}>
-                  {SUGGESTIONS.map((sg, i) => (
+                  {suggestions.map((sg, i) => (
                     <Reanimated.View key={sg.label} entering={FadeInDown.delay(120 + i * 60).duration(320)} style={styles.gridCell}>
                       <Pressable
                         onPress={() => { Haptics.selectionAsync(); sendMessage(sg.prompt); }}
@@ -564,7 +635,9 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
                         accessibilityRole="button"
                         accessibilityLabel={sg.label}
                       >
-                        <Image source={sg.art} style={[styles.tileArt, narrow && styles.tileArtNarrow]} />
+                        <View style={[styles.tileArt, narrow && styles.tileArtNarrow]}>
+                          <Image source={ART[sg.art]} style={styles.tileArtImg} />
+                        </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
                           {/* At 320pt a cell is ~145pt: 145 − pad 20 − border 2 − art 30 − gap 6 ≈ 87pt for text → allow 2 lines */}
                           <Text style={[styles.tileLabel, narrow && styles.tileLabelNarrow, { color: C.text }]} numberOfLines={narrow ? 2 : 1} maxFontSizeMultiplier={1.25}>{sg.label}</Text>
@@ -687,11 +760,12 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: 12, paddingBottom: 10 },
   gridCell: { width: '49%' },
   tile: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 60, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 18, borderWidth: 1 },
-  tileArt: { width: 40, height: 40 },
+  tileArt: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F4F1EA', alignItems: 'center', justifyContent: 'center' },
+  tileArtImg: { width: '76%', height: '76%' },
   tileLabel: { fontSize: 14.5, fontWeight: '600' },
   tileHint: { fontSize: 12.5, marginTop: 1 },
   tileNarrow: { gap: 6, paddingHorizontal: 8 },
-  tileArtNarrow: { width: 30, height: 30 },
+  tileArtNarrow: { width: 32, height: 32, borderRadius: 10 },
   tileLabelNarrow: { fontSize: 13.5, lineHeight: 17 },
 
   composer: { paddingHorizontal: 12, paddingTop: 4 },
