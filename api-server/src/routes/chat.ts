@@ -978,4 +978,44 @@ router.post('/ai-response/stream', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /followups — 3 short next questions for the latest AI answer ("Ask next" under the reply)
+router.post('/followups', authenticateToken, async (req, res) => {
+  try {
+    const question = String(req.body?.question || '').trim().slice(0, 1000);
+    const answer = String(req.body?.answer || '').trim().slice(0, 3000);
+    if (!question || !answer) return res.status(400).json({ success: false, error: 'question and answer are required' });
+    if (!process.env.OPENAI_API_KEY) return res.json({ success: true, data: [] });
+
+    const r = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.6,
+      max_tokens: 160,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You suggest what a young Kenyan user might ask next after an AI answer. ' +
+            'Return JSON {"q":[...]} with exactly 3 follow-up questions written as the user would type them: ' +
+            'specific to the answer, practical, each under 70 characters, no numbering, no emoji, ' +
+            'and in the same language as the question (English, Swahili or Sheng).',
+        },
+        { role: 'user', content: `Question: ${question}\n\nAnswer: ${answer}` },
+      ],
+    });
+    let list: string[] = [];
+    try {
+      const parsed = JSON.parse(r.choices[0]?.message?.content || '{}');
+      list = (Array.isArray(parsed.q) ? parsed.q : [])
+        .map((s: any) => String(s || '').replace(/^\s*[-\d.)]+\s*/, '').trim())
+        .filter((s: string) => s.length > 3 && s.length <= 120)
+        .slice(0, 3);
+    } catch {}
+    return res.json({ success: true, data: list });
+  } catch (e) {
+    console.warn('followups failed:', e);
+    return res.json({ success: true, data: [] }); // optional feature: never an error for the UI
+  }
+});
+
 export default router;

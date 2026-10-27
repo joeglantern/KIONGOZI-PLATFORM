@@ -163,6 +163,8 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const DRAWER_W = Math.min(330, winW * 0.84);
   const narrow = winW < 360; // SE 1st gen (320) and small Androids
   const [suggestions, setSuggestions] = useState(() => pickSuggestions());
+  // "Ask next" questions under the latest AI reply
+  const [followups, setFollowups] = useState<{ forId: number; items: string[] } | null>(null);
   const trendTag = useRef<string | null>(null);
   // A hashtag people are actually using takes one suggestion slot
   useEffect(() => {
@@ -280,6 +282,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     setMessages([]);
     setLoadingMessages(true);
     try {
+      setFollowups(null);
       const res = await apiClient.getConversationMessages(convId, { limit: 100, offset: 0 });
       if (res.success && Array.isArray(res.data)) {
         const formatted: Message[] = res.data.map((m: any, i: number) => ({
@@ -299,6 +302,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const startNewChat = () => {
     closeSidebar();
     setSuggestions(pickSuggestions(trendTag.current));
+    setFollowups(null);
     setMessages([]);
     setConversationId(null);
     setInputText('');
@@ -332,6 +336,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
       { id: aiId, text: '', isUser: false, isLoading: true },
     ]);
     setInputText('');
+    setFollowups(null);
     setIsGenerating(true);
     setStreamingId(aiId);
 
@@ -362,6 +367,13 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           );
           setIsGenerating(false);
           setStreamingId(null);
+
+          if (fullText.length > 40) {
+            apiClient.getFollowups(text, fullText).then((r: any) => {
+              const items = Array.isArray(r?.data) ? r.data.filter((q: any) => typeof q === 'string' && q.trim()).slice(0, 3) : [];
+              if (items.length) setFollowups(f => (f === null || f.forId !== aiId ? { forId: aiId, items } : f));
+            }).catch(() => {});
+          }
 
           const saved = await savePromise;
           let activeConvId = conversationIdRef.current;
@@ -455,9 +467,32 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
             <Ionicons name="share-outline" size={18} color={C.textMuted} />
           </TouchableOpacity>
         </View>}
+        {followups?.forId === item.id && !isGenerating && (
+          <View style={styles.next} accessibilityRole="list" accessibilityLabel="Ask next">
+            <View style={styles.nextHead}>
+              <Ionicons name="return-down-forward" size={15} color="#5CB85C" />
+              <Text style={[styles.nextTitle, { color: C.textSub }]}>Ask next</Text>
+            </View>
+            {followups.items.map((q, i) => (
+              <Reanimated.View key={q} entering={FadeInDown.delay(i * 70).duration(260)}>
+                <Pressable
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); sendMessage(q); }}
+                  style={({ pressed }) => [styles.nextRow, { borderTopColor: C.border }, pressed && { opacity: 0.6 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ask: ${q}`}
+                >
+                  <Text style={[styles.nextText, { color: C.text }]} maxFontSizeMultiplier={1.3}>{q}</Text>
+                  <View style={[styles.nextPlus, { backgroundColor: C.surface, borderColor: C.border }]}>
+                    <Ionicons name="add" size={16} color={C.text} />
+                  </View>
+                </Pressable>
+              </Reanimated.View>
+            ))}
+          </View>
+        )}
       </Reanimated.View>
     );
-  }, [isDark, streamingId]);
+  }, [isDark, streamingId, followups, isGenerating]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -760,6 +795,12 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: 12, paddingBottom: 10 },
   gridCell: { width: '49%' },
   tile: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 60, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 18, borderWidth: 1 },
+  next: { marginTop: 6 },
+  nextHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 4 },
+  nextTitle: { fontSize: 13, fontWeight: '600' },
+  nextRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  nextText: { flex: 1, minWidth: 0, fontSize: 15.5, lineHeight: 21 },
+  nextPlus: { width: 28, height: 28, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   tileArt: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F4F1EA', alignItems: 'center', justifyContent: 'center' },
   tileArtImg: { width: '76%', height: '76%' },
   tileLabel: { fontSize: 14.5, fontWeight: '600' },

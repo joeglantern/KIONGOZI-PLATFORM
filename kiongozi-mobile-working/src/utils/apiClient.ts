@@ -200,6 +200,11 @@ class ApiClient {
     });
   }
 
+  /** 3 suggested next questions for an AI answer (empty list if unavailable) */
+  async getFollowups(question: string, answer: string) {
+    return this.request('/api/v1/chat/followups', { method: 'POST', body: JSON.stringify({ question, answer }) });
+  }
+
   // Save assistant message to conversation
   async saveAssistantMessage(text: string, conversation_id: string, type?: 'chat' | 'research', research_data?: any) {
     return this.request('/api/v1/chat/message/assistant', {
