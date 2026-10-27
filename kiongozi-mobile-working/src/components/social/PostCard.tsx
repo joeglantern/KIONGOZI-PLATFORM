@@ -521,7 +521,7 @@ export function PostCard({
           {/* Actions — Threads-style: like · comment · repost · share, then views and bookmark on the right */}
           <View style={styles.actions}>
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, styles.slot, pressed && styles.actionPressed]}
               onPress={() => handleLike()}
               hitSlop={hit}
               accessibilityRole="button"
@@ -530,22 +530,22 @@ export function PostCard({
               <Animated.View style={{ transform: [{ scale: likeScale }] }}>
                 <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={23} color={isLiked ? '#ff3040' : T.text} />
               </Animated.View>
-              {likeCount > 0 && <Text style={[styles.actionCount, isLiked && styles.likedCount]}>{fmtCount(likeCount)}</Text>}
+              {likeCount > 0 && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.actionCount, isLiked && styles.likedCount]}>{fmtCount(likeCount)}</Text>}
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, styles.slot, pressed && styles.actionPressed]}
               onPress={onReplyPress}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel="Reply"
             >
               <Ionicons name="chatbubble-outline" size={21} color={T.text} />
-              {activePost.comment_count > 0 && <Text style={styles.actionCount}>{fmtCount(activePost.comment_count)}</Text>}
+              {activePost.comment_count > 0 && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={styles.actionCount}>{fmtCount(activePost.comment_count)}</Text>}
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, styles.slot, pressed && styles.actionPressed]}
               onPress={handleRepost}
               hitSlop={hit}
               accessibilityRole="button"
@@ -554,11 +554,11 @@ export function PostCard({
               <Animated.View style={{ transform: [{ scale: repostScale }] }}>
                 <Ionicons name="repeat" size={24} color={isReposted ? T.accent : T.text} />
               </Animated.View>
-              {repostCount > 0 && <Text style={[styles.actionCount, isReposted && { color: T.accent }]}>{fmtCount(repostCount)}</Text>}
+              {repostCount > 0 && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.actionCount, isReposted && { color: T.accent }]}>{fmtCount(repostCount)}</Text>}
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, styles.iconOnly, pressed && styles.actionPressed]}
               onPress={handleShare}
               hitSlop={hit}
               accessibilityRole="button"
@@ -567,17 +567,18 @@ export function PostCard({
               <Ionicons name="paper-plane-outline" size={21} color={T.text} />
             </Pressable>
 
-            <View style={{ flex: 1 }} />
-
-            {views > 0 && (
-              <View style={[styles.action, styles.viewsAction]} accessibilityLabel={`${views} views`}>
-                <Ionicons name="stats-chart-outline" size={16} color={T.textMuted} />
-                <Text style={[styles.actionCount, { color: T.textMuted }]}>{fmtCount(views)}</Text>
-              </View>
-            )}
+            {/* Always the same width, so buttons line up on every post */}
+            <View style={[styles.action, styles.viewsAction]} accessibilityLabel={views > 0 ? `${views} views` : undefined}>
+              {views > 0 && (
+                <>
+                  <Ionicons name="stats-chart-outline" size={15} color={T.textMuted} />
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.actionCount, styles.viewsCount]}>{fmtCount(views)}</Text>
+                </>
+              )}
+            </View>
 
             <Pressable
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, styles.iconOnly, pressed && styles.actionPressed]}
               onPress={handleBookmark}
               hitSlop={hit}
               accessibilityRole="button"
@@ -764,31 +765,48 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       width: '48%',
       height: 140,
     },
+    // Fixed slots: like/comment/repost split the width equally, so big counts never push
+    // the other buttons around or off the edge; share, views and bookmark have fixed sizes.
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
       marginTop: 6,
-      marginLeft: -10, // icons line up with the text above; the padding is tap area
+      marginLeft: -8, // icons line up with the text above; the padding is tap area
+      marginRight: -4,
       paddingBottom: 6,
     },
     action: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 5,
+      gap: 4,
       minHeight: 40,
-      minWidth: 44,
-      paddingHorizontal: 10,
+      paddingHorizontal: 6,
       borderRadius: 20,
+    },
+    slot: {
+      flex: 1,
+      minWidth: 0,
+    },
+    iconOnly: {
+      width: 40,
+      paddingHorizontal: 0,
+      justifyContent: 'center',
     },
     actionPressed: {
       backgroundColor: T.border,
     },
     viewsAction: {
-      minWidth: 0,
-      paddingHorizontal: 6,
+      width: 52,
+      paddingHorizontal: 2,
+      gap: 3,
+      justifyContent: 'flex-end',
+    },
+    viewsCount: {
+      fontSize: 13,
+      color: T.textMuted,
     },
     actionCount: {
+      flexShrink: 1,
       fontSize: 14,
       fontWeight: '500',
       color: T.text,
