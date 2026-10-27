@@ -29,6 +29,8 @@ import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../utils/supabaseClient';
 import { useTheme } from '../hooks/useTheme';
 import { useForceUpdate, openStore } from '../hooks/useForceUpdate';
+import { StoryViewer } from '../components/stories/StoryViewer';
+import { StoryComposer } from '../components/stories/StoryComposer';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
@@ -271,6 +273,10 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
           <Tab.Screen name="Profile" component={ProfileStackNavigator} />
         </Tab.Navigator>
       </NavigationContainer>
+
+      {/* Stories: viewer and composer, opened from anywhere via the story store */}
+      <StoryViewer />
+      <StoryComposer />
 
       {/* Kiongozi AI Chat Modal — fullscreen */}
       <Modal

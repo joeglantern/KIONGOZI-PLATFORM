@@ -6,6 +6,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { ProfileStoryAvatar } from '../../components/stories/ProfileStoryAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { PostCard } from '../../components/social/PostCard';
 import { useProfileStore } from '../../stores/profileStore';
@@ -349,9 +350,10 @@ export default function PublicProfileScreen() {
             {/* Profile info */}
             <View style={styles.profileSection}>
               <View style={styles.avatarRow}>
-                <UserAvatar
+                <ProfileStoryAvatar
+                  userId={profile?.id}
                   avatarUrl={profile?.avatar_url}
-                  size={72}
+                  size={76}
                   isBot={profile?.is_bot}
                   isVerified={profile?.is_verified}
                 />

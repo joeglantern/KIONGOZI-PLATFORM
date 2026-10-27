@@ -32,6 +32,7 @@ import dmRoutes from './routes/dm';
 import uploadRoutes from './routes/upload';
 import reportsRoutes from './routes/reports';
 import blocksRoutes from './routes/blocks';
+import storiesRoutes from './routes/stories';
 import legalRoutes from './routes/legal';
 import exportRoutes from './routes/export';
 
@@ -124,6 +125,7 @@ app.use('/api/v1/social', followsRoutes);
 app.use('/api/v1/social', profilesSocialRoutes);
 app.use('/api/v1/social', reportsRoutes);
 app.use('/api/v1/social', blocksRoutes);
+app.use('/api/v1/social', storiesRoutes);
 app.use('/api/v1/dm', dmRoutes);
 app.use('/api/v1/legal', legalRoutes);
 app.use('/api/v1/user', exportRoutes);

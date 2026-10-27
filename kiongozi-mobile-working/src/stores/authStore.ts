@@ -1,3 +1,4 @@
+import { useStoryStore } from './storyStore';
 import { create } from 'zustand';
 import { supabase } from '../utils/supabaseClient';
 import apiClient from '../utils/apiClient';
@@ -64,6 +65,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const { useProfileStore } = require('./profileStore');
           const { useNotificationStore } = require('./notificationStore');
           useSocialStore.getState().reset();
+      useStoryStore.getState().reset();
           useDMStore.getState().reset();
           useProfileStore.getState().reset();
           useNotificationStore.getState().reset();
@@ -266,6 +268,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { useProfileStore } = require('./profileStore');
       const { useNotificationStore } = require('./notificationStore');
       useSocialStore.getState().reset();
+      useStoryStore.getState().reset();
       useDMStore.getState().reset();
       useProfileStore.getState().reset();
       useNotificationStore.getState().reset();

@@ -600,6 +600,29 @@ class ApiClient {
     return this.request(`/api/v1/social/posts/${postId}/like`, { method: 'POST' });
   }
 
+  // ── Stories ──
+  async getStoryFeed() {
+    return this.request('/api/v1/social/stories/feed', { method: 'GET' });
+  }
+  async getUserStories(userId: string) {
+    return this.request(`/api/v1/social/stories/user/${userId}`, { method: 'GET' });
+  }
+  async createStory(story: Record<string, any>) {
+    return this.request('/api/v1/social/stories', { method: 'POST', body: JSON.stringify(story) });
+  }
+  async viewStory(storyId: string, reaction?: string) {
+    return this.request(`/api/v1/social/stories/${storyId}/view`, {
+      method: 'POST',
+      body: JSON.stringify(reaction !== undefined ? { reaction } : {}),
+    });
+  }
+  async getStoryViewers(storyId: string) {
+    return this.request(`/api/v1/social/stories/${storyId}/viewers`, { method: 'GET' });
+  }
+  async deleteStory(storyId: string) {
+    return this.request(`/api/v1/social/stories/${storyId}`, { method: 'DELETE' });
+  }
+
   /** Count a video view (fire and forget) */
   async recordPostView(postId: string) {
     return this.request(`/api/v1/social/posts/${postId}/view`, { method: 'POST' });

@@ -17,6 +17,8 @@ import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
+import { StoryRail } from '../../components/stories/StoryRail';
+import { useStoryStore } from '../../stores/storyStore';
 
 export default function FeedScreen() {
   const navigation = useNavigation<any>();
@@ -125,6 +127,7 @@ export default function FeedScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        <StoryRail />
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[styles.tabPill, activeTab === 0 && styles.tabPillOn]}
@@ -158,7 +161,7 @@ export default function FeedScreen() {
             keyExtractor={(item) => `fy_${item.id}`}
             onEndReached={() => { if (hasMoreForYou) fetchForYouFeed(false); }}
             onEndReachedThreshold={0.5}
-            refreshControl={<RefreshControl refreshing={forYouRefreshing} onRefresh={() => { setForYouError(null); fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.')); }} tintColor={T.accent} />}
+            refreshControl={<RefreshControl refreshing={forYouRefreshing} onRefresh={() => { setForYouError(null); useStoryStore.getState().fetchFeed(); fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.')); }} tintColor={T.accent} />}
             ListEmptyComponent={
               forYouLoading ? <ActivityIndicator style={{ marginTop: 40 }} color={T.accent} /> :
               forYouError ? (
@@ -186,7 +189,7 @@ export default function FeedScreen() {
             keyExtractor={(item) => `fw_${item.id}`}
             onEndReached={() => { if (feedCursor) fetchFeed(false); }}
             onEndReachedThreshold={0.5}
-            refreshControl={<RefreshControl refreshing={feedRefreshing} onRefresh={() => { setFeedError(null); fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.')); }} tintColor={T.accent} />}
+            refreshControl={<RefreshControl refreshing={feedRefreshing} onRefresh={() => { setFeedError(null); useStoryStore.getState().fetchFeed(); fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.')); }} tintColor={T.accent} />}
             ListEmptyComponent={
               feedLoading ? <ActivityIndicator style={{ marginTop: 40 }} color={T.accent} /> :
               feedError ? (
