@@ -279,8 +279,6 @@ export default function ProfileTabScreen() {
         </View>
         <Text style={styles.handle}>
           @{profile?.username || '—'}
-          {'  ·  '}
-          <Text style={styles.tagline}>#KiongoziCivics</Text>
         </Text>
         {!!profile?.bio && <Text style={styles.bio} numberOfLines={2}>{profile.bio}</Text>}
         {profile && (

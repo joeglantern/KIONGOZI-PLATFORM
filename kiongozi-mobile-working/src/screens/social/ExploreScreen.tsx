@@ -392,6 +392,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     errorState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
     errorText: { fontSize: 15, color: T.textSub, textAlign: 'center' },
     retryBtn: { paddingHorizontal: 28, paddingVertical: 10, backgroundColor: T.accent, borderRadius: 20 },
-    retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    retryText: { color: '#000', fontWeight: '700', fontSize: 14 },
   });
 }

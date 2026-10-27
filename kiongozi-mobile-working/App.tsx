@@ -133,7 +133,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="light" backgroundColor="#000000" />
+        <ThemedStatusBar />
         {user ? (
           <AppNavigator navRef={navRef} />
         ) : (
@@ -146,4 +146,10 @@ export default function App() {
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );
+}
+
+/** Status bar icons follow the theme (white on dark, black on light). */
+function ThemedStatusBar() {
+  const isDark = useThemeStore(s => s.isDark);
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
 }

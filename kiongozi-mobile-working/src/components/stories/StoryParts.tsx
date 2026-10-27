@@ -4,6 +4,9 @@ import { View, Text, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StoryOverlay } from '../../stores/storyStore';
 import { STICKERS, PATTERNS, bgById, fontById, fitFontSize } from './storyAssets';
+import { PollCard, POLL_W } from './PollCard';
+
+export const POLL_H = 150; // approx. card height at scale 1
 
 export const STICKER_BASE = 150; // sticker width at scale 1, in px on a 390px-wide canvas
 
@@ -50,6 +53,14 @@ export function OverlayItem({ o, width, height }: { o: StoryOverlay; width: numb
       />
     );
   }
+  if (o.type === 'poll') {
+    const w = POLL_W * k;
+    return (
+      <View style={{ position: 'absolute', left: o.x * width - w / 2, top: o.y * height - (POLL_H * k) / 2, transform }} pointerEvents="none">
+        <PollCard question={o.text || ''} options={o.options || []} k={k} />
+      </View>
+    );
+  }
   if (o.type === 'text' && o.text) {
     return (
       <View style={{ position: 'absolute', left: o.x * width - width / 2, width, top: o.y * height - 22 * k, alignItems: 'center', transform }} pointerEvents="none">
@@ -62,11 +73,11 @@ export function OverlayItem({ o, width, height }: { o: StoryOverlay; width: numb
   return null;
 }
 
-export function StoryOverlays({ overlays, width, height }: { overlays?: StoryOverlay[]; width: number; height: number }) {
+export function StoryOverlays({ overlays, width, height, skipPolls }: { overlays?: StoryOverlay[]; width: number; height: number; skipPolls?: boolean }) {
   if (!overlays?.length) return null;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {overlays.map((o, i) => <OverlayItem key={i} o={o} width={width} height={height} />)}
+      {overlays.map((o, i) => (skipPolls && o.type === 'poll' ? null : <OverlayItem key={i} o={o} width={width} height={height} />))}
     </View>
   );
 }
@@ -86,7 +97,7 @@ export function StoryRing({ size, state, children, gap = 3, bg }: {
   );
   if (state === 'seen') {
     return (
-      <View style={{ width: size, height: size, borderRadius: size / 2, padding: ring, backgroundColor: '#5A5A5E' }}>{content}</View>
+      <View style={{ width: size, height: size, borderRadius: size / 2, padding: ring, backgroundColor: 'rgba(142,142,147,0.5)' }}>{content}</View>
     );
   }
   return (

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../hooks/useTheme';
 
 const VERIFIED_BADGE = require('../../../assets/verified-badge.png');
 
@@ -27,6 +28,7 @@ export function UserAvatar({
   uploading = false,
 }: UserAvatarProps) {
   const radius = size / 2;
+  const T = useTheme();
   const iconSize = Math.max(size * 0.48, 16);
 
   const inner = (
@@ -34,11 +36,11 @@ export function UserAvatar({
       {avatarUrl ? (
         <Image
           source={{ uri: avatarUrl }}
-          style={{ width: size, height: size, borderRadius: radius, backgroundColor: '#e2e8f0' }}
+          style={{ width: size, height: size, borderRadius: radius, backgroundColor: T.surface2 }}
         />
       ) : (
-        <View style={[styles.placeholder, { width: size, height: size, borderRadius: radius }]}>
-          <Ionicons name="person" size={iconSize} color="#718096" />
+        <View style={[styles.placeholder, { width: size, height: size, borderRadius: radius, backgroundColor: T.surface2 }]}>
+          <Ionicons name="person" size={iconSize} color={T.textMuted} />
         </View>
       )}
 

@@ -16,7 +16,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
-import { StoryBackground, OverlayItem, STICKER_BASE } from './StoryParts';
+import { StoryBackground, OverlayItem, STICKER_BASE, POLL_H } from './StoryParts';
+import { POLL_W } from './PollCard';
+import { celebrate } from '../Confetti';
 import { BACKGROUNDS, FONTS, TEXT_COLORS, STICKERS, fontById, fitFontSize, bgById } from './storyAssets';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -52,6 +54,8 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const [audience, setAudience] = useState<'everyone' | 'followers'>('everyone');
   const [trayOpen, setTrayOpen] = useState(false);
   const [labelDraft, setLabelDraft] = useState<string | null>(null);
+  const [pollDraft, setPollDraft] = useState<{ q: string; a: string; b: string } | null>(null);
+  const hasPoll = overlays.some(o => o.type === 'poll');
   const [dragging, setDragging] = useState(false);
   const [overTrash, setOverTrash] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -96,6 +100,18 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
     setLabelDraft(null);
   };
 
+  const addPoll = () => {
+    if (!pollDraft) return;
+    const q = pollDraft.q.trim();
+    if (!q) { setPollDraft(null); return; }
+    setOverlays(o => [...o.filter(x => x.type !== 'poll'), {
+      _id: nextId++, type: 'poll', text: q,
+      options: [pollDraft.a.trim() || 'Ndiyo', pollDraft.b.trim() || 'Hapana'],
+      x: 0.5, y: 0.62, scale: 1, rotation: 0,
+    }]);
+    setPollDraft(null);
+  };
+
   const post = async () => {
     if (!user || !canPost) return;
     Keyboard.dismiss();
@@ -128,8 +144,9 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
         id: user.id, username: me?.username || 'you', full_name: me?.full_name, avatar_url: me?.avatar_url, is_verified: me?.is_verified,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      celebrate();
     } catch (e: any) {
-      Alert.alert('Story haikutumwa', e?.message || 'Check your connection and try again.');
+      Alert.alert("Story didn't post", e?.message || 'Check your connection and try again.');
     } finally {
       setPosting(false);
     }
@@ -203,6 +220,11 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
               <Ionicons name="text" size={22} color="#fff" />
             </Pressable>
           )}
+          {!hasPoll && (
+            <Pressable style={styles.tool} onPress={() => { Keyboard.dismiss(); setPollDraft({ q: '', a: 'Ndiyo', b: 'Hapana' }); }} accessibilityLabel="Add a poll">
+              <Ionicons name="stats-chart" size={20} color="#fff" />
+            </Pressable>
+          )}
           <Pressable style={styles.tool} onPress={() => { Keyboard.dismiss(); setTrayOpen(true); }} accessibilityLabel="Add sticker">
             <Ionicons name="happy-outline" size={23} color="#fff" />
           </Pressable>
@@ -260,6 +282,42 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             </View>
           </View>
         </View>
+      )}
+
+      {/* Poll entry */}
+      {pollDraft && (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[StyleSheet.absoluteFill, styles.labelEntry]}>
+          <View style={styles.pollEntry}>
+            <TextInput
+              autoFocus
+              value={pollDraft.q}
+              onChangeText={q => setPollDraft(d => d && { ...d, q })}
+              placeholder="Uliza swali… (Ask a question)"
+              placeholderTextColor="#8E8E93"
+              style={styles.pollQ}
+              maxLength={90}
+              multiline
+            />
+            {(['a', 'b'] as const).map(key => (
+              <TextInput
+                key={key}
+                value={pollDraft[key]}
+                onChangeText={v => setPollDraft(d => d && { ...d, [key]: v })}
+                style={styles.pollOpt}
+                maxLength={40}
+                placeholderTextColor="#8E8E93"
+              />
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
+            <Pressable style={[styles.share, { backgroundColor: 'rgba(255,255,255,0.15)' }]} onPress={() => setPollDraft(null)}>
+              <Text style={[styles.shareText, { color: '#fff' }]}>Ghairi</Text>
+            </Pressable>
+            <Pressable style={[styles.share, !pollDraft.q.trim() && { opacity: 0.4 }]} onPress={addPoll} disabled={!pollDraft.q.trim()}>
+              <Text style={styles.shareText}>Weka poll</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
       )}
 
       {/* Text label entry */}
@@ -338,8 +396,8 @@ function DraggableOverlay({ o, onChange, onDragState, onDrop }: {
 
   // Hit box sized to the overlay
   const k = W / 390;
-  const w = (o.type === 'sticker' ? STICKER_BASE : 220) * k * o.scale;
-  const h = (o.type === 'sticker' && o.key ? STICKER_BASE / STICKERS[o.key].ratio : 50) * k * o.scale;
+  const w = (o.type === 'sticker' ? STICKER_BASE : o.type === 'poll' ? POLL_W : 220) * k * o.scale;
+  const h = (o.type === 'sticker' && o.key ? STICKER_BASE / STICKERS[o.key].ratio : o.type === 'poll' ? POLL_H : 50) * k * o.scale;
   return (
     <>
       <OverlayItem o={o} width={W} height={H} />
@@ -394,5 +452,8 @@ const styles = StyleSheet.create({
   trayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   trayItem: { width: (W - 32 - 24) / 3, height: (W - 32 - 24) / 3, borderRadius: 16, backgroundColor: '#1C1C1E', padding: 10 },
   labelEntry: { backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  pollEntry: { width: '100%', backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 10 },
+  pollQ: { color: '#111', fontSize: 20, fontWeight: '800', textAlign: 'center', minHeight: 30 },
+  pollOpt: { backgroundColor: '#F1F1F3', borderRadius: 22, height: 44, paddingHorizontal: 16, color: '#111', fontSize: 15, fontWeight: '700' },
   labelInput: { backgroundColor: '#fff', color: '#000', fontSize: 22, fontWeight: '800', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, minWidth: 200, textAlign: 'center' },
 });

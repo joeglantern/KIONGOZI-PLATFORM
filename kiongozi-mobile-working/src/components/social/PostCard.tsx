@@ -443,14 +443,14 @@ export function PostCard({
                 {/* Row 1: name + badge + time + options */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                   <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
-                    <Text style={styles.name}>{activePost.profiles?.full_name}</Text>
+                    <Text style={styles.name} numberOfLines={1}>{activePost.profiles?.full_name}</Text>
                   </TouchableOpacity>
                   {activePost.profiles?.is_verified && <VerifiedBadge size={15} />}
                   <Text style={styles.dot}>·</Text>
                   <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
                   {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
-                    <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}>
-                      <Ionicons name="ellipsis-horizontal" size={16} color={T.textMuted} />
+                    <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Post options">
+                      <Ionicons name="ellipsis-horizontal" size={18} color={T.textMuted} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -485,14 +485,14 @@ export function PostCard({
             {showTranslation && translatedText && (
               <Text style={styles.translatedText}>{translatedText}</Text>
             )}
-            {translating
-              ? <ActivityIndicator size="small" color="#3182ce" style={styles.translateSpinner} />
-              : <TouchableOpacity onPress={handleTranslate} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Text style={styles.translateLink}>
-                    {showTranslation ? '· Show original' : '· Translate'}
+            {(activePost.content?.length ?? 0) > 40 && (translating
+              ? <ActivityIndicator size="small" color={T.textMuted} style={styles.translateSpinner} />
+              : <TouchableOpacity onPress={handleTranslate} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+                  <Text style={[styles.translateLink, { color: T.textMuted, fontSize: 13 }]}>
+                    {showTranslation ? 'Show original' : 'Translate'}
                   </Text>
                 </TouchableOpacity>
-            }
+            )}
 
             {/* Media */}
             {activePost.post_media && activePost.post_media.length > 0 && (
@@ -535,7 +535,7 @@ export function PostCard({
 
             <Pressable
               style={({ pressed }) => [styles.action, styles.slot, pressed && styles.actionPressed]}
-              onPress={onReplyPress}
+              onPress={onReplyPress ?? onPress}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel="Reply"
@@ -714,7 +714,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     optionsBtn: {
       marginLeft: 'auto' as any,
-      padding: 2,
+      padding: 8,
+      margin: -8,
     },
     name: {
       fontWeight: '700',

@@ -191,12 +191,12 @@ export default function PostDetailScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={T.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Post</Text>
         </View>
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={48} color="#2A2A2A" />
+          <Ionicons name="alert-circle-outline" size={48} color={T.textMuted} />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={loadPost}>
             <Text style={styles.retryText}>Retry</Text>
@@ -216,7 +216,7 @@ export default function PostDetailScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={T.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Post</Text>
         </View>
@@ -307,7 +307,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     headerTitle: { fontSize: 18, fontWeight: '700', color: T.text },
     errorText: { fontSize: 15, color: T.textSub, textAlign: 'center' },
     retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: T.accent, borderRadius: 20 },
-    retryText: { color: '#fff', fontWeight: '700' },
+    retryText: { color: '#000', fontWeight: '700' },
     noReplies: { padding: 28, textAlign: 'center', color: T.textMuted, fontSize: 14 },
     replyBar: {
       flexDirection: 'row', alignItems: 'flex-end',

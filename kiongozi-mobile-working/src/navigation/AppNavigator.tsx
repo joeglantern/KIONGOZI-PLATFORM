@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, Image, Animated } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -31,6 +32,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useForceUpdate, openStore } from '../hooks/useForceUpdate';
 import { StoryViewer } from '../components/stories/StoryViewer';
 import { StoryComposer } from '../components/stories/StoryComposer';
+import { ConfettiHost } from '../components/Confetti';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
@@ -102,13 +104,32 @@ function ProfileStackNavigator() {
 
 // ─── Tab Icon Components ─────────────────────────────────────────────────────
 
-function NotificationTabIcon({ color }: { color: string }) {
+/** Tab icon: filled + springy pop with a soft accent pill when active, outline when not. */
+function TabIcon({ name, focused, color, children }: { name: string; focused: boolean; color: string; children?: React.ReactNode }) {
+  const T = useTheme();
+  const v = React.useRef(new Animated.Value(focused ? 1 : 0)).current;
+  React.useEffect(() => {
+    Animated.spring(v, { toValue: focused ? 1 : 0, useNativeDriver: true, damping: 14, stiffness: 260 }).start();
+  }, [focused]);
+  const pop = v.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 1.12, 1] });
+  return (
+    <View style={{ width: 56, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 18, backgroundColor: T.acc10, opacity: v, transform: [{ scaleX: v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }] }]} />
+      <Animated.View style={{ transform: [{ scale: pop }] }}>
+        <Ionicons name={(focused ? name : `${name}-outline`) as any} size={25} color={color} />
+      </Animated.View>
+      {children}
+    </View>
+  );
+}
+
+function NotificationTabIcon({ color, focused }: { color: string; focused: boolean }) {
   const { unreadCount } = useNotificationStore();
   return (
-    <View style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
-      <Ionicons name="notifications-outline" size={26} color={color} />
+    <View style={{ width: 56, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+      <TabIcon name="notifications" focused={focused} color={color} />
       {unreadCount > 0 && (
-        <View style={styles.tabBadge}>
+        <View style={[styles.tabBadge, { top: 3, right: 12 }]}>
           <Text style={styles.tabBadgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
         </View>
       )}
@@ -171,9 +192,9 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
     ...(isDark ? DarkTheme : DefaultTheme),
     colors: {
       ...(isDark ? DarkTheme : DefaultTheme).colors,
-      background: isDark ? '#111111' : '#FFFFFF',
-      card: isDark ? '#0C0C0C' : '#FFFFFF',
-      border: isDark ? '#2C2C2E' : '#E9E9EE',
+      background: isDark ? '#000000' : '#FFFFFF',
+      card: isDark ? '#000000' : '#FFFFFF',
+      border: isDark ? '#1C1C1E' : '#E9E9EE',
       text: isDark ? '#FFFFFF' : '#111111',
       primary: '#5CB85C',
     },
@@ -221,6 +242,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
     <View style={styles.root}>
       <NavigationContainer ref={navRef} theme={navTheme} linking={linking}>
         <Tab.Navigator
+          screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}
           screenOptions={({ route }) => ({
             headerShown: false,
             tabBarShowLabel: false,
@@ -239,11 +261,11 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             },
             tabBarActiveTintColor: T.tabIconActive,
             tabBarInactiveTintColor: T.tabIconInactive,
-            tabBarIcon: ({ color }) => {
-              if (route.name === 'Feed') return <Ionicons name="home-outline" size={26} color={color} />;
-              if (route.name === 'Explore') return <Ionicons name="search-outline" size={26} color={color} />;
-              if (route.name === 'Notifications') return <NotificationTabIcon color={color} />;
-              if (route.name === 'Profile') return <Ionicons name="person-outline" size={26} color={color} />;
+            tabBarIcon: ({ color, focused }) => {
+              if (route.name === 'Feed') return <TabIcon name="home" focused={focused} color={color} />;
+              if (route.name === 'Explore') return <TabIcon name="search" focused={focused} color={color} />;
+              if (route.name === 'Notifications') return <NotificationTabIcon color={color} focused={focused} />;
+              if (route.name === 'Profile') return <TabIcon name="person" focused={focused} color={color} />;
               return null;
             },
           })}
@@ -277,6 +299,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
       {/* Stories: viewer and composer, opened from anywhere via the story store */}
       <StoryViewer />
       <StoryComposer />
+      <ConfettiHost />
 
       {/* Kiongozi AI Chat Modal — fullscreen */}
       <Modal

@@ -3,7 +3,8 @@ import { create } from 'zustand';
 import apiClient from '../utils/apiClient';
 
 export interface StoryOverlay {
-  type: 'sticker' | 'text';
+  type: 'sticker' | 'text' | 'poll';
+  options?: string[]; // poll answers (2)
   key?: string;       // sticker id (see components/stories/storyAssets)
   text?: string;
   color?: string;
@@ -35,6 +36,7 @@ export interface Story {
   expires_at: string;
   seen: boolean;
   my_reaction?: string | null;
+  poll?: { counts: [number, number]; mine: number | null };
 }
 
 export interface StoryUser {
@@ -69,6 +71,7 @@ interface StoryState {
   setMeId: (id: string | null) => void;
   markSeen: (storyId: string) => void;
   setReaction: (storyId: string, emoji: string) => void;
+  setPoll: (storyId: string, poll: { counts: [number, number]; mine: number | null }) => void;
   addMine: (story: Story, me: StoryUser) => void;
   removeStory: (storyId: string) => void;
   setComposerOpen: (open: boolean) => void;
@@ -148,6 +151,13 @@ export const useStoryStore = create<StoryState>((set, get) => ({
       viewer: s.viewer && { ...s.viewer, groups: mapStories(s.viewer.groups, storyId, st => ({ ...st, my_reaction: emoji })) },
     }));
     apiClient.viewStory(storyId, emoji).catch(() => {});
+  },
+
+  setPoll: (storyId, poll) => {
+    set(s => ({
+      groups: mapStories(s.groups, storyId, st => ({ ...st, poll })),
+      viewer: s.viewer && { ...s.viewer, groups: mapStories(s.viewer.groups, storyId, st => ({ ...st, poll })) },
+    }));
   },
 
   addMine: (story, me) => {

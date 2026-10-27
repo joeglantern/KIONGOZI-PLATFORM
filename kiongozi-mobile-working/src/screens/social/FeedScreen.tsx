@@ -14,6 +14,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
+import ReportModal from './ReportModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { StoryRail, StoryStack } from '../../components/stories/StoryRail';
@@ -32,6 +34,8 @@ export default function FeedScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
+  const insets = useSafeAreaInsets();
   const [forYouError, setForYouError] = useState<string | null>(null);
 
   const {
@@ -98,6 +102,7 @@ export default function FeedScreen() {
       currentUserId={user?.id}
       onDeletePress={() => handleDeletePost(item.id)}
       onEditPress={handleEditPress}
+      onReportPress={(postId) => setReportTarget({ type: 'post', id: postId, displayName: 'this post' })}
     />
   ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost]);
 
@@ -276,7 +281,7 @@ export default function FeedScreen() {
 
         {/* Logo bar: drawn last so the folding rail slides underneath it */}
         <Animated.View
-          style={[styles.topBar, { transform: [{ translateY: barHold }] }]}
+          style={[styles.topBar, { paddingTop: insets.top + 6, transform: [{ translateY: barHold }] }]}
           onLayout={e => setTopH(Math.round(e.nativeEvent.layout.height))}
         >
           <View style={styles.headerRow}>
@@ -297,13 +302,15 @@ export default function FeedScreen() {
           </View>
           {/* Mini story stack rises into the bar as the rail folds */}
           <Animated.View
-            style={[styles.stackSlot, { opacity: stackIn, transform: [{ translateY: stackRise }, { scale: stackScale }] }]}
+            style={[styles.stackSlot, { top: insets.top + 6, opacity: stackIn, transform: [{ translateY: stackRise }, { scale: stackScale }] }]}
             pointerEvents={folded ? 'box-none' : 'none'}
           >
             <StoryStack />
           </Animated.View>
         </Animated.View>
       </Animated.View>
+
+      <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
 
       {editTarget && (
         <EditPostModal
@@ -347,7 +354,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     headerEdge: { height: StyleSheet.hairlineWidth, backgroundColor: T.borderLight },
     headerLogo: {
       width: 120, height: 42, flexShrink: 0,
-      shadowColor: T.acc25, shadowOffset: { width: 0, height: 0 }, shadowRadius: 10, shadowOpacity: 1,
     },
     headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     headerIconBtn: { position: 'relative', padding: 6 },
@@ -372,7 +378,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     emptyText: { fontSize: 17, fontWeight: '600', color: T.textSub, marginBottom: 8, textAlign: 'center' },
     emptySubtext: { fontSize: 14, color: T.textMuted, textAlign: 'center' },
     retryBtn: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: T.accent, borderRadius: 20 },
-    retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    retryText: { color: '#000', fontWeight: '700', fontSize: 14 },
     accent: { color: T.accent },
   });
 }

@@ -46,11 +46,26 @@ async function buildGroups(viewerId: string, authorIds: string[], following: Set
     .eq('viewer_id', viewerId).in('story_id', visible.map((s: any) => s.id));
   const seen = new Map((views || []).map((v: any) => [v.story_id, v.reaction]));
 
+  // Poll results for stories that carry a poll sticker
+  const pollIds = visible.filter((s: any) => (s.overlays || []).some((o: any) => o.type === 'poll')).map((s: any) => s.id);
+  const pollCounts = new Map<string, [number, number]>();
+  const myVotes = new Map<string, number>();
+  if (pollIds.length) {
+    const { data: votes } = await db.from('story_poll_votes').select('story_id, voter_id, option').in('story_id', pollIds);
+    for (const v of votes || []) {
+      const c = pollCounts.get(v.story_id) || [0, 0];
+      c[v.option] += 1;
+      pollCounts.set(v.story_id, c);
+      if (v.voter_id === viewerId) myVotes.set(v.story_id, v.option);
+    }
+  }
+
   const groups = new Map<string, any>();
   for (const s of visible) {
     const g = groups.get(s.user_id) || { user: profileById.get(s.user_id), stories: [] as any[] };
     const own = s.user_id === viewerId;
-    g.stories.push({ ...s, seen: own || seen.has(s.id), my_reaction: seen.get(s.id) ?? null, ...(own ? {} : { view_count: undefined }) });
+    const poll = pollIds.includes(s.id) ? { counts: pollCounts.get(s.id) || [0, 0], mine: myVotes.has(s.id) ? myVotes.get(s.id) : null } : undefined;
+    g.stories.push({ ...s, poll, seen: own || seen.has(s.id), my_reaction: seen.get(s.id) ?? null, ...(own ? {} : { view_count: undefined }) });
     groups.set(s.user_id, g);
   }
   return [...groups.values()].map(g => {
@@ -110,8 +125,13 @@ const clampNum = (v: any, min: number, max: number, dflt: number) => {
 
 function cleanOverlays(raw: any): any[] {
   if (!Array.isArray(raw)) return [];
-  return raw.slice(0, 20).map((o: any) => ({
-    type: o?.type === 'text' ? 'text' : 'sticker',
+  const polls = raw.filter((o: any) => o?.type === 'poll').slice(0, 1); // at most one poll
+  const rest = raw.filter((o: any) => o?.type !== 'poll');
+  return [...rest, ...polls].slice(0, 20).map((o: any) => ({
+    type: o?.type === 'text' ? 'text' : o?.type === 'poll' ? 'poll' : 'sticker',
+    options: o?.type === 'poll' && Array.isArray(o.options)
+      ? o.options.slice(0, 2).map((x: any) => String(x ?? '').slice(0, 40))
+      : undefined,
     key: typeof o?.key === 'string' ? o.key.slice(0, 40) : undefined,
     text: typeof o?.text === 'string' ? o.text.slice(0, 200) : undefined,
     color: typeof o?.color === 'string' ? o.color.slice(0, 20) : undefined,
@@ -195,6 +215,28 @@ router.post('/stories/:id/view', authenticateToken, async (req: Request, res: Re
   } catch (err) {
     console.error('Story view error:', err);
     res.status(500).json({ success: false, error: 'Failed to record view' });
+  }
+});
+
+// POST /stories/:id/vote — vote on the story's poll (0 or 1); returns fresh counts
+router.post('/stories/:id/vote', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const option = Number(req.body?.option);
+    if (option !== 0 && option !== 1) { res.status(400).json({ success: false, error: 'option must be 0 or 1' }); return; }
+    const { data: story } = await db.from('stories').select('overlays, expires_at').eq('id', id).maybeSingle();
+    if (!story || !(story.overlays || []).some((o: any) => o.type === 'poll')) {
+      res.status(404).json({ success: false, error: 'Poll not found' }); return;
+    }
+    await db.from('story_poll_votes').upsert({ story_id: id, voter_id: userId, option }, { onConflict: 'story_id,voter_id' });
+    const { data: votes } = await db.from('story_poll_votes').select('option').eq('story_id', id);
+    const counts = [0, 0];
+    for (const v of votes || []) counts[v.option] += 1;
+    res.json({ success: true, data: { counts, mine: option } });
+  } catch (err) {
+    console.error('Story vote error:', err);
+    res.status(500).json({ success: false, error: 'Failed to vote' });
   }
 });
 

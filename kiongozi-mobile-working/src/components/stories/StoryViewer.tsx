@@ -17,7 +17,8 @@ import apiClient from '../../utils/apiClient';
 import { setFeedPaused } from '../social/videoPlayback';
 import { UserAvatar } from '../social/UserAvatar';
 import { VerifiedBadge } from '../social/VerifiedBadge';
-import { StoryBackground, StoryText, StoryOverlays } from './StoryParts';
+import { StoryBackground, StoryText, StoryOverlays, POLL_H } from './StoryParts';
+import { PollCard, POLL_W } from './PollCard';
 import { REACTIONS, storyAge } from './storyAssets';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -117,7 +118,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
 }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const { markSeen, setReaction, removeStory } = useStoryStore();
+  const { markSeen, setReaction, removeStory, setPoll } = useStoryStore();
   const stories = group.stories;
   const isMine = group.user.id === user?.id;
 
@@ -220,7 +221,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             onReady={ms => { if (ms > 0) setVideoMs(Math.min(60000, ms)); setReady(true); }}
           />
         )}
-        <StoryOverlays overlays={story.overlays} width={W} height={H} />
+        <StoryOverlays overlays={story.overlays} width={W} height={H} skipPolls />
         {!ready && active && <ActivityIndicator style={StyleSheet.absoluteFill} color="#fff" />}
       </View>
 
@@ -237,6 +238,40 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         accessibilityActions={[{ name: 'increment', label: 'Next' }, { name: 'decrement', label: 'Previous' }]}
         onAccessibilityAction={e => (e.nativeEvent.actionName === 'increment' ? next() : prev())}
       />
+
+      {/* Poll sticker: tappable, so it sits above the tap zones */}
+      {(() => {
+        const p = story.overlays?.find(o => o.type === 'poll');
+        if (!p) return null;
+        const k = W / 390;
+        const vote = async (option: number) => {
+          const prevPoll = story.poll || { counts: [0, 0] as [number, number], mine: null };
+          const counts = [...prevPoll.counts] as [number, number];
+          if (prevPoll.mine === 0 || prevPoll.mine === 1) counts[prevPoll.mine] = Math.max(0, counts[prevPoll.mine] - 1);
+          counts[option] += 1;
+          setPoll(story.id, { counts, mine: option });
+          const r: any = await apiClient.voteStoryPoll(story.id, option).catch(() => null);
+          if (r?.success) setPoll(story.id, r.data);
+          else setPoll(story.id, prevPoll);
+        };
+        return (
+          <View
+            style={{ position: 'absolute', left: p.x * W - (POLL_W * k) / 2, top: p.y * H - (POLL_H * k) / 2, transform: [{ rotate: `${p.rotation || 0}deg` }, { scale: p.scale || 1 }], opacity: longHold ? 0 : 1 }}
+            onTouchStart={() => setHolding(true)}
+            onTouchEnd={() => setHolding(false)}
+          >
+            <PollCard
+              question={p.text || ''}
+              options={p.options || []}
+              counts={story.poll?.counts}
+              mine={story.poll?.mine}
+              showResults={isMine}
+              onVote={isMine ? undefined : vote}
+              k={k}
+            />
+          </View>
+        );
+      })()}
 
       {/* Chrome */}
       <View style={[styles.chrome, { opacity: longHold ? 0 : 1 }]} pointerEvents="box-none">
@@ -257,7 +292,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         <View style={[styles.header, { top: insets.top + 18 }]}>
           <UserAvatar avatarUrl={group.user.avatar_url ?? undefined} size={34} />
           <View style={styles.headerText}>
-            <Text style={styles.username} numberOfLines={1}>{isMine ? 'Story yako' : group.user.username}</Text>
+            <Text style={styles.username} numberOfLines={1}>{isMine ? 'Your story' : group.user.username}</Text>
             {group.user.is_verified && !isMine && <VerifiedBadge size={14} />}
             <Text style={styles.age}>{storyAge(story.created_at)}</Text>
           </View>
@@ -282,7 +317,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             onOpenViewers={() => setSheet(true)}
             onDelete={() => {
               setHolding(true);
-              Alert.alert('Futa story hii?', 'It will be removed for everyone.', [
+              Alert.alert('Delete this story?', 'It will be removed for everyone.', [
                 { text: 'Cancel', style: 'cancel', onPress: () => setHolding(false) },
                 {
                   text: 'Delete', style: 'destructive', onPress: async () => {

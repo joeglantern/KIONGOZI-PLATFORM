@@ -11,7 +11,7 @@ import { useStoryStore, StoryGroup } from '../../stores/storyStore';
 import { UserAvatar } from '../social/UserAvatar';
 import { StoryRing } from './StoryParts';
 
-const SIZE = 78;
+const SIZE = 74;
 
 /** Rail order: yours first, then everyone else as the server sorted them. */
 function useRailGroups() {
@@ -93,7 +93,7 @@ export function StoryRail() {
                   </Pressable>
                 )}
               </View>
-              <Text style={[styles.name, styles.nameSeen]} numberOfLines={1}>{mine ? 'Story yako' : 'Ongeza story'}</Text>
+              <Text style={[styles.name, styles.nameSeen]} numberOfLines={1}>{mine ? 'Your story' : 'Add story'}</Text>
             </View>
           </Squish>
           {!loaded && [0, 1, 2, 3].map(i => (
@@ -155,7 +155,7 @@ const stackStyles = StyleSheet.create({
 
 const makeStyles = (T: any) => StyleSheet.create({
   wrap: { flexGrow: 0 },
-  list: { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 10, gap: 12 },
+  list: { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 6, gap: 12 },
   headerRow: { flexDirection: 'row', gap: 12 },
   item: { width: SIZE + 4, alignItems: 'center', gap: 6 },
   name: { fontSize: 12.5, color: T.text, fontWeight: '600', maxWidth: SIZE + 6 },

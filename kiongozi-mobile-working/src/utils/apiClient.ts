@@ -616,6 +616,9 @@ class ApiClient {
       body: JSON.stringify(reaction !== undefined ? { reaction } : {}),
     });
   }
+  async voteStoryPoll(storyId: string, option: number) {
+    return this.request(`/api/v1/social/stories/${storyId}/vote`, { method: 'POST', body: JSON.stringify({ option }) });
+  }
   async getStoryViewers(storyId: string) {
     return this.request(`/api/v1/social/stories/${storyId}/viewers`, { method: 'GET' });
   }
