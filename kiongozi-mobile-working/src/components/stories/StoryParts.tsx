@@ -77,7 +77,7 @@ export function StoryRing({ size, state, children, gap = 3, bg }: {
   size: number; state: 'unseen' | 'seen' | 'none'; children: React.ReactNode; gap?: number; bg: string;
 }) {
   if (state === 'none') return <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>{children}</View>;
-  const ring = state === 'unseen' ? 3 : 1.5;
+  const ring = state === 'unseen' ? (size >= 60 ? 3.5 : 2.5) : size >= 60 ? 2 : 1.5;
   const inner = size - ring * 2;
   const content = (
     <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
