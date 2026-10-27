@@ -18,6 +18,7 @@ import ReportModal from './ReportModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
+import { useThemeStore } from '../../stores/themeStore';
 import { StoryRail, StoryStack } from '../../components/stories/StoryRail';
 import { FeedSkeleton } from '../../components/social/Skeleton';
 import { useStoryStore } from '../../stores/storyStore';
@@ -28,7 +29,8 @@ export default function FeedScreen() {
   const { conversations, fetchConversations } = useDMStore();
   const [createPostVisible, setCreatePostVisible] = useState(false);
   const T = useTheme();
-  const styles = useMemo(() => makeStyles(T), [T]);
+  const isDark = useThemeStore(s => s.isDark);
+  const styles = useMemo(() => makeStyles(T, isDark), [T, isDark]);
 
   const unreadDMs = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
   const scrollRef = useRef<ScrollView>(null);
@@ -266,12 +268,16 @@ export default function FeedScreen() {
           <TouchableOpacity
             style={[styles.tabPill, activeTab === 0 && styles.tabPillOn]}
             onPress={() => switchTabWithState(0)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 0 }}
           >
             <Text style={[styles.tabLabel, activeTab === 0 ? styles.tabLabelOn : styles.tabLabelOff]}>For You</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabPill, activeTab === 1 && styles.tabPillOn]}
             onPress={() => switchTabWithState(1)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 1 }}
           >
             <Text style={[styles.tabLabel, activeTab === 1 ? styles.tabLabelOn : styles.tabLabelOff]}>Following</Text>
           </TouchableOpacity>
@@ -285,13 +291,17 @@ export default function FeedScreen() {
           <View style={styles.headerRow}>
             <Image source={require('../../../assets/kchat-logo.png')} style={styles.headerLogo} resizeMode="contain" />
             <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.headerIconBtn} onPress={() => setCreatePostVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="add-outline" size={28} color={T.text} />
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => setCreatePostVisible(true)} accessibilityRole="button" accessibilityLabel="New post">
+                {/* Rounded square with a plus (design: 18×18 rect rx6, 8px plus, 1.8 stroke) */}
+                <View style={styles.newPostBox}>
+                  <View style={styles.newPostH} />
+                  <View style={styles.newPostV} />
+                </View>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('DMList')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="chatbubble-ellipses-outline" size={24} color={T.text} />
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('DMList')} accessibilityRole="button" accessibilityLabel={unreadDMs > 0 ? `Messages, ${unreadDMs} unread` : 'Messages'}>
+                <Ionicons name="paper-plane-outline" size={24} color={T.text} />
                 {unreadDMs > 0 && (
-                  <View style={[styles.iconBadge, { borderColor: T.bg }]}>
+                  <View style={styles.iconBadge}>
                     <Text style={styles.iconBadgeText}>{unreadDMs > 99 ? '99+' : String(unreadDMs)}</Text>
                   </View>
                 )}
@@ -332,7 +342,7 @@ export default function FeedScreen() {
   );
 }
 
-function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>, isDark: boolean) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
     header: {
@@ -341,34 +351,43 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     topBar: {
       position: 'absolute', top: 0, left: 0, right: 0,
-      paddingTop: 52, paddingHorizontal: 16, paddingBottom: 8,
+      paddingTop: 52, paddingHorizontal: 16, paddingBottom: 0,
       backgroundColor: T.bg, zIndex: 2,
     },
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     stackSlot: {
-      position: 'absolute', left: 0, right: 0, top: 52, bottom: 8,
+      position: 'absolute', left: 0, right: 0, top: 52, bottom: 0,
       alignItems: 'center', justifyContent: 'center',
     },
     headerLogo: {
       width: 120, height: 42, flexShrink: 0,
     },
     headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    headerIconBtn: { position: 'relative', padding: 6 },
-    iconBadge: {
-      position: 'absolute', top: 2, right: 2,
-      minWidth: 17, height: 17, borderRadius: 9,
-      backgroundColor: '#e53e3e',
-      justifyContent: 'center', alignItems: 'center',
-      paddingHorizontal: 3, borderWidth: 1.5,
+    headerIconBtn: { position: 'relative', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    newPostBox: {
+      width: 18, height: 18, borderRadius: 6, borderWidth: 1.8, borderColor: T.text,
+      alignItems: 'center', justifyContent: 'center',
     },
-    iconBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800', lineHeight: 11 },
-    // Equal-width underline tabs (Threads-style)
-    tabs: { flexDirection: 'row', backgroundColor: T.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border },
-    tabPill: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    tabPillOn: { borderBottomColor: T.text },
-    tabLabel: { fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold' },
-    tabLabelOn: { color: T.text },
-    tabLabelOff: { color: T.textMuted },
+    newPostH: { position: 'absolute', width: 8, height: 1.8, borderRadius: 0.9, backgroundColor: T.text },
+    newPostV: { position: 'absolute', width: 1.8, height: 8, borderRadius: 0.9, backgroundColor: T.text },
+    iconBadge: {
+      position: 'absolute', top: 8, right: 7,
+      minWidth: 16, height: 16, borderRadius: 8,
+      backgroundColor: '#E53E3E',
+      justifyContent: 'center', alignItems: 'center',
+      paddingHorizontal: 4,
+    },
+    iconBadgeText: { color: '#fff', fontSize: 10, fontWeight: '600', lineHeight: 12, includeFontPadding: false },
+    // Left-aligned pills: active is solid (white on black in dark), inactive a quiet chip
+    tabs: {
+      flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 10, backgroundColor: T.bg,
+      borderBottomWidth: 1, borderBottomColor: isDark ? '#1C1C1E' : T.borderLight,
+    },
+    tabPill: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: isDark ? '#1C1C1E' : T.surface },
+    tabPillOn: { backgroundColor: T.text },
+    tabLabel: { fontSize: 14, fontWeight: '600' },
+    tabLabelOn: { color: T.bg },
+    tabLabelOff: { color: isDark ? '#AEAEB2' : T.textSub },
     empty: { padding: 32, alignItems: 'center' },
     emptyText: { fontSize: 17, fontWeight: '600', color: T.textSub, marginBottom: 8, textAlign: 'center' },
     emptySubtext: { fontSize: 14, color: T.textMuted, textAlign: 'center' },

@@ -9,7 +9,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { PostCard } from '../../components/social/PostCard';
 import { EditPostModal } from '../../components/social/EditPostModal';
+import { HashtagHighlight } from '../../components/social/HashtagHighlight';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { VerifiedBadge } from '../../components/social/VerifiedBadge';
+import { BottomSheet } from '../../components/social/BottomSheet';
 import ReportModal from './ReportModal';
 import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -27,6 +30,22 @@ const fmtCount = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
   : n >= 1_000 ? `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`
   : String(n);
+
+/** Compact relative time for reply rows: "now", "5m", "1h", "3d", then "Oct 27" */
+function timeAgo(iso?: string) {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  const mins = Math.floor((Date.now() - t) / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d`;
+  const d = new Date(t);
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
 
 /** "2:41 PM · Oct 27" (+ year when not the current year) */
 function fmtStamp(iso?: string) {
@@ -61,6 +80,7 @@ export default function PostDetailScreen() {
   const [keyboardShown, setKeyboardShown] = useState(false);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
+  const [replyMenu, setReplyMenu] = useState<any>(null);
   const replyInputRef = useRef<TextInput>(null);
   const flatListRef = useRef<FlatList>(null);
 
@@ -240,7 +260,7 @@ export default function PostDetailScreen() {
         accessibilityRole="button"
         accessibilityLabel="Back"
       >
-        <Ionicons name="arrow-back" size={24} color={T.text} />
+        <Ionicons name="chevron-back" size={24} color={T.text} />
       </Pressable>
       <Text style={styles.headerTitle}>Thread</Text>
       <View style={styles.headerBtn} />
@@ -289,7 +309,9 @@ export default function PostDetailScreen() {
           <View style={styles.divider} />
           <View style={styles.repliesRow}>
             <Text style={styles.repliesLabel}>Replies</Text>
-            {replies.length > 0 && <Text style={styles.repliesCount}>{fmtCount(replies.length)}</Text>}
+            {(post?.comment_count ?? replies.length) > 0 && (
+              <Text style={styles.repliesCount}>{fmtCount(post?.comment_count ?? replies.length)}</Text>
+            )}
           </View>
         </View>
       );
@@ -300,10 +322,45 @@ export default function PostDetailScreen() {
     const isReply    = item._role === 'reply';
     const hasConnectorBelow = isAncestor || (isReply && repliesWithChild.has(item.id));
 
+    if (isReply) {
+      const author = item.profiles || {};
+      const pending = !!item._pending || String(item.id).startsWith('temp_');
+      return (
+        <Pressable
+          onPress={pending ? undefined : () => navigation.push('PostDetail', { postId: item.id })}
+          onLongPress={pending ? undefined : () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); setReplyMenu(item); }}
+          delayLongPress={350}
+          style={({ pressed }) => [styles.replyRow, pressed && { backgroundColor: T.surface }, pending && { opacity: 0.6 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Reply from ${author.username || 'user'}`}
+        >
+          <View style={styles.replyAvatarCol}>
+            <Pressable onPress={() => author.username && goProfile(author.username)} hitSlop={4}>
+              <UserAvatar avatarUrl={author.avatar_url} size={36} isBot={!!item.is_bot_reply} name={author.full_name || author.username} />
+            </Pressable>
+            {hasConnectorBelow && <View style={styles.replyLine} />}
+          </View>
+          <View style={styles.replyBody}>
+            <View style={styles.replyHead}>
+              <Text style={styles.replyUser} numberOfLines={1} onPress={() => author.username && goProfile(author.username)}>
+                {author.username || 'user'}
+              </Text>
+              {!!author.is_verified && <VerifiedBadge size={14} />}
+              <Text style={styles.replyTime}>{` · ${pending ? 'now' : timeAgo(item.created_at)}`}</Text>
+            </View>
+            {!!item.content && (
+              <HashtagHighlight content={item.content} style={styles.replyText} onMentionPress={goProfile} onHashtagPress={goHashtag} />
+            )}
+          </View>
+        </Pressable>
+      );
+    }
+
     return (
       <PostCard
         post={item}
         hasConnectorBelow={hasConnectorBelow}
+        variant={isMain ? 'detail' : 'default'}
         style={
           isMain ? styles.mainCard
           : isAncestor ? styles.ancestorCard
@@ -376,7 +433,6 @@ export default function PostDetailScreen() {
                 {280 - replyText.length}
               </Text>
             )}
-          </View>
           <Pressable
             onPress={handleSendReply}
             disabled={!canSend}
@@ -394,6 +450,7 @@ export default function PostDetailScreen() {
               ? <ActivityIndicator size="small" color="#000" />
               : <Ionicons name="arrow-up" size={20} color="#000" />}
           </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -407,6 +464,22 @@ export default function PostDetailScreen() {
         />
       )}
       <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
+      <BottomSheet
+        visible={!!replyMenu}
+        onClose={() => setReplyMenu(null)}
+        title={replyMenu?.profiles?.username ? `@${replyMenu.profiles.username}` : 'Reply'}
+        actions={replyMenu ? (
+          replyMenu.user_id && replyMenu.user_id === user?.id
+            ? [
+                { icon: 'create-outline', label: 'Edit', onPress: () => handleEditPress(replyMenu.id, replyMenu.content || '', replyMenu.visibility === 'followers' ? 'followers' : 'public') },
+                { icon: 'trash-outline', label: 'Delete', destructive: true, onPress: () => handleDeletePost(replyMenu.id) },
+              ]
+            : [
+                { icon: 'chatbubble-outline', label: 'Reply', onPress: () => navigation.push('PostDetail', { postId: replyMenu.id, focusReply: true }) },
+                { icon: 'flag-outline', label: 'Report', onPress: () => setReportTarget({ type: 'post', id: replyMenu.id, displayName: 'this post' }) },
+              ]
+        ) : []}
+      />
     </View>
   );
 }
@@ -461,15 +534,23 @@ function makeStyles(T: Theme) {
     ancestorCard: { borderBottomWidth: 0, opacity: 0.72 },
     noBorder: { borderBottomWidth: 0 },
 
-    metaLine: { fontSize: 14, color: T.textMuted, paddingHorizontal: 16, paddingTop: 2, paddingBottom: 12 },
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: T.borderLight },
+    metaLine: { fontSize: 14, color: T.textMuted, paddingHorizontal: 16, paddingTop: 10 },
+    divider: { height: 1, marginTop: 12, backgroundColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA' },
     repliesRow: {
-      flexDirection: 'row', alignItems: 'baseline', gap: 6,
-      paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.borderLight,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4,
     },
     repliesLabel: { fontSize: 15, color: T.text, fontFamily: 'SpaceGrotesk_600SemiBold' },
     repliesCount: { fontSize: 14, color: T.textMuted },
+
+    replyRow: { flexDirection: 'row', gap: 12, paddingVertical: 10, paddingHorizontal: 16 },
+    replyAvatarCol: { width: 36, alignItems: 'center', gap: 4 },
+    replyLine: { flex: 1, width: 2, borderRadius: 1, backgroundColor: '#2C2C2E', marginBottom: -10 },
+    replyBody: { flex: 1, minWidth: 0, gap: 4 },
+    replyHead: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    replyUser: { fontSize: 15, fontWeight: '700', color: T.text, flexShrink: 1 },
+    replyTime: { fontSize: 15, color: '#7C7C80' },
+    replyText: { fontSize: 15, lineHeight: 21, color: T.text },
 
     empty: { alignItems: 'center', paddingTop: 40, paddingBottom: 24, paddingHorizontal: 32 },
     emptyIcon: {
@@ -481,15 +562,14 @@ function makeStyles(T: Theme) {
 
     composer: {
       flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-      paddingHorizontal: 12, paddingTop: 8,
+      paddingHorizontal: 10, paddingTop: 8,
       backgroundColor: T.bg,
-      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.borderLight,
     },
     composerAvatar: { height: 44, justifyContent: 'center' },
     inputPill: {
       flex: 1, flexDirection: 'row', alignItems: 'flex-end',
       minHeight: 44, borderRadius: 22, backgroundColor: T.surface2,
-      paddingLeft: 16, paddingRight: 12,
+      paddingLeft: 16, paddingRight: 6,
     },
     input: {
       flex: 1, fontSize: 15, color: T.text, maxHeight: 110,
@@ -497,9 +577,9 @@ function makeStyles(T: Theme) {
       paddingBottom: Platform.OS === 'ios' ? 12 : 10,
       paddingHorizontal: 0,
     },
-    counter: { fontSize: 12, color: T.textMuted, paddingBottom: 13, paddingLeft: 6 },
+    counter: { fontSize: 12, color: T.textMuted, paddingBottom: 13, paddingHorizontal: 6 },
     sendBtn: {
-      width: 36, height: 36, borderRadius: 18, marginBottom: 4,
+      width: 36, height: 36, borderRadius: 18, marginBottom: 4, marginLeft: 4,
       backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center',
     },
     sendDisabled: { opacity: 0.4 },

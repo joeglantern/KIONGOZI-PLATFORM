@@ -28,8 +28,9 @@ const EMPTY: Record<Tab, { icon: keyof typeof Ionicons.glyphMap; title: string; 
   saved: { icon: 'bookmark-outline', title: 'Nothing saved', sub: 'Tap the bookmark on any post to keep it for later.' },
 };
 const COVER_HEIGHT = 150;
-const AVATAR_SIZE = 88;
 const RING = 4;
+const AVATAR_TOTAL = 88; // includes the 4px ring
+const AVATAR_SIZE = AVATAR_TOTAL - RING * 2;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function formatCount(n: number) {
@@ -257,26 +258,25 @@ export default function ProfileTabScreen() {
 
   const ListHeader = (
     <View>
-      {/* Cover photo — only rendered when one exists; tap to change */}
-      {hasBanner && (
-        <Pressable
-          onPress={handlePickBanner}
-          style={({ pressed }) => [styles.cover, pressed && { opacity: 0.85 }]}
-          accessibilityRole="button"
-          accessibilityLabel="Change cover photo"
-        >
-          <Image source={{ uri: bannerUri! }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-          <View style={styles.coverBadge}>
-            {uploadingBanner
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Ionicons name="camera-outline" size={16} color="#fff" />}
-          </View>
-        </Pressable>
-      )}
+      {/* Cover photo — always shown (flat placeholder when none); tap to change/add */}
+      <Pressable
+        onPress={handlePickBanner}
+        disabled={uploadingBanner}
+        style={({ pressed }) => [styles.cover, pressed && { opacity: 0.85 }]}
+        accessibilityRole="button"
+        accessibilityLabel={hasBanner ? 'Change cover photo' : 'Add cover photo'}
+      >
+        {hasBanner && <Image source={{ uri: bannerUri! }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />}
+        <View style={styles.coverBadge}>
+          {uploadingBanner
+            ? <ActivityIndicator size="small" color="#fff" />
+            : <Ionicons name="camera-outline" size={16} color="#fff" />}
+        </View>
+      </Pressable>
 
       <View style={styles.body}>
         {/* Avatar — tap opens story if there is one, otherwise the photo picker */}
-        <View style={[styles.avatarBlock, { marginTop: hasBanner ? -(AVATAR_SIZE / 2 + RING) : 4 }]}>
+        <View style={[styles.avatarBlock, { marginTop: -(AVATAR_TOTAL / 2) }]}>
           <Pressable
             onPress={handlePickAvatar}
             style={styles.avatarRing}
@@ -316,27 +316,12 @@ export default function ProfileTabScreen() {
         <Text style={styles.handle}>@{profile?.username || '—'}</Text>
         {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
-        {(!!joined || !hasBanner) && (
+        {!!joined && (
           <View style={styles.metaRow}>
-            {!!joined && (
-              <View style={styles.metaItem}>
-                <Ionicons name="calendar-outline" size={14} color={T.textMuted} />
-                <Text style={styles.metaText}>{joined}</Text>
-              </View>
-            )}
-            {!hasBanner && (
-              <Pressable
-                onPress={handlePickBanner}
-                disabled={uploadingBanner}
-                hitSlop={8}
-                style={({ pressed }) => [styles.metaItem, pressed && { opacity: 0.7 }]}
-              >
-                {uploadingBanner
-                  ? <ActivityIndicator size="small" color={T.textMuted} />
-                  : <Ionicons name="image-outline" size={14} color={T.textMuted} />}
-                <Text style={styles.metaLink}>Add cover photo</Text>
-              </Pressable>
-            )}
+            <View style={styles.metaItem}>
+              <Ionicons name="calendar-outline" size={14} color={T.textMuted} />
+              <Text style={styles.metaText}>{joined}</Text>
+            </View>
           </View>
         )}
 
@@ -491,7 +476,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center',
     },
 
-    cover: { height: COVER_HEIGHT, backgroundColor: T.surface, overflow: 'hidden' },
+    cover: { height: COVER_HEIGHT, backgroundColor: T.surface2, overflow: 'hidden' },
     coverBadge: {
       position: 'absolute', top: 12, right: 12,
       width: 32, height: 32, borderRadius: 16,
@@ -499,10 +484,10 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
 
     body: { paddingHorizontal: 16, paddingBottom: 16 },
-    avatarBlock: { alignSelf: 'flex-start', marginBottom: 12 },
+    avatarBlock: { alignSelf: 'flex-start', marginBottom: 8 },
     avatarRing: {
       borderWidth: RING, borderColor: T.bg, backgroundColor: T.bg,
-      borderRadius: (AVATAR_SIZE + RING * 2) / 2, alignSelf: 'flex-start',
+      borderRadius: AVATAR_TOTAL / 2, alignSelf: 'flex-start',
     },
     avatarUploading: {
       position: 'absolute', top: 0, left: 0, width: AVATAR_SIZE, height: AVATAR_SIZE,
@@ -518,18 +503,17 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
 
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     displayName: { fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.5, color: T.text, flexShrink: 1 },
-    handle: { fontSize: 15, color: T.textMuted, marginTop: 2 },
+    handle: { fontSize: 15, color: T.textMuted, marginTop: 6 },
     bio: { fontSize: 15, lineHeight: 21, color: T.text, marginTop: 10 },
 
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 6, marginTop: 10 },
-    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 6, marginTop: 6 },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     metaText: { fontSize: 13, color: T.textMuted },
-    metaLink: { fontSize: 13, color: T.textMuted, fontWeight: '600', textDecorationLine: 'underline' },
 
     statsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 },
-    statText: { fontSize: 14, color: T.textMuted },
+    statText: { fontSize: 15, color: T.textMuted },
     statNum: { fontWeight: '700', color: T.text },
-    statDot: { fontSize: 14, color: T.textMuted },
+    statDot: { fontSize: 15, color: T.textMuted },
 
     actionRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
     actionBtn: {
@@ -537,16 +521,16 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       alignItems: 'center', justifyContent: 'center',
       borderWidth: 1, borderColor: T.border,
     },
-    actionBtnText: { fontSize: 14, fontWeight: '700', color: T.text },
+    actionBtnText: { fontSize: 15, fontWeight: '700', color: T.text },
 
     tabBar: {
       flexDirection: 'row', backgroundColor: T.bg,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border,
+      borderBottomWidth: 1, borderBottomColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA',
     },
-    tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'flex-end' },
-    tabInner: { paddingHorizontal: 6, paddingBottom: 11 },
+    tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
+    tabInner: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
     tabLabel: { fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold' },
-    tabUnderline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, borderRadius: 1, backgroundColor: T.text },
+    tabUnderline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, backgroundColor: T.text },
 
     savedNote: {
       flexDirection: 'row', alignItems: 'center', gap: 6,

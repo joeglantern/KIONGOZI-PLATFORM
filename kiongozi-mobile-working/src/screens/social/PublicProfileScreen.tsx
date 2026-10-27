@@ -26,8 +26,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'reposts', label: 'Reposts' },
 ];
 const BANNER_HEIGHT = 150;
-const AVATAR_SIZE = 88;
 const RING = 4;
+const AVATAR_TOTAL = 88; // includes the 4px ring
+const AVATAR_SIZE = AVATAR_TOTAL - RING * 2;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function formatCount(n?: number | null) {
@@ -269,7 +270,7 @@ export default function PublicProfileScreen() {
         accessibilityRole="button"
         accessibilityLabel="Go back"
       >
-        <Ionicons name="arrow-back" size={24} color={T.text} />
+        <Ionicons name="chevron-back" size={24} color={T.text} />
       </Pressable>
       <Text style={styles.headerTitle} numberOfLines={1}>{title ?? ''}</Text>
       {showMore ? (
@@ -324,7 +325,7 @@ export default function PublicProfileScreen() {
   if (isBlocked) {
     return (
       <View style={styles.container}>
-        {renderHeader(`@${profile?.username}`)}
+        {renderHeader(profile?.username)}
         <View style={styles.wall}>
           <View style={styles.wallIcon}>
             <Ionicons name="ban-outline" size={26} color={T.textMuted} />
@@ -356,7 +357,7 @@ export default function PublicProfileScreen() {
   if (!isOwnProfile && profile?.isBlockedBy) {
     return (
       <View style={styles.container}>
-        {renderHeader(`@${profile.username}`)}
+        {renderHeader(profile.username)}
         <View style={styles.wall}>
           <View style={styles.wallIcon}>
             <Ionicons name="lock-closed-outline" size={26} color={T.textMuted} />
@@ -387,13 +388,15 @@ export default function PublicProfileScreen() {
 
   const ListHeader = (
     <View>
-      {/* Banner — only when one exists */}
-      {hasBanner && (
+      {/* Cover — banner image, or a flat placeholder so the avatar always overlaps it */}
+      {hasBanner ? (
         <Image source={{ uri: profile.banner_url }} style={styles.banner} resizeMode="cover" />
+      ) : (
+        <View style={styles.banner} />
       )}
 
       <View style={styles.body}>
-        <View style={[styles.avatarRing, { marginTop: hasBanner ? -(AVATAR_SIZE / 2 + RING) : 4 }]}>
+        <View style={[styles.avatarRing, { marginTop: -(AVATAR_TOTAL / 2) }]}>
           <ProfileStoryAvatar
             userId={profile?.id}
             avatarUrl={profile?.avatar_url}
@@ -540,7 +543,7 @@ export default function PublicProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {renderHeader(profile?.full_name, !isOwnProfile)}
+      {renderHeader(profile?.username, !isOwnProfile)}
 
       <FlatList
         data={isLocked ? [] : displayPosts}
@@ -661,54 +664,54 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
 
     header: {
       flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 8, paddingBottom: 6, backgroundColor: T.bg,
+      paddingHorizontal: 4, paddingBottom: 6, backgroundColor: T.bg,
     },
     backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
     iconBtn: {
-      width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2,
+      width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2, marginRight: 8,
       alignItems: 'center', justifyContent: 'center',
     },
-    headerSpacer: { width: 44, height: 44 },
+    headerSpacer: { width: 44, height: 44, marginRight: 8 },
     headerTitle: {
       flex: 1, textAlign: 'center', marginHorizontal: 8,
       fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text,
     },
 
-    banner: { width: '100%', height: BANNER_HEIGHT, backgroundColor: T.surface },
+    banner: { width: '100%', height: BANNER_HEIGHT, backgroundColor: T.surface2 },
     body: { paddingHorizontal: 16, paddingBottom: 16 },
     avatarRing: {
-      alignSelf: 'flex-start', marginBottom: 12,
+      alignSelf: 'flex-start', marginBottom: 8,
       borderWidth: RING, borderColor: T.bg, backgroundColor: T.bg,
-      borderRadius: (AVATAR_SIZE + RING * 2) / 2,
+      borderRadius: AVATAR_TOTAL / 2,
     },
 
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     fullName: { fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.5, color: T.text, flexShrink: 1 },
-    handleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+    handleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
     username: { color: T.textMuted, fontSize: 15 },
     bio: { color: T.text, fontSize: 15, lineHeight: 21, marginTop: 10 },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
     metaText: { fontSize: 13, color: T.textMuted },
 
     statsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 },
-    statText: { fontSize: 14, color: T.textMuted },
+    statText: { fontSize: 15, color: T.textMuted },
     statNum: { fontWeight: '700', color: T.text },
 
     actionRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
     actionBtn: { flex: 1, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     actionPrimary: { backgroundColor: T.text },
-    actionPrimaryText: { color: T.bg, fontWeight: '700', fontSize: 14 },
+    actionPrimaryText: { color: T.bg, fontWeight: '700', fontSize: 15 },
     actionSecondary: { borderWidth: 1, borderColor: T.border },
-    actionSecondaryText: { color: T.text, fontWeight: '700', fontSize: 14 },
+    actionSecondaryText: { color: T.text, fontWeight: '700', fontSize: 15 },
 
     tabBar: {
       flexDirection: 'row', backgroundColor: T.bg,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border,
+      borderBottomWidth: 1, borderBottomColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA',
     },
-    tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'flex-end' },
-    tabInner: { paddingHorizontal: 6, paddingBottom: 11 },
+    tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
+    tabInner: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
     tabLabel: { fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold' },
-    tabUnderline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, borderRadius: 1, backgroundColor: T.text },
+    tabUnderline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, backgroundColor: T.text },
 
     emptyState: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 32 },
     wall: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingBottom: 48 },

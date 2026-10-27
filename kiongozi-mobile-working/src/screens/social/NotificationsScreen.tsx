@@ -33,29 +33,28 @@ const BADGE: Record<string, { icon: keyof typeof Ionicons.glyphMap; bg: string; 
   comment: { icon: 'chatbubble', bg: '#5CB85C', fg: '#000' },
   repost: { icon: 'repeat', bg: '#5CB85C', fg: '#000' },
   mention: { icon: 'at', bg: '#F5B83D', fg: '#000' },
-  follow: { icon: 'person-add', bg: '#7C5CFF', fg: '#fff' },
-  follow_request: { icon: 'person-add', bg: '#7C5CFF', fg: '#fff' },
+  follow: { icon: 'add', bg: '#7C5CFF', fg: '#fff' },
+  follow_request: { icon: 'add', bg: '#7C5CFF', fg: '#fff' },
   dm: { icon: 'paper-plane', bg: '#3B82F6', fg: '#fff' },
 };
 
 // What each type says after the person's name (single / grouped)
 const ACTION: Record<string, [string, string]> = {
-  like: ['liked your post', 'liked your post'],
-  repost: ['reposted your post', 'reposted your post'],
-  comment: ['replied to your post', 'replied to your post'],
-  mention: ['mentioned you', 'mentioned you'],
-  follow: ['started following you', 'started following you'],
-  follow_request: ['wants to follow you', 'want to follow you'],
-  dm: ['sent you a message', 'sent you messages'],
+  like: ['alipenda post yako', 'walipenda post yako'],
+  repost: ['alishiriki post yako', 'walishiriki post yako'],
+  comment: ['alijibu', 'walijibu'],
+  mention: ['alikutaja kwenye post', 'walikutaja kwenye post'],
+  follow: ['alianza kukufuata', 'walianza kukufuata'],
+  follow_request: ['anataka kukufuata', 'wanataka kukufuata'],
+  dm: ['amekutumia ujumbe', 'wamekutumia ujumbe'],
 };
 
 const FILTERS: { id: string; label: string; types: string[] | null }[] = [
-  { id: 'all', label: 'All', types: null },
+  { id: 'all', label: 'Zote', types: null },
   { id: 'mentions', label: 'Mentions', types: ['mention'] },
-  { id: 'replies', label: 'Replies', types: ['comment'] },
+  { id: 'replies', label: 'Majibu', types: ['comment'] },
   { id: 'likes', label: 'Likes', types: ['like'] },
-  { id: 'follows', label: 'Follows', types: ['follow', 'follow_request'] },
-  { id: 'reposts', label: 'Reposts', types: ['repost'] },
+  { id: 'follows', label: 'Wafuasi', types: ['follow', 'follow_request'] },
 ];
 
 /** A row: one notification, or several of the same kind on the same post. */
@@ -67,13 +66,13 @@ function buildSections(list: SocialNotification[]) {
   const now = Date.now();
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const bucket = (n: SocialNotification) => {
-    if (!n.read) return 'New';
+    if (!n.read) return 'Mpya';
     const t = new Date(n.created_at).getTime();
-    if (t >= startOfToday.getTime()) return 'Today';
-    if (now - t < 7 * 86400000) return 'This week';
-    return 'Earlier';
+    if (t >= startOfToday.getTime()) return 'Leo';
+    if (now - t < 7 * 86400000) return 'Wiki hii';
+    return 'Zamani';
   };
-  const order = ['New', 'Today', 'This week', 'Earlier'];
+  const order = ['Mpya', 'Leo', 'Wiki hii', 'Zamani'];
   const sections: Record<string, Row[]> = {};
   const index: Record<string, Row> = {};
   for (const n of list) {
@@ -143,13 +142,13 @@ function FollowBack({ userId, T }: { userId?: string; T: Theme }) {
         try { await apiClient.followUser(userId); } catch {}
         setState('done');
       }}
-      style={({ pressed }) => [rowStyles.pill, { backgroundColor: done ? 'transparent' : T.text, borderColor: done ? T.border : T.text }, pressed && { opacity: 0.8 }]}
+      style={({ pressed }) => [rowStyles.pill, done ? { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border, paddingHorizontal: 15 } : { backgroundColor: T.text }, pressed && { opacity: 0.8 }]}
       accessibilityRole="button"
-      accessibilityLabel={done ? 'Following' : 'Follow back'}
+      accessibilityLabel={done ? 'Unamfuata' : 'Fuata pia'}
     >
       {state === 'busy'
         ? <ActivityIndicator size="small" color={T.bg} />
-        : <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]}>{done ? 'Following' : 'Follow back'}</Text>}
+        : <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]}>{done ? 'Unamfuata' : 'Fuata pia'}</Text>}
     </Pressable>
   );
 }
@@ -171,11 +170,11 @@ function FollowRequestButtons({ item, onRemove, T }: { item: SocialNotification;
   };
   return (
     <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-      <Pressable onPress={() => act('accept')} disabled={!!loading} style={[rowStyles.pill, { backgroundColor: T.accent, borderColor: T.accent, minWidth: 92 }]}>
-        {loading === 'accept' ? <ActivityIndicator size="small" color="#000" /> : <Text style={[rowStyles.pillText, { color: '#000' }]}>Confirm</Text>}
+      <Pressable onPress={() => act('accept')} disabled={!!loading} style={[rowStyles.pill, { backgroundColor: T.accent, minWidth: 92 }]}>
+        {loading === 'accept' ? <ActivityIndicator size="small" color="#000" /> : <Text style={[rowStyles.pillText, { color: '#000' }]}>Kubali</Text>}
       </Pressable>
-      <Pressable onPress={() => act('decline')} disabled={!!loading} style={[rowStyles.pill, { borderColor: T.border, minWidth: 92 }]}>
-        {loading === 'decline' ? <ActivityIndicator size="small" color={T.text} /> : <Text style={[rowStyles.pillText, { color: T.text }]}>Delete</Text>}
+      <Pressable onPress={() => act('decline')} disabled={!!loading} style={[rowStyles.pill, { borderWidth: 1, borderColor: T.border, paddingHorizontal: 15, minWidth: 92 }]}>
+        {loading === 'decline' ? <ActivityIndicator size="small" color={T.text} /> : <Text style={[rowStyles.pillText, { color: T.text }]}>Futa</Text>}
       </Pressable>
     </View>
   );
@@ -188,11 +187,11 @@ function ActorAvatars({ row, T }: { row: Row; T: Theme }) {
     <View style={rowStyles.avatarBox}>
       {b ? (
         <>
-          <View style={[rowStyles.stackTop, { borderColor: T.bg }]}><UserAvatar avatarUrl={a.fromAvatar} size={34} /></View>
-          <View style={[rowStyles.stackBottom, { borderColor: T.bg }]}><UserAvatar avatarUrl={b.fromAvatar} size={34} /></View>
+          <View style={[rowStyles.stackTop, { borderColor: T.bg }]}><UserAvatar avatarUrl={a.fromAvatar} size={34} name={a.fromUsername} /></View>
+          <View style={[rowStyles.stackBottom, { borderColor: T.bg }]}><UserAvatar avatarUrl={b.fromAvatar} size={34} name={b.fromUsername} /></View>
         </>
       ) : a.fromUsername ? (
-        <UserAvatar avatarUrl={a.fromAvatar} size={48} isBot={a.fromUsername === 'kiongozi'} />
+        <UserAvatar avatarUrl={a.fromAvatar} size={48} isBot={a.fromUsername === 'kiongozi'} name={a.fromUsername} />
       ) : (
         <View style={[rowStyles.system, { backgroundColor: T.surface2 }]}>
           <Ionicons name="notifications" size={22} color={T.textSub} />
@@ -224,13 +223,13 @@ function NotificationRow({ row, onPress, onRemove, T }: { row: Row; onPress: () 
           {name && action ? (
             <>
               <Text style={rowStyles.name}>{name}</Text>
-              {others > 0 && <Text>{` and ${others} ${others === 1 ? 'other' : 'others'}`}</Text>}
+              {others > 0 && <Text>{` na wengine ${others}`}</Text>}
               <Text style={{ color: T.textSub }}>{` ${action[others > 0 ? 1 : 0]}`}</Text>
             </>
           ) : (
             <Text style={{ color: T.textSub }}>{first.message}</Text>
           )}
-          <Text style={{ color: T.textMuted }}>{`  ${timeAgo(row.latest)}`}</Text>
+          <Text style={{ color: T.textMuted }}>{` · ${timeAgo(row.latest)}`}</Text>
         </Text>
         {isRequest && <FollowRequestButtons item={first} onRemove={onRemove} T={T} />}
       </View>
@@ -247,10 +246,10 @@ const rowStyles = StyleSheet.create({
   stackTop: { position: 'absolute', left: 0, top: 0, borderWidth: 2, borderRadius: 19 },
   stackBottom: { position: 'absolute', right: -2, bottom: -2, borderWidth: 2, borderRadius: 19 },
   system: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  badge: { position: 'absolute', right: -5, bottom: -5, width: 21, height: 21, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   text: { fontSize: 15, lineHeight: 20 },
-  name: { fontWeight: '700' },
-  pill: { height: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  name: { fontWeight: '600' },
+  pill: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 0, alignItems: 'center', justifyContent: 'center' },
   pillText: { fontSize: 14, fontWeight: '700' },
 });
 
@@ -355,7 +354,7 @@ export default function NotificationsScreen() {
           sections={sections}
           keyExtractor={r => r.key}
           stickySectionHeadersEnabled={false}
-          renderSectionHeader={({ section }) => <Text style={styles.section}>{section.title}</Text>}
+          renderSectionHeader={({ section }) => <Text style={[styles.section, section === sections[0] && { paddingTop: 8 }]}>{section.title}</Text>}
           renderItem={({ item }) => (
             <NotificationRow row={item} T={T} onPress={() => open(item)} onRemove={(id) => { markRead(id); removeNotification?.(id); }} />
           )}
@@ -386,12 +385,12 @@ function makeStyles(T: Theme) {
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 6 },
     headerTitle: { fontSize: 30, color: T.text, letterSpacing: -0.8, fontFamily: 'SpaceGrotesk_700Bold' },
     markAll: { width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
-    chips: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+    chips: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 8 },
     chip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
     chipText: { fontSize: 14, fontWeight: '600' },
     chipCount: { minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#FF3040', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
     chipCountText: { color: '#fff', fontSize: 11, fontWeight: '800' },
-    section: { color: T.text, fontSize: 16, fontWeight: '700', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 4, fontFamily: 'SpaceGrotesk_600SemiBold' },
+    section: { color: T.text, fontSize: 15, fontWeight: '700', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 2 },
     skelRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
     skelAvatar: { width: 48, height: 48, borderRadius: 24 },
     skelLine: { height: 12, borderRadius: 6 },

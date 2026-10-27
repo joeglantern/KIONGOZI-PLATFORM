@@ -22,6 +22,8 @@ import { useTheme } from '../../hooks/useTheme';
 type Theme = ReturnType<typeof useTheme>;
 const W = Dimensions.get('window').width;
 const RECENTS_KEY = 'explore_recent_searches';
+/** Full number with thousands separators: 1204 → "1,204" */
+const commas = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const fmt = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K` : String(n));
 
 // ── Mosaic tile (photo, video thumbnail, or text) ──
@@ -60,7 +62,7 @@ function Tile({ post, style, onPress, T }: { post: Post; style: any; onPress: ()
   );
 }
 const tileStyles = StyleSheet.create({
-  text: { color: '#fff', fontFamily: 'SpaceGrotesk_700Bold', fontSize: 13, lineHeight: 17 },
+  text: { color: '#fff', fontFamily: 'SpaceGrotesk_700Bold', fontSize: 13, lineHeight: 16 },
   views: { position: 'absolute', left: 8, bottom: 7, flexDirection: 'row', alignItems: 'center', gap: 3 },
   viewsText: { color: '#fff', fontSize: 12, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3 },
   multi: { position: 'absolute', right: 7, top: 7, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 },
@@ -69,7 +71,7 @@ const tileStyles = StyleSheet.create({
 function Mosaic({ posts, onOpen, T }: { posts: Post[]; onOpen: (p: Post) => void; T: Theme }) {
   const gap = 3;
   const col = (W - 32 - gap * 2) / 3;
-  const h = 116;
+  const h = 112;
   const [big, ...rest] = posts;
   return (
     <View style={{ flexDirection: 'row', gap, height: h * 2 + gap, marginHorizontal: 16, borderRadius: 16, overflow: 'hidden' }}>
@@ -91,13 +93,13 @@ function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () =
   };
   const done = state === 'done';
   return (
-    <Pressable onPress={onOpen} style={[cardStyles.card, { backgroundColor: T.surface, borderColor: T.border }]} accessibilityLabel={`${person.full_name || person.username}'s profile`}>
-      <UserAvatar avatarUrl={person.avatar_url} size={60} />
+    <Pressable onPress={onOpen} style={[cardStyles.card, { backgroundColor: T.surface, borderColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA' }]} accessibilityLabel={`${person.full_name || person.username}'s profile`}>
+      <UserAvatar avatarUrl={person.avatar_url} size={60} name={person.full_name || person.username} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, maxWidth: 112 }}>
         <Text style={[cardStyles.name, { color: T.text }]} numberOfLines={1}>{person.full_name || person.username}</Text>
         {person.is_verified && <VerifiedBadge size={13} />}
       </View>
-      <Text style={[cardStyles.handle, { color: T.textMuted }]} numberOfLines={1}>@{person.username}</Text>
+      <Text style={[cardStyles.handle, { color: T.textSub }]} numberOfLines={1}>@{person.username}</Text>
       <Pressable
         onPress={follow}
         style={({ pressed }) => [cardStyles.btn, done ? { borderWidth: 1, borderColor: T.border } : { backgroundColor: T.text }, pressed && { opacity: 0.8 }]}
@@ -112,10 +114,10 @@ function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () =
   );
 }
 const cardStyles = StyleSheet.create({
-  card: { width: 136, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, paddingTop: 14, paddingBottom: 12, paddingHorizontal: 10, alignItems: 'center', gap: 5 },
+  card: { width: 132, borderRadius: 18, borderWidth: 1, paddingTop: 14, paddingBottom: 12, paddingHorizontal: 10, alignItems: 'center', gap: 6 },
   name: { fontSize: 14, fontWeight: '700' },
   handle: { fontSize: 12 },
-  btn: { marginTop: 5, alignSelf: 'stretch', height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  btn: { marginTop: 4, alignSelf: 'stretch', height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontSize: 14, fontWeight: '700' },
 });
 
@@ -245,25 +247,25 @@ export default function ExploreScreen() {
   const openPost = (p: Post) => navigation.navigate('PostDetail', { postId: p.id });
   const openProfile = (username: string) => navigation.navigate('PublicProfile', { username });
 
-  const trends = (trending?.hashtags || []).slice(0, showAllTrends ? 10 : 4);
+  const trends = (trending?.hashtags || []).slice(0, showAllTrends ? 10 : 3);
 
   const DefaultHeader = (
     <View>
       {trends.length > 0 && (
         <View style={styles.block}>
-          <Text style={styles.blockTitle}>Trending in Kenya</Text>
+          <Text style={[styles.blockTitle, { marginBottom: 6 }]}>Trending in Kenya</Text>
           {trends.map((h: any, i: number) => (
             <Pressable key={h.id} onPress={() => runSearch(`#${h.tag}`)} style={({ pressed }) => [styles.trendRow, pressed && { opacity: 0.6 }]}
               accessibilityRole="button" accessibilityLabel={`Trending ${i + 1}: #${h.tag}`}>
               <Text style={styles.trendRank}>{i + 1}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.trendTag}>#{h.tag}</Text>
-                {h.use_count > 0 && <Text style={styles.trendMeta}>{fmt(h.use_count)} posts</Text>}
+                {h.use_count > 0 && <Text style={styles.trendMeta}>{commas(h.use_count)} {h.use_count === 1 ? 'post' : 'posts'}</Text>}
               </View>
               <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
             </Pressable>
           ))}
-          {(trending?.hashtags?.length ?? 0) > 4 && (
+          {(trending?.hashtags?.length ?? 0) > 3 && (
             <Pressable onPress={() => setShowAllTrends(v => !v)} style={styles.moreBtn} accessibilityRole="button">
               <Text style={styles.moreText}>{showAllTrends ? 'Show less' : 'Show more'}</Text>
             </Pressable>
@@ -272,14 +274,14 @@ export default function ExploreScreen() {
       )}
 
       {mosaic.length > 0 && (
-        <View style={{ marginTop: 18 }}>
+        <View style={{ marginTop: 14 }}>
           <Text style={[styles.blockTitle, { marginHorizontal: 16 }]}>Watch & see</Text>
           <Mosaic posts={mosaic} onOpen={openPost} T={T} />
         </View>
       )}
 
       {people.length > 0 && (
-        <View style={{ marginTop: 22 }}>
+        <View style={{ marginTop: 18 }}>
           <Text style={[styles.blockTitle, { marginHorizontal: 16 }]}>People to follow</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
             {people.map(p => <PersonCard key={p.id} person={p} T={T} onOpen={() => openProfile(p.username)} />)}
@@ -380,7 +382,7 @@ export default function ExploreScreen() {
               <View style={styles.suggIconWrap}><Ionicons name="pricetag-outline" size={16} color={T.textSub} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.suggName}>#{h.tag}</Text>
-                {h.use_count > 0 && <Text style={styles.suggSub}>{fmt(h.use_count)} posts</Text>}
+                {h.use_count > 0 && <Text style={styles.suggSub}>{commas(h.use_count)} {h.use_count === 1 ? 'post' : 'posts'}</Text>}
               </View>
             </Pressable>
           ))}
@@ -485,11 +487,11 @@ function makeStyles(T: Theme) {
     cancel: { color: T.text, fontSize: 15, fontWeight: '600' },
 
     block: { paddingHorizontal: 16, paddingTop: 10 },
-    blockTitle: { fontSize: 18, color: T.text, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8 },
-    trendRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 52 },
+    blockTitle: { fontSize: 18, color: T.text, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 10 },
+    trendRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 9, minHeight: 44 },
     trendRank: { width: 18, fontFamily: 'SpaceGrotesk_700Bold', fontSize: 17, color: T.textMuted },
     trendTag: { fontSize: 15, fontWeight: '700', color: T.text },
-    trendMeta: { fontSize: 13, color: T.textMuted, marginTop: 2 },
+    trendMeta: { fontSize: 13, color: T.textSub, marginTop: 2 },
     moreBtn: { paddingVertical: 10 },
     moreText: { color: T.accent, fontSize: 14, fontWeight: '600' },
 

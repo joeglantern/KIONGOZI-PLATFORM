@@ -30,7 +30,7 @@ export const BACKGROUNDS: { id: string; name: string; colors: [string, string]; 
 ];
 export const bgById = (id?: string | null) => BACKGROUNDS.find(b => b.id === id) || BACKGROUNDS[0];
 
-export const TEXT_COLORS = ['#FFFFFF', '#111111', '#F5B83D', '#FF5A5F', '#5CB85C', '#7FD3F7', '#C792EA'];
+export const TEXT_COLORS = ['#FFFFFF', '#000000', '#F5B83D', '#FF5A5F', '#5CB85C', '#7FD3F7', '#C792EA'];
 
 /** Story fonts. Stored as `font` = the id. */
 export const FONTS: { id: string; label: string; style: { fontFamily?: string; fontWeight?: any; letterSpacing?: number } }[] = [
@@ -41,15 +41,20 @@ export const FONTS: { id: string; label: string; style: { fontFamily?: string; f
 ];
 export const fontById = (id?: string | null) => (FONTS.find(f => f.id === id) || FONTS[0]).style;
 
-/** Auto-fit size for a text story: big for short text, smaller as it grows. */
+/** Auto-fit size for a text story: 36 for short text (the design size), smaller as it grows. */
 export const fitFontSize = (text: string) => {
   const n = text.length;
-  if (n < 40) return 38;
+  if (n < 40) return 36;
   if (n < 90) return 32;
   if (n < 160) return 26;
   if (n < 280) return 22;
   return 18;
 };
+/** Line height paired with fitFontSize (36 -> 42, per the design). */
+export const fitLineHeight = (size: number) => (size >= 36 ? 42 : Math.round(size * 1.18));
+/** Short text sits in the upper-middle of the canvas; long text stays centred so it never runs off. */
+export const TEXT_TOP = 0.296; // 250 / 844
+export const textAnchoredTop = (text: string) => fitFontSize(text) >= 32;
 
 export const REACTIONS = ['😂', '😮', '😍', '😢', '👏', '🔥'];
 
@@ -60,3 +65,12 @@ export function storyAge(iso: string) {
   if (mins < 60) return `dak ${mins}`;
   return `saa ${Math.floor(mins / 60)}`;
 }
+
+/** App link used when sharing a story (no server needed). */
+export const APP_LINK = 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile';
+
+/**
+ * The story viewer is a Modal outside the NavigationContainer. AppNavigator can register its
+ * navigation ref here (`storyNav.current = navRef.current`) so the viewers sheet can open a DM.
+ */
+export const storyNav: { current: { navigate: (...args: any[]) => void } | null } = { current: null };

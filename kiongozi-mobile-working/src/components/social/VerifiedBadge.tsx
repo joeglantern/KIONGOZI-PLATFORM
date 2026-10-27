@@ -1,49 +1,37 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   size?: number;
 }
 
-const BLUE = '#1D9BF0';
-
+/**
+ * Accent-green disc with a black check (design: 16×16 circle, check stroke 1.8).
+ * The check is an L (bottom + right borders) rotated 45°, nudged so its corner lands where the
+ * design path's corner sits (7, 10.5 in a 16 box).
+ */
 export function VerifiedBadge({ size = 15 }: Props) {
-  const sq = size * 0.72;
-  const r = sq * 0.18;
-
+  const T = useTheme();
+  const k = size / 16;
+  const stroke = Math.max(1.2, 1.8 * k);
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {/* 4 rotated squares at 22.5° steps → 8-point zigzag seal */}
-      {([0, 22.5, 45, 67.5] as const).map((deg) => (
-        <View
-          key={deg}
-          style={{
-            position: 'absolute',
-            width: sq,
-            height: sq,
-            borderRadius: r,
-            backgroundColor: BLUE,
-            transform: [{ rotate: `${deg}deg` }],
-          }}
-        />
-      ))}
-      {/* Thin italic ✓ — positioned absolutely so it sits dead-center in the seal */}
-      <Text
+    <View
+      accessibilityRole="image"
+      accessibilityLabel="Verified"
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <View
         style={{
-          position: 'absolute',
-          zIndex: 1,
-          color: '#fff',
-          fontSize: size * 0.52,
-          fontWeight: '300',
-          fontStyle: 'italic',
-          width: size,
-          textAlign: 'center',
-          lineHeight: size,
-          includeFontPadding: false,
+          width: 4.2 * k,
+          height: 8 * k,
+          borderRightWidth: stroke,
+          borderBottomWidth: stroke,
+          borderColor: '#000',
+          borderBottomRightRadius: stroke / 2,
+          transform: [{ translateX: 0.1 * k }, { translateY: -0.9 * k }, { rotate: '45deg' }],
         }}
-      >
-        ✓
-      </Text>
+      />
     </View>
   );
 }

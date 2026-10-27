@@ -324,6 +324,7 @@ export default function DMConversationScreen() {
         isFirst={item.isFirst}
         isLast={item.isLast}
         avatarUrl={participantAvatar}
+        avatarName={participantName || participantUsername}
         onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
         onLongPress={() => openContextMenu(item.message, isOwn)}
         replyPreview={repliedTo ? {
@@ -332,7 +333,7 @@ export default function DMConversationScreen() {
         } : undefined}
       />
     );
-  }, [user?.id, participantAvatar, participantName, styles, openContextMenu, messageMap]);
+  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -344,7 +345,7 @@ export default function DMConversationScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={T.text} />
+            <Ionicons name="chevron-back" size={24} color={T.text} />
           </TouchableOpacity>
 
           {isBot ? (
@@ -368,7 +369,7 @@ export default function DMConversationScreen() {
               activeOpacity={0.7}
               onPress={() => participantUsername && navigation.navigate('PublicProfile', { username: participantUsername })}
             >
-              <UserAvatar avatarUrl={participantAvatar} size={32} />
+              <UserAvatar avatarUrl={participantAvatar} size={32} name={participantName || participantUsername} />
               <View style={styles.headerNames}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                   <Text style={styles.headerName} numberOfLines={1}>{participantName || 'Message'}</Text>
@@ -413,7 +414,7 @@ export default function DMConversationScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <UserAvatar avatarUrl={participantAvatar} size={84} />
+              <UserAvatar avatarUrl={participantAvatar} size={84} name={participantName || participantUsername} />
               <Text style={styles.emptyName}>{participantName || 'Say hello'}</Text>
               {participantUsername ? <Text style={styles.emptyText}>@{participantUsername}</Text> : null}
               {!isBot && (
@@ -619,7 +620,7 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
 
     messageList: { paddingVertical: 12, paddingBottom: 4 },
 
-    dateSep: { alignItems: 'center', marginTop: 18, marginBottom: 6 },
+    dateSep: { alignItems: 'center', marginTop: 10, marginBottom: 6 },
     dateLabel: { fontSize: 12, color: T.textMuted, fontWeight: '500' },
 
     empty: { alignItems: 'center', marginTop: 70, gap: 6 },

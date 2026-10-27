@@ -9,9 +9,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useStoryStore, StoryGroup } from '../../stores/storyStore';
 import { UserAvatar } from '../social/UserAvatar';
-import { StoryRing } from './StoryParts';
+import { StoryRing, ringInnerSize } from './StoryParts';
 
-const SIZE = 74;
+const SIZE = 72;
 
 /** Rail order: yours first, then everyone else as the server sorted them. */
 function useRailGroups() {
@@ -57,7 +57,11 @@ export function StoryRail() {
     <Squish onPress={() => openGroup(item)} label={`${item.user.full_name || item.user.username}'s story${item.has_unseen ? ', new' : ''}`}>
       <View style={styles.item}>
         <StoryRing size={SIZE} state={item.has_unseen ? 'unseen' : 'seen'} bg={T.bg}>
-          <UserAvatar avatarUrl={item.user.avatar_url ?? undefined} size={SIZE - 13} />
+          <UserAvatar
+            avatarUrl={item.user.avatar_url ?? undefined}
+            size={ringInnerSize(SIZE, item.has_unseen ? 'unseen' : 'seen')}
+            name={item.user.full_name || item.user.username}
+          />
         </StoryRing>
         <Text style={[styles.name, !item.has_unseen && styles.nameSeen]} numberOfLines={1}>
           {item.user.username}
@@ -81,7 +85,12 @@ export function StoryRail() {
             <View style={styles.item}>
               <View>
                 <StoryRing size={SIZE} state={mine ? 'seen' : 'none'} bg={T.bg}>
-                  <UserAvatar avatarUrl={me?.avatar_url} size={mine ? SIZE - 13 : SIZE - 6} />
+                  <UserAvatar
+                    avatarUrl={me?.avatar_url}
+                    size={mine ? ringInnerSize(SIZE, 'seen') : SIZE - 8}
+                    name={me?.full_name || me?.username}
+                    neutral
+                  />
                 </StoryRing>
                 {posting ? (
                   <View style={[styles.badge, { backgroundColor: T.surface2 }]}>
@@ -89,11 +98,13 @@ export function StoryRail() {
                   </View>
                 ) : (
                   <Pressable onPress={openComposer} hitSlop={10} style={[styles.badge, { backgroundColor: T.accent }]} accessibilityLabel="Add to your story">
-                    <Ionicons name="add" size={18} color="#000" />
+                    {/* 8px plus, 2.2 stroke (design) */}
+                    <View style={styles.plusH} />
+                    <View style={styles.plusV} />
                   </Pressable>
                 )}
               </View>
-              <Text style={[styles.name, styles.nameSeen]} numberOfLines={1}>{mine ? 'Your story' : 'Add story'}</Text>
+              <Text style={[styles.name, styles.nameSeen]} numberOfLines={1}>{mine ? 'Your story' : 'Ongeza story'}</Text>
             </View>
           </Squish>
           {!loaded && [0, 1, 2, 3].map(i => (
@@ -138,7 +149,7 @@ export function StoryStack() {
         {shown.map((g, i) => (
           <View key={g.user.id} style={{ marginLeft: i ? -10 : 0, zIndex: 3 - i }}>
             <StoryRing size={30} state={g.has_unseen ? 'unseen' : 'seen'} bg={T.surface2}>
-              <UserAvatar avatarUrl={g.user.avatar_url ?? undefined} size={23} />
+              <UserAvatar avatarUrl={g.user.avatar_url ?? undefined} size={ringInnerSize(30, g.has_unseen ? 'unseen' : 'seen')} name={g.user.full_name || g.user.username} />
             </StoryRing>
           </View>
         ))}
@@ -155,15 +166,18 @@ const stackStyles = StyleSheet.create({
 
 const makeStyles = (T: any) => StyleSheet.create({
   wrap: { flexGrow: 0 },
-  list: { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 6, gap: 12 },
+  list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, gap: 12 },
   headerRow: { flexDirection: 'row', gap: 12 },
-  item: { width: SIZE + 4, alignItems: 'center', gap: 6 },
-  name: { fontSize: 12.5, color: T.text, fontWeight: '600', maxWidth: SIZE + 6 },
-  nameSeen: { color: T.textSub, fontWeight: '500' },
+  item: { width: SIZE, alignItems: 'center', gap: 6 },
+  // Unseen: bright + medium; seen (and your own tile): grey + regular
+  name: { fontSize: 12, color: T.text, fontWeight: '500', maxWidth: SIZE },
+  nameSeen: { color: T.textSub, fontWeight: '400' },
   badge: {
-    position: 'absolute', right: -2, bottom: -2, width: 27, height: 27, borderRadius: 14,
+    position: 'absolute', right: 0, bottom: 0, width: 24, height: 24, borderRadius: 12,
     borderWidth: 3, borderColor: T.bg, alignItems: 'center', justifyContent: 'center',
   },
+  plusH: { position: 'absolute', width: 8, height: 2.2, borderRadius: 1.1, backgroundColor: '#000' },
+  plusV: { position: 'absolute', width: 2.2, height: 8, borderRadius: 1.1, backgroundColor: '#000' },
   skeleton: { width: SIZE, height: SIZE, borderRadius: SIZE / 2 },
   skeletonText: { width: 48, height: 10, borderRadius: 5, marginTop: 2 },
 });

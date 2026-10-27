@@ -15,13 +15,18 @@ interface DMBubbleProps {
   isFirst: boolean;
   isLast: boolean;
   avatarUrl?: string;
+  /** Name for the avatar's initials fallback */
+  avatarName?: string;
   onMediaPress?: () => void;
   onLongPress?: () => void;
   replyPreview?: { senderName: string; content: string };
 }
 
+/** 24h "10:42" — built by hand so it's identical on every device/locale */
 function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 /** Only-emoji messages (up to 3) render big, without a bubble. */
@@ -36,7 +41,7 @@ function bigEmoji(text?: string | null) {
   });
 }
 
-export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPress, onLongPress, replyPreview }: DMBubbleProps) {
+export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarName, onMediaPress, onLongPress, replyPreview }: DMBubbleProps) {
   const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
   const C = useMemo(() => ({
@@ -76,13 +81,12 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, onMediaPr
   return (
     <View style={[styles.row, isOwn ? styles.rowOwn : styles.rowOther, isFirst && styles.groupStart]}>
       {!isOwn && (
-        <View style={styles.avatarSlot}>{isLast ? <UserAvatar avatarUrl={avatarUrl} size={28} /> : null}</View>
+        <View style={styles.avatarSlot}>{isLast ? <UserAvatar avatarUrl={avatarUrl} size={28} name={avatarName} /> : null}</View>
       )}
 
       {emojiOnly ? (
         <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.emojiWrap, isOwn && { alignItems: 'flex-end' }]}>
           <Text style={styles.emoji}>{message.content!.trim()}</Text>
-          {isLast && <Text style={[styles.time, { color: T.textMuted, marginTop: 2 }]}>{formatTime(message.created_at)}</Text>}
         </Pressable>
       ) : (
         <Pressable

@@ -197,7 +197,7 @@ export default function DMListScreen() {
         delayLongPress={400}
         accessibilityLabel={`Chat with ${other?.full_name || other?.username}${unread ? `, ${item.unread_count} unread` : ''}`}
       >
-        <UserAvatar avatarUrl={other?.avatar_url} size={54} isBot={other?.is_bot} />
+        <UserAvatar avatarUrl={other?.avatar_url} size={54} isBot={other?.is_bot} name={other?.full_name || other?.username} />
         <View style={styles.convInfo}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text style={[styles.convName, unread && styles.convNameUnread]} numberOfLines={1}>{other?.full_name || other?.username}</Text>
@@ -205,14 +205,10 @@ export default function DMListScreen() {
           </View>
           <Text style={[styles.convLastMsg, unread && styles.unreadMsg]} numberOfLines={1}>
             {mine ? 'You: ' : ''}{body}
-            <Text style={styles.convTime}>{`  ·  ${timeAgo(item.last_message_at)}`}</Text>
+            <Text style={styles.convTime}>{` · ${timeAgo(item.last_message_at)}`}</Text>
           </Text>
         </View>
-        {unread && (
-          item.unread_count > 1
-            ? <View style={styles.badge}><Text style={styles.badgeText}>{item.unread_count > 99 ? '99+' : item.unread_count}</Text></View>
-            : <View style={styles.unreadDot} />
-        )}
+        {unread && <View style={styles.unreadDot} accessibilityLabel="Unread" />}
       </Pressable>
     );
   }, [navigation, archivedIds, handleLongPress, user?.id, styles, T]);
@@ -225,7 +221,7 @@ export default function DMListScreen() {
           onPress={() => { if (showArchived) { setShowArchived(false); } else { navigation.goBack(); } }}
           accessibilityLabel="Back"
         >
-          <Ionicons name="chevron-back" size={26} color={T.text} />
+          <Ionicons name="chevron-back" size={24} color={T.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{showArchived ? 'Archived' : 'Messages'}</Text>
         {showArchived ? (
@@ -238,7 +234,7 @@ export default function DMListScreen() {
       </View>
 
       <View style={styles.listSearch}>
-        <Ionicons name="search" size={17} color={T.textMuted} />
+        <Ionicons name="search" size={17} color={T.textSub} />
         <TextInput
           style={styles.listSearchInput}
           placeholder="Search"
@@ -266,11 +262,14 @@ export default function DMListScreen() {
               </Pressable>
             );
           })}
-          {archivedCount > 0 && (
-            <Pressable onPress={() => setShowArchived(true)} style={[styles.chip, { borderColor: T.border }]}>
-              <Text style={[styles.chipText, { color: T.text }]}>Archived {archivedCount}</Text>
-            </Pressable>
-          )}
+          <Pressable
+            onPress={() => { Haptics.selectionAsync(); setShowArchived(true); }}
+            style={[styles.chip, { borderColor: T.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={archivedCount > 0 ? `Archived, ${archivedCount} chats` : 'Archived'}
+          >
+            <Text style={[styles.chipText, { color: T.text }]}>Archived</Text>
+          </Pressable>
         </ScrollView>
       )}
 
@@ -422,11 +421,11 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     container: { flex: 1, backgroundColor: T.bg },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingBottom: 4, backgroundColor: T.bg },
     backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { flex: 1, marginLeft: 2, fontSize: 28, color: T.text, letterSpacing: -0.7, fontFamily: 'SpaceGrotesk_700Bold' },
+    headerTitle: { flex: 1, marginLeft: 4, fontSize: 28, color: T.text, letterSpacing: -0.7, fontFamily: 'SpaceGrotesk_700Bold' },
     composeBtn: { width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
     listSearch: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 6, height: 42, borderRadius: 21, paddingHorizontal: 16, backgroundColor: T.surface2 },
     listSearchInput: { flex: 1, fontSize: 15, color: T.text, paddingVertical: 0 },
-    chips: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 8 },
+    chips: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 6, gap: 8 },
     chip: { height: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, justifyContent: 'center' },
     chipText: { fontSize: 14, fontWeight: '600' },
     convRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12, backgroundColor: T.bg },
@@ -437,8 +436,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     convLastMsg: { color: T.textSub, fontSize: 14 },
     unreadMsg: { fontWeight: '600', color: T.text },
     unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: T.accent },
-    badge: { backgroundColor: T.accent, borderRadius: 11, minWidth: 22, height: 22, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
-    badgeText: { color: '#000', fontSize: 12, fontWeight: '800' },
     empty: { alignItems: 'center', paddingTop: 70, paddingHorizontal: 40, gap: 10 },
     emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
     emptyText: { fontSize: 17, fontWeight: '700', color: T.text, textAlign: 'center' },

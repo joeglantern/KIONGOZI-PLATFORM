@@ -136,7 +136,7 @@ export function FeedVideo({
 }
 
 const styles = StyleSheet.create({
-  box: { width: '100%', borderRadius: 12, overflow: 'hidden', marginTop: 4 },
+  box: { width: '100%', borderRadius: 16, overflow: 'hidden', marginTop: 4 },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   playBadge: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(0,0,0,0.45)',

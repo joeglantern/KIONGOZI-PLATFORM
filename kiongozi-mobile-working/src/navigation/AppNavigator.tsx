@@ -32,6 +32,9 @@ import { useTheme } from '../hooks/useTheme';
 import { useForceUpdate, openStore } from '../hooks/useForceUpdate';
 import { StoryViewer } from '../components/stories/StoryViewer';
 import { StoryComposer } from '../components/stories/StoryComposer';
+import { storyNav } from '../components/stories/storyAssets';
+import { OrbVideo } from '../components/ai/OrbVideo';
+import { useProfileStore } from '../stores/profileStore';
 import { ConfettiHost } from '../components/Confetti';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
@@ -104,19 +107,17 @@ function ProfileStackNavigator() {
 
 // ─── Tab Icon Components ─────────────────────────────────────────────────────
 
-/** Tab icon: filled + springy pop with a soft accent pill when active, outline when not. */
-function TabIcon({ name, focused, color, children }: { name: string; focused: boolean; color: string; children?: React.ReactNode }) {
-  const T = useTheme();
+/** Tab icon: outline → filled with a small springy pop. Slim, no pills, no glow. */
+function TabIcon({ name, focused, color, children, size = 26 }: { name: string; focused: boolean; color: string; children?: React.ReactNode; size?: number }) {
   const v = React.useRef(new Animated.Value(focused ? 1 : 0)).current;
   React.useEffect(() => {
-    Animated.spring(v, { toValue: focused ? 1 : 0, useNativeDriver: true, damping: 14, stiffness: 260 }).start();
+    Animated.spring(v, { toValue: focused ? 1 : 0, useNativeDriver: true, damping: 14, stiffness: 300 }).start();
   }, [focused]);
-  const pop = v.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 1.12, 1] });
+  const pop = v.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 1.14, 1] });
   return (
-    <View style={{ width: 56, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 18, backgroundColor: T.acc10, opacity: v, transform: [{ scaleX: v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }] }]} />
+    <View style={styles.tabIconBox}>
       <Animated.View style={{ transform: [{ scale: pop }] }}>
-        <Ionicons name={(focused ? name : `${name}-outline`) as any} size={25} color={color} />
+        <Ionicons name={(focused ? name : `${name}-outline`) as any} size={size} color={color} />
       </Animated.View>
       {children}
     </View>
@@ -126,39 +127,30 @@ function TabIcon({ name, focused, color, children }: { name: string; focused: bo
 function NotificationTabIcon({ color, focused }: { color: string; focused: boolean }) {
   const { unreadCount } = useNotificationStore();
   return (
-    <View style={{ width: 56, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-      <TabIcon name="notifications" focused={focused} color={color} />
-      {unreadCount > 0 && (
-        <View style={[styles.tabBadge, { top: 3, right: 12 }]}>
-          <Text style={styles.tabBadgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
-        </View>
-      )}
+    <TabIcon name="heart" focused={focused} color={color}>
+      {unreadCount > 0 && <View style={styles.tabDot} />}
+    </TabIcon>
+  );
+}
+
+/** Profile tab = your own photo (ring when selected), like modern social apps. */
+function ProfileTabIcon({ focused, color }: { focused: boolean; color: string }) {
+  const T = useTheme();
+  const me = useProfileStore(s => s.currentUserProfile);
+  if (!me?.avatar_url) return <TabIcon name="person-circle" focused={focused} color={color} size={27} />;
+  return (
+    <View style={styles.tabIconBox}>
+      <View style={{ width: 30, height: 30, borderRadius: 15, padding: 1.5, borderWidth: 1.5, borderColor: focused ? T.text : 'transparent' }}>
+        <Image source={{ uri: me.avatar_url }} style={{ width: '100%', height: '100%', borderRadius: 13 }} />
+      </View>
     </View>
   );
 }
 
 function AIChatTabIcon() {
-  const T = useTheme();
   return (
-    <View
-      style={[
-        styles.aiTabIcon,
-        {
-          borderColor: T.accent,
-          backgroundColor: T.bg,
-          shadowColor: T.acc25,
-          shadowOffset: { width: 0, height: 0 },
-          shadowRadius: 16,
-          shadowOpacity: 1,
-          elevation: 8,
-        },
-      ]}
-    >
-      <Image
-        source={require('../../assets/kchat-logo.png')}
-        style={styles.aiTabLogo}
-        resizeMode="contain"
-      />
+    <View style={styles.tabIconBox}>
+      <OrbVideo size={30} />
     </View>
   );
 }
@@ -185,7 +177,8 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const insets = useSafeAreaInsets();
   const T = useTheme();
   const { isDark } = useThemeStore();
-  const TAB_BAR_HEIGHT = 60 + insets.bottom;
+  const TAB_BOTTOM = insets.bottom > 0 ? Math.max(insets.bottom - 12, 8) : 6;
+  const TAB_BAR_HEIGHT = 48 + TAB_BOTTOM;
 
   // Prevents the white/light flash when navigating between screens in dark mode
   const navTheme = {
@@ -240,7 +233,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 
   return (
     <View style={styles.root}>
-      <NavigationContainer ref={navRef} theme={navTheme} linking={linking}>
+      <NavigationContainer ref={navRef} theme={navTheme} linking={linking} onReady={() => { storyNav.current = navRef.current as any; }}>
         <Tab.Navigator
           screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}
           screenOptions={({ route }) => ({
@@ -248,24 +241,21 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             tabBarShowLabel: false,
             tabBarStyle: {
               height: TAB_BAR_HEIGHT,
-              paddingBottom: insets.bottom,
-              paddingTop: 6,
+              paddingBottom: TAB_BOTTOM,
+              paddingTop: 0,
               backgroundColor: T.tabBar,
               borderTopWidth: StyleSheet.hairlineWidth,
               borderTopColor: T.tabBarBorder,
-              elevation: 8,
-              shadowColor: '#000',
-              shadowOpacity: 0.06,
-              shadowOffset: { width: 0, height: -2 },
-              shadowRadius: 8,
+              elevation: 0,
+              shadowOpacity: 0,
             },
             tabBarActiveTintColor: T.tabIconActive,
             tabBarInactiveTintColor: T.tabIconInactive,
             tabBarIcon: ({ color, focused }) => {
               if (route.name === 'Feed') return <TabIcon name="home" focused={focused} color={color} />;
-              if (route.name === 'Explore') return <TabIcon name="search" focused={focused} color={color} />;
+              if (route.name === 'Explore') return <TabIcon name="search" focused={focused} color={color} size={25} />;
               if (route.name === 'Notifications') return <NotificationTabIcon color={color} focused={focused} />;
-              if (route.name === 'Profile') return <TabIcon name="person" focused={focused} color={color} />;
+              if (route.name === 'Profile') return <ProfileTabIcon focused={focused} color={color} />;
               return null;
             },
           })}
@@ -355,19 +345,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  aiTabIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -6,
-  },
-  aiTabLogo: {
-    width: 44,
-    height: 44,
-  },
+  tabIconBox: { width: 48, height: 40, alignItems: 'center', justifyContent: 'center' },
+  tabDot: { position: 'absolute', top: 6, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF3040' },
   tabBadge: {
     position: 'absolute',
     top: -2,

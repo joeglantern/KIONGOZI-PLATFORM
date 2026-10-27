@@ -3,8 +3,10 @@ import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StoryOverlay } from '../../stores/storyStore';
-import { STICKERS, PATTERNS, bgById, fontById, fitFontSize } from './storyAssets';
+import { STICKERS, PATTERNS, bgById, fontById, fitFontSize, fitLineHeight, textAnchoredTop, TEXT_TOP } from './storyAssets';
 import { PollCard, POLL_W } from './PollCard';
+import { useTheme } from '../../hooks/useTheme';
+import { useThemeStore } from '../../stores/themeStore';
 
 export const POLL_H = 150; // approx. card height at scale 1
 
@@ -23,13 +25,15 @@ export function StoryBackground({ bg }: { bg?: string | null }) {
   );
 }
 
-/** The centred text of a text story. */
+/** The text of a text story: upper-middle when short (matches the composer), centred when long. */
 export function StoryText({ text, color, font, bg }: { text: string; color?: string | null; font?: string | null; bg?: string | null }) {
   const size = fitFontSize(text);
-  const fallback = bgById(bg).dark ? '#111111' : '#FFFFFF';
+  const fallback = bgById(bg).dark ? '#000000' : '#FFFFFF';
+  const anchored = textAnchoredTop(text);
   return (
-    <View style={styles.textWrap} pointerEvents="none">
-      <Text style={[fontById(font), { color: color || fallback, fontSize: size, lineHeight: Math.round(size * 1.18), textAlign: 'center' }]}>
+    <View style={[styles.textWrap, anchored && { justifyContent: 'flex-start' }]} pointerEvents="none">
+      {anchored && <View style={{ height: `${TEXT_TOP * 100}%` }} />}
+      <Text style={[fontById(font), { color: color || fallback, fontSize: size, lineHeight: fitLineHeight(size), textAlign: 'center' }]}>
         {text}
       </Text>
     </View>
@@ -63,8 +67,8 @@ export function OverlayItem({ o, width, height }: { o: StoryOverlay; width: numb
   }
   if (o.type === 'text' && o.text) {
     return (
-      <View style={{ position: 'absolute', left: o.x * width - width / 2, width, top: o.y * height - 22 * k, alignItems: 'center', transform }} pointerEvents="none">
-        <Text style={[styles.pill, { backgroundColor: o.bg || '#FFFFFF', color: o.color || '#000000', fontSize: 20 * k, maxWidth: width * 0.8 }]}>
+      <View style={{ position: 'absolute', left: o.x * width - width / 2, width, top: o.y * height - 21 * k, alignItems: 'center', transform }} pointerEvents="none">
+        <Text style={[styles.pill, { backgroundColor: o.bg || '#FFFFFF', color: o.color || '#000000', fontSize: 20 * k, lineHeight: 26 * k, paddingHorizontal: 14 * k, paddingVertical: 8 * k, borderRadius: 10 * k, maxWidth: width * 0.8 }]}>
           {o.text}
         </Text>
       </View>
@@ -82,35 +86,47 @@ export function StoryOverlays({ overlays, width, height, skipPolls }: { overlays
   );
 }
 
-/** Avatar ring: gradient when unseen, thin grey when seen, none when no story. */
+/** Avatar ring: gradient when unseen, thin grey when seen, none when no story.
+ *  Ring → `gap` of background colour → avatar (design: 3px gradient / 1.5px grey, 3px gap). */
 export const RING_COLORS: [string, string, string] = ['#5CB85C', '#F5B83D', '#FF5A5F'];
-export function StoryRing({ size, state, children, gap = 3, bg }: {
+const ringWidth = (size: number, state: 'unseen' | 'seen') =>
+  state === 'unseen' ? (size >= 48 ? 3 : 2) : (size >= 48 ? 1.5 : 1);
+const defaultGap = (size: number) => (size >= 48 ? 3 : 1.5);
+
+export function StoryRing({ size, state, children, gap, bg }: {
   size: number; state: 'unseen' | 'seen' | 'none'; children: React.ReactNode; gap?: number; bg: string;
 }) {
+  const T = useTheme();
+  const isDark = useThemeStore(s => s.isDark);
   if (state === 'none') return <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>{children}</View>;
-  const ring = state === 'unseen' ? (size >= 60 ? 3.5 : 2.5) : size >= 60 ? 2 : 1.5;
-  const inner = size - ring * 2;
+  const ring = ringWidth(size, state);
+  const g = gap ?? defaultGap(size);
+  const mid = size - ring * 2;
+  const hole = mid - g * 2;
   const content = (
-    <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-      {children}
+    <View style={{ width: mid, height: mid, borderRadius: mid / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: hole, height: hole, borderRadius: hole / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+        {children}
+      </View>
     </View>
   );
   if (state === 'seen') {
     return (
-      <View style={{ width: size, height: size, borderRadius: size / 2, padding: ring, backgroundColor: 'rgba(142,142,147,0.5)' }}>{content}</View>
+      <View style={{ width: size, height: size, borderRadius: size / 2, padding: ring, backgroundColor: isDark ? '#3A3A3C' : '#C7C7CC' }}>{content}</View>
     );
   }
   return (
-    <LinearGradient colors={RING_COLORS} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
+    <LinearGradient colors={[T.accent, RING_COLORS[1], RING_COLORS[2]]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
       style={{ width: size, height: size, borderRadius: size / 2, padding: ring }}>
       {content}
     </LinearGradient>
   );
 }
-export const ringInnerSize = (size: number, state: 'unseen' | 'seen' | 'none', gap = 3) =>
-  state === 'none' ? size : size - (state === 'unseen' ? 3 : 1.5) * 2 - gap * 2;
+/** Avatar size that exactly fills a StoryRing of `size` (inside the ring and the gap). */
+export const ringInnerSize = (size: number, state: 'unseen' | 'seen' | 'none', gap?: number) =>
+  state === 'none' ? size : size - ringWidth(size, state) * 2 - (gap ?? defaultGap(size)) * 2;
 
 const styles = StyleSheet.create({
   textWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
-  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, overflow: 'hidden', fontWeight: '800' },
+  pill: { overflow: 'hidden', fontFamily: 'SpaceGrotesk_700Bold', textAlign: 'center' },
 });

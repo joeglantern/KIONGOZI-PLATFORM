@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
+import { useThemeStore } from '../../stores/themeStore';
 import * as Haptics from 'expo-haptics';
 import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
@@ -14,6 +15,8 @@ import { VerifiedBadge } from './VerifiedBadge';
 import { FeedVideo } from './FeedVideo';
 import { FitImage, VideoTile, useImageRatio } from './media';
 import { toggleInteraction, markInteraction } from '../../stores/interactionSync';
+
+const LIKE_RED = '#FF3040';
 
 const fmtCount = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
@@ -136,6 +139,8 @@ interface PostCardProps {
   onDeletePress?: () => void;
   onEditPress?: (postId: string, content: string, visibility: 'public' | 'followers') => void;
   onReportPress?: (postId: string) => void;
+  /** 'detail' = the focused post on the thread screen: the screen's own meta line shows time and views. */
+  variant?: 'default' | 'detail';
 }
 
 function SmartImage({ url, onPress, w, h }: { url: string; onPress: () => void; w?: number; h?: number }) {
@@ -143,7 +148,7 @@ function SmartImage({ url, onPress, w, h }: { url: string; onPress: () => void; 
   // Real shape from the stored size (no layout jump) or measured; tall/wide photos are shown
   // whole over a blurred copy instead of being cropped.
   const ratio = useImageRatio(url, w && h ? w / h : null);
-  return <FitImage uri={url} ratio={ratio} onPress={onPress} bg={T.surface2} radius={14} minRatio={0.75} maxRatio={1.91} style={{ marginTop: 4 }} />;
+  return <FitImage uri={url} ratio={ratio} onPress={onPress} bg={T.surface2} radius={16} minRatio={0.75} maxRatio={1.91} style={{ marginTop: 4 }} />;
 }
 
 function timeAgo(dateStr: string): string {
@@ -171,10 +176,12 @@ export function PostCard({
   onDeletePress,
   onEditPress,
   onReportPress,
+  variant = 'default',
 }: PostCardProps) {
   const { seedInteraction, postInteractions, deletePost } = useSocialStore();
   const T = useTheme();
-  const styles = useMemo(() => makeStyles(T), [T]);
+  const isDark = useThemeStore(s => s.isDark);
+  const styles = useMemo(() => makeStyles(T, isDark), [T, isDark]);
   const repostScale = useRef(new Animated.Value(1)).current;
   const [repostSheetOpen, setRepostSheetOpen] = useState(false);
   const [optionsSheetOpen, setOptionsSheetOpen] = useState(false);
@@ -372,6 +379,7 @@ export function PostCard({
               size={44}
               isBot={activePost.profiles?.is_bot}
               isVerified={activePost.profiles?.is_verified}
+              name={activePost.profiles?.full_name || activePost.profiles?.username}
             />
           </TouchableOpacity>
           {hasConnectorBelow && (
@@ -406,28 +414,25 @@ export function PostCard({
               }
             }}
           >
-            {/* Header */}
+            {/* Header: one line — Name ✓ @handle · 2h, options at the right */}
             <View style={styles.header}>
-              <View style={{ flex: 1 }}>
-                {/* Row 1: name + badge + time + options */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
-                    <Text style={styles.name} numberOfLines={1}>{activePost.profiles?.full_name}</Text>
-                  </TouchableOpacity>
-                  {activePost.profiles?.is_verified && <VerifiedBadge size={15} />}
-                  <Text style={styles.dot}>·</Text>
-                  <Text style={styles.time}>{timeAgo(activePost.created_at)}</Text>
-                  {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
-                    <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Post options">
-                      <Ionicons name="ellipsis-horizontal" size={18} color={T.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {/* Row 2: @username below the name */}
-                {activePost.profiles?.username && (
-                  <Text style={styles.username}>@{activePost.profiles.username}</Text>
-                )}
-              </View>
+              <TouchableOpacity
+                style={styles.nameBtn}
+                onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}
+              >
+                <Text style={styles.name} numberOfLines={1}>{activePost.profiles?.full_name || activePost.profiles?.username}</Text>
+              </TouchableOpacity>
+              {activePost.profiles?.is_verified && <VerifiedBadge size={16} />}
+              <Text style={styles.meta} numberOfLines={1}>
+                {variant === 'detail'
+                  ? (activePost.profiles?.username ? `@${activePost.profiles.username}` : '')
+                  : <>{activePost.profiles?.username ? `@${activePost.profiles.username} · ` : ''}{timeAgo(activePost.created_at)}</>}
+              </Text>
+              {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
+                <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Post options">
+                  <Ionicons name="ellipsis-horizontal" size={18} color={T.textMuted} />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Content with Read more */}
@@ -466,7 +471,7 @@ export function PostCard({
             {/* Media */}
             {activePost.post_media && activePost.post_media.length > 0 && (
               activePost.post_media.length === 1 ? (
-                <View style={{ marginTop: 6, marginBottom: 10 }}>
+                <View style={{ marginTop: 10, marginBottom: 6 }}>
                   {activePost.post_media[0].media_type === 'video' ? (
                     <FeedVideo
                       url={activePost.post_media[0].url}
@@ -487,47 +492,49 @@ export function PostCard({
             )}
           </Pressable>
 
-          {/* Actions — Threads-style: like · comment · repost · share, then views and bookmark on the right */}
+          {/* Actions: like · reply · repost · share on the left, then views + bookmark on the right.
+              Counts always reserve a minimum width, so a 0→1 never nudges the buttons beside it. */}
           <View style={styles.actions}>
+            <View style={styles.actionGroup}>
             <Pressable
-              style={({ pressed }) => [styles.action, styles.slot, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
               onPress={() => handleLike()}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel={isLiked ? 'Unlike' : 'Like'}
             >
               <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-                <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={23} color={isLiked ? '#ff3040' : T.text} />
+                <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={23} color={isLiked ? LIKE_RED : T.text} />
               </Animated.View>
-              {likeCount > 0 && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.actionCount, isLiked && styles.likedCount]}>{fmtCount(likeCount)}</Text>}
+              <Text numberOfLines={1} style={[styles.actionCount, isLiked && styles.likedCount]}>{likeCount > 0 ? fmtCount(likeCount) : ''}</Text>
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, styles.slot, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
               onPress={onReplyPress ?? onPress}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel="Reply"
             >
               <Ionicons name="chatbubble-outline" size={21} color={T.text} />
-              {activePost.comment_count > 0 && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={styles.actionCount}>{fmtCount(activePost.comment_count)}</Text>}
+              <Text numberOfLines={1} style={styles.actionCount}>{activePost.comment_count > 0 ? fmtCount(activePost.comment_count) : ''}</Text>
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, styles.slot, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
               onPress={handleRepost}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel={isReposted ? 'Undo repost' : 'Repost'}
             >
               <Animated.View style={{ transform: [{ scale: repostScale }] }}>
-                <Ionicons name="repeat" size={24} color={isReposted ? T.accent : T.text} />
+                <Ionicons name="repeat" size={23} color={isReposted ? T.accent : T.text} />
               </Animated.View>
-              {repostCount > 0 && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.actionCount, isReposted && { color: T.accent }]}>{fmtCount(repostCount)}</Text>}
+              <Text numberOfLines={1} style={[styles.actionCount, isReposted && { color: T.accent }]}>{repostCount > 0 ? fmtCount(repostCount) : ''}</Text>
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.action, styles.iconOnly, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
               onPress={handleShare}
               hitSlop={hit}
               accessibilityRole="button"
@@ -535,19 +542,24 @@ export function PostCard({
             >
               <Ionicons name="paper-plane-outline" size={21} color={T.text} />
             </Pressable>
-
-            {/* Always the same width, so buttons line up on every post */}
-            <View style={[styles.action, styles.viewsAction]} accessibilityLabel={views > 0 ? `${views} views` : undefined}>
-              {views > 0 && (
-                <>
-                  <Ionicons name="stats-chart-outline" size={15} color={T.textMuted} />
-                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.actionCount, styles.viewsCount]}>{fmtCount(views)}</Text>
-                </>
-              )}
             </View>
 
+            <View style={styles.spacer} />
+
+            {views > 0 && variant !== 'detail' && (
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                style={styles.views}
+                accessibilityLabel={`${views} views`}
+              >
+                {fmtCount(views)} views
+              </Text>
+            )}
+
             <Pressable
-              style={({ pressed }) => [styles.action, styles.iconOnly, pressed && styles.actionPressed]}
+              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
               onPress={handleBookmark}
               hitSlop={hit}
               accessibilityRole="button"
@@ -640,7 +652,7 @@ export function PostCard({
   );
 }
 
-function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
+function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>, isDark: boolean) {
   return StyleSheet.create({
     container: {
       borderBottomWidth: StyleSheet.hairlineWidth,
@@ -649,13 +661,13 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     inner: {
       flexDirection: 'row',
-      paddingHorizontal: 12,
-      paddingTop: 12,
+      paddingHorizontal: 16,
+      paddingTop: 14,
     },
     leftCol: {
       alignItems: 'center',
       width: 44,
-      marginRight: 10,
+      marginRight: 12,
     },
     connectorLine: {
       flex: 1,
@@ -679,7 +691,13 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       fontWeight: '500',
     },
     header: {
-      marginBottom: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 6,
+    },
+    nameBtn: {
+      flexShrink: 1,
     },
     optionsBtn: {
       marginLeft: 'auto' as any,
@@ -687,29 +705,19 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       margin: -8,
     },
     name: {
-      fontWeight: '700',
+      fontWeight: '600',
       fontSize: 15,
       color: T.text,
-      flexShrink: 1,
     },
-    username: {
-      fontSize: 13,
-      color: T.textSub,
-      marginTop: 1,
-    },
-    dot: {
-      color: T.textMuted,
-      fontSize: 14,
-    },
-    time: {
-      fontSize: 14,
-      color: T.textMuted,
+    meta: {
+      flexShrink: 2,
+      fontSize: 15,
+      color: isDark ? '#8E8E93' : T.textSub,
     },
     content: {
       fontSize: 15,
-      color: T.text,
-      lineHeight: 22,
-      marginBottom: 4,
+      color: isDark ? '#F2F2F7' : T.text,
+      lineHeight: 21,
     },
     readMore: {
       fontSize: 14,
@@ -735,58 +743,56 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       width: '48%',
       height: 140,
     },
-    // Fixed slots: like/comment/repost split the width equally, so big counts never push
-    // the other buttons around or off the edge; share, views and bookmark have fixed sizes.
+    // Compact left group (design: 40 tall, 5 icon→count, 4 between buttons). Button padding is 8
+    // rather than the mock's 10: at the real 302px content width the mock's row doesn't fit the
+    // views label. The row is pulled out by that padding so the icons line up with the text.
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 6,
-      marginLeft: -8, // icons line up with the text above; the padding is tap area
-      marginRight: -4,
-      paddingBottom: 6,
+      marginLeft: -8,
+      marginRight: -8,
+      paddingBottom: 10,
+    },
+    actionGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
     },
     action: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      minHeight: 40,
-      paddingHorizontal: 6,
+      gap: 5,
+      height: 40,
+      minWidth: 40,
+      paddingHorizontal: 8,
       borderRadius: 20,
-    },
-    slot: {
-      flex: 1,
-      minWidth: 0,
-    },
-    iconOnly: {
-      width: 40,
-      paddingHorizontal: 0,
       justifyContent: 'center',
     },
     actionPressed: {
       backgroundColor: T.border,
     },
-    viewsAction: {
-      width: 52,
-      paddingHorizontal: 2,
-      gap: 3,
-      justifyContent: 'flex-end',
+    spacer: {
+      flex: 1,
     },
-    viewsCount: {
+    views: {
+      flexShrink: 1,
       fontSize: 13,
-      color: T.textMuted,
+      color: isDark ? '#8E8E93' : T.textSub,
+      paddingRight: 4,
+      fontVariant: ['tabular-nums'],
     },
     actionCount: {
-      flexShrink: 1,
+      minWidth: 16,
       fontSize: 14,
       fontWeight: '500',
       color: T.text,
       fontVariant: ['tabular-nums'],
     },
     likedCount: {
-      color: '#ff3040',
+      color: LIKE_RED,
     },
     translateLink: { fontSize: 12, color: T.accent, marginTop: 2, marginBottom: 4 },
-    translatedText: { fontSize: 15, color: T.textSub, lineHeight: 22, marginTop: 4, marginBottom: 2, fontStyle: 'italic' },
+    translatedText: { fontSize: 15, color: T.textSub, lineHeight: 21, marginTop: 4, marginBottom: 2, fontStyle: 'italic' },
     translateSpinner: { alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
   });
 }
@@ -811,7 +817,7 @@ function PostMediaCarousel({
 
   return (
     <View
-      style={{ marginTop: 6, marginBottom: 10 }}
+      style={{ marginTop: 10, marginBottom: 6 }}
       onLayout={e => setContainerWidth(e.nativeEvent.layout.width)}
     >
       {containerWidth > 0 && (
@@ -836,7 +842,7 @@ function PostMediaCarousel({
                 thumbnail={m.thumbnail_url}
                 onPress={() => onOpenViewer(index)}
                 bg={T.surface2}
-                style={{ width: itemWidth, aspectRatio: frameRatio, borderRadius: 14 }}
+                style={{ width: itemWidth, aspectRatio: frameRatio, borderRadius: 16 }}
               />
             ) : (
               <FitImage
@@ -846,7 +852,7 @@ function PostMediaCarousel({
                 minRatio={frameRatio}
                 maxRatio={frameRatio}
                 width={itemWidth}
-                radius={14}
+                radius={16}
                 bg={T.surface2}
                 onPress={() => onOpenViewer(index)}
               />

@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Pressable, FlatList, SectionList, StyleSheet, Platform, Alert,
-  ActivityIndicator, Dimensions, Keyboard, KeyboardAvoidingView, StatusBar, ScrollView, Share,
+  ActivityIndicator, Dimensions, Keyboard, KeyboardAvoidingView, StatusBar, Share, Image, Modal, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,16 +20,17 @@ import apiClient from '../utils/apiClient';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { UserAvatar } from '../components/social/UserAvatar';
 import { OrbVideo, OrbStill } from '../components/ai/OrbVideo';
+import { ShineText, ReplyFx } from '../components/ai/StreamFx';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_W = Math.min(330, SCREEN_WIDTH * 0.84);
 const SPRING = { damping: 26, stiffness: 260, mass: 0.9 };
 
-const SUGGESTIONS: { icon: keyof typeof Ionicons.glyphMap; label: string; prompt: string }[] = [
-  { icon: 'leaf-outline', label: 'Green careers', prompt: 'What green jobs can a young person in Kenya start preparing for this year?' },
-  { icon: 'shield-checkmark-outline', label: 'Know my rights', prompt: 'Explain my key civic rights as a young Kenyan in simple terms.' },
-  { icon: 'laptop-outline', label: 'Digital skills', prompt: 'Which digital skills should I learn first to get online work, and where can I start for free?' },
-  { icon: 'people-outline', label: 'Community project', prompt: 'Give me a simple plan to start a climate action project in my community.' },
+const SUGGESTIONS: { art: any; label: string; hint: string; prompt: string }[] = [
+  { art: require('../../assets/ai/s_green.png'), label: 'Green careers', hint: 'Jobs that grow', prompt: 'What green jobs can a young person in Kenya start preparing for this year?' },
+  { art: require('../../assets/ai/s_rights.png'), label: 'Know my rights', hint: 'Simply explained', prompt: 'Explain my key civic rights as a young Kenyan in simple terms.' },
+  { art: require('../../assets/ai/s_digital.png'), label: 'Digital skills', hint: 'Where to start', prompt: 'Which digital skills should I learn first to get online work, and where can I start for free?' },
+  { art: require('../../assets/ai/s_community.png'), label: 'Community project', hint: 'Plan it together', prompt: 'Give me a simple plan to start a climate action project in my community.' },
 ];
 
 function greeting() {
@@ -119,6 +120,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [streamingId, setStreamingId] = useState<number | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -137,6 +139,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const startP = useSharedValue(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const setOpenJS = useCallback((o: boolean) => setDrawerOpen(o), []);
   const openSidebar = useCallback(() => {
@@ -243,6 +246,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     ]);
     setInputText('');
     setIsGenerating(true);
+    setStreamingId(aiId);
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
@@ -270,6 +274,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
             prev.map(m => m.id === aiId ? { ...m, text: fullText, isLoading: false } : m)
           );
           setIsGenerating(false);
+          setStreamingId(null);
 
           const saved = await savePromise;
           let activeConvId = conversationIdRef.current;
@@ -291,6 +296,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
         () => {
           setMessages(prev => prev.filter(m => m.id !== aiId));
           setIsGenerating(false);
+          setStreamingId(null);
           Alert.alert('Error', 'Failed to get a response. Please try again.');
         },
         abortControllerRef.current?.signal
@@ -304,6 +310,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const stopGeneration = () => {
     abortControllerRef.current?.abort();
     setIsGenerating(false);
+    setStreamingId(null);
     setMessages(prev => prev.map(m => m.isLoading ? { ...m, isLoading: false } : m));
   };
 
@@ -317,6 +324,12 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     const q = search.trim().toLowerCase();
     return groupConversations(q ? conversations.filter(c => (c.title || 'New conversation').toLowerCase().includes(q)) : conversations);
   }, [conversations, search]);
+
+  const recents = useMemo(() => [...conversations]
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, 5), [conversations]);
+  const openHistory = () => { setSearch(''); setHistoryOpen(true); };
+  const pickConversation = (id: string) => { setHistoryOpen(false); loadConversationMessages(id); };
 
   const firstName = ((me?.full_name || (user as any)?.user_metadata?.full_name || '') as string).trim().split(/\s+/)[0];
   const canSend = inputText.trim().length > 0;
@@ -336,26 +349,28 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
       return (
         <Reanimated.View entering={FadeIn.duration(200)} style={styles.thinking}>
           <OrbVideo size={22} />
-          <Text style={[styles.thinkingText, { color: C.textMuted }]}>Thinking…</Text>
+          <ShineText text="Thinking…" style={styles.thinkingText} baseColor={C.textMuted} shineColor={C.text} />
         </Reanimated.View>
       );
     }
     return (
       <Reanimated.View entering={FadeIn.duration(240)} style={styles.aiRow}>
-        <TouchableOpacity activeOpacity={1} onLongPress={() => copyMessage(item.text)}>
-          <MarkdownRenderer content={item.text} darkMode={isDark} />
-        </TouchableOpacity>
-        <View style={styles.aiActions}>
+        <ReplyFx streaming={item.id === streamingId} bg={C.bg} shine={isDark ? 'rgba(255,255,255,0.10)' : 'rgba(92,184,92,0.14)'}>
+          <TouchableOpacity activeOpacity={1} onLongPress={() => copyMessage(item.text)}>
+            <MarkdownRenderer content={item.text} darkMode={isDark} />
+          </TouchableOpacity>
+        </ReplyFx>
+        {item.id !== streamingId && <View style={styles.aiActions}>
           <TouchableOpacity onPress={() => copyMessage(item.text)} style={styles.aiAction} accessibilityLabel="Copy reply">
             <Ionicons name="copy-outline" size={17} color={C.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => Share.share({ message: item.text }).catch(() => {})} style={styles.aiAction} accessibilityLabel="Share reply">
             <Ionicons name="share-outline" size={18} color={C.textMuted} />
           </TouchableOpacity>
-        </View>
+        </View>}
       </Reanimated.View>
     );
-  }, [isDark]);
+  }, [isDark, streamingId]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -363,67 +378,122 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
       <View style={[styles.root, { backgroundColor: C.drawer }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
-        {/* History drawer (sits under the chat, revealed as it slides) */}
-        <Reanimated.View style={[styles.drawer, { width: DRAWER_W, paddingTop: insets.top + 8, paddingBottom: Math.max(insets.bottom, 12) }, drawerStyle]}>
-          <View style={styles.drawerTop}>
-            <View style={[styles.search, { backgroundColor: C.surface2 }]}>
+        {/* Drawer (sits under the chat, revealed as it slides): sectioned, recents only */}
+        <Reanimated.View style={[styles.drawer, { width: DRAWER_W, paddingTop: insets.top + 6 }, drawerStyle]}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <View style={styles.brandRow}>
+              <OrbStill size={30} />
+              <Text style={[styles.brandText, { color: C.text }]}>Kiongozi AI</Text>
+            </View>
+
+            <View style={styles.block}>
+              <Pressable onPress={startNewChat} style={({ pressed }) => [styles.newChat, { backgroundColor: C.text }, pressed && { opacity: 0.85 }]} accessibilityRole="button">
+                <Ionicons name="add" size={20} color={C.bg} />
+                <Text style={[styles.newChatText, { color: C.bg }]}>New chat</Text>
+              </Pressable>
+              <Pressable onPress={openHistory} style={({ pressed }) => [styles.searchRow, { backgroundColor: C.surface }, pressed && { opacity: 0.8 }]} accessibilityRole="button">
+                <Ionicons name="search" size={17} color={C.textMuted} />
+                <Text style={[styles.searchRowText, { color: C.textMuted }]}>Search chats</Text>
+              </Pressable>
+            </View>
+
+            <Text style={[styles.blockLabel, { color: C.textMuted }]}>Recents</Text>
+            <View style={[styles.card, { backgroundColor: C.surface }]}>
+              {loadingConversations ? (
+                <ActivityIndicator color={C.textMuted} style={{ marginVertical: 18 }} />
+              ) : recents.length === 0 ? (
+                <Text style={[styles.cardEmpty, { color: C.textMuted }]}>No chats yet. Start one above.</Text>
+              ) : recents.map((c, i) => (
+                <Pressable
+                  key={c.id}
+                  onPress={() => loadConversationMessages(c.id)}
+                  onLongPress={() => deleteConversation(c.id)}
+                  style={({ pressed }) => [styles.recentRow, (c.id === conversationId || pressed) && { backgroundColor: C.surface2 }, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border }]}
+                >
+                  <Text style={[styles.recentTitle, { color: C.text }]} numberOfLines={1}>{c.title || 'New conversation'}</Text>
+                  <Text style={[styles.recentTime, { color: C.textMuted }]}>{timeLabel(c.updated_at)}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {conversations.length > 5 && (
+              <Pressable onPress={openHistory} style={({ pressed }) => [styles.seeAll, pressed && { opacity: 0.6 }]} accessibilityRole="button">
+                <Text style={[styles.seeAllText, { color: C.text }]}>See all chats</Text>
+                <Text style={[styles.seeAllCount, { color: C.textMuted }]}>{conversations.length}</Text>
+                <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
+              </Pressable>
+            )}
+          </ScrollView>
+
+          <View style={[styles.profileCard, { backgroundColor: C.surface, marginBottom: Math.max(insets.bottom, 12) }]}>
+            <UserAvatar avatarUrl={me?.avatar_url} size={36} name={me?.full_name || me?.username} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.profileName, { color: C.text }]} numberOfLines={1}>{me?.full_name || 'You'}</Text>
+              {me?.username ? <Text style={[styles.profileHandle, { color: C.textMuted }]} numberOfLines={1}>@{me.username}</Text> : null}
+            </View>
+          </View>
+        </Reanimated.View>
+
+        {/* Full history: search + every chat, grouped by date */}
+        <Modal visible={historyOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setHistoryOpen(false)}>
+          <View style={[styles.historyRoot, { backgroundColor: C.bg, paddingTop: Platform.OS === 'android' ? insets.top : 8 }]}>
+            <View style={styles.historyHeader}>
+              <Text style={[styles.historyTitle, { color: C.text }]}>History</Text>
+              <TouchableOpacity onPress={() => setHistoryOpen(false)} style={styles.iconBtn} accessibilityLabel="Close history">
+                <View style={[styles.closeCircle, { backgroundColor: C.surface2 }]}>
+                  <Ionicons name="close" size={18} color={C.text} />
+                </View>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.search, { backgroundColor: C.surface2, marginHorizontal: 16 }]}>
               <Ionicons name="search" size={16} color={C.textMuted} />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Search"
+                placeholder="Search chats"
                 placeholderTextColor={C.textMuted}
                 style={[styles.searchInput, { color: C.text }]}
                 autoCorrect={false}
+                autoFocus
               />
             </View>
-            <TouchableOpacity onPress={startNewChat} style={styles.iconBtn} accessibilityLabel="New chat">
-              <Ionicons name="create-outline" size={22} color={C.text} />
-            </TouchableOpacity>
+            {sidebarSections.length === 0 ? (
+              <Text style={[styles.noChats, { color: C.textMuted }]}>{search ? 'No chats found' : 'No chats yet'}</Text>
+            ) : (
+              <SectionList
+                sections={sidebarSections}
+                keyExtractor={c => c.id}
+                renderItem={({ item, index, section }) => (
+                  <Pressable
+                    onPress={() => pickConversation(item.id)}
+                    onLongPress={() => deleteConversation(item.id)}
+                    style={({ pressed }) => [
+                      styles.historyRow,
+                      { backgroundColor: pressed ? C.surface2 : C.surface },
+                      index === 0 && styles.groupTop,
+                      index === section.data.length - 1 && styles.groupBottom,
+                      index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
+                    ]}
+                  >
+                    <Text style={[styles.recentTitle, { color: C.text }]} numberOfLines={1}>{item.title || 'New conversation'}</Text>
+                    <Text style={[styles.recentTime, { color: C.textMuted }]}>{timeLabel(item.updated_at)}</Text>
+                  </Pressable>
+                )}
+                renderSectionHeader={({ section }) => <Text style={[styles.blockLabel, { color: C.textMuted, marginHorizontal: 20 }]}>{section.title}</Text>}
+                contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+                stickySectionHeadersEnabled={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+              />
+            )}
           </View>
-
-          <TouchableOpacity onPress={startNewChat} style={styles.drawerRow} activeOpacity={0.6}>
-            <OrbStill size={24} />
-            <Text style={[styles.drawerRowText, { color: C.text }]}>Kiongozi AI</Text>
-          </TouchableOpacity>
-
-          {loadingConversations ? (
-            <ActivityIndicator color={C.textMuted} style={{ marginTop: 28 }} />
-          ) : sidebarSections.length === 0 ? (
-            <Text style={[styles.noChats, { color: C.textMuted }]}>{search ? 'No chats found' : 'Your chats will show up here'}</Text>
-          ) : (
-            <SectionList
-              sections={sidebarSections}
-              keyExtractor={c => c.id}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => loadConversationMessages(item.id)}
-                  onLongPress={() => deleteConversation(item.id)}
-                  style={({ pressed }) => [styles.convItem, (item.id === conversationId || pressed) && { backgroundColor: C.surface2 }]}
-                >
-                  <Text style={[styles.convTitle, { color: C.text }]} numberOfLines={1}>{item.title || 'New conversation'}</Text>
-                </Pressable>
-              )}
-              renderSectionHeader={({ section }) => <Text style={[styles.sectionHeader, { color: C.textMuted }]}>{section.title}</Text>}
-              contentContainerStyle={{ paddingBottom: 16 }}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              stickySectionHeadersEnabled={false}
-            />
-          )}
-
-          <View style={[styles.profileRow, { borderTopColor: C.border }]}>
-            <UserAvatar avatarUrl={me?.avatar_url} size={32} />
-            <Text style={[styles.profileName, { color: C.text }]} numberOfLines={1}>{me?.full_name || me?.username || 'You'}</Text>
-          </View>
-        </Reanimated.View>
+        </Modal>
 
         {/* Chat */}
         <GestureDetector gesture={drawerPan}>
           <Reanimated.View style={[styles.main, { backgroundColor: C.bg }, mainStyle]}>
             <View style={[styles.header, { paddingTop: insets.top }]}>
               <TouchableOpacity onPress={() => (drawerOpen ? closeSidebar() : openSidebar())} style={styles.iconBtn} accessibilityLabel="Chat history">
-                <Ionicons name="reorder-two" size={26} color={C.text} />
+                <Ionicons name="reorder-two" size={24} color={C.text} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { color: C.text }]} numberOfLines={1}>
                 {isGenerating ? 'Thinking…' : 'Kiongozi AI'}
@@ -467,19 +537,25 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
               )}
 
               {messages.length === 0 && !loadingMessages && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.pills}>
+                // 2×2 grid: every suggestion fully visible, no sideways scrolling
+                <View style={styles.grid}>
                   {SUGGESTIONS.map((sg, i) => (
-                    <Reanimated.View key={sg.label} entering={FadeInDown.delay(120 + i * 60).duration(320)}>
+                    <Reanimated.View key={sg.label} entering={FadeInDown.delay(120 + i * 60).duration(320)} style={styles.gridCell}>
                       <Pressable
                         onPress={() => { Haptics.selectionAsync(); sendMessage(sg.prompt); }}
-                        style={({ pressed }) => [styles.pill, { backgroundColor: C.surface, borderColor: C.border }, pressed && { opacity: 0.7 }]}
+                        style={({ pressed }) => [styles.tile, { backgroundColor: C.surface, borderColor: C.border }, pressed && { transform: [{ scale: 0.97 }], opacity: 0.85 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={sg.label}
                       >
-                        <Ionicons name={sg.icon} size={16} color={C.text} />
-                        <Text style={[styles.pillText, { color: C.text }]}>{sg.label}</Text>
+                        <Image source={sg.art} style={styles.tileArt} />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={[styles.tileLabel, { color: C.text }]} numberOfLines={1}>{sg.label}</Text>
+                          <Text style={[styles.tileHint, { color: C.textMuted }]} numberOfLines={1}>{sg.hint}</Text>
+                        </View>
                       </Pressable>
                     </Reanimated.View>
                   ))}
-                </ScrollView>
+                </View>
               )}
 
               <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -531,6 +607,30 @@ const styles = StyleSheet.create({
 
   // Drawer
   drawer: { position: 'absolute', top: 0, left: 0, bottom: 0 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, height: 52 },
+  brandText: { fontSize: 20, fontWeight: '700', letterSpacing: -0.4 },
+  block: { paddingHorizontal: 14, gap: 8, marginTop: 6 },
+  newChat: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: 23 },
+  newChatText: { fontSize: 16, fontWeight: '700' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, borderRadius: 14, paddingHorizontal: 14 },
+  searchRowText: { fontSize: 15.5 },
+  blockLabel: { fontSize: 13, fontWeight: '600', marginTop: 24, marginBottom: 8, marginHorizontal: 18 },
+  card: { marginHorizontal: 14, borderRadius: 16, overflow: 'hidden' },
+  cardEmpty: { fontSize: 14, paddingHorizontal: 14, paddingVertical: 16 },
+  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, minHeight: 48 },
+  recentTitle: { flex: 1, fontSize: 15.5 },
+  recentTime: { fontSize: 12.5 },
+  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 18, marginTop: 10, height: 40 },
+  seeAllText: { flex: 1, fontSize: 15, fontWeight: '600' },
+  seeAllCount: { fontSize: 14 },
+  profileCard: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 14, marginTop: 8, padding: 12, borderRadius: 16 },
+  profileHandle: { fontSize: 13, marginTop: 1 },
+  historyRoot: { flex: 1 },
+  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 20, paddingRight: 8, height: 56 },
+  historyTitle: { fontSize: 22, fontWeight: '700', letterSpacing: -0.4 },
+  historyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, paddingHorizontal: 14, minHeight: 50 },
+  groupTop: { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+  groupBottom: { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
   drawerTop: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingBottom: 8 },
   search: { flex: 1, height: 40, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12 },
   searchInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
@@ -564,12 +664,15 @@ const styles = StyleSheet.create({
   aiActions: { flexDirection: 'row', gap: 2, marginTop: 6, marginLeft: -8 },
   aiAction: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
 
-  pills: { paddingHorizontal: 14, gap: 8, paddingBottom: 10 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 38, paddingHorizontal: 14, borderRadius: 19, borderWidth: StyleSheet.hairlineWidth },
-  pillText: { fontSize: 14.5, fontWeight: '500' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: 12, paddingBottom: 10 },
+  gridCell: { width: '49%' },
+  tile: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 60, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 18, borderWidth: 1 },
+  tileArt: { width: 40, height: 40 },
+  tileLabel: { fontSize: 14.5, fontWeight: '600' },
+  tileHint: { fontSize: 12.5, marginTop: 1 },
 
   composer: { paddingHorizontal: 12, paddingTop: 4 },
-  inputCard: { flexDirection: 'row', alignItems: 'flex-end', borderRadius: 26, borderWidth: StyleSheet.hairlineWidth, paddingLeft: 16, paddingRight: 6, paddingVertical: 6, minHeight: 52 },
+  inputCard: { flexDirection: 'row', alignItems: 'flex-end', borderRadius: 26, borderWidth: 1, paddingLeft: 16, paddingRight: 6, paddingVertical: 6, minHeight: 52 },
   input: { flex: 1, fontSize: 16, lineHeight: 21, maxHeight: 140, paddingTop: Platform.OS === 'ios' ? 9 : 6, paddingBottom: Platform.OS === 'ios' ? 9 : 6 },
   sendBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
   stopSquare: { width: 12, height: 12, borderRadius: 3 },

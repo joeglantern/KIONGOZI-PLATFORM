@@ -4,10 +4,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, Animated, Dimensions, TextInput,
-  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert, Keyboard, StatusBar,
+  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert, Keyboard, StatusBar, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing, SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -15,17 +15,21 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useStoryStore, StoryGroup, Story } from '../../stores/storyStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useSocialStore } from '../../stores/socialStore';
+import ReportModal from '../../screens/social/ReportModal';
 import apiClient from '../../utils/apiClient';
 import { setFeedPaused } from '../social/videoPlayback';
 import { UserAvatar } from '../social/UserAvatar';
 import { VerifiedBadge } from '../social/VerifiedBadge';
 import { StoryBackground, StoryText, StoryOverlays, POLL_H } from './StoryParts';
 import { PollCard, POLL_W } from './PollCard';
-import { REACTIONS, storyAge } from './storyAssets';
+import { REACTIONS, storyAge, APP_LINK, storyNav } from './storyAssets';
 
 const { width: W, height: H } = Dimensions.get('window');
 const IMAGE_MS = 5000;
 const textMs = (t?: string | null) => Math.min(10000, 5000 + (t?.length ?? 0) * 40);
+const SHEET_H = 470; // viewers sheet height (design)
+const CLAMP = Extrapolation.CLAMP;
 
 export function StoryViewer() {
   const viewer = useStoryStore(s => s.viewer);
@@ -152,8 +156,37 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   const [typing, setTyping] = useState(false);     // reply box focused
   const [sheet, setSheet] = useState(false);       // viewers sheet open
   const [muted, setMuted] = useState(false);
+  const [report, setReport] = useState(false);     // report modal open
   const [videoMs, setVideoMs] = useState<number | null>(null);
-  const paused = !active || holding || typing || sheet || !ready;
+  const paused = !active || holding || typing || sheet || report || !ready;
+  const muteUser = useSocialStore(s => s.muteUser);
+
+  // Own story + viewers sheet: the story shrinks into a small card above the sheet (UI thread)
+  const sheetP = useSharedValue(0);
+  const cardTop = insets.top + 12;
+  const cardH = Math.min(356, H - SHEET_H - cardTop + 38);
+  const cardW = (cardH * 200) / 356;
+  const cardS = Math.max(cardW / W, cardH / H);
+  const boxStyle = useAnimatedStyle(() => {
+    const p = sheetP.value;
+    const top = interpolate(p, [0, 1], [0, 18], CLAMP);
+    const bottom = interpolate(p, [0, 1], [20, 18], CLAMP);
+    return {
+      left: interpolate(p, [0, 1], [0, (W - cardW) / 2], CLAMP),
+      top: interpolate(p, [0, 1], [0, cardTop], CLAMP),
+      width: interpolate(p, [0, 1], [W, cardW], CLAMP),
+      height: interpolate(p, [0, 1], [H, cardH], CLAMP),
+      borderTopLeftRadius: top, borderTopRightRadius: top,
+      borderBottomLeftRadius: bottom, borderBottomRightRadius: bottom,
+    };
+  });
+  const innerStyle = useAnimatedStyle(() => {
+    const p = sheetP.value;
+    const bw = interpolate(p, [0, 1], [W, cardW], CLAMP);
+    const bh = interpolate(p, [0, 1], [H, cardH], CLAMP);
+    return { left: (bw - W) / 2, top: (bh - H) / 2, transform: [{ scale: interpolate(p, [0, 1], [1, cardS], CLAMP) }] };
+  });
+  const chromeFade = useAnimatedStyle(() => ({ opacity: interpolate(sheetP.value, [0, 0.35], [1, 0], CLAMP) }));
 
   const progress = useRef(new Animated.Value(0)).current;
   const anim = useRef<Animated.CompositeAnimation | null>(null);
@@ -215,10 +248,49 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
 
   const onTap = (x: number) => (x < W * 0.3 ? prev() : next());
 
+  const confirmDelete = () => {
+    setHolding(true);
+    Alert.alert('Delete this story?', 'It will be removed for everyone.', [
+      { text: 'Cancel', style: 'cancel', onPress: () => setHolding(false) },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          setHolding(false);
+          const res: any = await apiClient.deleteStory(story.id);
+          if (res.success) {
+            setSheet(false); sheetP.value = 0;
+            if (stories.length === 1) onClose();
+            else if (idx === stories.length - 1) setIdx(i => i - 1);
+            removeStory(story.id);
+          } else Alert.alert('Could not delete', res.error || 'Try again.');
+        },
+      },
+    ], { cancelable: true, onDismiss: () => setHolding(false) });
+  };
+
+  // ... on someone else's story: mute or report them
+  const openMore = () => {
+    const u = group.user.username;
+    setHolding(true);
+    Alert.alert(`@${u}`, undefined, [
+      {
+        text: `Mute @${u}`, onPress: async () => {
+          setHolding(false);
+          try {
+            await muteUser(group.user.id);
+            Alert.alert('Muted', `You won't see posts from @${u} in your feed.`);
+          } catch { Alert.alert('Could not mute', 'Try again.'); }
+        },
+      },
+      { text: `Report @${u}`, style: 'destructive', onPress: () => { setHolding(false); setReport(true); } },
+      { text: 'Cancel', style: 'cancel', onPress: () => setHolding(false) },
+    ], { cancelable: true, onDismiss: () => setHolding(false) });
+  };
+
   return (
     <View style={styles.page}>
-      {/* Media */}
-      <View style={styles.media}>
+      {/* Media (shrinks to a card while the viewers sheet is open) */}
+      <Reanimated.View style={[styles.media, boxStyle]}>
+      <Reanimated.View style={[styles.mediaInner, innerStyle]}>
         {story.media_type === 'text' && (
           <>
             <StoryBackground bg={story.bg} />
@@ -241,7 +313,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         )}
         <StoryOverlays overlays={story.overlays} width={W} height={H} skipPolls />
         {!ready && active && <ActivityIndicator style={StyleSheet.absoluteFill} color="#fff" />}
-      </View>
+      </Reanimated.View>
+      </Reanimated.View>
 
       {/* Tap / hold zones */}
       <Pressable
@@ -274,7 +347,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         };
         return (
           <View
-            style={{ position: 'absolute', left: p.x * W - (POLL_W * k) / 2, top: p.y * H - (POLL_H * k) / 2, transform: [{ rotate: `${p.rotation || 0}deg` }, { scale: p.scale || 1 }], opacity: longHold ? 0 : 1 }}
+            style={{ position: 'absolute', left: p.x * W - (POLL_W * k) / 2, top: p.y * H - (POLL_H * k) / 2, transform: [{ rotate: `${p.rotation || 0}deg` }, { scale: p.scale || 1 }], opacity: longHold || sheet ? 0 : 1 }}
+            pointerEvents={sheet ? 'none' : 'auto'}
             onTouchStart={() => setHolding(true)}
             onTouchEnd={() => setHolding(false)}
           >
@@ -292,9 +366,10 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
       })()}
 
       {/* Chrome */}
-      <View style={[styles.chrome, { opacity: longHold ? 0 : 1 }]} pointerEvents="box-none">
-        <LinearGradient colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0)']} style={[styles.topScrim, { height: insets.top + 110 }]} pointerEvents="none" />
-        <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.6)']} style={styles.bottomScrim} pointerEvents="none" />
+      <View style={[styles.chrome, { opacity: longHold ? 0 : 1 }]} pointerEvents={sheet ? 'none' : 'box-none'}>
+      <Reanimated.View style={[styles.chrome, chromeFade]} pointerEvents="box-none">
+        <LinearGradient colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0)']} style={[styles.topScrim, { height: insets.top + 108 }]} pointerEvents="none" />
+        <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']} style={styles.bottomScrim} pointerEvents="none" />
 
         <View style={[styles.bars, { top: insets.top + 8 }]} pointerEvents="none">
           {stories.map((s, i) => (
@@ -308,7 +383,9 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         </View>
 
         <View style={[styles.header, { top: insets.top + 18 }]}>
-          <UserAvatar avatarUrl={group.user.avatar_url ?? undefined} size={34} />
+          <View style={styles.headerAvatar}>
+            <UserAvatar avatarUrl={group.user.avatar_url ?? undefined} size={31} name={group.user.full_name || group.user.username} />
+          </View>
           <View style={styles.headerText}>
             <Text style={styles.username} numberOfLines={1}>{isMine ? 'Your story' : group.user.username}</Text>
             {group.user.is_verified && !isMine && <VerifiedBadge size={14} />}
@@ -319,13 +396,18 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
               <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={22} color="#fff" />
             </Pressable>
           )}
+          {!isMine && (
+            <Pressable style={styles.iconBtn} onPress={openMore} accessibilityLabel="More options">
+              <Ionicons name="ellipsis-horizontal" size={22} color="#fff" />
+            </Pressable>
+          )}
           <Pressable style={styles.iconBtn} onPress={onClose} accessibilityLabel="Close stories">
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={22} color="#fff" />
           </Pressable>
         </View>
 
         {!!story.caption && (
-          <Text style={[styles.caption, { bottom: insets.bottom + 86 }]} numberOfLines={3}>{story.caption}</Text>
+          <Text style={[styles.caption, { bottom: insets.bottom + (isMine ? 86 : 150) }]} numberOfLines={3}>{story.caption}</Text>
         )}
 
         {isMine ? (
@@ -333,23 +415,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             story={story}
             bottom={insets.bottom}
             onOpenViewers={() => setSheet(true)}
-            onDelete={() => {
-              setHolding(true);
-              Alert.alert('Delete this story?', 'It will be removed for everyone.', [
-                { text: 'Cancel', style: 'cancel', onPress: () => setHolding(false) },
-                {
-                  text: 'Delete', style: 'destructive', onPress: async () => {
-                    setHolding(false);
-                    const res: any = await apiClient.deleteStory(story.id);
-                    if (res.success) {
-                      if (stories.length === 1) onClose();
-                      else if (idx === stories.length - 1) setIdx(i => i - 1);
-                      removeStory(story.id);
-                    } else Alert.alert('Could not delete', res.error || 'Try again.');
-                  },
-                },
-              ]);
-            }}
+            onDelete={confirmDelete}
           />
         ) : (
           <ReplyBar
@@ -360,9 +426,24 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             onReact={emoji => setReaction(story.id, emoji)}
           />
         )}
+      </Reanimated.View>
       </View>
 
-      {sheet && <ViewersSheet story={story} onClose={() => setSheet(false)} />}
+      {sheet && (
+        <ViewersSheet
+          story={story}
+          progress={sheetP}
+          onClose={() => setSheet(false)}
+          onDelete={confirmDelete}
+          onCloseViewer={onClose}
+        />
+      )}
+      {report && (
+        <ReportModal
+          target={{ type: 'user', id: group.user.id, displayName: group.user.username }}
+          onClose={() => setReport(false)}
+        />
+      )}
     </View>
   );
 }
@@ -442,20 +523,27 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact }: {
     sendDM(`Replied to your story: ${t}`);
   };
 
+  // Share via the system sheet (no server); the story pauses while it is open
+  const share = async () => {
+    onFocusChange(true);
+    try {
+      await Share.share({ message: `Check out @${group.user.username}'s story on KChat\n${APP_LINK}` });
+    } catch {}
+    onFocusChange(focused);
+  };
+
   const setFocus = (f: boolean) => { setFocused(f); onFocusChange(f); };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.footerWrap, { bottom: 0, paddingBottom: bottom + 12 }]}>
-      {focused && (
-        <View style={styles.reactRow}>
-          {REACTIONS.map(e => (
-            <Pressable key={e} onPress={() => react(e)} style={({ pressed }) => [styles.reactBtn, pressed && { transform: [{ scale: 0.9 }] }]} accessibilityLabel={`React ${e}`}>
-              <Text style={styles.reactEmoji}>{e}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.footerWrap, { bottom: 0, paddingBottom: Math.max(bottom - 4, 14) }]}>
       {!!sent && <Text style={styles.sent}>{sent}</Text>}
+      <View style={styles.reactRow}>
+        {REACTIONS.map(e => (
+          <Pressable key={e} onPress={() => react(e)} style={({ pressed }) => [styles.reactBtn, pressed && { transform: [{ scale: 0.9 }] }]} accessibilityLabel={`React ${e}`}>
+            <Text style={styles.reactEmoji}>{e}</Text>
+          </Pressable>
+        ))}
+      </View>
       <View style={styles.footer}>
         <View style={styles.replyPill}>
           <TextInput
@@ -477,9 +565,12 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact }: {
           </Pressable>
         ) : (
           <Pressable style={styles.footerBtn} onPress={() => react('❤️')} accessibilityLabel="Like story">
-            <Ionicons name={story.my_reaction ? 'heart' : 'heart-outline'} size={28} color={story.my_reaction ? '#FF3040' : '#fff'} />
+            <Ionicons name={story.my_reaction ? 'heart' : 'heart-outline'} size={26} color={story.my_reaction ? '#FF3040' : '#fff'} />
           </Pressable>
         )}
+        <Pressable style={styles.footerBtn} onPress={share} accessibilityLabel="Share story">
+          <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+        </Pressable>
       </View>
       <Animated.Text
         pointerEvents="none"
@@ -497,7 +588,7 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact }: {
 
 function OwnFooter({ story, bottom, onOpenViewers, onDelete }: { story: Story; bottom: number; onOpenViewers: () => void; onDelete: () => void }) {
   return (
-    <View style={[styles.footer, { position: 'absolute', left: 12, right: 12, bottom: bottom + 14 }]}>
+    <View style={[styles.footer, { position: 'absolute', left: 0, right: 0, bottom: bottom + 14 }]}>
       <Pressable style={styles.seenBtn} onPress={onOpenViewers} accessibilityLabel="See who viewed your story">
         <Ionicons name="eye-outline" size={20} color="#fff" />
         <Text style={styles.seenText}>Imeonekana na {story.view_count ?? 0}</Text>
@@ -510,51 +601,112 @@ function OwnFooter({ story, bottom, onOpenViewers, onDelete }: { story: Story; b
   );
 }
 
-function ViewersSheet({ story, onClose }: { story: Story; onClose: () => void }) {
+function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
+  story: Story; progress: SharedValue<number>; onClose: () => void; onDelete: () => void; onCloseViewer: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const [rows, setRows] = useState<any[] | null>(null);
   const [count, setCount] = useState(story.view_count ?? 0);
-  const slide = useRef(new Animated.Value(H)).current;
+  const [sort, setSort] = useState<'reactions' | 'recent'>('reactions');
+  const [opening, setOpening] = useState<string | null>(null);
+  const canMessage = !!storyNav.current;
 
   useEffect(() => {
-    Animated.spring(slide, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }).start();
+    progress.value = withSpring(1, { damping: 24, stiffness: 220 });
     apiClient.getStoryViewers(story.id).then((r: any) => {
       if (r.success) { setRows(r.data.viewers || []); setCount(r.data.count ?? 0); } else setRows([]);
     }).catch(() => setRows([]));
   }, [story.id]);
 
-  const close = () => Animated.timing(slide, { toValue: H, duration: 200, useNativeDriver: true }).start(onClose);
+  // Server returns reactors first; "Mpya kwanza" re-sorts by most recent view
+  const shown = useMemo(() => {
+    if (!rows || sort === 'reactions') return rows;
+    return [...rows].sort((a, b) => new Date(b.viewed_at).getTime() - new Date(a.viewed_at).getTime());
+  }, [rows, sort]);
+
+  const close = () => {
+    progress.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) }, done => { if (done) runOnJS(onClose)(); });
+  };
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(progress.value, [0, 1], [SHEET_H + 40, 0], CLAMP) }],
+  }));
+
+  const message = async (p: any) => {
+    const nav = storyNav.current;
+    if (!p?.id || !nav || opening) return;
+    setOpening(p.id);
+    try {
+      const res: any = await apiClient.startDMConversation(p.id);
+      if (!res?.success || !res.data?.id) throw new Error(res?.error || 'Could not open chat');
+      onCloseViewer();
+      nav.navigate('Feed', {
+        screen: 'DMConversation',
+        params: { conversationId: res.data.id, participantName: p.full_name || p.username, participantUsername: p.username, participantAvatar: p.avatar_url },
+      });
+    } catch (e: any) {
+      Alert.alert('Could not open chat', e?.message || 'Try again.');
+    } finally {
+      setOpening(null);
+    }
+  };
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} onPress={close} accessibilityLabel="Close viewers" />
-      <Animated.View style={[styles.sheet, { paddingBottom: insets.bottom + 12, transform: [{ translateY: slide }] }]}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close viewers" />
+      <Reanimated.View style={[styles.sheet, { paddingBottom: insets.bottom }, sheetStyle]}>
         <View style={styles.grabber} />
         <View style={styles.sheetHead}>
           <Ionicons name="eye-outline" size={20} color="#fff" />
-          <Text style={styles.sheetTitle}>Imeonekana na {count}</Text>
+          <Text style={styles.sheetTitle} numberOfLines={1}>Imeonekana na {count}</Text>
+          <Pressable style={styles.sheetDelete} onPress={onDelete} accessibilityLabel="Delete story">
+            <Ionicons name="trash-outline" size={18} color="#fff" />
+          </Pressable>
         </View>
-        {rows === null ? (
+        <View style={styles.chips}>
+          {([['reactions', 'Reactions kwanza'], ['recent', 'Mpya kwanza']] as const).map(([key, label]) => {
+            const on = sort === key;
+            return (
+              <Pressable key={key} onPress={() => setSort(key)} style={[styles.chip, on && styles.chipOn]}
+                accessibilityRole="button" accessibilityState={{ selected: on }}>
+                <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {shown === null ? (
           <ActivityIndicator color="#fff" style={{ marginTop: 24 }} />
-        ) : rows.length === 0 ? (
+        ) : shown.length === 0 ? (
           <Text style={styles.sheetEmpty}>Bado hakuna aliyeona. Shiriki zaidi!</Text>
         ) : (
           <FlatList
-            data={rows}
+            data={shown}
             keyExtractor={(r, i) => r.profiles?.id || String(i)}
-            renderItem={({ item }) => (
-              <View style={styles.viewerRow}>
-                <UserAvatar avatarUrl={item.profiles?.avatar_url} size={42} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.viewerName} numberOfLines={1}>{item.profiles?.full_name || item.profiles?.username}</Text>
-                  <Text style={styles.viewerSub} numberOfLines={1}>@{item.profiles?.username} · {storyAge(item.viewed_at)}</Text>
+            contentContainerStyle={{ paddingHorizontal: 8 }}
+            renderItem={({ item }) => {
+              const p = item.profiles;
+              const name = p?.full_name || p?.username;
+              return (
+                <View style={styles.viewerRow}>
+                  <UserAvatar avatarUrl={p?.avatar_url} size={44} name={name} />
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <Text style={styles.viewerName} numberOfLines={1}>{name}</Text>
+                    <Text style={styles.viewerSub} numberOfLines={1}>@{p?.username} · {storyAge(item.viewed_at)}</Text>
+                  </View>
+                  {!!item.reaction && <Text style={{ fontSize: 22 }}>{item.reaction}</Text>}
+                  {canMessage && !!p?.id && (
+                    <Pressable style={styles.viewerMsg} onPress={() => message(p)} accessibilityLabel={`Message ${name}`}>
+                      {opening === p.id
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <Ionicons name="paper-plane-outline" size={20} color="#fff" />}
+                    </Pressable>
+                  )}
                 </View>
-                {!!item.reaction && <Text style={{ fontSize: 22 }}>{item.reaction}</Text>}
-              </View>
-            )}
+              );
+            }}
           />
         )}
-      </Animated.View>
+      </Reanimated.View>
     </View>
   );
 }
@@ -562,37 +714,46 @@ function ViewersSheet({ story, onClose }: { story: Story; onClose: () => void })
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#000' },
   page: { width: W, height: H, backgroundColor: '#000', overflow: 'hidden' },
-  media: { ...StyleSheet.absoluteFillObject, borderRadius: 12, overflow: 'hidden', backgroundColor: '#111' },
+  media: { position: 'absolute', overflow: 'hidden', backgroundColor: '#111' },
+  mediaInner: { position: 'absolute', width: W, height: H },
   chrome: { ...StyleSheet.absoluteFillObject },
   topScrim: { position: 'absolute', left: 0, right: 0, top: 0 },
-  bottomScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 220 },
+  bottomScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 260 },
   bars: { position: 'absolute', left: 8, right: 8, flexDirection: 'row', gap: 3 },
   barTrack: { flex: 1, height: 2.5, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' },
   barFill: { height: '100%', backgroundColor: '#fff', borderRadius: 2 },
   header: { position: 'absolute', left: 12, right: 4, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerAvatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.8)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   headerText: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
-  username: { color: '#fff', fontSize: 14, fontWeight: '700', flexShrink: 1, textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 4 },
-  age: { color: 'rgba(255,255,255,0.8)', fontSize: 13, textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 4 },
+  username: { color: '#fff', fontSize: 14, fontWeight: '600', flexShrink: 1, textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 4 },
+  age: { color: 'rgba(255,255,255,0.75)', fontSize: 14, textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 4 },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   caption: { position: 'absolute', left: 20, right: 20, color: '#fff', fontSize: 15, lineHeight: 21, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 },
   footerWrap: { position: 'absolute', left: 0, right: 0 },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12 },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12, paddingRight: 8 },
   replyPill: { flex: 1, height: 46, borderRadius: 23, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', paddingHorizontal: 16 },
   replyInput: { color: '#fff', fontSize: 15, paddingVertical: 0 },
   footerBtn: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
-  reactRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 14 },
-  reactBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
-  reactEmoji: { fontSize: 26 },
+  reactRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 },
+  reactBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  reactEmoji: { fontSize: 24 },
   sent: { alignSelf: 'center', color: '#fff', fontWeight: '600', marginBottom: 8, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14, overflow: 'hidden' },
   burst: { position: 'absolute', alignSelf: 'center', bottom: 70, fontSize: 64 },
   seenBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.45)' },
   seenText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: H * 0.62, backgroundColor: '#111', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, borderColor: '#FFFFFF14' },
+  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, height: SHEET_H, backgroundColor: '#111', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, borderColor: '#FFFFFF14' },
   grabber: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: '#3A3A3C', marginTop: 10 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10 },
-  sheetTitle: { color: '#fff', fontSize: 18, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold' },
+  sheetTitle: { flex: 1, color: '#fff', fontSize: 19, fontFamily: 'SpaceGrotesk_700Bold' },
+  sheetDelete: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1C1C1E', alignItems: 'center', justifyContent: 'center' },
+  chips: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#1C1C1E' },
+  chipOn: { backgroundColor: '#FFFFFF' },
+  chipText: { color: '#AEAEB2', fontSize: 13, fontWeight: '600' },
+  chipTextOn: { color: '#000000' },
+  viewerMsg: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   sheetEmpty: { color: '#8E8E93', textAlign: 'center', marginTop: 24, marginBottom: 24, fontSize: 15 },
-  viewerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 9 },
+  viewerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 9 },
   viewerName: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  viewerSub: { color: '#8E8E93', fontSize: 13, marginTop: 2 },
+  viewerSub: { color: '#8E8E93', fontSize: 13 },
 });

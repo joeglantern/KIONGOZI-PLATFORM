@@ -19,10 +19,11 @@ import apiClient from '../../utils/apiClient';
 import { StoryBackground, OverlayItem, STICKER_BASE, POLL_H } from './StoryParts';
 import { POLL_W } from './PollCard';
 import { celebrate } from '../Confetti';
-import { BACKGROUNDS, FONTS, TEXT_COLORS, STICKERS, fontById, fitFontSize, bgById } from './storyAssets';
+import { BACKGROUNDS, FONTS, TEXT_COLORS, STICKERS, fontById, fitFontSize, fitLineHeight, textAnchoredTop, TEXT_TOP, bgById } from './storyAssets';
 
 const { width: W, height: H } = Dimensions.get('window');
 const MAX_BYTES = 50 * 1024 * 1024;
+const TOOL = W < 380 ? 40 : 44; // top tool size; a touch smaller on narrow phones so the row fits
 
 type Draft = StoryOverlay & { _id: number };
 let nextId = 1;
@@ -61,7 +62,10 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<TextInput>(null);
 
   const isText = !media;
-  const textColor = color || (bgById(bg).dark ? '#111111' : '#FFFFFF');
+  const textColor = color || (bgById(bg).dark ? '#000000' : '#FFFFFF');
+  const shownText = text || 'Andika kitu…';
+  const textSize = fitFontSize(shownText);
+  const anchored = textAnchoredTop(shownText);
   const canPost = isText ? text.trim().length > 0 : true;
 
   const pick = async (from: 'library' | 'camera') => {
@@ -166,7 +170,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
       </Pressable>
 
       {isText && (
-        <View style={styles.textArea} pointerEvents="box-none">
+        <View style={[styles.textArea, anchored && { justifyContent: 'flex-start', paddingTop: Math.round(H * TEXT_TOP) }]} pointerEvents="box-none">
           <TextInput
             ref={inputRef}
             value={text}
@@ -176,7 +180,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             multiline
             maxLength={700}
             autoFocus
-            style={[fontById(font), styles.textInput, { color: textColor, fontSize: fitFontSize(text || 'Andika kitu…'), lineHeight: Math.round(fitFontSize(text || 'x') * 1.18) }]}
+            style={[fontById(font), styles.textInput, { color: textColor, fontSize: textSize, lineHeight: fitLineHeight(textSize) }]}
           />
         </View>
       )}
@@ -202,59 +206,59 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
       {!dragging && (
         <View style={[styles.top, { top: insets.top + 8 }]}>
           <Pressable style={styles.tool} onPress={() => (media ? setMedia(null) : onClose())} accessibilityLabel={media ? 'Remove photo' : 'Close'}>
-            <Ionicons name={media ? 'arrow-back' : 'close'} size={24} color="#fff" />
+            <Ionicons name={media ? 'arrow-back' : 'close'} size={20} color="#fff" />
           </Pressable>
           <View style={{ flex: 1 }} />
           {isText && (
             <>
-              <Pressable style={styles.tool} onPress={() => setFont(f => FONTS[(FONTS.findIndex(x => x.id === f) + 1) % FONTS.length].id)} accessibilityLabel="Change font">
-                <Text style={[fontById(font), { color: '#fff', fontSize: 18 }]}>Aa</Text>
+              <Pressable style={styles.fontPill} onPress={() => setFont(f => FONTS[(FONTS.findIndex(x => x.id === f) + 1) % FONTS.length].id)} accessibilityLabel="Change font">
+                <Text style={styles.fontPillText}>Aa</Text>
               </Pressable>
               <Pressable style={styles.tool} onPress={() => setBg(b => BACKGROUNDS[(BACKGROUNDS.findIndex(x => x.id === b) + 1) % BACKGROUNDS.length].id)} accessibilityLabel="Change background">
-                <Ionicons name="color-palette-outline" size={22} color="#fff" />
+                <Ionicons name="contrast-outline" size={20} color="#fff" />
               </Pressable>
             </>
           )}
           {!isText && (
             <Pressable style={styles.tool} onPress={() => setLabelDraft('')} accessibilityLabel="Add text">
-              <Ionicons name="text" size={22} color="#fff" />
-            </Pressable>
-          )}
-          {!hasPoll && (
-            <Pressable style={styles.tool} onPress={() => { Keyboard.dismiss(); setPollDraft({ q: '', a: 'Ndiyo', b: 'Hapana' }); }} accessibilityLabel="Add a poll">
-              <Ionicons name="stats-chart" size={20} color="#fff" />
+              <Ionicons name="text" size={20} color="#fff" />
             </Pressable>
           )}
           <Pressable style={styles.tool} onPress={() => { Keyboard.dismiss(); setTrayOpen(true); }} accessibilityLabel="Add sticker">
-            <Ionicons name="happy-outline" size={23} color="#fff" />
+            <Ionicons name="pricetag-outline" size={20} color="#fff" />
           </Pressable>
+          {!hasPoll && (
+            <Pressable style={styles.tool} onPress={() => { Keyboard.dismiss(); setPollDraft({ q: '', a: 'Ndiyo', b: 'Hapana' }); }} accessibilityLabel="Add a poll">
+              <Ionicons name="stats-chart" size={18} color="#fff" />
+            </Pressable>
+          )}
+          {isText && (
+            <>
+              <Pressable style={styles.tool} onPress={() => pick('library')} accessibilityLabel="Pick from gallery">
+                <Ionicons name="images-outline" size={20} color="#fff" />
+              </Pressable>
+              <Pressable style={styles.tool} onPress={() => pick('camera')} accessibilityLabel="Take a photo">
+                <Ionicons name="camera-outline" size={21} color="#fff" />
+              </Pressable>
+            </>
+          )}
         </View>
       )}
 
-      {/* Bottom: colours (text), source buttons, audience, share */}
+      {/* Bottom: colours (text), audience, share */}
       {!dragging && (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.bottom, { paddingBottom: insets.bottom + 14 }]} pointerEvents="box-none">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) }]} pointerEvents="box-none">
           {isText && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dots} keyboardShouldPersistTaps="always">
               {TEXT_COLORS.map(c => (
                 <Pressable key={c} onPress={() => setColor(c)} accessibilityLabel={`Text colour ${c}`}
-                  style={[styles.dot, { backgroundColor: c, borderWidth: textColor === c ? 3 : 2, borderColor: textColor === c ? '#fff' : 'rgba(255,255,255,0.55)' }]} />
+                  style={[styles.dot, { backgroundColor: c, borderWidth: textColor === c ? 3 : 2, borderColor: textColor === c ? '#fff' : 'rgba(255,255,255,0.5)' }]} />
               ))}
             </ScrollView>
           )}
           <View style={styles.bottomRow}>
-            {isText && (
-              <>
-                <Pressable style={styles.srcBtn} onPress={() => pick('library')} accessibilityLabel="Pick from gallery">
-                  <Ionicons name="images-outline" size={22} color="#fff" />
-                </Pressable>
-                <Pressable style={styles.srcBtn} onPress={() => pick('camera')} accessibilityLabel="Take a photo">
-                  <Ionicons name="camera-outline" size={23} color="#fff" />
-                </Pressable>
-              </>
-            )}
             <Pressable style={styles.audience} onPress={() => setAudience(a => (a === 'everyone' ? 'followers' : 'everyone'))} accessibilityLabel="Who can see this story">
-              <Ionicons name={audience === 'everyone' ? 'globe-outline' : 'people-outline'} size={17} color="#fff" />
+              <Ionicons name={audience === 'everyone' ? 'globe-outline' : 'people-outline'} size={18} color="#fff" />
               <Text style={styles.audienceText}>{audience === 'everyone' ? 'Kila mtu' : 'Wafuasi'} · 24h</Text>
             </Pressable>
             <View style={{ flex: 1 }} />
@@ -431,19 +435,20 @@ async function upload(uri: string, type: 'image' | 'video', userId: string): Pro
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
-  textArea: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', paddingHorizontal: 24 },
+  textArea: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', paddingHorizontal: 28 },
   textInput: { textAlign: 'center', padding: 0 },
   top: { position: 'absolute', left: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tool: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
+  tool: { width: TOOL, height: TOOL, borderRadius: TOOL / 2, backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
+  fontPill: { height: TOOL, paddingHorizontal: 14, borderRadius: TOOL / 2, backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
+  fontPillText: { color: '#fff', fontSize: 17, fontFamily: 'SpaceGrotesk_700Bold' },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  dots: { paddingHorizontal: 16, gap: 10, paddingBottom: 14, justifyContent: 'center', flexGrow: 1 },
+  dots: { paddingHorizontal: 16, gap: 10, paddingBottom: 38, justifyContent: 'center', flexGrow: 1 },
   dot: { width: 30, height: 30, borderRadius: 15 },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16 },
-  srcBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
-  audience: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 48, paddingHorizontal: 14, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.3)' },
+  bottomRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16 },
+  audience: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingHorizontal: 16, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.3)' },
   audienceText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  share: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 48, paddingHorizontal: 20, borderRadius: 24, backgroundColor: '#fff' },
-  shareText: { color: '#000', fontWeight: '700', fontSize: 15 },
+  share: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingHorizontal: 22, borderRadius: 24, backgroundColor: '#fff' },
+  shareText: { color: '#000', fontWeight: '600', fontSize: 15 },
   trash: { position: 'absolute', alignSelf: 'center', width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' },
   trashOn: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#E53E3E', borderColor: '#E53E3E' },
   tray: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#111', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 16 },

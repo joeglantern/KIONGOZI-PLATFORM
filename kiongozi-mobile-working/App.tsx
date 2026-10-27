@@ -61,13 +61,7 @@ export default function App() {
     initializeApp();
   }, [initialize]);
 
-  // Hide splash screen 3 seconds after init completes
-  useEffect(() => {
-    if (isReady && initialized) {
-      const timer = setTimeout(() => setShowSplash(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [isReady, initialized]);
+  // The animated splash plays over the app while it loads, then reveals it (it calls onFinish).
 
   // On auth: register push token + load block/mute lists
   useEffect(() => {
@@ -102,16 +96,12 @@ export default function App() {
     onAuthSuccess: () => initialize(),
   });
 
-  if (showSplash) {
-    return (
-      <SafeAreaProvider>
-        <AnimatedSplashScreen />
-      </SafeAreaProvider>
-    );
-  }
+  const appReady = isReady && initialized && fontsLoaded;
+  const splash = showSplash ? <AnimatedSplashScreen ready={appReady} onFinish={() => setShowSplash(false)} /> : null;
+  const withSplash = (node: React.ReactNode) => <View style={{ flex: 1, backgroundColor: '#000' }}>{node}{splash}</View>;
 
   if (!isReady || !initialized || !fontsLoaded) {
-    return (
+    return withSplash(
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#5CB85C" />
@@ -121,7 +111,7 @@ export default function App() {
   }
 
   if (showOnboarding) {
-    return (
+    return withSplash(
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <OnboardingScreen onDone={() => setShowOnboarding(false)} />
@@ -130,7 +120,7 @@ export default function App() {
     );
   }
 
-  return (
+  return withSplash(
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemedStatusBar />
