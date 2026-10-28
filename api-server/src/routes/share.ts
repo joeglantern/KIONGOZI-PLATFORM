@@ -64,7 +64,7 @@ router.get('/posts/:id', async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.send(page({
     title: p ? `${name} on KChat` : 'KChat — Kiongozi Chat',
-    desc: p ? String(p.content || '').replace(/\s+/g, ' ').slice(0, 180) : 'Posts, stories and conversations from young Kenyans.',
+    desc: p ? Array.from(String(p.content || '').replace(/\s+/g, ' ')).slice(0, 180).join('') : 'Posts, stories and conversations from young Kenyans.',
     image: p ? `${BASE}/og/post/${p.id}.png` : GENERIC_IMG,
     url: `${BASE}/posts/${encodeURIComponent(id)}`,
     deep: `kiongozi://posts/${encodeURIComponent(id)}`,
@@ -81,7 +81,7 @@ router.get('/u/:username', async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.send(page({
     title: u ? `${name} (@${u.username}) on KChat` : `@${username} on KChat`,
-    desc: u?.bio ? String(u.bio).slice(0, 180) : 'Follow them on KChat, the app for young Kenyans who lead.',
+    desc: u?.bio ? Array.from(String(u.bio)).slice(0, 180).join('') : 'Follow them on KChat, the app for young Kenyans who lead.',
     image: u ? `${BASE}/og/u/${encodeURIComponent(u.username)}.png` : GENERIC_IMG,
     url: `${BASE}/u/${encodeURIComponent(username)}`,
     deep: `kiongozi://u/${encodeURIComponent(username)}`,

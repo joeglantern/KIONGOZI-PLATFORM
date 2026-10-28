@@ -119,11 +119,27 @@ export async function renderShareCard(opts: {
   return { png, width: w, height: H };
 }
 
+// Emoji: the brand font has none, so they're drawn as Twemoji images (cached per process)
+const emojiCache = new Map<string, string>();
+async function loadAdditionalAsset(code: string, segment: string): Promise<any> {
+  if (code !== 'emoji') return [];
+  const id = Array.from(segment.includes('‍') ? segment : segment.replace(/️/g, ''))
+    .map(c => c.codePointAt(0)!.toString(16)).join('-');
+  if (emojiCache.has(id)) return emojiCache.get(id);
+  try {
+    const r = await fetch(`https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${id}.svg`, { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return [];
+    const uri = `data:image/svg+xml;base64,${Buffer.from(await r.text()).toString('base64')}`;
+    emojiCache.set(id, uri);
+    return uri;
+  } catch { return []; }
+}
+
 /** Element tree → PNG. Shared by share cards and link-preview images. */
 export async function renderTree(tree: any, w: number, H: number, outWidth?: number): Promise<Buffer> {
   const { fonts } = cardAssets();
   // satori is ESM-only; a native dynamic import keeps it working from this CommonJS build
   const satori = (await (new Function('m', 'return import(m)'))('satori')).default;
-  const svg: string = await satori(tree, { width: w, height: H, fonts });
+  const svg: string = await satori(tree, { width: w, height: H, fonts, loadAdditionalAsset });
   return Buffer.from(new Resvg(svg, { fitTo: { mode: 'width', value: outWidth || w } }).render().asPng());
 }

@@ -18,16 +18,18 @@ function remember(key: string, png: Buffer) {
   return png;
 }
 
-/** Remote image → data URI (PNG/JPEG only, 4s timeout); null if unusable. */
+/** Remote image → data URI (PNG/JPEG only, 7s timeout); null if unusable. */
 async function remote(url?: string | null): Promise<string | null> {
   if (!url || !/^https:\/\//.test(url)) return null;
   try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(4000) });
-    const type = r.headers.get('content-type') || '';
-    if (!r.ok || !/image\/(png|jpe?g)/.test(type)) return null;
+    const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    if (!r.ok) return null;
     const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length > 6 * 1024 * 1024) return null;
-    return `data:${type.split(';')[0]};base64,${buf.toString('base64')}`;
+    if (buf.length > 8 * 1024 * 1024) return null;
+    // Trust the bytes, not the label: iPhone HEIC photos are often served as image/jpeg
+    const type = buf[0] === 0xff && buf[1] === 0xd8 ? 'image/jpeg'
+      : buf.subarray(0, 4).toString('hex') === '89504e47' ? 'image/png' : null;
+    return type ? `data:${type};base64,${buf.toString('base64')}` : null;
   } catch { return null; }
 }
 
@@ -69,7 +71,7 @@ export async function postPreview(p: {
   const size = text.length < 90 ? 46 : text.length < 170 ? 38 : 32;
 
   const tree = h('div', { width: W, height: H, display: 'flex', backgroundColor: INK, fontFamily: 'Grotesk', padding: 56 },
-    h('div', { display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', paddingRight: img ? 44 : 0 },
+    h('div', { display: 'flex', flexDirection: 'column', width: img ? W - 112 - 470 - 44 : W - 112, height: H - 112, justifyContent: 'space-between' },
       h('div', { display: 'flex', alignItems: 'center' },
         avatar(av, p.name, 72),
         h('div', { display: 'flex', flexDirection: 'column', marginLeft: 20 },
@@ -80,10 +82,10 @@ export async function postPreview(p: {
           h('div', { fontSize: 24, fontWeight: 500, color: SUB, marginTop: 2 }, `@${p.username}`),
         ),
       ),
-      h('div', { display: 'flex', fontSize: size, fontWeight: 500, color: CREAM, lineHeight: 1.35 }, text || ' '),
+      h('div', { display: 'flex', width: '100%', fontSize: size, fontWeight: 500, color: CREAM, lineHeight: 1.35 }, text || ' '),
       brand(),
     ),
-    ...(img ? [{ type: 'img', props: { src: img, width: 470, height: 518, style: { width: 470, height: 518, borderRadius: 32, objectFit: 'cover' } } }] : []),
+    ...(img ? [{ type: 'img', props: { src: img, width: 470, height: 518, style: { width: 470, height: 518, marginLeft: 44, borderRadius: 32, objectFit: 'cover' } } }] : []),
   );
   return remember(key, await renderTree(tree, W, H));
 }
