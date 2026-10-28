@@ -5,12 +5,12 @@ const POST_SELECT = `
   is_bot_reply, created_at, updated_at,
   user_id, parent_post_id, repost_of_id,
   profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-  post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index),
+  post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder),
   repost_of:repost_of_id (
     id, content, visibility, like_count, comment_count, repost_count, view_count,
     is_bot_reply, created_at, updated_at, user_id,
     profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-    post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index)
+    post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
   )
 `;
 
@@ -179,11 +179,11 @@ class FeedService {
    * "For You" feed with interest-based scoring.
    *
    * Scoring formula:
-   *   score = (engagement + new_post_floor) × recency × follow_boost × verified_boost × hashtag_affinity_boost
+   *   score = (engagement + 1) × recency × follow_boost × verified_boost × hashtag_affinity_boost
    *
    * Signals used:
    *   - Engagement: likes + comments×2 + reposts×3
-   *   - Recency: <6h=1.0, <24h=0.8, <72h=0.5, older=0.25
+   *   - Recency: 1 / (hours + 2)^1.5 (Hacker News gravity)
    *   - Follow boost: 1.5× for accounts the user follows
    *   - Verified boost: 1.15× for verified accounts
    *   - New post floor: posts < 2h old with 0 engagement get a base score of 1 so they can surface
@@ -226,6 +226,7 @@ class FeedService {
         .from('post_likes')
         .select('posts:post_id (content)')
         .eq('user_id', userId)
+        .order('created_at', { ascending: false })
         .limit(40),
     ]);
 
@@ -250,13 +251,14 @@ class FeedService {
       .filter((p: any) => !excludeSet.has(p.user_id))
       .map((p: any) => {
         const ageH = (now - new Date(p.created_at).getTime()) / 3600000;
-        const recency = ageH < 6 ? 1.0 : ageH < 24 ? 0.8 : ageH < 72 ? 0.5 : 0.25;
+        // Hacker News gravity: smooth decay instead of steps, so fresh posts climb and old ones fade gradually
+        const recency = 1 / Math.pow(ageH + 2, 1.5);
         const followBoost = followingSet.has(p.user_id) ? 1.5 : 1.0;
         const verifiedBoost = p.profiles?.is_verified ? 1.15 : 1.0;
 
         const eng = (p.like_count || 0) + (p.comment_count || 0) * 2 + (p.repost_count || 0) * 3;
-        // New posts with no engagement yet get a small floor score so they can surface
-        const baseEng = eng === 0 && ageH < 2 ? 1 : eng;
+        // +1 so brand-new posts with no engagement yet can still surface
+        const baseEng = eng + 1;
 
         // Boost posts whose hashtags overlap with user's recent interests
         let affinityBoost = 1.0;

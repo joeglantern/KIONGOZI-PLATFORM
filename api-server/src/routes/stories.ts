@@ -4,11 +4,12 @@ import { Router, Request, Response } from 'express';
 import { supabaseServiceClient as db } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
 import ModerationService from '../services/ModerationService';
+import { optimizeStory } from '../services/ImageOptimizer';
 
 const router = Router();
 
 const PROFILE_FIELDS = 'id, username, full_name, avatar_url, is_verified, is_private';
-const STORY_FIELDS = 'id, user_id, media_type, media_url, thumbnail_url, width, height, duration_ms, text_content, bg, text_color, font, text_style, overlays, caption, audience, view_count, created_at, expires_at';
+const STORY_FIELDS = 'id, user_id, media_type, media_url, thumbnail_url, width, height, duration_ms, text_content, bg, text_color, font, text_style, overlays, caption, audience, view_count, created_at, expires_at, placeholder';
 const MEDIA_HOST = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 
 async function blockedIds(userId: string): Promise<Set<string>> {
@@ -168,6 +169,10 @@ router.post('/stories', authenticateToken, async (req: Request, res: Response): 
         res.status(400).json({ success: false, error: 'Upload the photo or video first' }); return;
       }
     }
+    if (media_type === 'image') {
+      const img = await ModerationService.checkImages([b.media_url]);
+      if (img.flagged) { res.status(422).json({ success: false, error: img.reason }); return; }
+    }
     const overlays = cleanOverlays(b.overlays);
     const allText = [text_content, caption, ...overlays.map(o => o.text)].filter(Boolean).join('\n');
     if (allText) {
@@ -194,6 +199,7 @@ router.post('/stories', authenticateToken, async (req: Request, res: Response): 
       audience: b.audience === 'followers' ? 'followers' : 'everyone',
     }).select(STORY_FIELDS).single();
     if (error || !data) { console.error('Create story error:', error); res.status(500).json({ success: false, error: 'Failed to post story' }); return; }
+    if (media_type === 'image') setImmediate(() => { optimizeStory((data as any).id).catch(() => {}); });
     res.status(201).json({ success: true, data: { ...data, seen: true, my_reaction: null } });
   } catch (err) {
     console.error('Create story error:', err);

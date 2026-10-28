@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { optimizePostMedia } from '../services/ImageOptimizer';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import MentionService from '../services/MentionService';
@@ -79,7 +80,7 @@ router.get('/posts/:id', optionalAuth, async (req: Request, res: Response): Prom
           id, content, visibility, like_count, comment_count, repost_count, view_count,
           is_bot_reply, created_at, updated_at, user_id,
           profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index)
+          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
         )
       `)
       .eq('id', id)
@@ -149,9 +150,10 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
       return;
     }
 
-    const moderation = await ModerationService.checkText(content);
-    if (moderation.flagged) {
-      res.status(422).json({ success: false, error: moderation.reason });
+    const imageUrls = Array.isArray(media) ? media.filter((m: any) => m?.media_type === 'image').map((m: any) => m.url) : [];
+    const [moderation, imageCheck] = await Promise.all([ModerationService.checkText(content), ModerationService.checkImages(imageUrls)]);
+    if (moderation.flagged || imageCheck.flagged) {
+      res.status(422).json({ success: false, error: moderation.reason || imageCheck.reason });
       return;
     }
 
@@ -194,6 +196,8 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
         .insert(mediaRows)
         .select();
       postMedia = insertedMedia || [];
+      // Shrink photos to WebP + blurred placeholder (background; rows update in place)
+      setImmediate(() => { optimizePostMedia(post.id).catch(() => {}); });
     }
 
     const completePost = { ...post, post_media: postMedia };
@@ -410,7 +414,7 @@ router.post('/posts/:id/repost', authenticateToken, async (req: Request, res: Re
           id, content, visibility, like_count, comment_count, repost_count, view_count,
           is_bot_reply, created_at, updated_at, user_id,
           profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index)
+          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
         )
       `)
       .single();
@@ -513,6 +517,14 @@ router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Res
       return;
     }
 
+    // Replies get the same checks as posts
+    const replyImages = Array.isArray(media) ? media.filter((m: any) => m?.media_type === 'image').map((m: any) => m.url) : [];
+    const [replyText, replyImgs] = await Promise.all([ModerationService.checkText(content), ModerationService.checkImages(replyImages)]);
+    if (replyText.flagged || replyImgs.flagged) {
+      res.status(422).json({ success: false, error: replyText.reason || replyImgs.reason });
+      return;
+    }
+
     const { data: post, error } = await supabaseServiceClient
       .from('posts')
       .insert({
@@ -545,6 +557,7 @@ router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Res
         order_index: idx
       }));
       await supabaseServiceClient.from('post_media').insert(mediaRows);
+      setImmediate(() => { optimizePostMedia(post.id).catch(() => {}); });
     }
 
     // Process mentions
@@ -854,7 +867,7 @@ router.get('/bookmarks', authenticateToken, async (req: Request, res: Response):
           view_count, is_bot_reply, created_at, updated_at,
           user_id, parent_post_id, repost_of_id,
           profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index)
+          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
         )
       `)
       .eq('user_id', req.user!.id)

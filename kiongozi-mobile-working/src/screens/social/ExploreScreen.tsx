@@ -96,14 +96,19 @@ function Mosaic({ posts, onOpen, T }: { posts: Post[]; onOpen: (p: Post) => void
 }
 
 function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () => void }) {
-  const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle');
+  // Optimistic: flips to Following at once, rolls back if the server says no
+  const [state, setState] = useState<'idle' | 'done' | 'requested'>('idle');
   const follow = async () => {
     if (state !== 'idle') return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setState('busy');
-    try { await apiClient.followUser(person.id); setState('done'); } catch { setState('idle'); }
+    setState('done');
+    try {
+      const res: any = await apiClient.followUser(person.id);
+      if (!res?.success) setState('idle');
+      else if (res.status === 'requested') setState('requested');
+    } catch { setState('idle'); }
   };
-  const done = state === 'done';
+  const done = state !== 'idle';
   return (
     <Pressable onPress={onOpen} style={[cardStyles.card, { backgroundColor: T.surface, borderColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA' }]} accessibilityLabel={`${person.full_name || person.username}'s profile`}>
       <UserAvatar avatarUrl={person.avatar_url} size={60} name={person.full_name || person.username} />
@@ -116,11 +121,11 @@ function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () =
         onPress={follow}
         style={({ pressed }) => [cardStyles.btn, done ? { borderWidth: 1, borderColor: T.border } : { backgroundColor: T.text }, pressed && { opacity: 0.8 }]}
         accessibilityRole="button"
-        accessibilityLabel={done ? 'Following' : `Follow ${person.username}`}
+        accessibilityLabel={done ? (state === 'requested' ? 'Requested' : 'Following') : `Follow ${person.username}`}
       >
-        {state === 'busy' ? <ActivityIndicator size="small" color={T.bg} /> : (
-          <Text style={[cardStyles.btnText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{done ? 'Following' : 'Follow'}</Text>
-        )}
+        <Text style={[cardStyles.btnText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+          {state === 'requested' ? 'Requested' : done ? 'Following' : 'Follow'}
+        </Text>
       </Pressable>
     </Pressable>
   );

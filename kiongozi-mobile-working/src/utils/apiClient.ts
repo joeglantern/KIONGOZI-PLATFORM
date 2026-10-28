@@ -205,6 +205,26 @@ class ApiClient {
     return this.request('/api/v1/chat/share-card', { method: 'POST', body: JSON.stringify(body) });
   }
 
+  // ── Growth & retention ──
+  /** This week's numbers for the recap sheet */
+  async getRecap() { return this.request<any>('/api/v1/social/recap'); }
+  /** Weekly recap card image. preview → small data URI; else uploaded PNG {url, storage_path, width, height} */
+  async getRecapCard(preview = false) {
+    return this.request<any>('/api/v1/social/recap/card', { method: 'POST', body: JSON.stringify({ preview }) });
+  }
+  /** Days in a row with a post, reply or story */
+  async getStreak() { return this.request<{ streak: number; today: boolean }>('/api/v1/social/streak'); }
+  /** My invite link + how many people joined through it */
+  async getInvites() { return this.request<any>('/api/v1/social/invites'); }
+  /** Credit whoever invited me (new accounts only; server ignores the rest) */
+  async claimInvite(ref: string) {
+    return this.request<any>('/api/v1/social/invites/claim', { method: 'POST', body: JSON.stringify({ ref }) });
+  }
+  /** Photo with a small "KChat · @author" tag, for sharing outside the app */
+  async getShareImage(mediaId: string) {
+    return this.request<{ url: string }>(`/api/v1/social/media/${mediaId}/share-image`, { method: 'POST', body: '{}' });
+  }
+
   /** 3 suggested next questions for an AI answer (empty list if unavailable) */
   async getFollowups(question: string, answer: string) {
     return this.request('/api/v1/chat/followups', { method: 'POST', body: JSON.stringify({ question, answer }) });

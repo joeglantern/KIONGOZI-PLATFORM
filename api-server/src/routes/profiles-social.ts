@@ -3,6 +3,7 @@ import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import UploadService from '../services/UploadService';
 import multer from 'multer';
+import { optimizeUpload } from '../services/ImageOptimizer';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -253,22 +254,14 @@ router.patch(
       // Handle avatar upload
       if (files?.avatar?.[0]) {
         const file = files.avatar[0];
-        const result = await UploadService.uploadFile(
-          file.buffer,
-          file.mimetype,
-          `avatars/${userId}_${Date.now()}`
-        );
+        const result = await optimizeUpload(file.buffer, file.mimetype, `avatars/${userId}_${Date.now()}`, 'avatar');
         updates.avatar_url = result.url;
       }
 
       // Handle banner upload
       if (files?.banner?.[0]) {
         const file = files.banner[0];
-        const result = await UploadService.uploadFile(
-          file.buffer,
-          file.mimetype,
-          `banners/${userId}_${Date.now()}`
-        );
+        const result = await optimizeUpload(file.buffer, file.mimetype, `banners/${userId}_${Date.now()}`, 'banner');
         updates.banner_url = result.url;
       }
 

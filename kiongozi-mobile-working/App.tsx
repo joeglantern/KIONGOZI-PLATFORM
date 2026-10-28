@@ -23,6 +23,8 @@ import LoginScreen from './src/screens/LoginScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePrefs } from './src/stores/prefsStore';
+import { watchInviteLinks, claimPendingInvite } from './src/utils/invites';
 import {
   registerForPushNotifications,
   setupNotificationHandlers,
@@ -61,6 +63,12 @@ export default function App() {
     initializeApp();
   }, [initialize]);
 
+  // Low-data mode + server feature switches; remember invite links (?ref=) that open the app
+  useEffect(() => {
+    usePrefs.getState().load().catch(() => {});
+    return watchInviteLinks();
+  }, []);
+
   // The animated splash plays over the app while it loads, then reveals it (it calls onFinish).
 
   // On auth: register push token + load block/mute lists
@@ -70,6 +78,7 @@ export default function App() {
         console.error('Push registration error:', err)
       );
       loadBlockedAndMuted().catch(() => {});
+      claimPendingInvite();
     }
   }, [user]);
 

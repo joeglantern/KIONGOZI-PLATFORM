@@ -321,6 +321,9 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             height={H}
             backdropUri={story.media_type === 'image' ? story.media_url : story.thumbnail_url}
           >
+            {story.media_type === 'image' && !!story.placeholder && (
+              <Image source={{ uri: story.placeholder }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={6} />
+            )}
             {story.media_type === 'image' ? (
               <Image source={{ uri: story.media_url }} style={StyleSheet.absoluteFill} resizeMode="cover"
                 onLoad={() => setReady(true)} onError={() => setReady(true)} />

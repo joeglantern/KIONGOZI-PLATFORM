@@ -54,4 +54,31 @@ async function checkText(text: string): Promise<ModerationResult> {
   }
 }
 
-export default { checkText };
+/**
+ * Checks photos with OpenAI's free omni-moderation model (one request per photo, in parallel).
+ * Only blocks clear cases: sexual content, minors, graphic violence, self-harm. Fails open.
+ * HEIC files are skipped (the model can't read them); they're converted after posting.
+ */
+const IMAGE_BLOCK = ['sexual', 'sexual/minors', 'violence/graphic', 'self-harm', 'self-harm/intent', 'self-harm/instructions'];
+async function checkImages(urls: string[]): Promise<ModerationResult> {
+  const list = (urls || []).filter(u => typeof u === 'string' && /^https:\/\//.test(u) && !/\.hei[cf](\?|$)/i.test(u)).slice(0, 4);
+  if (!process.env.OPENAI_API_KEY || !list.length) return { flagged: false };
+  try {
+    const results = await Promise.all(list.map(url =>
+      openai.moderations.create({ model: 'omni-moderation-latest', input: [{ type: 'image_url', image_url: { url } }] as any })
+        .then(r => r.results[0])
+        .catch(() => null)));
+    const hits = new Set<string>();
+    for (const r of results) {
+      if (!r?.flagged) continue;
+      for (const [k, v] of Object.entries(r.categories)) if (v && IMAGE_BLOCK.includes(k)) hits.add(CATEGORY_LABELS[k] || k);
+    }
+    if (!hits.size) return { flagged: false };
+    return { flagged: true, reason: `A photo was flagged for ${[...hits].join(', ')}. Please review our community guidelines.` };
+  } catch (err) {
+    console.error('Image moderation error (failing open):', err);
+    return { flagged: false };
+  }
+}
+
+export default { checkText, checkImages };

@@ -77,16 +77,19 @@ router.get('/u/:username', async (req: Request, res: Response) => {
   const username = String(req.params.username || '').replace(/^@/, '');
   const u = await publicProfile(username).catch(() => null);
   const name = u ? (u.full_name || u.username) : null;
+  // Invite links (?ref=username) keep the ref all the way into the app, which credits the inviter
+  const ref = typeof req.query.ref === 'string' && USERNAME.test(req.query.ref) ? req.query.ref : null;
+  const q = ref ? `?ref=${encodeURIComponent(ref)}` : '';
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.send(page({
-    title: u ? `${name} (@${u.username}) on KChat` : `@${username} on KChat`,
+    title: ref && u ? `${name} invited you to KChat` : u ? `${name} (@${u.username}) on KChat` : `@${username} on KChat`,
     desc: u?.bio ? Array.from(String(u.bio)).slice(0, 180).join('') : 'Follow them on KChat, the app for young Kenyans who lead.',
     image: u ? `${BASE}/og/u/${encodeURIComponent(u.username)}.png` : GENERIC_IMG,
-    url: `${BASE}/u/${encodeURIComponent(username)}`,
-    deep: `kiongozi://u/${encodeURIComponent(username)}`,
-    heading: u ? `${name} is on KChat` : `@${username} is on KChat`,
-    sub: 'Follow them and join the conversation.',
+    url: `${BASE}/u/${encodeURIComponent(username)}${q}`,
+    deep: `kiongozi://u/${encodeURIComponent(username)}${q}`,
+    heading: ref && u ? `${name} invited you to KChat` : u ? `${name} is on KChat` : `@${username} is on KChat`,
+    sub: ref ? 'Get the app, then open this link again so they get credit.' : 'Follow them and join the conversation.',
   }, req.headers['user-agent'] || ''));
 });
 

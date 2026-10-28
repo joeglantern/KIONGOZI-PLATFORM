@@ -89,6 +89,15 @@ export const APP_CONFIG_DEFAULTS = {
     current_version: '1.0.0',
   },
   force_update_message: 'A new version of Kiongozi is available with important updates. Please update to continue.',
+  // Feature switches: flip in system_settings (app_config/config → "features") to turn things on/off without an app update
+  features: {
+    recap: true,
+    invites: true,
+    watermark_shares: true,
+    streaks: true,
+    feed_cache: true,
+    prefetch: true,
+  } as Record<string, boolean>,
 };
 
 // GET /api/v1/health/app-config — minimum version requirements, checked on app startup.
@@ -107,6 +116,7 @@ router.get('/app-config', async (_req, res) => {
         ...stored,
         android: { ...APP_CONFIG_DEFAULTS.android, ...(stored.android ?? {}) },
         ios: { ...APP_CONFIG_DEFAULTS.ios, ...(stored.ios ?? {}) },
+        features: { ...APP_CONFIG_DEFAULTS.features, ...(stored.features ?? {}) },
       },
     });
   } catch (error) {

@@ -174,7 +174,14 @@ export default function FindFriendsScreen() {
           <Ionicons name="chevron-back" size={26} color={T.text} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>Find friends</Text>
-        <View style={{ width: 44 }} />
+        <Pressable
+          onPress={() => navigation.navigate('Invite')}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Invite friends"
+        >
+          <Ionicons name="person-add-outline" size={22} color={T.text} />
+        </Pressable>
       </View>
 
       {/* Search */}

@@ -1,5 +1,39 @@
 import { create } from 'zustand';
+import { Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../utils/apiClient';
+import { prefs } from './prefsStore';
+
+// ── Open from cache (WhatsApp trick): the first page of each feed is saved on the phone and shown
+// instantly on the next launch while the fresh feed loads quietly.
+const CACHE = { forYou: 'kchat.feedCache.forYou.v1', following: 'kchat.feedCache.following.v1' };
+function saveCache(key: string, posts: any[]) {
+  if (!prefs().features.feed_cache) return;
+  AsyncStorage.setItem(key, JSON.stringify(posts.slice(0, 20))).catch(() => {});
+}
+async function readCache(key: string): Promise<any[] | null> {
+  try { const v = await AsyncStorage.getItem(key); const a = v ? JSON.parse(v) : null; return Array.isArray(a) && a.length ? a : null; } catch { return null; }
+}
+
+// ── Prefetch (Instagram trick): download the next posts' photos before they scroll into view
+const prefetched = new Set<string>();
+function prefetchMedia(posts: any[]) {
+  const p = prefs();
+  if (p.lowData || !p.features.prefetch) return;
+  const urls: string[] = [];
+  for (const post of posts.slice(0, 12)) {
+    const src = post?.repost_of || post;
+    const img = (src?.post_media || []).find((m: any) => m.media_type === 'image')?.url
+      || (src?.post_media || []).find((m: any) => m.media_type === 'video')?.thumbnail_url;
+    if (img) urls.push(img);
+    if (src?.profiles?.avatar_url) urls.push(src.profiles.avatar_url);
+  }
+  for (const u of urls) {
+    if (prefetched.has(u)) continue;
+    prefetched.add(u);
+    Image.prefetch(u).catch(() => {});
+  }
+}
 
 export interface PostMedia {
   id: string;
@@ -10,6 +44,8 @@ export interface PostMedia {
   duration_seconds?: number;
   thumbnail_url?: string;
   order_index: number;
+  /** tiny blurred preview (data URI) */
+  placeholder?: string | null;
 }
 
 export interface Profile {
@@ -88,6 +124,8 @@ interface SocialState {
   fetchFeed: (refresh?: boolean) => Promise<void>;
   fetchExploreFeed: (refresh?: boolean) => Promise<void>;
   fetchForYouFeed: (refresh?: boolean) => Promise<void>;
+  /** Show the feeds saved on the phone (only if nothing is loaded yet) */
+  hydrateFromCache: () => Promise<void>;
   toggleBookmark: (postId: string) => Promise<void>;
   fetchBookmarks: (refresh?: boolean) => Promise<void>;
   prependPost: (post: Post) => void;
@@ -142,6 +180,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
           feedPosts: refresh ? res.data : [...prev.feedPosts, ...res.data],
           feedCursor: res.nextCursor || null,
         }));
+        if (refresh) saveCache(CACHE.following, res.data as any[]);
+        prefetchMedia(res.data as any[]);
       }
     } catch (e) {
       console.error('fetchFeed error:', e);
@@ -173,6 +213,15 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }
   },
 
+  hydrateFromCache: async () => {
+    if (!prefs().features.feed_cache) return;
+    const [forYou, following] = await Promise.all([readCache(CACHE.forYou), readCache(CACHE.following)]);
+    set(prev => ({
+      forYouPosts: prev.forYouPosts.length || !forYou ? prev.forYouPosts : forYou,
+      feedPosts: prev.feedPosts.length || !following ? prev.feedPosts : following,
+    }));
+  },
+
   fetchForYouFeed: async (refresh = false) => {
     const state = get();
     if (state.forYouLoading) return;
@@ -188,6 +237,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
           forYouOffset: res.nextCursor != null ? Number(res.nextCursor) : offset + (res.data?.length || 0),
           hasMoreForYou: res.nextCursor !== null,
         }));
+        if (refresh) saveCache(CACHE.forYou, res.data as any[]);
+        prefetchMedia(res.data as any[]);
       }
     } catch (e) {
       console.error('fetchForYouFeed error:', e);
@@ -414,7 +465,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }
   },
 
-  reset: () => set({
+  reset: () => (AsyncStorage.multiRemove(Object.values(CACHE)).catch(() => {}), set({
     feedPosts: [],
     explorePosts: [],
     feedCursor: null,
@@ -433,5 +484,5 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     postInteractions: {},
     blockedUserIds: [],
     mutedUserIds: [],
-  })
+  }))
 }));

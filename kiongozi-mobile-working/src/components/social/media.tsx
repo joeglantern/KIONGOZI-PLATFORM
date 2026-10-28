@@ -65,10 +65,12 @@ export function FadeImage({ uri, style, contentFit = 'cover', blur }: {
  * clamped and the WHOLE photo is shown (contain) over a blurred copy of itself — nothing cut off.
  */
 export function FitImage({
-  uri, ratio, minRatio = 0.75, maxRatio = 1.91, width, radius = 12, onPress, style, bg,
+  uri, ratio, minRatio = 0.75, maxRatio = 1.91, width, radius = 12, onPress, style, bg, placeholder,
 }: {
   uri: string; ratio?: number | null; minRatio?: number; maxRatio?: number;
   width?: number; radius?: number; onPress?: () => void; style?: StyleProp<ViewStyle>; bg: string;
+  /** ~1KB blurred preview from the server, shown instantly while the photo loads */
+  placeholder?: string | null;
 }) {
   const measured = useImageRatio(uri, ratio);
   const r = measured || 1.33;
@@ -76,6 +78,7 @@ export function FitImage({
   const clamped = Math.abs(frame - r) > 0.02;
   const body = (
     <View style={[{ width: width ?? '100%', aspectRatio: frame, borderRadius: radius, overflow: 'hidden', backgroundColor: bg }, style]}>
+      {placeholder ? <Image source={{ uri: placeholder }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={6} /> : null}
       {clamped && <FadeImage uri={uri} style={StyleSheet.absoluteFill} contentFit="cover" blur={24} />}
       {clamped && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.25)' }]} />}
       <FadeImage uri={uri} style={StyleSheet.absoluteFill} contentFit={clamped ? 'contain' : 'cover'} />

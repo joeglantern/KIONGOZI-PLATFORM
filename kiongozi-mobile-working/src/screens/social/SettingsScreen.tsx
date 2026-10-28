@@ -28,6 +28,8 @@ import { BottomSheet } from '../../components/social/BottomSheet';
 import { supabase } from '../../utils/supabaseClient';
 import { registerForPushNotifications, unregisterPushNotifications } from '../../utils/pushNotifications';
 import apiClient from '../../utils/apiClient';
+import { usePrefs } from '../../stores/prefsStore';
+import { RecapSheet } from '../../components/social/RecapSheet';
 
 const PUSH_ENABLED_KEY = 'push_notifications_enabled';
 const PUSH_TOKEN_KEY = 'push_token';
@@ -195,6 +197,11 @@ export default function SettingsScreen() {
   const appVersion =
     Constants.expoConfig?.version ?? (Constants as any).manifest?.version ?? '1.0.0';
 
+  const lowData = usePrefs(s => s.lowData);
+  const setLowData = usePrefs(s => s.setLowData);
+  const features = usePrefs(s => s.features);
+  const [recapOpen, setRecapOpen] = useState(false);
+
   const switchProps = {
     trackColor: { false: T.surface2, true: T.accent },
     thumbColor: '#FFFFFF',
@@ -228,6 +235,27 @@ export default function SettingsScreen() {
             onPress={handleThemeToggle}
             isLast
             right={<Switch value={isDark} onValueChange={handleThemeToggle} {...switchProps} />}
+          />
+        </Group>
+
+        {(features.invites || features.recap) && (
+          <Group label="Grow">
+            {features.invites && (
+              <Row icon="people-outline" label="Invite friends" sub="Share your link, see who joined" chevron isLast={!features.recap} onPress={() => navigation.navigate('Invite')} />
+            )}
+            {features.recap && (
+              <Row icon="stats-chart-outline" label="Your week" sub="A recap card to share" chevron isLast onPress={() => setRecapOpen(true)} />
+            )}
+          </Group>
+        )}
+
+        <Group label="Data">
+          <Row
+            icon="cellular-outline"
+            label="Low-data mode"
+            sub="Videos don't autoplay, nothing loads ahead"
+            isLast
+            right={<Switch value={lowData} onValueChange={v => { Haptics.selectionAsync().catch(() => {}); setLowData(v); }} {...switchProps} />}
           />
         </Group>
 
@@ -287,6 +315,8 @@ export default function SettingsScreen() {
           <Row icon="trash-outline" label="Delete account" destructive onPress={handleDeleteAccount} isLast />
         </Group>
       </ScrollView>
+
+      <RecapSheet visible={recapOpen} onClose={() => setRecapOpen(false)} />
 
       <BottomSheet
         visible={exportSheet}

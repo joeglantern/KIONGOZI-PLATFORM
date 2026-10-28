@@ -183,12 +183,12 @@ interface PostCardProps {
   variant?: 'default' | 'detail';
 }
 
-function SmartImage({ url, onPress, w, h }: { url: string; onPress: () => void; w?: number; h?: number }) {
+function SmartImage({ url, onPress, w, h, placeholder }: { url: string; onPress: () => void; w?: number; h?: number; placeholder?: string | null }) {
   const T = useTheme();
   // Real shape from the stored size (no layout jump) or measured; tall/wide photos are shown
   // whole over a blurred copy instead of being cropped.
   const ratio = useImageRatio(url, w && h ? w / h : null);
-  return <FitImage uri={url} ratio={ratio} onPress={onPress} bg={T.surface2} radius={16} minRatio={0.75} maxRatio={1.91} style={{ marginTop: 4 }} />;
+  return <FitImage uri={url} ratio={ratio} placeholder={placeholder} onPress={onPress} bg={T.surface2} radius={16} minRatio={0.75} maxRatio={1.91} style={{ marginTop: 4 }} />;
 }
 
 function timeAgo(dateStr: string): string {
@@ -373,6 +373,7 @@ export function PostCard({
 
   // Build media items array for the viewer
   const mediaItems: MediaItem[] = (activePost.post_media ?? []).slice(0, 4).map(m => ({
+    id: m.id,
     url: m.url,
     media_type: m.media_type,
   }));
@@ -532,7 +533,7 @@ export function PostCard({
                       onWatched={recordView}
                     />
                   ) : (
-                    <SmartImage url={activePost.post_media[0].url} w={activePost.post_media[0].width} h={activePost.post_media[0].height} onPress={() => openViewer(0)} />
+                    <SmartImage url={activePost.post_media[0].url} w={activePost.post_media[0].width} h={activePost.post_media[0].height} placeholder={activePost.post_media[0].placeholder} onPress={() => openViewer(0)} />
                   )}
                 </View>
               ) : (
@@ -908,6 +909,7 @@ function PostMediaCarousel({
               <FitImage
                 key={m.id}
                 uri={m.url}
+                placeholder={m.placeholder}
                 ratio={m.width && m.height ? m.width / m.height : null}
                 minRatio={frameRatio}
                 maxRatio={frameRatio}

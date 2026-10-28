@@ -25,6 +25,7 @@ import SettingsScreen from '../screens/social/SettingsScreen';
 import BlockedUsersScreen from '../screens/social/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/social/MutedUsersScreen';
 import FindFriendsScreen from '../screens/social/FindFriendsScreen';
+import InviteScreen from '../screens/social/InviteScreen';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../utils/supabaseClient';
@@ -67,6 +68,7 @@ function ExploreStackNavigator() {
       <ExploreStack.Screen name="DMConversation" component={DMConversationScreen} />
       <ExploreStack.Screen name="FollowList" component={FollowListScreen} />
       <ExploreStack.Screen name="FindFriends" component={FindFriendsScreen} />
+      <ExploreStack.Screen name="Invite" component={InviteScreen} />
     </ExploreStack.Navigator>
   );
 }
@@ -101,6 +103,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
       <ProfileStack.Screen name="MutedUsers" component={MutedUsersScreen} />
       <ProfileStack.Screen name="FindFriends" component={FindFriendsScreen} />
+      <ProfileStack.Screen name="Invite" component={InviteScreen} />
     </ProfileStack.Navigator>
   );
 }

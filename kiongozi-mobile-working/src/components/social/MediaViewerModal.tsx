@@ -20,12 +20,17 @@ import { Post } from '../../stores/socialStore';
 import { UserAvatar } from './UserAvatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { getPosition, setPosition, setFeedPaused } from './videoPlayback';
+import apiClient from '../../utils/apiClient';
+import { shareImageFile } from '../../utils/shareImage';
+import { usePrefs } from '../../stores/prefsStore';
 
 // Initial guess only: the real page size is measured from the modal's root (on Android edge-to-edge
 // the translucent modal is taller than Dimensions 'window', which would leave photos off-centre).
 const WIN = Dimensions.get('window');
 
 export interface MediaItem {
+  /** post_media id — enables "share photo" (with the KChat tag) for post photos */
+  id?: string;
   url: string;
   media_type: 'image' | 'video';
 }
@@ -259,6 +264,19 @@ export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, ca
   const bottomInset = Math.max(insets.bottom, 8); // Android can report 0 with 3-button nav
   const narrow = SCREEN_W < 360;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  // Share the photo itself, tagged "KChat · @author" (TikTok-style watermark: every reshare points back here)
+  const watermark = usePrefs(s => s.features.watermark_shares);
+  const [sharingPhoto, setSharingPhoto] = useState(false);
+  const current = media[currentIndex];
+  const canSharePhoto = watermark && !!current?.id && current.media_type === 'image';
+  const sharePhoto = async () => {
+    if (!current?.id || sharingPhoto) return;
+    setSharingPhoto(true);
+    try {
+      const r: any = await apiClient.getShareImage(current.id);
+      await shareImageFile(r?.success && r.data?.url ? r.data.url : current.url);
+    } finally { setSharingPhoto(false); }
+  };
   const [captionOpen, setCaptionOpen] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [chromeOn, setChromeOn] = useState(true);
@@ -451,6 +469,11 @@ export function MediaViewerModal({ visible, onClose, media, initialIndex = 0, ca
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
           {media.length > 1 && <Text style={styles.counter} maxFontSizeMultiplier={1.2}>{currentIndex + 1} / {media.length}</Text>}
+          {canSharePhoto ? (
+            <TouchableOpacity style={styles.roundBtn} onPress={sharePhoto} disabled={sharingPhoto} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} accessibilityLabel="Share photo">
+              {sharingPhoto ? <ActivityIndicator color="#fff" /> : <Ionicons name="share-outline" size={22} color="#fff" />}
+            </TouchableOpacity>
+          ) : media.length > 1 ? <View style={{ width: 44 }} /> : null}
         </Reanimated.View>
       </GestureHandlerRootView>
     </Modal>

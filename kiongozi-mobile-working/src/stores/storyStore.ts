@@ -24,6 +24,8 @@ export interface Story {
   media_type: 'image' | 'video' | 'text';
   media_url?: string | null;
   thumbnail_url?: string | null;
+  /** tiny blurred preview (data URI) */
+  placeholder?: string | null;
   width?: number | null;
   height?: number | null;
   duration_ms?: number | null;

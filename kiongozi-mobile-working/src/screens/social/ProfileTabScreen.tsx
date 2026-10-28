@@ -15,6 +15,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+import { usePrefs } from '../../stores/prefsStore';
+import { RecapSheet } from '../../components/social/RecapSheet';
 
 type Tab = 'posts' | 'reposts' | 'saved';
 const TABS: { key: Tab; label: string }[] = [
@@ -74,6 +76,15 @@ export default function ProfileTabScreen() {
   const spinAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => { fetchCurrentUserProfile(); }, []);
+
+  // Streak (Duolingo idea) + weekly recap entry
+  const features = usePrefs(s => s.features);
+  const [streak, setStreak] = useState<{ streak: number; today: boolean } | null>(null);
+  const [recapOpen, setRecapOpen] = useState(false);
+  useEffect(() => {
+    if (!features.streaks) return;
+    apiClient.getStreak().then((r: any) => { if (r?.success) setStreak(r.data); }).catch(() => {});
+  }, [features.streaks, currentUserProfile?.post_count]);
 
   useEffect(() => {
     if (currentUserProfile?.username) {
@@ -345,6 +356,25 @@ export default function ProfileTabScreen() {
           </View>
         )}
 
+        {(features.recap || (features.streaks && !!streak?.streak)) && (
+          <View style={styles.chipRow}>
+            {features.streaks && !!streak?.streak && (
+              <View style={[styles.chip, streak.today ? styles.chipHot : null]} accessibilityLabel={`${streak.streak} day streak`}>
+                <Text style={styles.chipEmoji}>🔥</Text>
+                <Text style={styles.chipText} maxFontSizeMultiplier={1.3}>
+                  {streak.streak}-day streak{streak.today ? '' : ' · post today to keep it'}
+                </Text>
+              </View>
+            )}
+            {features.recap && (
+              <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setRecapOpen(true); }} style={({ pressed }) => [styles.chip, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+                <Ionicons name="stats-chart" size={13} color={T.accent} />
+                <Text style={styles.chipText} maxFontSizeMultiplier={1.3}>Your week</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
         {/* Action buttons */}
         <View style={styles.actionRow}>
           <Pressable
@@ -457,6 +487,7 @@ export default function ProfileTabScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={T.accent} colors={[T.accent]} />}
         showsVerticalScrollIndicator={false}
       />
+      <RecapSheet visible={recapOpen} onClose={() => setRecapOpen(false)} />
     </View>
   );
 }
@@ -511,6 +542,11 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     metaText: { fontSize: 13, color: T.textMuted },
 
     statsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+    chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: T.surface2 },
+    chipHot: { backgroundColor: 'rgba(245,184,61,0.16)' },
+    chipEmoji: { fontSize: 13 },
+    chipText: { fontSize: 13, fontWeight: '600', color: T.text },
     statText: { fontSize: 15, color: T.textMuted },
     statNum: { fontWeight: '700', color: T.text },
     statDot: { fontSize: 15, color: T.textMuted },

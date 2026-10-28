@@ -51,6 +51,8 @@ export default function FeedScreen() {
   } = useSocialStore();
 
   useEffect(() => {
+    // Last saved feed shows instantly; the fresh one replaces it when it arrives
+    useSocialStore.getState().hydrateFromCache().catch(() => {});
     fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.'));
     fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.'));
     fetchConversations().catch(() => {});
