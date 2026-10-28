@@ -1,7 +1,7 @@
 // Full-screen story viewer.
 // Tap right/left = next/previous, hold = pause, swipe down = close, swipe sideways = next/previous person.
 // Replies and reactions go to the author as DMs. Your own stories show who has seen them.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, Animated, Dimensions, TextInput,
   KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert, Keyboard, StatusBar, Share, Linking,
@@ -28,7 +28,11 @@ import { REACTIONS, storyAge, storyNav } from './storyAssets';
 // Public preview page: opens the story in the app, or the store if it isn't installed
 const STORY_SHARE = (id: string) => `https://api.kiongozi.org/api/v1/social/stories/${id}/share`;
 
-const { width: W, height: H } = Dimensions.get('window');
+const { width: W, height: H } = Dimensions.get('window'); // first guess only (module-level sizes below)
+// The real page size, measured from the modal itself. On Android (edge-to-edge) the full-screen modal
+// is a different height from Dimensions 'window', which put the reply bar and likes in odd places.
+const SizeCtx = createContext({ W, H });
+const useSize = () => useContext(SizeCtx);
 const IMAGE_MS = 5000;
 const textMs = (t?: string | null) => Math.min(10000, 5000 + (t?.length ?? 0) * 40);
 // Viewers sheet: 470 by design, but never more than ~62% of the screen so the shrunken story
@@ -45,17 +49,32 @@ export function StoryViewer() {
   const visible = !!viewer;
 
   useEffect(() => { setFeedPaused('stories', visible); }, [visible]);
+  const [box, setBox] = useState({ W, H });
+  const [measured, setMeasured] = useState(false);
+  useEffect(() => { if (!visible) setMeasured(false); }, [visible]);
+  useEffect(() => { if (visible && !measured) { const t = setTimeout(() => setMeasured(true), 0); return () => clearTimeout(t); } }, [visible, box, measured]);
 
   return (
-    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={closeViewer}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        {viewer && <ViewerBody groups={viewer.groups} startIndex={viewer.index} onClose={closeViewer} />}
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={closeViewer}>
+      <GestureHandlerRootView
+        style={{ flex: 1, backgroundColor: '#000' }}
+        onLayout={e => {
+          const { width, height } = e.nativeEvent.layout;
+          if (!(width > 0 && height > 0)) return;
+          // Size is locked once per opening (the keyboard must not shrink the story); rotation re-measures
+          if (!measured ? (Math.abs(width - box.W) > 1 || Math.abs(height - box.H) > 1) : Math.abs(width - box.W) > 1) setBox({ W: width, H: height });
+        }}
+      >
+        <SizeCtx.Provider value={box}>
+          {viewer && measured && <ViewerBody groups={viewer.groups} startIndex={viewer.index} onClose={closeViewer} />}
+        </SizeCtx.Provider>
       </GestureHandlerRootView>
     </Modal>
   );
 }
 
 function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; startIndex: number; onClose: () => void }) {
+  const { W, H } = useSize();
   const listRef = useRef<FlatList>(null);
   const [page, setPage] = useState(Math.max(0, startIndex));
   const scrollX = useRef(new Animated.Value(startIndex * W)).current;
@@ -147,6 +166,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   group: StoryGroup; active: boolean; onPrevGroup: () => void; onNextGroup: () => void; onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { W, H } = useSize();
   const { user } = useAuthStore();
   const { markSeen, setReaction, removeStory, setPoll } = useStoryStore();
   const stories = group.stories;
@@ -301,10 +321,10 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   };
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { width: W, height: H }]}>
       {/* Media (shrinks to a card while the viewers sheet is open) */}
       <Reanimated.View style={[styles.media, boxStyle]}>
-      <Reanimated.View style={[styles.mediaInner, innerStyle]}>
+      <Reanimated.View style={[styles.mediaInner, { width: W, height: H }, innerStyle]}>
         {story.media_type === 'text' && (
           <>
             <StoryBackground bg={story.bg} />
@@ -538,8 +558,17 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
   story: Story; group: StoryGroup; bottom: number; onFocusChange: (f: boolean) => void; onReact: (e: string) => void;
   onTop: (y: number) => void;
 }) {
+  const { H } = useSize();
   const [text, setText] = useState('');
   const [focused, setFocused] = useState(false);
+  // Android: the viewer is full-screen (edge-to-edge), so lift the reply bar above the keyboard ourselves
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', e => setKb(e.endCoordinates?.height || 0));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKb(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const [sent, setSent] = useState<string | null>(null);
   const burst = useRef(new Animated.Value(0)).current;
   const [burstEmoji, setBurstEmoji] = useState('❤️');
@@ -594,7 +623,7 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.footerWrap, { bottom: 0, paddingBottom: Math.max(bottom + 6, 14) }]}
+      style={[styles.footerWrap, { bottom: 0, paddingBottom: kb > 0 ? kb + 8 : Math.max(bottom + 6, 14) }]}
       onLayout={e => onTop(e.nativeEvent.layout.y)}
     >
       {!!sent && <Text style={styles.sent}>{sent}</Text>}
