@@ -345,7 +345,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
               <Image source={{ uri: story.placeholder }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={6} />
             )}
             {story.media_type === 'image' ? (
-              <Image source={{ uri: story.media_url }} style={StyleSheet.absoluteFill} resizeMode="cover"
+              <Image source={{ uri: story.media_url, cache: 'force-cache' }} style={StyleSheet.absoluteFill} resizeMode="cover"
                 onLoad={() => setReady(true)} onError={() => setReady(true)} />
             ) : (
               <StoryVideo

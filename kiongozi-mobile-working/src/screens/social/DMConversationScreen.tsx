@@ -18,6 +18,10 @@ import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
 import { useTheme } from '../../hooks/useTheme';
 import { useHideTabBar } from '../../hooks/useHideTabBar';
+import { TypingBubble } from '../../components/social/TypingBubble';
+import { SwipeToReply } from '../../components/social/SwipeToReply';
+import { useIsOnline } from '../../stores/presenceStore';
+import { useThemeStore } from '../../stores/themeStore';
 
 // ─── Date label helpers ───────────────────────────────────────────────────────
 
@@ -83,14 +87,24 @@ export default function DMConversationScreen() {
   const route = useRoute<any>();
   const { conversationId, participantName, participantUsername, participantAvatar, participantIsVerified } = route.params || {};
   const { user } = useAuthStore();
-  const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, unsendMessage, updateMessageContent, markRead } = useDMStore();
+  const { messages, messageCursors, fetchMessages, appendMessage, replaceMessage, removeMessage, unsendMessage, updateMessageContent, markRead, setDraft, hydrateMessages } = useDMStore();
   useHideTabBar();
+  const participantId: string | undefined = useDMStore(s => s.conversations.find(c => c.id === conversationId)?.participants?.[0]?.id) || route.params?.participantId;
+  const isOnline = useIsOnline(participantId);
+  const isDark = useThemeStore(s => s.isDark);
 
   const T = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(T, insets.bottom), [T, insets.bottom]);
   const isBot = participantUsername === 'kiongozi';
-  const [text, setText] = useState('');
+  // Unsent text survives leaving the chat (and app restarts), like the WhatsApp "Draft:"
+  const [text, setText] = useState(() => useDMStore.getState().drafts[conversationId] || '');
+  const inputRef = useRef<TextInput>(null);
+  // Typing indicator over the chat's realtime channel (broadcast, nothing stored)
+  const channelRef = useRef<any>(null);
+  const [peerTyping, setPeerTyping] = useState(false);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSent = useRef(0);
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [viewerMessage, setViewerMessage] = useState<DMMessage | null>(null);
@@ -178,13 +192,11 @@ export default function DMConversationScreen() {
   );
 
   useEffect(() => {
-    // Only do a blocking full-reload when the conversation has never been opened
-    // before (no cached messages). The realtime subscription's SUBSCRIBED callback
-    // handles catching any messages that arrived while we were away.
-    const hasCached = (messages[conversationId]?.length ?? 0) > 0;
-    if (!hasCached) {
-      fetchMessages(conversationId, true);
-    }
+    // Saved messages show first (works offline). Only do a blocking full reload when nothing
+    // was saved; the realtime SUBSCRIBED callback catches anything that arrived while away.
+    hydrateMessages(conversationId).then(() => {
+      if (!(useDMStore.getState().messages[conversationId]?.length)) fetchMessages(conversationId, true);
+    });
     markRead(conversationId);
     apiClient.markDMRead(conversationId);
   }, [conversationId]);
@@ -208,6 +220,7 @@ export default function DMConversationScreen() {
 
           // Skip own messages — already added optimistically in handleSend
           if (msg.sender_id === user.id) return;
+          setPeerTyping(false);
 
           // Dedup: skip if we already have this message in the list
           if (msgsRef.current.some(m => m.id === msg.id)) return;
@@ -218,6 +231,13 @@ export default function DMConversationScreen() {
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
         }
       )
+      .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
+        if (!payload || payload.user_id === user.id) return;
+        if (typingTimer.current) clearTimeout(typingTimer.current);
+        setPeerTyping(!!payload.on);
+        // If the "stopped" signal never comes (app closed), clear on our own
+        if (payload.on) typingTimer.current = setTimeout(() => setPeerTyping(false), 5000);
+      })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           // Re-fetch on subscription connect to catch any messages
@@ -226,8 +246,40 @@ export default function DMConversationScreen() {
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 120);
         }
       });
-    return () => { supabase.removeChannel(channel); };
+    channelRef.current = channel;
+    return () => {
+      channelRef.current = null;
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      supabase.removeChannel(channel);
+    };
   }, [conversationId, user?.id]);
+
+  const sendTyping = useCallback((on: boolean) => {
+    if (!channelRef.current || !user?.id) return;
+    Promise.resolve(channelRef.current.send({ type: 'broadcast', event: 'typing', payload: { user_id: user.id, on } })).catch(() => {});
+  }, [user?.id]);
+
+  const handleChangeText = useCallback((t: string) => {
+    setText(t);
+    if (editingMessage) return;
+    setDraft(conversationId, t);
+    const now = Date.now();
+    if (t.trim() && now - lastTypingSent.current > 2500) {
+      lastTypingSent.current = now;
+      sendTyping(true);
+    } else if (!t.trim() && lastTypingSent.current) {
+      lastTypingSent.current = 0;
+      sendTyping(false);
+    }
+  }, [editingMessage, conversationId, setDraft, sendTyping]);
+
+  // Leaving the chat stops our "typing…" on their side
+  useEffect(() => () => { if (lastTypingSent.current) sendTyping(false); }, [sendTyping]);
+
+  // Reveal the typing bubble when it appears
+  useEffect(() => {
+    if (peerTyping) setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
+  }, [peerTyping]);
 
   const handleSend = useCallback(async () => {
     if (!text.trim() && !mediaUri) return;
@@ -247,6 +299,8 @@ export default function DMConversationScreen() {
     const attachedUri = mediaUri;
     const replyToId = replyingTo?.id;
     setText('');
+    setDraft(conversationId, '');
+    if (lastTypingSent.current) { lastTypingSent.current = 0; sendTyping(false); }
     setMediaUri(null);
     setReplyingTo(null);
 
@@ -318,6 +372,11 @@ export default function DMConversationScreen() {
     const isOwn = item.message.sender_id === user?.id;
     const repliedTo = item.message.reply_to_id ? messageMap[item.message.reply_to_id] : undefined;
     return (
+      <SwipeToReply
+        enabled={!isBot && !item.message._pending}
+        color={isDark ? '#3A3A3C' : '#AEAEB2'}
+        onReply={() => { setReplyingTo(item.message); setTimeout(() => inputRef.current?.focus(), 60); }}
+      >
       <DMBubble
         message={item.message}
         isOwn={isOwn}
@@ -332,8 +391,9 @@ export default function DMConversationScreen() {
           content: repliedTo.content || (repliedTo.media_url ? '📷 Photo' : 'Message'),
         } : undefined}
       />
+      </SwipeToReply>
     );
-  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap]);
+  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap, isBot, isDark]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -369,13 +429,20 @@ export default function DMConversationScreen() {
               activeOpacity={0.7}
               onPress={() => participantUsername && navigation.navigate('PublicProfile', { username: participantUsername })}
             >
-              <UserAvatar avatarUrl={participantAvatar} size={32} name={participantName || participantUsername} />
+              <View>
+                <UserAvatar avatarUrl={participantAvatar} size={32} name={participantName || participantUsername} />
+                {isOnline && <View style={styles.activeDot} />}
+              </View>
               <View style={styles.headerNames}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                   <Text style={styles.headerName} numberOfLines={1}>{participantName || 'Message'}</Text>
                   {participantIsVerified && <VerifiedBadge size={15} />}
                 </View>
-                {participantUsername ? (
+                {peerTyping ? (
+                  <Text style={[styles.headerHandle, { color: T.accent }]} numberOfLines={1}>typing…</Text>
+                ) : isOnline ? (
+                  <Text style={styles.headerHandle} numberOfLines={1}>Active now</Text>
+                ) : participantUsername ? (
                   <Text style={styles.headerHandle} numberOfLines={1}>@{participantUsername}</Text>
                 ) : null}
               </View>
@@ -401,7 +468,7 @@ export default function DMConversationScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          ListFooterComponent={null}
+          ListFooterComponent={peerTyping ? <TypingBubble avatarUrl={participantAvatar} name={participantName || participantUsername} /> : null}
           ListHeaderComponent={
             messageCursors[conversationId] ? (
               <TouchableOpacity
@@ -442,7 +509,7 @@ export default function DMConversationScreen() {
                     {editingMessage.content}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => { setEditingMessage(null); setText(''); }} style={styles.replyDismiss}>
+                <TouchableOpacity onPress={() => { setEditingMessage(null); setText(useDMStore.getState().drafts[conversationId] || ''); }} style={styles.replyDismiss}>
                   <Ionicons name="close" size={18} color={T.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -479,9 +546,10 @@ export default function DMConversationScreen() {
                   <Ionicons name="add" size={24} color={uploading ? T.textMuted : T.text} />
                 </TouchableOpacity>
                 <TextInput
+                  ref={inputRef}
                   style={styles.input}
                   value={text}
-                  onChangeText={setText}
+                  onChangeText={handleChangeText}
                   placeholder="Message"
                   placeholderTextColor={T.placeholder}
                   multiline
@@ -732,6 +800,10 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       width: 36,
       height: 36,
       borderRadius: 18,
+    },
+    activeDot: {
+      position: 'absolute', right: -1, bottom: -1, width: 11, height: 11, borderRadius: 6,
+      backgroundColor: '#34C759', borderWidth: 2, borderColor: T.bg,
     },
     onlineDot: {
       position: 'absolute',

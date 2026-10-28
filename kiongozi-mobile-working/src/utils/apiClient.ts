@@ -3,6 +3,7 @@
  * This mirrors the web app's API client but adapted for React Native
  */
 import { supabase } from './supabaseClient';
+import { useNet } from '../stores/netStore';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://kiongozi-api.onrender.com';
 
@@ -120,6 +121,7 @@ class ApiClient {
         ...options,
         headers,
       });
+      useNet.getState().reportOk();
 
       const responseText = await response.text();
 
@@ -180,6 +182,7 @@ class ApiClient {
         };
       }
     } catch (error: any) {
+      if (error?.name !== 'AbortError') useNet.getState().reportFail();
       return {
         success: false,
         error: 'Network error',

@@ -33,11 +33,19 @@ class NotificationService {
     return (data || []).map((r: any) => r.token);
   }
 
+  /** Unread notifications (one per unread chat, since DM notifications are replaced per chat) */
+  private async badge(userId: string) {
+    const { count } = await supabaseServiceClient
+      .from('social_notifications').select('id', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('read', false);
+    return count ?? undefined;
+  }
+
   private async push(userId: string, type: NotifyParams['type'], title: string, message: string, data: any) {
     const silent = type !== 'dm' && isQuietHours();
     const suffix = GROUPABLE[type];
     if (!suffix) {
-      await sendExpoPush(await this.tokens(userId), title, message, data, { silent });
+      await sendExpoPush(await this.tokens(userId), title, message, data, { silent, badge: await this.badge(userId) });
       return;
     }
     const key = `${userId}:${type}:${data?.post_id || ''}`;
@@ -46,14 +54,14 @@ class NotificationService {
     if (open) { open.count++; open.lastActor = actor; open.data = data; return; }
 
     this.windows.set(key, { count: 0, lastActor: null, title, data });
-    await sendExpoPush(await this.tokens(userId), title, message, data, { silent });
+    await sendExpoPush(await this.tokens(userId), title, message, data, { silent, badge: await this.badge(userId) });
     setTimeout(async () => {
       const w = this.windows.get(key);
       this.windows.delete(key);
       if (!w || w.count === 0) return;
       const others = w.count - 1;
       const who = w.lastActor ? (others > 0 ? `${w.lastActor} and ${others} other${others === 1 ? '' : 's'}` : w.lastActor) : `${w.count} more people`;
-      await sendExpoPush(await this.tokens(userId), w.title, `${who}${suffix}`, w.data, { silent: isQuietHours() }).catch(() => {});
+      await sendExpoPush(await this.tokens(userId), w.title, `${who}${suffix}`, w.data, { silent: isQuietHours(), badge: await this.badge(userId) }).catch(() => {});
     }, GROUP_WINDOW_MS).unref?.();
   }
 

@@ -329,7 +329,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       {resetLoading ? (
                         <ActivityIndicator color="#000000" size="small" />
                       ) : (
-                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Send Code</Text>
+                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Send code</Text>
                       )}
                     </TouchableOpacity>
                   </>
@@ -376,7 +376,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       {otpLoading ? (
                         <ActivityIndicator color="#000000" size="small" />
                       ) : (
-                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Verify Code</Text>
+                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Verify code</Text>
                       )}
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -443,7 +443,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       {resetPwLoading ? (
                         <ActivityIndicator color="#000000" size="small" />
                       ) : (
-                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Set New Password</Text>
+                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Set new password</Text>
                       )}
                     </TouchableOpacity>
                   </>
@@ -629,7 +629,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   <ActivityIndicator color="#000000" size="small" />
                 ) : (
                   <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>
-                    {isSignUp ? 'Create Account' : 'Continue'}
+                    {isSignUp ? 'Create account' : 'Log in'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -663,10 +663,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 </TouchableOpacity>
 
                 {appleAvailable && (
+                  <View style={styles.appleWrap}>
                   <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                     buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={26}
+                    cornerRadius={14}
                     style={styles.appleBtn}
                     onPress={async () => {
                       const result = await signInWithApple();
@@ -675,6 +676,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                       }
                     }}
                   />
+                  </View>
                 )}
               </View>
             )}
@@ -686,7 +688,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
               </Text>
               <TouchableOpacity onPress={toggleAuthMode} style={styles.switchButton}>
                 <Text style={styles.switchText}>
-                  {isSignUp ? 'Sign In' : 'Sign Up'}
+                  {isSignUp ? 'Log in' : 'Sign up'}
                 </Text>
               </TouchableOpacity>
             </View>}
@@ -777,17 +779,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     position: 'relative',
   },
+  // Plain filled fields (no icons inside: the placeholder already says what goes there)
   inputIcon: {
-    position: 'absolute',
-    left: 16,
-    top: 16,
-    zIndex: 1,
+    display: 'none',
   },
   input: {
-    height: 52,
-    backgroundColor: 'transparent',
+    height: 54,
+    backgroundColor: '#111113',
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: '#1F1F22',
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 0,
@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
     color: TEXT,
   },
   inputWithIcon: {
-    paddingLeft: 46,
+    paddingLeft: 16,
   },
   usernameAt: {
     position: 'absolute',
@@ -838,25 +838,25 @@ const styles = StyleSheet.create({
   eyeButton: {
     position: 'absolute',
     right: 12,
-    top: 12,
+    top: 13,
     padding: 4,
   },
   submitButton: {
-    height: 52,
-    backgroundColor: ACCENT,
-    borderRadius: 26,
+    height: 54,
+    backgroundColor: '#F2F2F2',
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
   },
   submitButtonDisabled: {
-    opacity: 0.4,
+    opacity: 0.3,
   },
   submitButtonText: {
     color: '#000000',
     fontSize: 16,
-    fontWeight: '700',
-    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
   oauthSection: {
     marginTop: 0,
@@ -878,20 +878,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   googleBtn: {
-    height: 52,
+    height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderRadius: 26,
+    backgroundColor: '#0F0F10',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: '#2C2C2E',
     paddingHorizontal: 20,
     gap: 10,
   },
   googleIcon: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
   },
   googleBtnText: {
     flexShrink: 1,
@@ -899,10 +899,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  appleWrap: {
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2C2C2E',
+    overflow: 'hidden',
+  },
   appleBtn: {
     width: '100%',
     height: 52,
-    marginTop: 12,
   },
   footer: {
     flexDirection: 'row',

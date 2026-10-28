@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import apiClient from '../utils/apiClient';
+import { saveSnap, readSnap } from '../utils/snapshot';
 
 export interface PublicProfile {
   id: string;
@@ -33,6 +34,8 @@ interface ProfileState {
   updateCurrentUserProfile: (updates: Partial<PublicProfile>) => void;
   updateFollowState: (username: string, isFollowing: boolean) => void;
   setFollowerCount: (username: string, count: number) => void;
+  /** Last-seen own profile, so Profile opens offline */
+  hydrate: () => Promise<void>;
   reset: () => void;
 }
 
@@ -67,6 +70,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       const res = await apiClient.getMyProfile();
       if (res.success && res.data) {
         set({ currentUserProfile: res.data });
+        saveSnap('me', res.data);
         // Also cache in profiles map by username for PublicProfileScreen lookups
         if (res.data.username) {
           set(s => ({ profiles: { ...s.profiles, [res.data.username]: res.data } }));
@@ -120,6 +124,12 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         }
       };
     });
+  },
+
+  hydrate: async () => {
+    if (get().currentUserProfile) return;
+    const me = await readSnap<PublicProfile>('me');
+    if (me && !get().currentUserProfile) set(s => ({ currentUserProfile: me, profiles: me.username ? { ...s.profiles, [me.username]: me } : s.profiles }));
   },
 
   reset: () => set({ profiles: {}, loading: {}, currentUserProfile: null, currentUserLoading: false })

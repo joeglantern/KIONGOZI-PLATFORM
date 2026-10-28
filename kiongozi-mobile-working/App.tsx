@@ -25,6 +25,13 @@ import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePrefs } from './src/stores/prefsStore';
 import { watchInviteLinks, claimPendingInvite } from './src/utils/invites';
+import * as Notifications from 'expo-notifications';
+import { OfflineBanner } from './src/components/OfflineBanner';
+import { usePresence } from './src/stores/presenceStore';
+import { useProfileStore } from './src/stores/profileStore';
+import { useNotificationStore } from './src/stores/notificationStore';
+import { useDMStore } from './src/stores/dmStore';
+import { useStoryStore } from './src/stores/storyStore';
 import {
   registerForPushNotifications,
   setupNotificationHandlers,
@@ -79,7 +86,33 @@ export default function App() {
       );
       loadBlockedAndMuted().catch(() => {});
       claimPendingInvite();
+      // Offline-first: every main screen opens with what it showed last time
+      useProfileStore.getState().hydrate().catch(() => {});
+      useNotificationStore.getState().hydrate().catch(() => {});
+      useDMStore.getState().loadPersistedDMState().catch(() => {});
+      useStoryStore.getState().hydrate().catch(() => {});
+      usePresence.getState().start(user.id);
     }
+  }, [user]);
+
+  // App icon badge = unread notifications + chats with unread messages (cleared as you read)
+  useEffect(() => {
+    if (!user) { Notifications.setBadgeCountAsync(0).catch(() => {}); return; }
+    let t: ReturnType<typeof setTimeout> | null = null;
+    let last = -1;
+    const sync = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        const notes = useNotificationStore.getState().notifications.filter(n => !n.read && n.type !== 'dm').length;
+        const chats = useDMStore.getState().conversations.filter(c => c.unread_count > 0).length;
+        const n = notes + chats;
+        if (n !== last) { last = n; Notifications.setBadgeCountAsync(n).catch(() => {}); }
+      }, 400);
+    };
+    sync();
+    const a = useNotificationStore.subscribe(sync);
+    const b = useDMStore.subscribe(sync);
+    return () => { a(); b(); if (t) clearTimeout(t); };
   }, [user]);
 
   // Set up notification tap handlers once nav is ready
@@ -142,6 +175,7 @@ export default function App() {
           visible={showResetPassword}
           onDismiss={() => setShowResetPassword(false)}
         />
+        <OfflineBanner />
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

@@ -446,7 +446,12 @@ export function PostCard({
               onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}
             >
               <Ionicons name="repeat-outline" size={13} color={T.textMuted} />
-              <Text style={styles.repostBannerText} numberOfLines={1}>{post.profiles?.full_name} reposted</Text>
+              <Text style={styles.repostBannerText} numberOfLines={1}>{(() => {
+                // "Amina and 2 others reposted" (one card, all the reposters)
+                const others = ((activePost as any).recentReposters || []).filter((u: any) => u?.id && u.id !== post.user_id).length;
+                const extra = Math.max(others, (activePost.repost_count || 1) - 1);
+                return extra > 0 ? `${post.profiles?.full_name} and ${extra} other${extra === 1 ? '' : 's'} reposted` : `${post.profiles?.full_name} reposted`;
+              })()}</Text>
             </TouchableOpacity>
           )}
 

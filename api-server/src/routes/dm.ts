@@ -324,7 +324,7 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
               type: 'dm',
               title: 'New message',
               message: `${sender?.full_name || 'Someone'} sent you a message`,
-              data: { conversation_id: conversationId, from_user_id: userId, from_username: sender?.username, from_avatar_url: sender?.avatar_url },
+              data: { conversation_id: conversationId, from_user_id: userId, from_username: sender?.username, from_name: sender?.full_name, from_avatar_url: sender?.avatar_url },
               io,
             });
           }

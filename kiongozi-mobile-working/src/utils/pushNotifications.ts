@@ -81,14 +81,18 @@ export function setupNotificationHandlers(navigation: any): () => void {
     const fromUserId     = data?.from_user_id;
     const fromAvatar     = data?.from_avatar_url;
 
-    if (conversationId) {
+    if (data?.type === 'recap') {
+      navigation.navigate('Profile', { screen: 'ProfileMain', params: { openRecap: Date.now() } });
+    } else if (conversationId) {
+      // The chat screen reads participant*; it used to get recipient* and opened without a name or photo
       navigation.navigate('Notifications', {
         screen: 'DMConversation',
         params: {
           conversationId,
-          recipientId:     fromUserId,
-          recipientName:   fromUsername,
-          recipientAvatar: fromAvatar,
+          participantId:       fromUserId,
+          participantName:     data?.from_name || fromUsername,
+          participantUsername: fromUsername,
+          participantAvatar:   fromAvatar,
         },
       });
     } else if (postId) {

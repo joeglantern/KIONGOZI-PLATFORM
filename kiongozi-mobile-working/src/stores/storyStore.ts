@@ -1,6 +1,7 @@
 // Stories state: the rail's groups, what is open in the viewer, and the composer.
 import { create } from 'zustand';
 import apiClient from '../utils/apiClient';
+import { saveSnap, readSnap } from '../utils/snapshot';
 
 export type TextStyleId = 'plain' | 'pill' | 'outline';
 
@@ -82,6 +83,8 @@ interface StoryState {
   removeStory: (storyId: string) => void;
   setComposerOpen: (open: boolean) => void;
   setPosting: (p: boolean) => void;
+  /** Stories rail as last seen (unexpired only), for offline launch */
+  hydrate: () => Promise<void>;
   reset: () => void;
 }
 
@@ -115,7 +118,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     set({ loading: true });
     try {
       const res: any = await apiClient.getStoryFeed();
-      if (res.success && Array.isArray(res.data)) set({ groups: res.data, loaded: true });
+      if (res.success && Array.isArray(res.data)) { set({ groups: res.data, loaded: true }); saveSnap('stories', res.data); }
     } catch {
       // keep whatever we had; the rail still offers "Ongeza story"
     } finally {
@@ -190,5 +193,17 @@ export const useStoryStore = create<StoryState>((set, get) => ({
 
   setComposerOpen: (open) => set({ composerOpen: open }),
   setPosting: (p) => set({ posting: p }),
+  hydrate: async () => {
+    if (get().groups.length) return;
+    const saved = await readSnap<StoryGroup[]>('stories');
+    if (!Array.isArray(saved) || get().groups.length) return;
+    const now = Date.now();
+    const groups = saved
+      .map(g => ({ ...g, stories: g.stories.filter(st => new Date(st.expires_at).getTime() > now) }))
+      .filter(g => g.stories.length)
+      .map(g => ({ ...g, has_unseen: g.stories.some(st => !st.seen) }));
+    if (groups.length) set({ groups });
+  },
+
   reset: () => set({ groups: [], loaded: false, viewer: null, composerOpen: false, posting: false }),
 }));

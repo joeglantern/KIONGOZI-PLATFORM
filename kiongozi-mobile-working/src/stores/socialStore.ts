@@ -15,6 +15,15 @@ async function readCache(key: string): Promise<any[] | null> {
   try { const v = await AsyncStorage.getItem(key); const a = v ? JSON.parse(v) : null; return Array.isArray(a) && a.length ? a : null; } catch { return null; }
 }
 
+// One card per post: a page never repeats something already in the list (by the original's id),
+// even if ranking shifted between pages or several people reposted it.
+const key = (p: any) => p?.repost_of_id || p?.id;
+function appendUnique(prev: any[], next: any[]) {
+  const seen = new Set(prev.map(key));
+  return [...prev, ...next.filter(p => { const k = key(p); if (seen.has(k)) return false; seen.add(k); return true; })];
+}
+const uniq = (list: any[]) => appendUnique([], list);
+
 // ── Prefetch (Instagram trick): download the next posts' photos before they scroll into view
 const prefetched = new Set<string>();
 function prefetchMedia(posts: any[]) {
@@ -177,7 +186,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       const res = await apiClient.getFeed(cursor);
       if (res.success && res.data) {
         set(prev => ({
-          feedPosts: refresh ? res.data : [...prev.feedPosts, ...res.data],
+          feedPosts: refresh ? uniq(res.data) : appendUnique(prev.feedPosts, res.data),
           feedCursor: res.nextCursor || null,
         }));
         if (refresh) saveCache(CACHE.following, res.data as any[]);
@@ -233,7 +242,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       const res = await apiClient.getForYouFeed(offset);
       if (res.success && res.data) {
         set(prev => ({
-          forYouPosts: refresh ? res.data : [...prev.forYouPosts, ...res.data],
+          forYouPosts: refresh ? uniq(res.data) : appendUnique(prev.forYouPosts, res.data),
           forYouOffset: res.nextCursor != null ? Number(res.nextCursor) : offset + (res.data?.length || 0),
           hasMoreForYou: res.nextCursor !== null,
         }));

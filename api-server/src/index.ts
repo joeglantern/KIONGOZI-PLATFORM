@@ -34,6 +34,7 @@ import reportsRoutes from './routes/reports';
 import blocksRoutes from './routes/blocks';
 import storiesRoutes from './routes/stories';
 import growthRoutes from './routes/growth';
+import { startWeeklyRecapJob } from './jobs/weeklyRecapPush';
 import legalRoutes from './routes/legal';
 import exportRoutes from './routes/export';
 
@@ -197,6 +198,8 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
+startWeeklyRecapJob();
+
 server.listen(PORT, () => {
   console.log(`🚀 Kiongozi API Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);

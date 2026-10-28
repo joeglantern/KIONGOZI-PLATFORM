@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { usePresence } from '../../stores/presenceStore';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useDMStore } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -50,8 +51,9 @@ export default function DMListScreen() {
     conversations, conversationsLoading, fetchConversations,
     archivedIds, showArchived,
     archiveConversation, unarchiveConversation, deleteConversation, setShowArchived,
-    loadPersistedDMState,
+    loadPersistedDMState, drafts,
   } = useDMStore();
+  const online = usePresence(s => s.online);
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -175,6 +177,8 @@ export default function DMListScreen() {
 
   const renderConversation = useCallback(({ item }: { item: any }) => {
     const other = item.participants[0];
+    const draft = drafts[item.id];
+    const active = !!(other?.id && online[other.id]);
     const isArchived = archivedIds.includes(item.id);
     const unread = item.unread_count > 0;
     const last = item.last_message;
@@ -198,21 +202,30 @@ export default function DMListScreen() {
         delayLongPress={400}
         accessibilityLabel={`Chat with ${other?.full_name || other?.username}${unread ? `, ${item.unread_count} unread` : ''}`}
       >
-        <UserAvatar avatarUrl={other?.avatar_url} size={54} isBot={other?.is_bot} name={other?.full_name || other?.username} />
+        <View>
+          <UserAvatar avatarUrl={other?.avatar_url} size={54} isBot={other?.is_bot} name={other?.full_name || other?.username} />
+          {active && <View style={styles.activeDot} accessibilityLabel="Active now" />}
+        </View>
         <View style={styles.convInfo}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text style={[styles.convName, unread && styles.convNameUnread]} numberOfLines={1}>{other?.full_name || other?.username}</Text>
             {other?.is_verified && <VerifiedBadge size={14} />}
           </View>
-          <Text style={[styles.convLastMsg, unread && styles.unreadMsg]} numberOfLines={1}>
-            {mine ? 'You: ' : ''}{body}
-            <Text style={styles.convTime}>{` · ${timeAgo(item.last_message_at)}`}</Text>
-          </Text>
+          {draft ? (
+            <Text style={styles.convLastMsg} numberOfLines={1}>
+              <Text style={styles.draftLabel}>Draft: </Text>{draft.replace(/\s+/g, ' ')}
+            </Text>
+          ) : (
+            <Text style={[styles.convLastMsg, unread && styles.unreadMsg]} numberOfLines={1}>
+              {mine ? 'You: ' : ''}{body}
+              <Text style={styles.convTime}>{` · ${active && !unread ? 'Active now' : timeAgo(item.last_message_at)}`}</Text>
+            </Text>
+          )}
         </View>
         {unread && <View style={styles.unreadDot} accessibilityLabel="Unread" />}
       </Pressable>
     );
-  }, [navigation, archivedIds, handleLongPress, user?.id, styles, T]);
+  }, [navigation, archivedIds, handleLongPress, user?.id, styles, T, drafts, online]);
 
   return (
     <View style={styles.container}>
@@ -444,6 +457,11 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     convTime: { color: T.textMuted, fontWeight: '400' },
     convLastMsg: { color: T.textSub, fontSize: 14 },
     unreadMsg: { fontWeight: '600', color: T.text },
+    draftLabel: { color: T.error, fontWeight: '600' },
+    activeDot: {
+      position: 'absolute', right: 1, bottom: 1, width: 14, height: 14, borderRadius: 7,
+      backgroundColor: '#34C759', borderWidth: 2.5, borderColor: T.bg,
+    },
     unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: T.accent },
     empty: { alignItems: 'center', paddingTop: 70, paddingHorizontal: 40, gap: 10 },
     emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },

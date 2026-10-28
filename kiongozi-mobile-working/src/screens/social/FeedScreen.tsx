@@ -21,6 +21,10 @@ import { useThemeStore } from '../../stores/themeStore';
 import { StoryRail, StoryStack } from '../../components/stories/StoryRail';
 import { FeedSkeleton } from '../../components/social/Skeleton';
 import { useStoryStore } from '../../stores/storyStore';
+import { FeedPill, PillState } from '../../components/social/FeedPill';
+import { useNet } from '../../stores/netStore';
+import { AppState } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 export default function FeedScreen() {
   const navigation = useNavigation<any>();
@@ -58,17 +62,35 @@ export default function FeedScreen() {
     fetchConversations().catch(() => {});
   }, []);
 
+  // ── New posts (X / Instagram): never shove posts in while someone is reading. New ones wait
+  // behind a "New posts" pill with the authors' faces; tapping it brings them in at the top.
+  const [incoming, setIncoming] = useState<Post[]>([]);
+  const freshPage = useRef<Post[] | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNote = useCallback((text: string) => {
+    if (noteTimer.current) clearTimeout(noteTimer.current);
+    setNote(text);
+    noteTimer.current = setTimeout(() => setNote(null), 1800);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel('public-feed-realtime')
       .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload: any) => {
-        if (payload.new?.user_id !== user.id) {
-          try {
-            const res = await apiClient.getPost(payload.new.id);
-            if (res.success && res.data) prependPost(res.data as Post);
-          } catch {}
-        }
+        const row = payload.new;
+        // Others' top-level public posts only; replies and followers-only posts don't belong in For You
+        if (!row || row.user_id === user.id || row.parent_post_id || row.visibility !== 'public') return;
+        const { blockedUserIds, mutedUserIds } = useSocialStore.getState();
+        if (blockedUserIds.includes(row.user_id) || mutedUserIds.includes(row.user_id)) return;
+        try {
+          const res = await apiClient.getPost(row.id);
+          if (!(res.success && res.data)) return;
+          const post = res.data as Post;
+          if (useSocialStore.getState().forYouPosts.some(p => p.id === post.id)) return;
+          setIncoming(prev => (prev.some(p => p.id === post.id) ? prev : [post, ...prev].slice(0, 30)));
+        } catch {}
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -181,6 +203,101 @@ export default function FeedScreen() {
 
   const refreshOffset = Platform.OS === 'android' ? headerH : 0;
 
+  const scrollToTop = (i: number) => listRefs.current[i]?.scrollToOffset({ offset: 0, animated: true });
+
+  const showIncoming = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const fresh = freshPage.current;
+    const buffered = incoming;
+    freshPage.current = null;
+    setIncoming([]);
+    useSocialStore.setState(s => {
+      const base = fresh && fresh.length ? fresh : s.forYouPosts;
+      const ids = new Set(base.map(p => p.id));
+      const add = buffered.filter(p => !ids.has(p.id));
+      return { forYouPosts: [...add, ...base] };
+    });
+    if (activeTab !== 0) switchTabWithState(0);
+    setTimeout(() => scrollToTop(0), 30);
+  };
+
+  // Pull-to-refresh, done like the big apps: a tick when it fires, the list never blanks,
+  // and a short note says what changed.
+  const refreshForYou = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setForYouError(null);
+    useStoryStore.getState().fetchFeed();
+    const before = new Set(useSocialStore.getState().forYouPosts.map(p => p.id));
+    setIncoming([]); freshPage.current = null;
+    fetchForYouFeed(true)
+      .then(() => {
+        if (!useNet.getState().online) return;
+        const n = useSocialStore.getState().forYouPosts.filter(p => !before.has(p.id)).length;
+        showNote(n ? `${n} new post${n === 1 ? '' : 's'}` : 'You\u2019re up to date');
+      })
+      .catch(() => setForYouError('Failed to load. Check your connection.'));
+  };
+  const refreshFollowing = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setFeedError(null);
+    useStoryStore.getState().fetchFeed();
+    const before = new Set(useSocialStore.getState().feedPosts.map(p => p.id));
+    fetchFeed(true)
+      .then(() => {
+        if (!useNet.getState().online) return;
+        const n = useSocialStore.getState().feedPosts.filter(p => !before.has(p.id)).length;
+        showNote(n ? `${n} new post${n === 1 ? '' : 's'}` : 'You\u2019re up to date');
+      })
+      .catch(() => setFeedError('Failed to load. Check your connection.'));
+  };
+
+  // Tap Home while on the feed: first tap scrolls to the top, a second tap refreshes (Instagram / X)
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const refreshRef = useRef({ refreshForYou, refreshFollowing });
+  refreshRef.current = { refreshForYou, refreshFollowing };
+  useEffect(() => {
+    const parent = navigation.getParent?.();
+    if (!parent) return;
+    return parent.addListener('tabPress', () => {
+      if (!navigation.isFocused()) return;
+      const i = activeTabRef.current;
+      if (offsets.current[i] > 4) scrollToTop(i);
+      else i === 0 ? refreshRef.current.refreshForYou() : refreshRef.current.refreshFollowing();
+    });
+  }, [navigation]);
+
+  // Back after a while: fetch quietly. At the top, the feed just updates; further down, the
+  // fresh posts wait behind the pill so nothing moves under the reader's thumb.
+  useEffect(() => {
+    let leftAt = 0;
+    const sub = AppState.addEventListener('change', async st => {
+      if (st !== 'active') { leftAt = Date.now(); return; }
+      if (!leftAt || Date.now() - leftAt < 3 * 60 * 1000) return;
+      leftAt = 0;
+      useStoryStore.getState().fetchFeed();
+      if (offsets.current[0] <= 4) { fetchForYouFeed(true).catch(() => {}); return; }
+      try {
+        const res: any = await apiClient.getForYouFeed(0);
+        if (!res?.success || !Array.isArray(res.data)) return;
+        const have = new Set(useSocialStore.getState().forYouPosts.slice(0, 30).map(p => p.id));
+        const fresh = (res.data as Post[]).filter(p => !have.has(p.id));
+        if (!fresh.length) return;
+        freshPage.current = res.data;
+        setIncoming(prev => [...fresh.filter(f => !prev.some(p => p.id === f.id)), ...prev].slice(0, 30));
+      } catch {}
+    });
+    return () => sub.remove();
+  }, []);
+
+  const pillState: PillState = incoming.length
+    ? {
+        kind: 'new',
+        count: incoming.length,
+        avatars: Array.from(new Map(incoming.map(p => [p.user_id, { url: (p as any).profiles?.avatar_url, name: (p as any).profiles?.full_name || (p as any).profiles?.username }])).values()),
+      }
+    : note ? { kind: 'note', text: note } : null;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -206,7 +323,7 @@ export default function FeedScreen() {
             scrollIndicatorInsets={{ top: headerH }}
             onEndReached={() => { if (hasMoreForYou) fetchForYouFeed(false); }}
             onEndReachedThreshold={0.5}
-            refreshControl={<RefreshControl progressViewOffset={refreshOffset} refreshing={forYouRefreshing} onRefresh={() => { setForYouError(null); useStoryStore.getState().fetchFeed(); fetchForYouFeed(true).catch(() => setForYouError('Failed to load. Check your connection.')); }} tintColor={T.accent} />}
+            refreshControl={<RefreshControl progressViewOffset={refreshOffset} refreshing={forYouRefreshing} onRefresh={refreshForYou} tintColor={T.accent} colors={[T.accent]} progressBackgroundColor={T.surface} />}
             ListEmptyComponent={
               forYouLoading ? <FeedSkeleton /> :
               forYouError ? (
@@ -239,7 +356,7 @@ export default function FeedScreen() {
             scrollIndicatorInsets={{ top: headerH }}
             onEndReached={() => { if (feedCursor) fetchFeed(false); }}
             onEndReachedThreshold={0.5}
-            refreshControl={<RefreshControl progressViewOffset={refreshOffset} refreshing={feedRefreshing} onRefresh={() => { setFeedError(null); useStoryStore.getState().fetchFeed(); fetchFeed(true).catch(() => setFeedError('Failed to load. Check your connection.')); }} tintColor={T.accent} />}
+            refreshControl={<RefreshControl progressViewOffset={refreshOffset} refreshing={feedRefreshing} onRefresh={refreshFollowing} tintColor={T.accent} colors={[T.accent]} progressBackgroundColor={T.surface} />}
             ListEmptyComponent={
               feedLoading ? <FeedSkeleton /> :
               feedError ? (
@@ -323,6 +440,9 @@ export default function FeedScreen() {
           </Animated.View>
         </Animated.View>
       </Animated.View>
+
+      {/* Sits just under the pinned tabs */}
+      <FeedPill state={pillState} top={(folded ? topH + tabsH : headerH) + 10} onPress={showIncoming} />
 
       <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
 

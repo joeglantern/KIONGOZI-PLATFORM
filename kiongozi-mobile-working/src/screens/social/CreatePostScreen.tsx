@@ -21,6 +21,10 @@ import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
 import { useTheme } from '../../hooks/useTheme';
 import { BottomSheet } from '../../components/social/BottomSheet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { prefs } from '../../stores/prefsStore';
+
+type Uploaded = { url: string; storage_path: string; media_type: string; width?: number; height?: number };
 
 interface CreatePostScreenProps {
   onClose: () => void;
@@ -66,6 +70,37 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const [discardSheet, setDiscardSheet] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [hint] = useState(() => HINTS[Math.floor(Math.random() * HINTS.length)]);
+
+  // ── Draft (X / Instagram): text saves itself as you type and comes back next time ──
+  const DRAFT_KEY = `kchat.draft.post.${parentPostId || 'new'}`;
+  const draftReady = useRef(false);
+  const posted = useRef(false);
+  const skipDraft = useRef(false);
+  useEffect(() => {
+    AsyncStorage.getItem(DRAFT_KEY).then(v => {
+      if (v) {
+        try {
+          const d = JSON.parse(v);
+          if (typeof d?.content === 'string') setContent(c => c || d.content);
+          if (d?.visibility === 'followers') setVisibility('followers');
+        } catch {}
+      }
+    }).catch(() => {}).finally(() => { draftReady.current = true; });
+  }, [DRAFT_KEY]);
+  useEffect(() => {
+    if (!draftReady.current || posted.current || skipDraft.current) return;
+    const t = setTimeout(() => {
+      if (posted.current || skipDraft.current) return;
+      if (content.trim()) AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ content, visibility })).catch(() => {});
+      else AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
+    }, 400);
+    return () => clearTimeout(t);
+  }, [content, visibility, DRAFT_KEY]);
+
+  // ── Upload while you write (Instagram): photos start uploading the moment they're picked,
+  // quietly, so pressing Post only sends the text. Skipped in low-data mode.
+  const uploads = useRef<Record<string, Promise<Uploaded | null>>>({});
+  const uploadedPaths = useRef<Record<string, string>>({});
 
   // @mention autocomplete
   const [suggestions, setSuggestions] = useState<MentionUser[]>([]);
@@ -224,7 +259,9 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         durationMs: type === 'video' && a.duration ? a.duration : undefined,
       };
     }));
+    const room = Math.max(0, MAX_MEDIA - media.length);
     setMedia(prev => [...prev, ...newMedia].slice(0, MAX_MEDIA));
+    if (!prefs().lowData) newMedia.slice(0, room).forEach(m => { startUpload(m); });
     tap();
   };
 
@@ -255,20 +292,26 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
     if (!result.canceled) await addAssets(result.assets, 'image');
   };
 
+  // Files uploaded for media the person removed (or a post they abandoned) are deleted,
+  // so storage never fills with orphans.
+  const dropUploaded = (ids: string[]) => {
+    const paths = ids.map(id => uploadedPaths.current[id]).filter(Boolean);
+    ids.forEach(id => { delete uploadedPaths.current[id]; delete uploads.current[id]; });
+    if (paths.length) supabase.storage.from('social-media').remove(paths).catch(() => {});
+  };
+  useEffect(() => () => { if (!posted.current) dropUploaded(Object.keys(uploadedPaths.current)); }, []);
+
   const removeMedia = (id: string) => {
     tap();
     setMedia(prev => prev.filter(m => m.id !== id));
     setUploadStatus(prev => ({ ...prev, [id]: undefined }));
+    const p = uploads.current[id];
+    delete uploads.current[id];
+    if (uploadedPaths.current[id]) dropUploaded([id]);
+    else p?.then(() => dropUploaded([id]));
   };
 
-  const uploadMedia = async (): Promise<{ uploaded: Array<{ url: string; storage_path: string; media_type: string }>; lastError?: string }> => {
-    const uploaded: Array<{ url: string; storage_path: string; media_type: string; width?: number; height?: number }> = [];
-    let lastError: string | undefined;
-    setUploadStatus(Object.fromEntries(media.map(m => [m.id, 'pending' as UploadStatus])));
-
-    for (const m of media) {
-      setUploadStatus(prev => ({ ...prev, [m.id]: 'uploading' }));
-      try {
+  const uploadOne = async (m: MediaItem): Promise<Uploaded> => {
         const uriParts = m.uri.split('.');
         const ext = uriParts[uriParts.length - 1]?.toLowerCase() || (m.type === 'image' ? 'jpg' : 'mp4');
         const mimeType = m.type === 'image'
@@ -297,16 +340,31 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
           .from('social-media')
           .getPublicUrl(storagePath);
 
-        uploaded.push({ url: urlData.publicUrl, storage_path: storagePath, media_type: m.type, width: m.width, height: m.height });
-        setUploadStatus(prev => ({ ...prev, [m.id]: 'done' }));
-      } catch (e: any) {
-        lastError = e?.message || 'Upload error';
-        console.error('Upload error:', e);
-        setUploadStatus(prev => ({ ...prev, [m.id]: 'error' }));
-      }
-    }
+        uploadedPaths.current[m.id] = storagePath;
+        return { url: urlData.publicUrl, storage_path: storagePath, media_type: m.type, width: m.width, height: m.height };
+  };
 
-    return { uploaded, lastError };
+  const startUpload = (m: MediaItem) => {
+    const existing: Promise<Uploaded | null> | undefined = uploads.current[m.id];
+    if (existing) return existing;
+    setUploadStatus(prev => ({ ...prev, [m.id]: 'uploading' }));
+    const p = uploadOne(m)
+      .then(u => { setUploadStatus(prev => ({ ...prev, [m.id]: 'done' })); return u; })
+      .catch((e: any) => {
+        console.error('Upload error:', e);
+        delete uploads.current[m.id];
+        setUploadStatus(prev => ({ ...prev, [m.id]: 'error' }));
+        return null;
+      });
+    uploads.current[m.id] = p;
+    return p;
+  };
+
+  const uploadMedia = async (): Promise<{ uploaded: Uploaded[]; lastError?: string }> => {
+    // Reuse uploads already running/finished; start (or retry once) anything that isn't
+    const results = await Promise.all(media.map(async m => (await startUpload(m)) || (await startUpload(m))));
+    const uploaded = results.filter(Boolean) as Uploaded[];
+    return { uploaded, lastError: uploaded.length < media.length ? 'Some files could not be uploaded.' : undefined };
   };
 
   const handlePost = async () => {
@@ -331,6 +389,8 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
       const res = await apiClient.createPost(content.trim(), uploadedMedia, parentPostId, visibility);
       if (res.success && res.data) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        posted.current = true;
+        AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
         if (!parentPostId) {
           prependPost(res.data as any);
         }
@@ -474,7 +534,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
             items={media}
             width={contentW}
             onRemove={removeMedia}
-            status={uploadStatus}
+            status={posting ? uploadStatus : {}}
             locked={posting}
           />
 
@@ -528,10 +588,11 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
       <BottomSheet
         visible={discardSheet}
         onClose={() => setDiscardSheet(false)}
-        title="Discard draft?"
-        subtitle="Your post will not be saved."
+        title="Keep this draft?"
+        subtitle={media.length ? 'Your text will be here next time. Photos and videos are not kept.' : 'It will be here next time you write a post.'}
         actions={[
-          { icon: 'trash-outline', label: 'Discard', onPress: onClose, destructive: true },
+          { icon: 'bookmark-outline', label: 'Save draft', onPress: () => { setDiscardSheet(false); onClose(); } },
+          { icon: 'trash-outline', label: 'Discard', onPress: () => { skipDraft.current = true; AsyncStorage.removeItem(DRAFT_KEY).catch(() => {}); setDiscardSheet(false); onClose(); }, destructive: true },
         ]}
       />
     </View>

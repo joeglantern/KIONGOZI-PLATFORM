@@ -51,7 +51,7 @@ export function FadeImage({ uri, style, contentFit = 'cover', blur }: {
   const o = useRef(new Animated.Value(0)).current;
   return (
     <Animated.Image
-      source={{ uri }}
+      source={{ uri, cache: 'force-cache' }}
       style={[style, { opacity: o }]}
       resizeMode={contentFit}
       blurRadius={blur}

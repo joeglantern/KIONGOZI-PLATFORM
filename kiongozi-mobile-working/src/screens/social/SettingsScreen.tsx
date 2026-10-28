@@ -30,6 +30,10 @@ import { registerForPushNotifications, unregisterPushNotifications } from '../..
 import apiClient from '../../utils/apiClient';
 import { usePrefs } from '../../stores/prefsStore';
 import { RecapSheet } from '../../components/social/RecapSheet';
+import { UserAvatar } from '../../components/social/UserAvatar';
+import { useSocialStore } from '../../stores/socialStore';
+import { Section, Card, Row, Toggle, useKitColors, rise } from '../../components/settings/SettingsKit';
+import Animated from 'react-native-reanimated';
 
 const PUSH_ENABLED_KEY = 'push_notifications_enabled';
 const PUSH_TOKEN_KEY = 'push_token';
@@ -199,121 +203,190 @@ export default function SettingsScreen() {
 
   const lowData = usePrefs(s => s.lowData);
   const setLowData = usePrefs(s => s.setLowData);
+  const showActivity = usePrefs(s => s.showActivity);
+  const setShowActivity = usePrefs(s => s.setShowActivity);
   const features = usePrefs(s => s.features);
+  const blockedCount = useSocialStore(s => s.blockedUserIds.length);
+  const mutedCount = useSocialStore(s => s.mutedUserIds.length);
   const [recapOpen, setRecapOpen] = useState(false);
+  const K = useKitColors();
+  const me = currentUserProfile;
 
-  const switchProps = {
-    trackColor: { false: T.surface2, true: T.accent },
-    thumbColor: '#FFFFFF',
-    ios_backgroundColor: T.surface2,
+  const pickTheme = (dark: boolean) => {
+    if (dark === isDark) return;
+    Haptics.selectionAsync().catch(() => {});
+    toggleTheme();
   };
 
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+    <View style={[styles.container, { backgroundColor: K.page }]}>
+      <ScrollView
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: Math.max(insets.bottom, 12) + 40 }}
+        showsVerticalScrollIndicator={false}
+      >
         <Pressable
           onPress={() => navigation.goBack()}
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]}
+          hitSlop={8}
+          style={({ pressed }) => [styles.backBtn, { backgroundColor: K.tile }, pressed && { opacity: 0.6 }]}
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Ionicons name="chevron-back" size={26} color={T.text} />
+          <Ionicons name="chevron-back" size={20} color={T.text} />
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.2}>Settings</Text>
-        <View style={{ width: 44 }} />
-      </View>
+        <Text style={styles.bigTitle} maxFontSizeMultiplier={1.2} accessibilityRole="header">Settings</Text>
 
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 12) + 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Group label="Appearance">
-          <Row
-            icon={isDark ? 'moon-outline' : 'sunny-outline'}
-            label="Dark mode"
-            onPress={handleThemeToggle}
-            isLast
-            right={<Switch value={isDark} onValueChange={handleThemeToggle} {...switchProps} />}
-          />
-        </Group>
+        {/* You */}
+        <Section order={0}>
+          <Card>
+            <Pressable
+              onPress={() => navigation.navigate('EditProfile')}
+              accessibilityRole="button"
+              accessibilityLabel="Edit profile"
+              style={({ pressed }) => [styles.meRow, pressed && { backgroundColor: K.pressed }]}
+            >
+              <View style={[styles.meRing, { borderColor: T.accent }]}>
+                <UserAvatar avatarUrl={me?.avatar_url} size={52} name={me?.full_name || me?.username} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.meName} numberOfLines={1} maxFontSizeMultiplier={1.2}>{me?.full_name || 'Your profile'}</Text>
+                <Text style={styles.meSub} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+                  {me?.username ? `@${me.username} · ` : ''}Edit profile, photo and bio
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
+            </Pressable>
+          </Card>
+        </Section>
+
+        {/* Appearance: pick by looking, not by reading */}
+        <Section title="Appearance" order={1}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {[true, false].map(dark => {
+              const on = dark === isDark;
+              return (
+                <Pressable
+                  key={String(dark)}
+                  onPress={() => pickTheme(dark)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={dark ? 'Dark theme' : 'Light theme'}
+                  style={({ pressed }) => [
+                    styles.themeCard,
+                    { backgroundColor: K.card, borderColor: on ? T.accent : K.cardBorder, borderWidth: on ? 2 : 1 },
+                    pressed && { transform: [{ scale: 0.97 }] },
+                  ]}
+                >
+                  <View style={[styles.phone, { backgroundColor: dark ? '#000' : '#FFF', borderColor: dark ? '#2C2C2E' : '#DEDEE3' }]}>
+                    <View style={[styles.phoneBlock, { backgroundColor: dark ? '#1C1C1E' : '#F2F2F7' }]} />
+                    <View style={[styles.phoneLine, { width: '72%', backgroundColor: dark ? '#3A3A3C' : '#D1D1D6' }]} />
+                    <View style={[styles.phoneLine, { width: '50%', backgroundColor: dark ? '#3A3A3C' : '#D1D1D6' }]} />
+                    <View style={[styles.phoneBtn, { backgroundColor: dark ? '#5CB85C' : '#3E9A3E' }]} />
+                  </View>
+                  <Text style={[styles.themeLabel, { color: on ? T.text : T.textMuted }]}>{dark ? 'Dark' : 'Light'}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Section>
+
+        <Section title="Privacy" order={2}>
+          <Card>
+            <Row
+              icon="lock-closed-outline"
+              title="Private account"
+              sub={privateAccount ? 'On · you approve new followers' : 'Off · anyone can follow you'}
+              right={privacyLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : <Toggle value={privateAccount} onChange={handlePrivateToggle} label="Private account" />}
+            />
+            {features.presence && (
+              <Row
+                icon="radio-button-on-outline"
+                title="Activity status"
+                sub={showActivity ? 'On · friends see when you’re active' : 'Off · you won’t see theirs either'}
+                right={<Toggle value={showActivity} onChange={setShowActivity} label="Show activity status" />}
+              />
+            )}
+            <Row
+              icon="ban-outline"
+              title="Blocked accounts"
+              sub={blockedCount ? count(blockedCount, 'account', 'accounts') : 'No one'}
+              chevron
+              onPress={() => navigation.navigate('BlockedUsers')}
+            />
+            <Row
+              icon="volume-mute-outline"
+              title="Muted accounts"
+              sub={mutedCount ? count(mutedCount, 'account', 'accounts') : 'No one'}
+              chevron
+              onPress={() => navigation.navigate('MutedUsers')}
+            />
+          </Card>
+        </Section>
+
+        <Section title="Notifications and data" order={3}>
+          <Card>
+            <Row
+              icon="notifications-outline"
+              title="Push notifications"
+              sub={pushEnabled ? 'On · silent from 11pm to 7am' : 'Off'}
+              right={pushLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : <Toggle value={pushEnabled} onChange={handlePushToggle} label="Push notifications" />}
+            />
+            <Row
+              icon="cellular-outline"
+              title="Low-data mode"
+              sub={lowData ? 'On · tap to play videos, nothing loads ahead' : 'Off · videos play as you scroll'}
+              right={<Toggle value={lowData} onChange={setLowData} label="Low-data mode" />}
+            />
+          </Card>
+        </Section>
 
         {(features.invites || features.recap) && (
-          <Group label="Grow">
-            {features.invites && (
-              <Row icon="people-outline" label="Invite friends" sub="Share your link, see who joined" chevron isLast={!features.recap} onPress={() => navigation.navigate('Invite')} />
-            )}
-            {features.recap && (
-              <Row icon="stats-chart-outline" label="Your week" sub="A recap card to share" chevron isLast onPress={() => setRecapOpen(true)} />
-            )}
-          </Group>
+          <Section title="Grow" order={4}>
+            <Card>
+              {features.invites && (
+                <Row icon="person-add-outline" title="Invite friends" sub="Share your link, see who joined" chevron onPress={() => navigation.navigate('Invite')} />
+              )}
+              {features.recap && (
+                <Row icon="sparkles-outline" title="Your week" sub="A recap card to share" chevron onPress={() => setRecapOpen(true)} />
+              )}
+            </Card>
+          </Section>
         )}
 
-        <Group label="Data">
-          <Row
-            icon="cellular-outline"
-            label="Low-data mode"
-            sub="Videos don't autoplay, nothing loads ahead"
-            isLast
-            right={<Switch value={lowData} onValueChange={v => { Haptics.selectionAsync().catch(() => {}); setLowData(v); }} {...switchProps} />}
-          />
-        </Group>
+        <Section title="Account" order={5}>
+          <Card>
+            <Row icon="key-outline" title="Change password" chevron onPress={() => setPasswordModalVisible(true)} />
+            <Row
+              icon="download-outline"
+              title="Download your data"
+              sub="Posts, follows and bookmarks, by email"
+              onPress={handleExportData}
+              chevron={!exportLoading}
+              right={exportLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : undefined}
+            />
+            <Row icon="trash-outline" title="Delete account" sub="Permanent. Your posts and messages go too." danger onPress={handleDeleteAccount} />
+          </Card>
+        </Section>
 
-        <Group label="Account">
-          <Row icon="person-outline" label="Edit profile" chevron onPress={() => navigation.navigate('EditProfile')} />
-          <Row icon="key-outline" label="Change password" chevron onPress={() => setPasswordModalVisible(true)} />
-          <Row
-            icon="download-outline"
-            label="Export my data"
-            onPress={handleExportData}
-            isLast
-            chevron={!exportLoading}
-            right={exportLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : undefined}
-          />
-        </Group>
+        <Section title="The fine print" order={6}>
+          <Card>
+            <Row icon="document-text-outline" title="Privacy policy" external onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} />
+            <Row icon="reader-outline" title="Terms of service" external onPress={() => Linking.openURL(TERMS_URL)} />
+          </Card>
+        </Section>
 
-        <Group label="Privacy">
-          <Row
-            icon="lock-closed-outline"
-            label="Private account"
-            sub="New followers must be approved"
-            right={
-              privacyLoading ? (
-                <ActivityIndicator size="small" color={T.textMuted} />
-              ) : (
-                <Switch value={privateAccount} onValueChange={handlePrivateToggle} {...switchProps} />
-              )
-            }
-          />
-          <Row icon="ban-outline" label="Blocked accounts" chevron onPress={() => navigation.navigate('BlockedUsers')} />
-          <Row icon="volume-mute-outline" label="Muted accounts" chevron onPress={() => navigation.navigate('MutedUsers')} isLast />
-        </Group>
-
-        <Group label="Notifications">
-          <Row
-            icon="notifications-outline"
-            label="Push notifications"
-            isLast
-            right={
-              pushLoading ? (
-                <ActivityIndicator size="small" color={T.textMuted} />
-              ) : (
-                <Switch value={pushEnabled} onValueChange={handlePushToggle} {...switchProps} />
-              )
-            }
-          />
-        </Group>
-
-        <Group label="About">
-          <Row icon="document-text-outline" label="Privacy policy" external onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} />
-          <Row icon="reader-outline" label="Terms of service" external onPress={() => Linking.openURL(TERMS_URL)} />
-          <Row icon="information-circle-outline" label="Version" value={appVersion} isLast />
-        </Group>
-
-        <Group>
-          <Row icon="log-out-outline" label="Log out" destructive onPress={handleSignOut} />
-          <Row icon="trash-outline" label="Delete account" destructive onPress={handleDeleteAccount} isLast />
-        </Group>
+        <Animated.View entering={rise(7)}>
+          <Pressable
+            onPress={handleSignOut}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.signOut, pressed && { backgroundColor: K.pressed }]}
+          >
+            <Ionicons name="log-out-outline" size={20} color={T.error} />
+            <Text style={[styles.signOutText, { color: T.error }]}>Log out</Text>
+          </Pressable>
+          <Text style={styles.footer} maxFontSizeMultiplier={1.3}>KChat {appVersion} · Made in Nairobi</Text>
+        </Animated.View>
       </ScrollView>
 
       <RecapSheet visible={recapOpen} onClose={() => setRecapOpen(false)} />
@@ -411,76 +484,6 @@ export default function SettingsScreen() {
   );
 }
 
-function Group({ label, children }: { label?: string; children: React.ReactNode }) {
-  const T = useTheme();
-  return (
-    <View style={{ marginTop: label ? 24 : 32 }}>
-      {label ? (
-        <Text style={{ fontSize: 13, color: T.textMuted, paddingHorizontal: 32, marginBottom: 8 }} maxFontSizeMultiplier={1.3}>
-          {label}
-        </Text>
-      ) : null}
-      <View style={{ backgroundColor: T.surface, borderRadius: 16, marginHorizontal: 16, overflow: 'hidden' }}>
-        {children}
-      </View>
-    </View>
-  );
-}
-
-function Row({
-  icon,
-  label,
-  sub,
-  value,
-  right,
-  onPress,
-  chevron = false,
-  external = false,
-  destructive = false,
-  isLast = false,
-}: {
-  icon: IconName;
-  label: string;
-  sub?: string;
-  value?: string;
-  right?: React.ReactNode;
-  onPress?: () => void;
-  chevron?: boolean;
-  external?: boolean;
-  destructive?: boolean;
-  isLast?: boolean;
-}) {
-  const T = useTheme();
-  const s = React.useMemo(() => makeStyles(T), [T]);
-  const tint = destructive ? T.error : T.text;
-
-  const content = (
-    <>
-      <Ionicons name={icon} size={20} color={tint} style={s.rowIcon} />
-      <View style={{ flex: 1 }}>
-        <Text style={[s.rowLabel, { color: tint }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{label}</Text>
-        {sub ? <Text style={s.rowSub} numberOfLines={2} maxFontSizeMultiplier={1.3}>{sub}</Text> : null}
-      </View>
-      {value ? <Text style={s.rowValue} numberOfLines={1} maxFontSizeMultiplier={1.3}>{value}</Text> : null}
-      {right}
-      {chevron ? <Ionicons name="chevron-forward" size={18} color={T.textMuted} /> : null}
-      {external ? <Ionicons name="open-outline" size={17} color={T.textMuted} /> : null}
-      {!isLast ? <View style={s.separator} /> : null}
-    </>
-  );
-
-  if (!onPress) return <View style={s.row}>{content}</View>;
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [s.row, pressed && { backgroundColor: T.surface2 }]}
-    >
-      {content}
-    </Pressable>
-  );
-}
-
 function makeStyles(T: AppTheme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
@@ -488,7 +491,21 @@ function makeStyles(T: AppTheme) {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 4, backgroundColor: T.bg,
     },
-    backBtn: { width: 44, height: 50, alignItems: 'center', justifyContent: 'center' },
+    backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    bigTitle: { fontFamily: 'SpaceGrotesk_700Bold', fontSize: 34, letterSpacing: -0.8, color: T.text, marginTop: 14, marginLeft: 4 },
+    meRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 10, borderRadius: 15 },
+    meRing: { borderWidth: 2, borderRadius: 30, padding: 2 },
+    meName: { fontFamily: 'SpaceGrotesk_700Bold', fontSize: 19, color: T.text },
+    meSub: { fontSize: 13, color: T.textMuted, marginTop: 2 },
+    themeCard: { flex: 1, borderRadius: 18, paddingVertical: 12, alignItems: 'center', gap: 8 },
+    phone: { width: 54, height: 80, borderRadius: 12, borderWidth: 1, padding: 6, gap: 4 },
+    phoneBlock: { height: 22, borderRadius: 5 },
+    phoneLine: { height: 4, borderRadius: 2 },
+    phoneBtn: { marginTop: 'auto', height: 8, borderRadius: 4 },
+    themeLabel: { fontSize: 14, fontWeight: '600' },
+    signOut: { marginTop: 26, minHeight: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    signOutText: { fontSize: 16, fontWeight: '700' },
+    footer: { textAlign: 'center', fontSize: 12.5, color: T.textMuted, marginTop: 6 },
     headerTitle: {
       flex: 1, textAlign: 'center', fontSize: 17,
       fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text,

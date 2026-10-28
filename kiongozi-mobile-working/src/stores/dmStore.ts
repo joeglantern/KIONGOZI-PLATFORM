@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../utils/apiClient';
+import { saveSnap, readSnap } from '../utils/snapshot';
+
+// Offline: chats list + the last 40 messages of each chat are kept on the phone
+const persistConvs = () => saveSnap('dm.convs', useDMStore.getState().conversations);
+const persistMsgs = (id: string) =>
+  saveSnap(`dm.msgs.${id}`, (useDMStore.getState().messages[id] || []).filter(m => !m._pending).slice(-40));
 
 const ARCHIVED_KEY = 'dm_archived_ids';
 
@@ -46,7 +52,11 @@ interface DMState {
   messageCursors: Record<string, string | null>;
   archivedIds: string[];
   showArchived: boolean;
+  /** Unsent text per chat (WhatsApp "Draft:"), kept across restarts */
+  drafts: Record<string, string>;
 
+  setDraft: (conversationId: string, text: string) => void;
+  hydrateMessages: (conversationId: string) => Promise<void>;
   fetchConversations: () => Promise<void>;
   fetchMessages: (conversationId: string, refresh?: boolean) => Promise<void>;
   appendMessage: (conversationId: string, message: DMMessage, skipUnreadIncrement?: boolean) => void;
@@ -71,6 +81,24 @@ export const useDMStore = create<DMState>((set, get) => ({
   messageCursors: {},
   archivedIds: [],
   showArchived: false,
+  drafts: {},
+
+  setDraft: (conversationId, text) => {
+    const cur = get().drafts[conversationId] || '';
+    if (cur === text) return;
+    const drafts = { ...get().drafts };
+    if (text.trim()) drafts[conversationId] = text; else delete drafts[conversationId];
+    set({ drafts });
+    saveSnap('dm.drafts', drafts, 500);
+  },
+
+  hydrateMessages: async (conversationId) => {
+    if (get().messages[conversationId]?.length) return;
+    const saved = await readSnap<DMMessage[]>(`dm.msgs.${conversationId}`);
+    if (Array.isArray(saved) && saved.length && !get().messages[conversationId]?.length) {
+      set(s => ({ messages: { ...s.messages, [conversationId]: saved } }));
+    }
+  },
 
   fetchConversations: async () => {
     // Only show the loading spinner on the very first fetch (no cached data yet).
@@ -81,6 +109,7 @@ export const useDMStore = create<DMState>((set, get) => ({
       const res = await apiClient.getDMConversations();
       if (res.success && res.data) {
         set({ conversations: res.data });
+        persistConvs();
       }
     } catch (e) {
       console.error('fetchConversations error:', e);
@@ -108,6 +137,7 @@ export const useDMStore = create<DMState>((set, get) => ({
           },
           messageCursors: { ...s.messageCursors, [conversationId]: res.nextCursor || null }
         }));
+        if (refresh) persistMsgs(conversationId);
       }
     } catch (e) {
       console.error('fetchMessages error:', e);
@@ -133,6 +163,7 @@ export const useDMStore = create<DMState>((set, get) => ({
           : c
       )
     }));
+    if (!message._pending) { persistMsgs(conversationId); persistConvs(); }
   },
 
   replaceMessage: (conversationId: string, tempId: string, real: DMMessage) => {
@@ -140,8 +171,11 @@ export const useDMStore = create<DMState>((set, get) => ({
       messages: {
         ...s.messages,
         [conversationId]: (s.messages[conversationId] || []).map(m => m.id === tempId ? real : m),
-      }
+      },
+      conversations: s.conversations.map(c => c.id === conversationId ? { ...c, last_message: real, last_message_at: real.created_at } : c),
     }));
+    persistMsgs(conversationId);
+    persistConvs();
   },
 
   removeMessage: (conversationId: string, id: string) => {
@@ -155,6 +189,7 @@ export const useDMStore = create<DMState>((set, get) => ({
 
   unsendMessage: async (conversationId: string, messageId: string) => {
     get().removeMessage(conversationId, messageId);
+    persistMsgs(conversationId);
     try {
       await apiClient.deleteDMMessage(conversationId, messageId);
     } catch {
@@ -215,8 +250,16 @@ export const useDMStore = create<DMState>((set, get) => ({
 
   loadPersistedDMState: async () => {
     try {
-      const archived = await AsyncStorage.getItem(ARCHIVED_KEY);
-      set({ archivedIds: archived ? JSON.parse(archived) : [] });
+      const [archived, convs, drafts] = await Promise.all([
+        AsyncStorage.getItem(ARCHIVED_KEY),
+        readSnap<DMConversation[]>('dm.convs'),
+        readSnap<Record<string, string>>('dm.drafts'),
+      ]);
+      set(s => ({
+        archivedIds: archived ? JSON.parse(archived) : [],
+        conversations: s.conversations.length || !Array.isArray(convs) ? s.conversations : convs,
+        drafts: drafts && typeof drafts === 'object' ? drafts : s.drafts,
+      }));
     } catch {}
   },
 
@@ -228,5 +271,6 @@ export const useDMStore = create<DMState>((set, get) => ({
     messageCursors: {},
     archivedIds: [],
     showArchived: false,
+    drafts: {},
   })
 }));

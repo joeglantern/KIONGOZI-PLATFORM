@@ -14,6 +14,26 @@ const POST_SELECT = `
   )
 `;
 
+/** The post a row is "about": the original for a repost, itself otherwise. */
+const subjectId = (p: any) => p.repost_of_id || p.id;
+
+/**
+ * One card per post (X / Instagram): a post and its reposts collapse to a single item.
+ * Rows must be newest first; the newest row for each post wins (so a fresh repost by
+ * someone you follow brings the post back once, with "X reposted" on it).
+ */
+export function collapseReposts(rows: any[], seen = new Set<string>()): any[] {
+  const out: any[] = [];
+  for (const p of rows) {
+    if (p.repost_of_id && !p.repost_of) continue; // original deleted
+    const k = subjectId(p);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(p);
+  }
+  return out;
+}
+
 /**
  * Batch-enrich posts with isLiked + isBookmarked + isReposted + recentReposters for the given user.
  */
@@ -120,18 +140,32 @@ class FeedService {
       .in('user_id', followingIds)
       .is('parent_post_id', null)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(limit * 2); // reposts of the same post collapse below, so fetch a little extra
 
     if (excludeIds.length > 0) {
       query = query.not('user_id', 'in', `(${excludeIds.join(',')})`);
     }
     if (cursor) query = query.lt('created_at', cursor);
 
-    const { data: posts, error } = await query;
+    const { data: rows, error } = await query;
     if (error) throw error;
 
-    const nextCursor = posts && posts.length === limit ? posts[posts.length - 1].created_at : null;
-    return { data: await enrichWithUserState(posts || [], userId), nextCursor };
+    // Each post once per page; the cursor is the last row we actually used so nothing is skipped
+    const all = rows || [];
+    const keep: any[] = [];
+    const seen = new Set<string>();
+    let lastUsed: string | null = null;
+    for (const p of all) {
+      if (keep.length >= limit) break;
+      lastUsed = p.created_at;
+      if (p.repost_of_id && !p.repost_of) continue;
+      const k = subjectId(p);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      keep.push(p);
+    }
+    const nextCursor = all.length >= limit ? lastUsed : null;
+    return { data: await enrichWithUserState(keep, userId), nextCursor };
   }
 
   /**
@@ -164,7 +198,7 @@ class FeedService {
     const { data: posts, error } = await query;
     if (error) throw error;
 
-    const scored = (posts || [])
+    const scored = collapseReposts(posts || [])
       .map((p: any) => ({
         ...p,
         _score: (p.like_count || 0) + (p.comment_count || 0) * 2 + (p.repost_count || 0) * 3,
@@ -246,11 +280,46 @@ class FeedService {
     const followingSet = new Set((following || []).map((f: any) => f.following_id));
     const now = Date.now();
 
+    // Reposts are signals, not extra cards (X / Instagram): group every row by the post it's about.
+    // A repost by someone you follow adds social proof and can bring an older post back (once).
+    type Cand = { post: any; via: any | null; seenAt: number };
+    const byPost = new Map<string, Cand>();
+    for (const row of (pool || []) as any[]) {
+      if (row.repost_of_id && !row.repost_of) continue;
+      const original = row.repost_of_id ? { ...row.repost_of, repost_of_id: null } : row;
+      if (!original || excludeSet.has(original.user_id) || excludeSet.has(row.user_id)) continue;
+      if (original.user_id === userId || original.visibility !== 'public') continue;
+      const k = original.id;
+      const c = byPost.get(k) || { post: original, via: null, seenAt: new Date(original.created_at).getTime() };
+      if (row.repost_of_id && followingSet.has(row.user_id)) {
+        const t = new Date(row.created_at).getTime();
+        if (!c.via || t > new Date(c.via.created_at).getTime()) c.via = row;
+        c.seenAt = Math.max(c.seenAt, t);
+      }
+      byPost.set(k, c);
+    }
+
+    // Posts you've already liked or reposted sink (you've seen them); your own reposts never show
+    const candIds = [...byPost.keys()];
+    const liked = new Set<string>();
+    const reposted = new Set<string>();
+    // Chunked so the id lists stay well under URL limits
+    for (let i = 0; i < candIds.length; i += 120) {
+      const ids = candIds.slice(i, i + 120);
+      const [{ data: l }, { data: r }] = await Promise.all([
+        supabaseServiceClient.from('post_likes').select('post_id').eq('user_id', userId).in('post_id', ids),
+        supabaseServiceClient.from('posts').select('repost_of_id').eq('user_id', userId).in('repost_of_id', ids),
+      ]);
+      (l || []).forEach((x: any) => liked.add(x.post_id));
+      (r || []).forEach((x: any) => reposted.add(x.repost_of_id));
+    }
+
     // Score every candidate
-    const scored = (pool || [])
-      .filter((p: any) => !excludeSet.has(p.user_id))
-      .map((p: any) => {
-        const ageH = (now - new Date(p.created_at).getTime()) / 3600000;
+    const scored = [...byPost.values()]
+      .filter(c => !reposted.has(c.post.id))
+      .map(({ post: p, via, seenAt }) => {
+        // Recency from the newest moment it reached you (posted, or reposted by someone you follow)
+        const ageH = (now - seenAt) / 3600000;
         // Hacker News gravity: smooth decay instead of steps, so fresh posts climb and old ones fade gradually
         const recency = 1 / Math.pow(ageH + 2, 1.5);
         const followBoost = followingSet.has(p.user_id) ? 1.5 : 1.0;
@@ -271,9 +340,15 @@ class FeedService {
           }
         }
 
+        const socialProof = via ? 1.3 : 1.0;
+        const seenPenalty = liked.has(p.id) ? 0.35 : 1.0;
+        // Card: the original, or the friend's repost row so it reads "Amina reposted"
+        const card = via || p;
         return {
-          ...p,
-          _score: baseEng * recency * followBoost * verifiedBoost * affinityBoost,
+          ...card,
+          user_id: card.user_id,
+          _author: p.user_id,
+          _score: baseEng * recency * followBoost * verifiedBoost * affinityBoost * socialProof * seenPenalty,
         };
       })
       .sort((a: any, b: any) => b._score - a._score);
@@ -282,10 +357,10 @@ class FeedService {
     const authorCount: Record<string, number> = {};
     const diverse: any[] = [];
     for (const p of scored) {
-      const n = authorCount[p.user_id] || 0;
+      const n = authorCount[p._author] || 0;
       if (n < 3) {
         diverse.push(p);
-        authorCount[p.user_id] = n + 1;
+        authorCount[p._author] = n + 1;
       }
     }
 
@@ -295,7 +370,7 @@ class FeedService {
     // Never-empty fallback: fill remaining slots from recent public posts
     if (page.length < limit) {
       const needed = limit - page.length;
-      const shownIds = new Set([...diverse.map((p: any) => p.id)]);
+      const shownIds = new Set([...diverse.map((p: any) => subjectId(p))]);
 
       let fallbackQuery = supabaseServiceClient
         .from('posts')
@@ -311,8 +386,7 @@ class FeedService {
       }
 
       const { data: fallback } = await fallbackQuery;
-      const extra = (fallback || [])
-        .filter((p: any) => !shownIds.has(p.id))
+      const extra = collapseReposts((fallback || []).filter((p: any) => !p.repost_of_id), shownIds)
         .slice(0, needed);
 
       page.push(...extra);

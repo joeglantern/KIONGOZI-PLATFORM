@@ -11,7 +11,7 @@ export async function sendExpoPush(
   title: string,
   body: string,
   data?: object,
-  opts: { silent?: boolean } = {}
+  opts: { silent?: boolean; badge?: number } = {}
 ): Promise<void> {
   if (!tokens.length) return;
 
@@ -21,6 +21,8 @@ export async function sendExpoPush(
     body,
     data: data || {},
     ...(opts.silent ? {} : { sound: 'default' }),
+    // App icon count (iOS + supporting Android launchers) stays right even when the app is closed
+    ...(typeof opts.badge === 'number' ? { badge: opts.badge } : {}),
   }));
 
   try {

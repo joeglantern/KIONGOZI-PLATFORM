@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import apiClient from '../utils/apiClient';
+import { saveSnap, readSnap } from '../utils/snapshot';
 
 export interface SocialNotification {
   id: string;
@@ -44,6 +45,7 @@ interface NotificationState {
   removeNotification: (id: string) => void;
   markAllRead: () => void;
   markRead: (id: string) => void;
+  hydrate: () => Promise<void>;
   reset: () => void;
 }
 
@@ -72,6 +74,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           nextCursor: res.nextCursor || null,
           hasMore: fetched.length === 30,
         });
+        if (refresh) saveSnap('notifications', fetched);
       }
     } catch {}
     set({ isLoading: false });
@@ -118,6 +121,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount: notifications.filter(n => !n.read).length,
       };
     });
+  },
+
+  hydrate: async () => {
+    if (get().notifications.length) return;
+    const list = await readSnap<SocialNotification[]>('notifications');
+    if (Array.isArray(list) && list.length && !get().notifications.length) {
+      set({ notifications: list, unreadCount: list.filter(n => !n.read).length });
+    }
   },
 
   reset: () => set({ notifications: [], unreadCount: 0, isLoading: false, nextCursor: null, hasMore: true }),

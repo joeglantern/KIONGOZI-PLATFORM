@@ -56,7 +56,7 @@ export function UserAvatar({
     <View style={{ width: size, height: size }}>
       {avatarUrl ? (
         <Image
-          source={{ uri: avatarUrl }}
+          source={{ uri: avatarUrl, cache: 'force-cache' }}
           style={{ width: size, height: size, borderRadius: radius, backgroundColor: T.surface2 }}
         />
       ) : initials ? (

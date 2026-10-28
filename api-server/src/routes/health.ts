@@ -97,6 +97,8 @@ export const APP_CONFIG_DEFAULTS = {
     streaks: true,
     feed_cache: true,
     prefetch: true,
+    presence: true,
+    offline_cache: true,
   } as Record<string, boolean>,
 };
 

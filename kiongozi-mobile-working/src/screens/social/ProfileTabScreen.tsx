@@ -4,7 +4,7 @@ import {
   Animated, ActivityIndicator, RefreshControl, Image, Alert, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -81,6 +81,9 @@ export default function ProfileTabScreen() {
   const features = usePrefs(s => s.features);
   const [streak, setStreak] = useState<{ streak: number; today: boolean } | null>(null);
   const [recapOpen, setRecapOpen] = useState(false);
+  // Opened from the Monday "your week is ready" push
+  const openRecapParam = (useRoute<any>().params as any)?.openRecap;
+  useEffect(() => { if (openRecapParam) setRecapOpen(true); }, [openRecapParam]);
   useEffect(() => {
     if (!features.streaks) return;
     apiClient.getStreak().then((r: any) => { if (r?.success) setStreak(r.data); }).catch(() => {});
