@@ -5,6 +5,8 @@ import { generateConversationTitle } from '../utils/titleGenerator';
 import learningProfileService from '../services/learningProfileService';
 import OpenAI from 'openai';
 import { buildCompactSystemPrompt } from '../utils/compactSystemPrompt';
+import { renderShareCard } from '../services/ShareCardService';
+import UploadService from '../services/UploadService';
 
 
 const router = Router();
@@ -975,6 +977,31 @@ router.post('/ai-response/stream', authenticateToken, async (req, res) => {
     // If streaming has started, send error as SSE event
     res.write(`data: ${JSON.stringify({ error: error?.message || 'Streaming error', done: true })}\n\n`);
     res.end();
+  }
+});
+
+// POST /share-card — an AI answer as a branded image card.
+// preview: true → small PNG as a data URI (nothing stored); otherwise full size, uploaded, ready to post.
+router.post('/share-card', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const question = String(req.body?.question || '').trim().slice(0, 1000);
+    const answer = String(req.body?.answer || '').trim().slice(0, 4000);
+    if (!question || !answer) return res.status(400).json({ success: false, error: 'question and answer are required' });
+    const skin = String(req.body?.skin || 'mchanga');
+    const format = req.body?.format === 'post' ? 'post' : 'story';
+
+    const { data: me } = await supabaseServiceClient!.from('profiles').select('username').eq('id', userId).maybeSingle();
+    const card = await renderShareCard({ question, answer, skin, format, username: me?.username || null, previewWidth: req.body?.preview ? 540 : undefined });
+
+    if (req.body?.preview) {
+      return res.json({ success: true, data: { uri: `data:image/png;base64,${card.png.toString('base64')}`, width: card.width, height: card.height } });
+    }
+    const up = await UploadService.uploadFile(card.png, 'image/png', `posts/${userId}/aicard_${Date.now()}.png`);
+    return res.json({ success: true, data: { url: up.url, storage_path: up.storagePath, width: card.width, height: card.height } });
+  } catch (e) {
+    console.error('share-card failed:', e);
+    return res.status(500).json({ success: false, error: 'Could not make the card' });
   }
 });
 
