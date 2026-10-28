@@ -5,7 +5,7 @@ import path from 'path';
 import { supabaseServiceClient as db } from '../config/supabase';
 import { h, renderTree, cardAssets, excerpt } from './ShareCardService';
 
-const INK = '#0E1116', CREAM = '#F4F1EA', SUB = '#A4A9B6', GREEN = '#5CB85C', GOLD = '#F5B83D', PANEL = '#191D25';
+const INK = '#12151C', CREAM = '#F4F1EA', GOLD = '#F5B83D';
 const W = 1080, H = 1920;
 const DAY = 24 * 3600 * 1000;
 
@@ -72,12 +72,38 @@ export async function weekStats(userId: string): Promise<WeekStats> {
   };
 }
 
-let bg: string | null = null;
-function background() {
-  if (bg) return bg;
-  const f = path.join(process.cwd(), 'assets', 'cards', 'recap.jpg');
-  bg = fs.existsSync(f) ? `data:image/jpeg;base64,${fs.readFileSync(f).toString('base64')}` : '';
-  return bg;
+// ── Street-art look: hand-sprayed pieces made with gpt-image-1.5 (assets/recap), composed here.
+// Readable text stays in real fonts: Permanent Marker for labels, Space Grotesk for sentences.
+type Art = { uri: string; w: number; h: number };
+let art: Record<string, Art> | null = null;
+function arts() {
+  if (art) return art;
+  const dir = path.join(process.cwd(), 'assets', 'recap');
+  const out: Record<string, Art> = {};
+  for (const f of fs.readdirSync(dir)) {
+    const buf = fs.readFileSync(path.join(dir, f));
+    const png = f.endsWith('.png');
+    // PNG size lives in the IHDR header; the wall is a JPEG drawn full-bleed so its size isn't needed
+    const w = png ? buf.readUInt32BE(16) : 1080, ht = png ? buf.readUInt32BE(20) : 1620;
+    out[f.replace(/\.(png|jpg)$/, '')] = { uri: `data:image/${png ? 'png' : 'jpeg'};base64,${buf.toString('base64')}`, w, h: ht };
+  }
+  art = out;
+  return art;
+}
+
+const img = (a: Art, w: number, ht: number, style: Record<string, any> = {}) =>
+  ({ type: 'img', props: { src: a.uri, width: w, height: ht, style: { width: w, height: ht, ...style } } });
+
+/** A number painted with the bubble-digit glyphs; other characters (+ / K .) in marker. */
+function painted(text: string, height: number, other = CREAM) {
+  const A = arts();
+  return h('div', { display: 'flex', alignItems: 'flex-end' },
+    ...Array.from(text).map((c, i) => {
+      const g = A[`d${c}`];
+      if (g) return img(g, Math.round(g.w * height / g.h), height, { marginLeft: i ? -height * 0.07 : 0 });
+      return h('div', { fontFamily: 'Marker', fontSize: height * 0.72, color: other, lineHeight: 1, marginLeft: 4, marginRight: 4, marginBottom: height * 0.08 }, c);
+    }),
+  );
 }
 
 const fmt = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e4 ? `${Math.round(n / 1e3)}K` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K` : String(n);
@@ -90,51 +116,72 @@ const range = (a: string, b: string) => {
 
 export async function renderRecap(s: WeekStats, user: { username: string; name: string }, previewWidth?: number) {
   const { orb } = cardAssets();
-  const back = background();
+  const A = arts();
   // Hero number: the most flattering of likes / views / comments
   const hero = s.likes >= s.storyViews && s.likes >= s.comments
     ? { n: s.likes, label: 'likes on your posts' }
     : s.storyViews >= s.comments ? { n: s.storyViews, label: 'views on your stories' } : { n: s.comments, label: 'replies to your posts' };
 
-  const tile = (n: string, label: string, color = CREAM) => h('div', {
-    display: 'flex', flexDirection: 'column', width: 438, backgroundColor: PANEL, borderRadius: 36, padding: '34px 36px', marginBottom: 24,
-  },
-    h('div', { fontSize: 72, fontWeight: 700, color, letterSpacing: -2, lineHeight: 1 }, n),
-    h('div', { fontSize: 28, fontWeight: 500, color: SUB, marginTop: 12 }, label),
-  );
+  const abs = (x: number, y: number, extra: Record<string, any> = {}) => ({ position: 'absolute', left: x, top: y, display: 'flex', ...extra });
 
-  const top = s.topPost ? excerpt(s.topPost.content, 120) : null;
-  const tree = h('div', { width: W, height: H, display: 'flex', position: 'relative', backgroundColor: INK, fontFamily: 'Grotesk' },
-    ...(back ? [{ type: 'img', props: { src: back, width: W, height: H, style: { position: 'absolute', left: 0, top: 0, width: W, height: H, objectFit: 'cover' } } }] : []),
-    h('div', { position: 'absolute', left: 0, top: 0, width: W, height: H, display: 'flex', flexDirection: 'column', padding: '150px 84px 120px' },
-      // brand + range
-      h('div', { display: 'flex', alignItems: 'center' },
-        { type: 'img', props: { src: orb, width: 56, height: 56, style: { width: 56, height: 56, borderRadius: 28 } } },
-        h('div', { fontSize: 32, fontWeight: 700, color: CREAM, marginLeft: 16 }, 'KChat'),
-        h('div', { fontSize: 28, fontWeight: 700, color: CREAM, marginLeft: 'auto' }, range(s.since, s.until)),
+  // Torn-paper sticker with a painted number and a marker label
+  const SW = 440, SH = 250;
+  const sticker = (paper: string, x: number, y: number, rot: number, value: string, label: string, icon?: string) =>
+    h('div', abs(x, y, { width: SW, height: SH, transform: `rotate(${rot}deg)` }),
+      img(A[`paper_${paper}`], SW, SH, { position: 'absolute', left: 0, top: 0 }),
+      h('div', { position: 'absolute', left: 0, top: 0, width: SW, height: SH, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '20px 40px 26px' },
+        h('div', { display: 'flex', alignItems: 'center' },
+          painted(value, 104, INK),
+          ...(icon ? [img(A[icon], 74, Math.round(74 * A[icon].h / A[icon].w), { marginLeft: 10 })] : []),
+        ),
+        h('div', { fontFamily: 'Marker', fontSize: 34, color: INK, marginTop: 6 }, label),
       ),
-      h('div', { fontSize: 104, fontWeight: 700, color: CREAM, letterSpacing: -4, lineHeight: 0.98, marginTop: 70 }, 'Wiki yako'),
-      h('div', { fontSize: 40, fontWeight: 500, color: SUB, marginTop: 14 }, `@${user.username}'s week on KChat`),
-      // hero
-      h('div', { display: 'flex', flexDirection: 'column', marginTop: 70 },
-        h('div', { fontSize: 220, fontWeight: 700, color: GREEN, letterSpacing: -10, lineHeight: 0.9 }, fmt(hero.n)),
-        h('div', { fontSize: 40, fontWeight: 500, color: CREAM, marginTop: 10 }, hero.label),
+    );
+
+  const top = s.topPost ? excerpt(s.topPost.content, 110) : null;
+  const titleW = 780, titleH = Math.round(titleW * A.title.h / A.title.w);
+  const heroH = 220;
+  const titleTop = 150;
+  const heroTop = titleTop + titleH + 78;
+
+  const tree = h('div', { width: W, height: H, display: 'flex', position: 'relative', backgroundColor: '#15181F', fontFamily: 'Grotesk' },
+    img(A.wall, W, H, { position: 'absolute', left: 0, top: 0, objectFit: 'cover' }),
+    // brand + dates
+    h('div', abs(80, 92, { width: W - 160, alignItems: 'center' }),
+      { type: 'img', props: { src: orb, width: 52, height: 52, style: { width: 52, height: 52, borderRadius: 26 } } },
+      h('div', { fontSize: 32, fontWeight: 700, color: CREAM, marginLeft: 14 }, 'KChat'),
+      h('div', { fontFamily: 'Marker', fontSize: 34, color: CREAM, marginLeft: 'auto' }, range(s.since, s.until)),
+    ),
+    // sprayed title + whose week
+    h('div', abs((W - titleW) / 2, titleTop, { transform: 'rotate(-3deg)' }), img(A.title, titleW, titleH)),
+    h('div', abs(0, titleTop + titleH + 4, { width: W, justifyContent: 'center' }),
+      h('div', { fontFamily: 'Marker', fontSize: 42, color: CREAM }, `@${user.username}’s week`),
+    ),
+    // hero number
+    h('div', abs(0, heroTop, { width: W, justifyContent: 'center' }), painted(fmt(hero.n), heroH)),
+    h('div', abs(0, heroTop + heroH + 6, { width: W, flexDirection: 'column', alignItems: 'center', transform: 'rotate(-2deg)' }),
+      h('div', { fontFamily: 'Marker', fontSize: 50, color: GOLD }, hero.label),
+      img(A.swoosh, 300, Math.round(300 * A.swoosh.h / A.swoosh.w), { marginTop: -24 }),
+    ),
+    // stickers
+    sticker('cream', 74, 990, -3, fmt(s.posts), s.posts === 1 ? 'post' : 'posts'),
+    sticker('yellow', 566, 980, 2.5, `+${fmt(s.followers)}`, 'new followers'),
+    sticker('green', 82, 1255, 2, `${s.activeDays}/7`, 'days active'),
+    s.streak > 1
+      ? sticker('cream', 560, 1250, -2, String(s.streak), 'day streak', 'flame')
+      : sticker('cream', 560, 1250, -2, fmt(s.comments), s.comments === 1 ? 'reply' : 'replies', 'heart'),
+    // top post on paper
+    ...(top ? [h('div', abs(90, 1540, { width: W - 180, height: 230, transform: 'rotate(-1deg)' }),
+      img(A.paper_cream, W - 180, 230, { position: 'absolute', left: 0, top: 0 }),
+      h('div', { position: 'absolute', left: 0, top: 0, width: W - 180, height: 230, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px 48px' },
+        h('div', { fontFamily: 'Marker', fontSize: 28, color: '#D9483B' }, `Top post · ${fmt(s.topPost!.likes)} likes`),
+        h('div', { fontSize: 32, fontWeight: 500, color: INK, lineHeight: 1.3, marginTop: 8 }, top),
       ),
-      // tiles
-      h('div', { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 64 },
-        tile(fmt(s.posts), s.posts === 1 ? 'post' : 'posts'),
-        tile(`+${fmt(s.followers)}`, 'new followers'),
-        tile(`${s.activeDays}/7`, 'days active'),
-        tile(s.streak > 1 ? `${s.streak}🔥` : fmt(s.comments), s.streak > 1 ? 'day streak' : 'replies', s.streak > 1 ? GOLD : CREAM),
-      ),
-      // top post or top tag
-      ...(top ? [h('div', { display: 'flex', flexDirection: 'column', backgroundColor: CREAM, borderRadius: 36, padding: '34px 38px', marginTop: 4 },
-        h('div', { fontSize: 24, fontWeight: 700, color: '#5A5F6B', letterSpacing: 2 }, `TOP POST · ${fmt(s.topPost!.likes)} LIKES`),
-        h('div', { fontSize: 34, fontWeight: 500, color: '#1F2430', lineHeight: 1.3, marginTop: 12 }, top),
-      )] : s.topTag ? [h('div', { fontSize: 40, fontWeight: 700, color: GOLD, marginTop: 10 }, `#${s.topTag}`)] : []),
-      h('div', { display: 'flex', marginTop: 'auto', justifyContent: 'center' },
-        h('div', { fontSize: 26, fontWeight: 700, color: INK, backgroundColor: GREEN, borderRadius: 30, padding: '14px 30px', letterSpacing: 2 }, 'GET YOUR RECAP ON KCHAT'),
-      ),
+    )] : []),
+    // footer
+    h('div', abs(0, H - 112, { width: W, justifyContent: 'center', alignItems: 'center' }),
+      h('div', { fontFamily: 'Marker', fontSize: 36, color: CREAM }, 'Get your recap on KChat'),
+      img(A.arrow, 86, Math.round(86 * A.arrow.h / A.arrow.w), { marginLeft: 14 }),
     ),
   );
   return renderTree(tree, W, H, previewWidth);

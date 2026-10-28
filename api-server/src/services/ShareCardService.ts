@@ -28,6 +28,8 @@ export function cardAssets() {
     fonts: [
       { name: 'Grotesk', data: font('SpaceGrotesk_500Medium.ttf'), weight: 500, style: 'normal' },
       { name: 'Grotesk', data: font('SpaceGrotesk_700Bold.ttf'), weight: 700, style: 'normal' },
+      // Hand-lettered marker (Google Fonts, Apache 2.0) for street-art cards like the weekly recap
+      { name: 'Marker', data: font('PermanentMarker-Regular.ttf'), weight: 400, style: 'normal' },
     ],
     skins: Object.fromEntries(Object.entries(SKINS).map(([k, v]) => [k, dataUri(v.file, 'image/jpeg')])),
     orb: dataUri('orb.png', 'image/png'),
