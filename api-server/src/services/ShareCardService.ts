@@ -20,7 +20,7 @@ export type CardFormat = keyof typeof SIZES;
 
 // Loaded once per process
 let cache: { fonts: any[]; skins: Record<string, string>; orb: string } | null = null;
-function load() {
+export function cardAssets() {
   if (cache) return cache;
   const font = (f: string) => fs.readFileSync(path.join(ASSETS, 'fonts', f));
   const dataUri = (f: string, mime: string) => `data:${mime};base64,${fs.readFileSync(path.join(ASSETS, 'cards', f)).toString('base64')}`;
@@ -61,7 +61,7 @@ export function excerpt(md: string, max: number) {
 }
 
 // Tiny element helper so we don't need JSX in the server build
-const h = (type: string, style: Record<string, any>, ...children: any[]) => ({
+export const h = (type: string, style: Record<string, any>, ...children: any[]) => ({
   type,
   props: { style, children: children.length <= 1 ? children[0] : children },
 });
@@ -69,7 +69,7 @@ const h = (type: string, style: Record<string, any>, ...children: any[]) => ({
 export async function renderShareCard(opts: {
   question: string; answer: string; skin?: string; format?: string; username?: string | null; previewWidth?: number;
 }): Promise<{ png: Buffer; width: number; height: number }> {
-  const { fonts, skins, orb } = load();
+  const { skins, orb } = cardAssets();
   const skinId: SkinId = (opts.skin && opts.skin in SKINS ? opts.skin : 'mchanga') as SkinId;
   const fmt: CardFormat = opts.format === 'post' ? 'post' : 'story';
   const S = SKINS[skinId];
@@ -115,9 +115,15 @@ export async function renderShareCard(opts: {
     ),
   );
 
+  const png = await renderTree(tree, w, H, opts.previewWidth);
+  return { png, width: w, height: H };
+}
+
+/** Element tree → PNG. Shared by share cards and link-preview images. */
+export async function renderTree(tree: any, w: number, H: number, outWidth?: number): Promise<Buffer> {
+  const { fonts } = cardAssets();
   // satori is ESM-only; a native dynamic import keeps it working from this CommonJS build
   const satori = (await (new Function('m', 'return import(m)'))('satori')).default;
-  const svg: string = await satori(tree as any, { width: w, height: H, fonts });
-  const png = new Resvg(svg, { fitTo: { mode: 'width', value: opts.previewWidth || w } }).render().asPng();
-  return { png: Buffer.from(png), width: w, height: H };
+  const svg: string = await satori(tree, { width: w, height: H, fonts });
+  return Buffer.from(new Resvg(svg, { fitTo: { mode: 'width', value: outWidth || w } }).render().asPng());
 }

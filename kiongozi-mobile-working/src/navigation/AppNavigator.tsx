@@ -231,6 +231,9 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             PostDetail: {
               path: 'posts/:postId',
             },
+            PublicProfile: {
+              path: 'u/:username',
+            },
           },
         },
       },

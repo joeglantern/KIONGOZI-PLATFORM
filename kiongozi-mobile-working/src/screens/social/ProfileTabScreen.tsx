@@ -169,8 +169,8 @@ export default function ProfileTabScreen() {
     if (!profile) return;
     try {
       await Share.share({
-        message: `Check out ${profile.full_name ?? profile.username}'s profile on Kiongozi!\nhttps://kiongozi.app/profile/${profile.username}`,
-        url: `https://kiongozi.app/profile/${profile.username}`,
+        message: `Follow ${profile.full_name ?? profile.username} on KChat\nhttps://api.kiongozi.org/u/${profile.username}`,
+        url: `https://api.kiongozi.org/u/${profile.username}`,
       });
     } catch {}
   }, [currentUserProfile]);
