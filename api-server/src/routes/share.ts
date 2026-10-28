@@ -56,6 +56,20 @@ ${ios || android ? `<a class="s" href="${store}">Get KChat</a>` : `<a class="s" 
 const GENERIC_IMG = `${BASE}/og/brand.png`;
 
 // ── Landing pages ──
+// GET /get?src=ad_city — one link for QR codes and posters: sends phones to the right store
+router.get('/get', (req: Request, res: Response) => {
+  const ua = String(req.headers['user-agent'] || '');
+  const src = String(req.query.src || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
+  console.log('get-app', src || 'direct', /android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'other');
+  if (/android/i.test(ua)) { res.redirect(302, `${PLAY_STORE}&referrer=${encodeURIComponent(`utm_source=${src || 'qr'}`)}`); return; }
+  if (/iphone|ipad|ipod/i.test(ua)) { res.redirect(302, APP_STORE); return; }
+  res.set('Content-Type', 'text/html; charset=utf-8').send(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Get KChat</title>
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:system-ui,sans-serif}
+a{display:block;margin:10px auto;padding:14px 22px;border-radius:14px;background:#F2F2F2;color:#000;text-decoration:none;font-weight:600;width:220px;text-align:center}
+a.alt{background:#0F0F10;color:#fff;border:1px solid #2C2C2E}</style></head><body><div style="text-align:center"><h1 style="font-weight:700">Get KChat</h1>
+<a href="${PLAY_STORE}">Android · Google Play</a><a class="alt" href="${APP_STORE}">iPhone · App Store</a></div></body></html>`);
+});
+
 router.get('/posts/:id', async (req: Request, res: Response) => {
   const id = req.params.id;
   const p = await publicPost(id).catch(() => null);

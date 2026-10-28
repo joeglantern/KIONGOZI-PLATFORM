@@ -25,6 +25,15 @@ import { FeedPill, PillState } from '../../components/social/FeedPill';
 import { useNet } from '../../stores/netStore';
 import { AppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
+import { AdCard, Ad } from '../../components/social/AdCard';
+import { usePrefs } from '../../stores/prefsStore';
+import { emitAppEvent } from '../../utils/appEvents';
+
+// Ads: never in the first 4 posts, then one every 8 (the server also caps per person per day)
+const FIRST_AD_AT = 4;
+const AD_EVERY = 8;
+const adSlotsFor = (n: number) => (n <= FIRST_AD_AT ? 0 : 1 + Math.floor((n - FIRST_AD_AT - 1) / AD_EVERY));
 
 export default function FeedScreen() {
   const navigation = useNavigation<any>();
@@ -68,11 +77,13 @@ export default function FeedScreen() {
   const freshPage = useRef<Post[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNoteRef = useRef<((t: string) => void) | null>(null);
   const showNote = useCallback((text: string) => {
     if (noteTimer.current) clearTimeout(noteTimer.current);
     setNote(text);
     noteTimer.current = setTimeout(() => setNote(null), 1800);
   }, []);
+  showNoteRef.current = showNote;
 
   useEffect(() => {
     if (!user) return;
@@ -121,7 +132,81 @@ export default function FeedScreen() {
     setEditTarget({ id: postId, content, visibility });
   }, []);
 
-  const renderPost = useCallback(({ item }: { item: Post }) => (
+  // ── Ads (Instagram / X style) ─────────────────────────────────────────────
+  const adsOn = usePrefs(s => s.features.ads);
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [seenAds, setSeenAds] = useState<Record<string, true>>({});
+  const adsLoading = useRef(false);
+  const impressed = useRef(new Set<string>());
+  const loadAds = useCallback(async (count: number, reset = false) => {
+    if (!adsOn || adsLoading.current || count <= 0) return;
+    adsLoading.current = true;
+    try {
+      const res: any = await apiClient.getAdSlots(Math.min(count, 4));
+      if (res?.success && Array.isArray(res.data)) {
+        setAds(prev => (reset ? res.data : [...prev, ...res.data.filter((a: Ad) => !prev.some(p => p.id === a.id))]));
+      }
+    } catch {} finally { adsLoading.current = false; }
+  }, [adsOn]);
+  // Ask for more ads as the feed grows
+  useEffect(() => {
+    const need = adSlotsFor(forYouPosts.length) - ads.length;
+    if (need > 0) loadAds(need);
+  }, [forYouPosts.length, ads.length, loadAds]);
+
+  const forYouRows = useMemo(() => {
+    if (!adsOn || !ads.length) return forYouPosts as any[];
+    const out: any[] = [];
+    let a = 0;
+    forYouPosts.forEach((p, i) => {
+      out.push(p);
+      const pos = i + 1;
+      if (pos >= FIRST_AD_AT && (pos - FIRST_AD_AT) % AD_EVERY === 0 && a < ads.length) {
+        out.push({ __ad: ads[a], __slot: a });
+        a++;
+      }
+    });
+    return out;
+  }, [forYouPosts, ads, adsOn]);
+
+  const openAd = useCallback((ad: Ad) => {
+    apiClient.sendAdEvent(ad.id, 'click').catch(() => {});
+    const url = ad.cta_url || '';
+    if (url === 'kchat://invite') navigation.navigate('Profile', { screen: 'Invite' });
+    else if (url === 'kchat://ai') emitAppEvent('openAI');
+    else if (url === 'kchat://recap') navigation.navigate('Profile', { screen: 'ProfileMain', params: { openRecap: Date.now() } });
+    else if (url === 'kchat://story') useStoryStore.getState().setComposerOpen(true);
+    else if (url.startsWith('kchat://profile/')) navigation.navigate('PublicProfile', { username: url.slice('kchat://profile/'.length) });
+    else if (/^https?:\/\//.test(url)) WebBrowser.openBrowserAsync(url).catch(() => {});
+  }, [navigation]);
+  const dropAd = useCallback((ad: Ad, kind: 'hide' | 'report') => {
+    apiClient.sendAdEvent(ad.id, kind).catch(() => {});
+    setAds(prev => prev.filter(a => a.id !== ad.id));
+  }, []);
+
+  // An impression counts only when ≥50% of the ad is on screen for a full second (IAB rule)
+  const adViewability = useRef({ itemVisiblePercentThreshold: 50, minimumViewTime: 1000 }).current;
+  const onAdViewable = useRef(({ viewableItems }: any) => {
+    for (const v of viewableItems) {
+      const ad: Ad | undefined = v.item?.__ad;
+      if (!ad) continue;
+      const k = `${ad.id}_${v.item.__slot}`;
+      if (impressed.current.has(k)) continue;
+      impressed.current.add(k);
+      apiClient.sendAdEvent(ad.id, 'impression').catch(() => {});
+      setSeenAds(prev => (prev[ad.id] ? prev : { ...prev, [ad.id]: true }));
+    }
+  }).current;
+
+  const renderPost = useCallback(({ item }: { item: any }) => item.__ad ? (
+    <AdCard
+      ad={item.__ad}
+      seen={!!seenAds[item.__ad.id]}
+      onOpen={openAd}
+      onHide={a => { dropAd(a, 'hide'); showNoteRef.current?.('Ad hidden. You won’t see it again.'); }}
+      onReport={a => { dropAd(a, 'report'); showNoteRef.current?.('Thanks. We’ll review this ad.'); }}
+    />
+  ) : (
     <PostCard
       post={item}
       onPress={() => handlePostPress(item)}
@@ -134,7 +219,7 @@ export default function FeedScreen() {
       onEditPress={handleEditPress}
       onReportPress={(postId) => setReportTarget({ type: 'post', id: postId, displayName: 'this post' })}
     />
-  ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost]);
+  ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost, seenAds, openAd, dropAd]);
 
   const [activeTab, setActiveTab] = useState(0);
 
@@ -229,6 +314,8 @@ export default function FeedScreen() {
     useStoryStore.getState().fetchFeed();
     const before = new Set(useSocialStore.getState().forYouPosts.map(p => p.id));
     setIncoming([]); freshPage.current = null;
+    impressed.current.clear();
+    loadAds(2, true);
     fetchForYouFeed(true)
       .then(() => {
         if (!useNet.getState().online) return;
@@ -314,9 +401,11 @@ export default function FeedScreen() {
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
           <Animated.FlatList
             ref={(r: any) => { listRefs.current[0] = r; }}
-            data={forYouPosts}
+            data={forYouRows}
             renderItem={renderPost}
-            keyExtractor={(item: Post) => `fy_${item.id}`}
+            keyExtractor={(item: any) => (item.__ad ? `ad_${item.__ad.id}_${item.__slot}` : `fy_${item.id}`)}
+            viewabilityConfig={adViewability}
+            onViewableItemsChanged={onAdViewable}
             onScroll={onScrollFor(0)}
             scrollEventThrottle={16}
             contentContainerStyle={{ paddingTop: headerH }}

@@ -902,6 +902,16 @@ class ApiClient {
     return this.request(`/api/v1/social/for-you?offset=${offset}`, { method: 'GET' });
   }
 
+  /** Ads for the next feed page (server picks: paid first, house ads fill; caps per person) */
+  async getAdSlots(count = 2) {
+    return this.request<any[]>(`/api/v1/ads/slots?count=${count}`, { method: 'GET' });
+  }
+
+  /** impression (≥50% on screen for 1s) | click | hide | report */
+  async sendAdEvent(adId: string, kind: 'impression' | 'click' | 'hide' | 'report') {
+    return this.request(`/api/v1/ads/${adId}/events`, { method: 'POST', body: JSON.stringify({ kind }) });
+  }
+
   /** Toggle bookmark on a post */
   async bookmarkPost(postId: string) {
     return this.request(`/api/v1/social/posts/${postId}/bookmark`, { method: 'POST' });

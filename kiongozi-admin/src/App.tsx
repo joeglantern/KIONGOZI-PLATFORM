@@ -11,6 +11,7 @@ import AppManagementPage from './pages/AppManagementPage'
 import NotificationsPage from './pages/NotificationsPage'
 import AuditLogPage from './pages/AuditLogPage'
 import SettingsPage from './pages/SettingsPage'
+import AdsPage from './pages/AdsPage'
 import type { Role } from './types'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -66,6 +67,14 @@ export default function App() {
             element={
               <RoleRoute minRole="admin">
                 <AnalyticsPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/ads"
+            element={
+              <RoleRoute minRole="admin">
+                <AdsPage />
               </RoleRoute>
             }
           />

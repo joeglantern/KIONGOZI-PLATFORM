@@ -10,9 +10,9 @@ const ACTIVITY_KEY = 'kchat.showActivity';
 
 export type Features = {
   recap: boolean; invites: boolean; watermark_shares: boolean; streaks: boolean; feed_cache: boolean; prefetch: boolean;
-  presence: boolean; offline_cache: boolean;
+  presence: boolean; offline_cache: boolean; ads: boolean;
 };
-const DEFAULT_FEATURES: Features = { recap: true, invites: true, watermark_shares: true, streaks: true, feed_cache: true, prefetch: true, presence: true, offline_cache: true };
+const DEFAULT_FEATURES: Features = { recap: true, invites: true, watermark_shares: true, streaks: true, feed_cache: true, prefetch: true, presence: true, offline_cache: true, ads: true };
 
 interface PrefsState {
   lowData: boolean;

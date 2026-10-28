@@ -11,6 +11,7 @@ const PAGE_TITLES: Record<string, { title: string; desc: string }> = {
   '/users': { title: 'Users', desc: 'Manage accounts, roles, and verification' },
   '/content': { title: 'Content & Reports', desc: 'Flagged posts and moderation queue' },
   '/analytics': { title: 'Analytics', desc: 'Growth trends and engagement data' },
+  '/ads': { title: 'Ads', desc: 'In-feed campaigns, reach and clicks' },
   '/app': { title: 'App Management', desc: 'Force update, OTA, and release control' },
   '/notifications': { title: 'Notifications', desc: 'Send push notifications to users' },
   '/audit': { title: 'Audit Log', desc: 'Admin action history and accountability' },

@@ -94,3 +94,17 @@ export interface AnalyticsPoint {
   activeUsers: number
   messages: number
 }
+
+// ─── Ads ─────────────────────────────────────────────────────────────────────
+export interface AdCampaign {
+  id: string; advertiser_name: string; advertiser_avatar_url?: string | null; headline: string; body?: string | null
+  media_url: string; media_type: 'image' | 'video'; width?: number | null; height?: number | null
+  cta_label: string; cta_url: string; is_house: boolean; status: 'draft' | 'active' | 'paused' | 'ended'
+  weight: number; starts_at?: string | null; ends_at?: string | null; frequency_hours: number; max_impressions?: number | null
+  why_text?: string | null; created_at?: string
+  stats?: { impression: number; click: number; hide: number; report: number; reach: number; ctr: number }
+}
+export const getAds = () => api.get('/api/v1/admin/ads').then(r => (r.data?.data ?? []) as AdCampaign[])
+export const createAd = (body: Partial<AdCampaign>) => api.post('/api/v1/admin/ads', body).then(r => r.data)
+export const updateAd = (id: string, body: Partial<AdCampaign>) => api.patch(`/api/v1/admin/ads/${id}`, body).then(r => r.data)
+export const endAd = (id: string) => api.delete(`/api/v1/admin/ads/${id}`).then(r => r.data)

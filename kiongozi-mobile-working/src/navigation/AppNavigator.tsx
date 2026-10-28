@@ -37,6 +37,7 @@ import { storyNav } from '../components/stories/storyAssets';
 import { OrbVideo } from '../components/ai/OrbVideo';
 import { useProfileStore } from '../stores/profileStore';
 import { ConfettiHost } from '../components/Confetti';
+import { onAppEvent } from '../utils/appEvents';
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
@@ -172,6 +173,8 @@ interface AppNavigatorProps {
 
 export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorProps = {}) {
   const [chatVisible, setChatVisible] = useState(false);
+  // Ads and links can open Kiongozi AI (kchat://ai)
+  useEffect(() => onAppEvent('openAI', () => setChatVisible(true)), []);
   const forceUpdate = useForceUpdate();
   const internalNavRef = useRef<NavigationContainerRef<any>>(null);
   const navRef = externalNavRef ?? internalNavRef;
