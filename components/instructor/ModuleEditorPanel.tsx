@@ -119,6 +119,11 @@ export default function ModuleEditorPanel({ courseModuleId, courseId, module, us
                 heading: { levels: [1, 2, 3] },
                 codeBlock: { HTMLAttributes: { class: 'bg-gray-900 text-gray-100 rounded-xl p-4 font-mono text-sm overflow-x-auto' } },
                 blockquote: { HTMLAttributes: { class: 'border-l-4 border-orange-400 pl-4 italic text-gray-600 dark:text-gray-300' } },
+                // Keep the explicitly configured extensions below as the only
+                // registrations for these names. Tiptap v3 also bundles both
+                // in StarterKit, and duplicate registrations are undefined.
+                link: false,
+                underline: false,
             }),
             Underline,
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
