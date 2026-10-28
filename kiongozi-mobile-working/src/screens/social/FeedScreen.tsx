@@ -22,6 +22,7 @@ import { StoryRail, StoryStack } from '../../components/stories/StoryRail';
 import { FeedSkeleton } from '../../components/social/Skeleton';
 import { useStoryStore } from '../../stores/storyStore';
 import { FeedPill, PillState } from '../../components/social/FeedPill';
+import { RefreshBubble } from '../../components/social/RefreshBubble';
 import { useNet } from '../../stores/netStore';
 import { AppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -290,6 +291,15 @@ export default function FeedScreen() {
 
   const scrollToTop = (i: number) => listRefs.current[i]?.scrollToOffset({ offset: 0, animated: true });
 
+  // The system spinner only handles the pull gesture: it's told "refreshing" for one frame so it
+  // lets go, and the KChat bubble shows the loading instead.
+  const [nativeHold, setNativeHold] = useState(false);
+  const releaseNative = () => { setNativeHold(true); requestAnimationFrame(() => setNativeHold(false)); };
+  const bubbleRefreshing = activeTab === 0 ? forYouRefreshing : feedRefreshing;
+  const bubblePull = Platform.OS === 'ios'
+    ? scrollYs[activeTab].interpolate({ inputRange: [-110, -14], outputRange: [1, 0], extrapolate: 'clamp' })
+    : null;
+
   const showIncoming = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const fresh = freshPage.current;
@@ -309,6 +319,7 @@ export default function FeedScreen() {
   // Pull-to-refresh, done like the big apps: a tick when it fires, the list never blanks,
   // and a short note says what changed.
   const refreshForYou = () => {
+    releaseNative();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setForYouError(null);
     useStoryStore.getState().fetchFeed();
@@ -320,11 +331,12 @@ export default function FeedScreen() {
       .then(() => {
         if (!useNet.getState().online) return;
         const n = useSocialStore.getState().forYouPosts.filter(p => !before.has(p.id)).length;
-        showNote(n ? `${n} new post${n === 1 ? '' : 's'}` : 'You\u2019re up to date');
+        setTimeout(() => showNote(n ? `${n} new post${n === 1 ? '' : 's'}` : 'You\u2019re up to date'), 380);
       })
       .catch(() => setForYouError('Failed to load. Check your connection.'));
   };
   const refreshFollowing = () => {
+    releaseNative();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setFeedError(null);
     useStoryStore.getState().fetchFeed();
@@ -333,7 +345,7 @@ export default function FeedScreen() {
       .then(() => {
         if (!useNet.getState().online) return;
         const n = useSocialStore.getState().feedPosts.filter(p => !before.has(p.id)).length;
-        showNote(n ? `${n} new post${n === 1 ? '' : 's'}` : 'You\u2019re up to date');
+        setTimeout(() => showNote(n ? `${n} new post${n === 1 ? '' : 's'}` : 'You\u2019re up to date'), 380);
       })
       .catch(() => setFeedError('Failed to load. Check your connection.'));
   };
@@ -412,7 +424,7 @@ export default function FeedScreen() {
             scrollIndicatorInsets={{ top: headerH }}
             onEndReached={() => { if (hasMoreForYou) fetchForYouFeed(false); }}
             onEndReachedThreshold={0.5}
-            refreshControl={<RefreshControl progressViewOffset={refreshOffset} refreshing={forYouRefreshing} onRefresh={refreshForYou} tintColor={T.accent} colors={[T.accent]} progressBackgroundColor={T.surface} />}
+            refreshControl={<RefreshControl progressViewOffset={refreshOffset} refreshing={nativeHold} onRefresh={refreshForYou} tintColor="transparent" colors={[T.accent]} progressBackgroundColor={T.surface} />}
             ListEmptyComponent={
               forYouLoading ? <FeedSkeleton /> :
               forYouError ? (
@@ -445,7 +457,7 @@ export default function FeedScreen() {
             scrollIndicatorInsets={{ top: headerH }}
             onEndReached={() => { if (feedCursor) fetchFeed(false); }}
             onEndReachedThreshold={0.5}
-            refreshControl={<RefreshControl progressViewOffset={refreshOffset} refreshing={feedRefreshing} onRefresh={refreshFollowing} tintColor={T.accent} colors={[T.accent]} progressBackgroundColor={T.surface} />}
+            refreshControl={<RefreshControl progressViewOffset={refreshOffset} refreshing={nativeHold} onRefresh={refreshFollowing} tintColor="transparent" colors={[T.accent]} progressBackgroundColor={T.surface} />}
             ListEmptyComponent={
               feedLoading ? <FeedSkeleton /> :
               feedError ? (
@@ -475,6 +487,8 @@ export default function FeedScreen() {
         >
           <StoryRail />
         </Animated.View>
+
+        <RefreshBubble pull={bubblePull} refreshing={bubbleRefreshing} color={T.accent} top={headerH + 10} />
 
         <View style={styles.tabs} onLayout={e => setTabsH(Math.round(e.nativeEvent.layout.height))}>
           <TouchableOpacity

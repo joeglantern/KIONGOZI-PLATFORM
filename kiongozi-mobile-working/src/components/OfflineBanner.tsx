@@ -13,6 +13,9 @@ type Mode = 'hidden' | 'offline' | 'compact' | 'back';
 
 export function OfflineBanner() {
   const online = useNet(s => s.online);
+  const status = useNet(s => s.status);
+  // Their internet works but we can't reach KChat: never blame their connection
+  const serverSide = status === 'server';
   const backAt = useNet(s => s.backAt);
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>('hidden');
@@ -65,7 +68,7 @@ export function OfflineBanner() {
         onPress={retry}
         accessibilityRole="button"
         accessibilityLiveRegion="polite"
-        accessibilityLabel={back ? 'Back online' : 'No internet connection. Tap to try again.'}
+        accessibilityLabel={back ? 'Back online' : serverSide ? 'Can’t reach KChat right now. Tap to try again.' : 'No internet connection. Tap to try again.'}
         style={({ pressed }) => [styles.pill, compact && styles.pillCompact, back && styles.pillBack, pressed && { opacity: 0.85 }]}
       >
         {back ? (
@@ -73,16 +76,16 @@ export function OfflineBanner() {
         ) : checking ? (
           <ActivityIndicator size="small" color="#FFFFFF" style={{ transform: [{ scale: 0.75 }] }} />
         ) : (
-          <Ionicons name="cloud-offline-outline" size={16} color="#FFFFFF" />
+          <Ionicons name={serverSide ? 'sync-outline' : 'cloud-offline-outline'} size={16} color="#FFFFFF" />
         )}
         {compact ? (
-          <Text style={styles.title} maxFontSizeMultiplier={1.2}>Offline</Text>
+          <Text style={styles.title} maxFontSizeMultiplier={1.2}>{serverSide ? 'Reconnecting' : 'Offline'}</Text>
         ) : back ? (
           <Text style={styles.title} maxFontSizeMultiplier={1.2}>Back online</Text>
         ) : (
           <View style={{ flexShrink: 1 }}>
-            <Text style={styles.title} maxFontSizeMultiplier={1.2}>{checking ? 'Checking…' : 'No internet connection'}</Text>
-            <Text style={styles.sub} maxFontSizeMultiplier={1.2} numberOfLines={1}>Showing what you saw last · tap to retry</Text>
+            <Text style={styles.title} maxFontSizeMultiplier={1.2}>{checking ? 'Checking…' : serverSide ? 'KChat can’t connect right now' : 'No internet connection'}</Text>
+            <Text style={styles.sub} maxFontSizeMultiplier={1.2} numberOfLines={1}>{serverSide ? 'Your internet is fine · we’ll keep trying' : 'Showing what you saw last · tap to retry'}</Text>
           </View>
         )}
       </Pressable>
