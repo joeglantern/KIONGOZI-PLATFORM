@@ -200,6 +200,11 @@ class ApiClient {
     });
   }
 
+  /** AI answer as a branded image card, drawn by the server. preview → small data URI; else uploaded URL */
+  async getShareCard(body: { question: string; answer: string; skin: string; format: 'story' | 'post'; preview?: boolean }) {
+    return this.request('/api/v1/chat/share-card', { method: 'POST', body: JSON.stringify(body) });
+  }
+
   /** 3 suggested next questions for an AI answer (empty list if unavailable) */
   async getFollowups(question: string, answer: string) {
     return this.request('/api/v1/chat/followups', { method: 'POST', body: JSON.stringify({ question, answer }) });

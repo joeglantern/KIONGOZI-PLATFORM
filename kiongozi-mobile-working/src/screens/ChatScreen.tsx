@@ -20,6 +20,7 @@ import apiClient from '../utils/apiClient';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { UserAvatar } from '../components/social/UserAvatar';
 import { OrbVideo, OrbStill } from '../components/ai/OrbVideo';
+import { ShareCardSheet } from '../components/ai/ShareCardSheet';
 import { ShineText, ReplyFx } from '../components/ai/StreamFx';
 
 const SPRING = { damping: 26, stiffness: 260, mass: 0.9 };
@@ -165,6 +166,9 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const [suggestions, setSuggestions] = useState(() => pickSuggestions());
   // "Ask next" questions under the latest AI reply
   const [followups, setFollowups] = useState<{ forId: number; items: string[] } | null>(null);
+  // "Share this answer" card sheet: the answer plus the question asked just before it
+  const [shareCard, setShareCard] = useState<{ question: string; answer: string } | null>(null);
+  const messagesRef = useRef<Message[]>([]);
   const trendTag = useRef<string | null>(null);
   // A hashtag people are actually using takes one suggestion slot
   useEffect(() => {
@@ -434,6 +438,8 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   const canSend = inputText.trim().length > 0;
 
   // ─── Renderers ────────────────────────────────────────────────────────────
+  messagesRef.current = messages;
+
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     if (item.isUser) {
       return (
@@ -463,7 +469,17 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           <TouchableOpacity onPress={() => copyMessage(item.text)} style={styles.aiAction} accessibilityLabel="Copy reply">
             <Ionicons name="copy-outline" size={17} color={C.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Share.share({ message: item.text }).catch(() => {})} style={styles.aiAction} accessibilityLabel="Share reply">
+          <TouchableOpacity
+            onPress={() => {
+              const list = messagesRef.current;
+              const i = list.findIndex(m => m.id === item.id);
+              const q = [...list.slice(0, Math.max(0, i))].reverse().find(m => m.isUser)?.text || '';
+              if (q) setShareCard({ question: q, answer: item.text });
+              else Share.share({ message: item.text }).catch(() => {});
+            }}
+            style={styles.aiAction}
+            accessibilityLabel="Share reply as a card"
+          >
             <Ionicons name="share-outline" size={18} color={C.textMuted} />
           </TouchableOpacity>
         </View>}
@@ -726,6 +742,12 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           </Reanimated.View>
         </GestureDetector>
       </View>
+      <ShareCardSheet
+        visible={!!shareCard}
+        question={shareCard?.question || ''}
+        answer={shareCard?.answer || ''}
+        onClose={() => setShareCard(null)}
+      />
     </GestureHandlerRootView>
   );
 }
