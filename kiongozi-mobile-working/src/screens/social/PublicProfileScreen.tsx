@@ -19,6 +19,7 @@ import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
 import ReportModal from './ReportModal';
 import { useTheme } from '../../hooks/useTheme';
+import { ProfileSkeleton } from '../../components/social/Skeleton';
 import { BottomSheet } from '../../components/social/BottomSheet';
 
 type Tab = 'posts' | 'reposts';
@@ -290,7 +291,7 @@ export default function PublicProfileScreen() {
     return (
       <View style={styles.container}>
         {renderHeader()}
-        <View style={styles.loading}><ActivityIndicator color={T.accent} /></View>
+        <ProfileSkeleton posts={2} />
       </View>
     );
   }

@@ -3,6 +3,7 @@ import { Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../utils/apiClient';
 import { prefs } from './prefsStore';
+import { saveSnap } from '../utils/snapshot';
 
 // ── Open from cache (WhatsApp trick): the first page of each feed is saved on the phone and shown
 // instantly on the next launch while the fresh feed loads quietly.
@@ -214,6 +215,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
           explorePosts: refresh ? res.data : [...prev.explorePosts, ...res.data],
           exploreCursor: res.nextCursor || null,
         }));
+        if (refresh) saveSnap('explore', (res.data as Post[]).slice(0, 30));
       }
     } catch (e) {
       console.error('fetchExploreFeed error:', e);

@@ -2,9 +2,12 @@
 // Search keeps recent searches on the device and shows people first.
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl,
-  ScrollView, Image, useWindowDimensions,
+  View, Text, TextInput, StyleSheet, FlatList, Pressable, ActivityIndicator,
+  ScrollView, Image, useWindowDimensions, Animated,
 } from 'react-native';
+import { ExploreSkeleton, RowsSkeleton, FeedSkeleton } from '../../components/social/Skeleton';
+import { useBubbleRefresh } from '../../components/social/RefreshBubble';
+import { saveSnap, readSnap } from '../../utils/snapshot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -161,6 +164,11 @@ export default function ExploreScreen() {
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
+    // Open instantly on what was here last time, then freshen it (like the feed)
+    readSnap<Post[]>('explore').then(saved => {
+      if (saved?.length && !useSocialStore.getState().explorePosts.length) useSocialStore.setState({ explorePosts: saved });
+    });
+    readSnap<any>('trending').then(saved => { if (saved) setTrending(t => t || saved); });
     fetchExploreFeed(true);
     loadTrending();
     AsyncStorage.getItem(RECENTS_KEY).then(v => { try { if (v) setRecents(JSON.parse(v)); } catch {} }).catch(() => {});
@@ -179,7 +187,7 @@ export default function ExploreScreen() {
   const loadTrending = async () => {
     try {
       const res = await apiClient.getTrending();
-      if (res.success) setTrending(res.data as any);
+      if (res.success) { setTrending(res.data as any); saveSnap('trending', res.data); }
     } catch {}
   };
 
@@ -310,6 +318,12 @@ export default function ExploreScreen() {
     </View>
   );
 
+  const { onScroll, refreshControl, bubble, refreshing, onHeaderLayout } = useBubbleRefresh(
+    () => Promise.all([fetchExploreFeed(true), loadTrending()]),
+    T.accent, T.surface,
+  );
+  const firstLoad = explorePosts.length === 0 && exploreLoading;
+
   const resultItems = useMemo(() => {
     if (!searchResults) return [];
     const items: any[] = [];
@@ -326,7 +340,7 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]} onLayout={onHeaderLayout}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
           <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('FindFriends')} accessibilityLabel="Find friends">
@@ -409,7 +423,10 @@ export default function ExploreScreen() {
           </Pressable>
         </ScrollView>
       ) : searchLoading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={T.accent} />
+        <View>
+          <RowsSkeleton count={3} avatar={46} label="Searching" />
+          <FeedSkeleton count={2} />
+        </View>
       ) : isResults && searchError ? (
         <View style={styles.errorState}>
           <Ionicons name="cloud-offline-outline" size={40} color={T.textMuted} />
@@ -460,14 +477,16 @@ export default function ExploreScreen() {
           ) : null}
         />
       ) : (
-        <FlatList
+        <Animated.FlatList
           data={listPosts}
-          keyExtractor={(item) => item.id}
-          onEndReached={() => { if (exploreCursor) fetchExploreFeed(); }}
+          keyExtractor={(item: Post) => item.id}
+          onEndReached={() => { if (exploreCursor && !refreshing) fetchExploreFeed(); }}
           onEndReachedThreshold={0.5}
-          refreshControl={<RefreshControl refreshing={exploreLoading && explorePosts.length > 0} onRefresh={() => { fetchExploreFeed(true); loadTrending(); }} tintColor={T.accent} />}
-          ListHeaderComponent={DefaultHeader}
-          renderItem={({ item }) => (
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          refreshControl={refreshControl}
+          ListHeaderComponent={firstLoad ? null : DefaultHeader}
+          renderItem={({ item }: { item: Post }) => (
             <PostCard
               post={item}
               onPress={() => openPost(item)}
@@ -476,8 +495,8 @@ export default function ExploreScreen() {
               currentUserId={user?.id}
             />
           )}
-          ListFooterComponent={exploreLoading && explorePosts.length > 0 ? <ActivityIndicator style={{ margin: 16 }} color={T.accent} /> : <View style={{ height: 24 }} />}
-          ListEmptyComponent={exploreLoading ? <ActivityIndicator style={{ marginTop: 40 }} color={T.accent} /> : (
+          ListFooterComponent={exploreLoading && explorePosts.length > 0 && !refreshing ? <ActivityIndicator style={{ margin: 16 }} color={T.accent} /> : <View style={{ height: 24 }} />}
+          ListEmptyComponent={firstLoad ? <ExploreSkeleton /> : (
             mosaic.length ? null : (
               <View style={styles.emptySearch}>
                 <Ionicons name="compass-outline" size={40} color={T.textMuted} />
@@ -487,6 +506,7 @@ export default function ExploreScreen() {
           )}
         />
       )}
+      {!showRecents && !isSearching ? bubble : null}
     </View>
   );
 }

@@ -19,6 +19,8 @@ import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 import { usePrefs } from '../../stores/prefsStore';
 import { RecapSheet } from '../../components/social/RecapSheet';
+import { ProfileSkeleton, FeedSkeleton } from '../../components/social/Skeleton';
+import { useBubbleRefresh } from '../../components/social/RefreshBubble';
 
 type Tab = 'posts' | 'reposts' | 'saved';
 const TABS: { key: Tab; label: string }[] = [
@@ -167,6 +169,15 @@ export default function ProfileTabScreen() {
     if (activeTab === 'saved') fetchSaved(true);
     else fetchPosts(true, true);
   };
+  const bubbleRefresh = useBubbleRefresh(async () => {
+    postsCache.current = {};
+    savedCache.current = [];
+    await Promise.all([
+      fetchCurrentUserProfile(),
+      activeTab === 'saved' ? fetchSaved(true) : fetchPosts(true, true),
+    ]);
+  }, T.accent, T.surface);
+
   const handleLoadMore = () => {
     if (!loadingMore && hasMore && !loading && activeTab !== 'saved') {
       setLoadingMore(true);
@@ -430,7 +441,7 @@ export default function ProfileTabScreen() {
 
   if (!profile) {
     return (
-      <View style={styles.loadingContainer}><ActivityIndicator color={T.accent} size="large" /></View>
+      <View style={[styles.container, { paddingTop: insets.top + 52 }]}><ProfileSkeleton posts={2} /></View>
     );
   }
 
@@ -439,7 +450,7 @@ export default function ProfileTabScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]} onLayout={bubbleRefresh.onHeaderLayout}>
         <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.2}>Profile</Text>
         <Pressable
           onPress={handleGearPress}
@@ -453,10 +464,12 @@ export default function ProfileTabScreen() {
         </Pressable>
       </View>
 
-      <FlatList
+      <Animated.FlatList
         data={displayPosts}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
+        keyExtractor={(item: any) => item.id}
+        onScroll={bubbleRefresh.onScroll}
+        scrollEventThrottle={16}
+        renderItem={({ item }: { item: any }) => (
           <PostCard
             post={item}
             currentUserId={user?.id}
@@ -474,7 +487,7 @@ export default function ProfileTabScreen() {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.emptyState}><ActivityIndicator color={T.accent} /></View>
+            <FeedSkeleton count={3} />
           ) : (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
@@ -488,9 +501,10 @@ export default function ProfileTabScreen() {
         ListFooterComponent={loadingMore ? <View style={{ padding: 16 }}><ActivityIndicator color={T.accent} /></View> : null}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={T.accent} colors={[T.accent]} />}
+        refreshControl={bubbleRefresh.refreshControl}
         showsVerticalScrollIndicator={false}
       />
+      {bubbleRefresh.bubble}
       <RecapSheet visible={recapOpen} onClose={() => setRecapOpen(false)} />
     </View>
   );

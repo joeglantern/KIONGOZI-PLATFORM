@@ -2,8 +2,9 @@
 // Pull → it swings in and grows with your thumb, its dots filling in one by one (iOS follows the
 // finger; Android shows it the moment the refresh starts). Let go → a squash-and-bounce, then the
 // dots hop like someone typing while the feed loads. Done → a happy pop and it's gone.
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, StyleSheet, View, Platform, RefreshControl, LayoutChangeEvent } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 export function RefreshBubble({ pull, refreshing, color, top }: {
   /** 0..1 pull progress (iOS overscroll); null when the platform can't report it */
@@ -108,3 +109,55 @@ const styles = StyleSheet.create({
   tail: { position: 'absolute', left: 9, bottom: -3, width: 12, height: 12, borderRadius: 2, transform: [{ rotate: '45deg' }], zIndex: -1 },
   dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#000000' },
 });
+
+/**
+ * The feed's pull-to-refresh for any list. Use an Animated.FlatList / Animated.SectionList and pass
+ * `onScroll` + `refreshControl`, render `bubble` after the list, and put `onHeaderLayout` on the
+ * view above the list so the bubble appears just under it.
+ */
+export function useBubbleRefresh(run: () => Promise<unknown> | unknown, color: string, surface: string) {
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [refreshing, setRefreshing] = useState(false);
+  const [hold, setHold] = useState(false);
+  const [top, setTop] = useState(0);
+  const busy = useRef(false);
+  const latest = useRef(run);
+  latest.current = run;
+
+  const onRefresh = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    // The system spinner only catches the gesture; the bubble shows the loading
+    setHold(true);
+    requestAnimationFrame(() => setHold(false));
+    setRefreshing(true);
+    const started = Date.now();
+    try { await latest.current(); } catch {}
+    const left = 700 - (Date.now() - started); // let the dots hop at least once
+    if (left > 0) await new Promise(r => setTimeout(r, left));
+    setRefreshing(false);
+    busy.current = false;
+  }, []);
+
+  const onScroll = useMemo(
+    () => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
+    [scrollY],
+  );
+  const pull = useMemo(
+    () => (Platform.OS === 'ios'
+      ? scrollY.interpolate({ inputRange: [-110, -14], outputRange: [1, 0], extrapolate: 'clamp' })
+      : null),
+    [scrollY],
+  );
+  const onHeaderLayout = useCallback((e: LayoutChangeEvent) => {
+    const { y, height } = e.nativeEvent.layout;
+    setTop(y + height);
+  }, []);
+
+  const refreshControl = (
+    <RefreshControl refreshing={hold} onRefresh={onRefresh} tintColor="transparent" colors={[color]} progressBackgroundColor={surface} />
+  );
+  const bubble = <RefreshBubble pull={pull} refreshing={refreshing} color={color} top={top + 10} />;
+  return { onScroll, refreshControl, bubble, refreshing, onHeaderLayout, scrollY };
+}

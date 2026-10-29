@@ -17,6 +17,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+import { RowsSkeleton } from '../../components/social/Skeleton';
 import { BottomSheet } from '../../components/social/BottomSheet';
 
 function timeAgo(dateStr?: string): string {
@@ -288,7 +289,7 @@ export default function DMListScreen() {
       )}
 
       {conversationsLoading && conversations.length === 0 ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={T.accent} />
+        <RowsSkeleton count={8} avatar={52} label="Loading chats" />
       ) : (
         <FlatList
           data={visibleConversations}
@@ -355,7 +356,7 @@ export default function DMListScreen() {
             </View>
 
             {loadingFollowing ? (
-              <ActivityIndicator style={{ marginTop: 32 }} color={T.accent} />
+              <RowsSkeleton count={5} avatar={44} label="Loading people" />
             ) : (
               <FlatList
                 data={displayList}

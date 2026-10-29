@@ -2,7 +2,7 @@
 // split into New / Today / This week / Earlier, with filter chips, post previews and Follow back.
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, SectionList, Pressable, ActivityIndicator, RefreshControl, Image, ScrollView,
+  View, Text, StyleSheet, Pressable, ActivityIndicator, Image, ScrollView, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -14,6 +14,8 @@ import { supabase } from '../../utils/supabaseClient';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+import { RowsSkeleton } from '../../components/social/Skeleton';
+import { useBubbleRefresh } from '../../components/social/RefreshBubble';
 
 type Theme = ReturnType<typeof useTheme>;
 
@@ -325,6 +327,10 @@ export default function NotificationsScreen() {
     return out;
   }, [notifications]);
 
+  const { onScroll, refreshControl, bubble, refreshing, onHeaderLayout } = useBubbleRefresh(
+    () => fetchNotifications(true), T.accent, T.surface,
+  );
+
   const sections = useMemo(() => {
     const types = FILTERS.find(f => f.id === filter)?.types;
     return buildSections(types ? notifications.filter(n => types.includes(n.type)) : notifications);
@@ -358,7 +364,7 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      <View>
+      <View onLayout={onHeaderLayout}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           {FILTERS.map(f => {
             const on = filter === f.id;
@@ -380,19 +386,9 @@ export default function NotificationsScreen() {
       </View>
 
       {isLoading && notifications.length === 0 ? (
-        <View style={{ paddingTop: 8 }}>
-          {[0, 1, 2, 3, 4, 5].map(i => (
-            <View key={i} style={styles.skelRow}>
-              <View style={[styles.skelAvatar, { backgroundColor: T.surface2 }]} />
-              <View style={{ flex: 1, gap: 8 }}>
-                <View style={[styles.skelLine, { width: '80%', backgroundColor: T.surface2 }]} />
-                <View style={[styles.skelLine, { width: '45%', backgroundColor: T.surface2 }]} />
-              </View>
-            </View>
-          ))}
-        </View>
+        <RowsSkeleton count={7} avatar={44} label="Loading activity" />
       ) : (
-        <SectionList
+        <Animated.SectionList
           sections={sections}
           keyExtractor={r => r.key}
           stickySectionHeadersEnabled={false}
@@ -400,8 +396,10 @@ export default function NotificationsScreen() {
           renderItem={({ item }) => (
             <NotificationRow row={item} T={T} onPress={() => open(item)} onRemove={(id) => { markRead(id); removeNotification?.(id); }} />
           )}
-          refreshControl={<RefreshControl refreshing={isLoading && notifications.length > 0} onRefresh={() => fetchNotifications(true)} tintColor={T.accent} />}
-          onEndReached={() => { if (hasMore) fetchNotifications(false); }}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          refreshControl={refreshControl}
+          onEndReached={() => { if (hasMore && !refreshing) fetchNotifications(false); }}
           onEndReachedThreshold={0.4}
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -414,9 +412,10 @@ export default function NotificationsScreen() {
               </Text>
             </View>
           }
-          ListFooterComponent={isLoading && notifications.length > 0 ? <ActivityIndicator style={{ marginVertical: 24 }} color={T.accent} /> : <View style={{ height: 32 }} />}
+          ListFooterComponent={isLoading && notifications.length > 0 && !refreshing ? <ActivityIndicator style={{ marginVertical: 24 }} color={T.accent} /> : <View style={{ height: 32 }} />}
         />
       )}
+      {bubble}
     </View>
   );
 }
