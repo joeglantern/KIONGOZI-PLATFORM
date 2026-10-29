@@ -2,7 +2,7 @@
 // feed (pauses longer than 20s don't count), nudges once after 30 minutes, then not again until
 // you've been away from the app for 10 minutes. Can be turned off in Settings.
 import { AppState } from 'react-native';
-import { toast } from './alert';
+import { appSheet } from './alert';
 import { usePrefs } from '../stores/prefsStore';
 
 const LIMIT_MS = 30 * 60 * 1000;
@@ -34,9 +34,13 @@ export function noteFeedScroll() {
   const p = usePrefs.getState();
   if (!p.breakReminder || (p.features as any).break_reminder === false) return;
   nudged = true;
-  toast('You’ve been scrolling for 30 minutes', {
-    message: 'Good time to stretch, drink some water, or text a friend.',
-    duration: 7000,
-    action: { label: 'Thanks', onPress: () => {} },
+  appSheet({
+    image: require('../../assets/spots/spot-break.jpg'),
+    title: 'Time for a break?',
+    message: 'You’ve been scrolling for 30 minutes. Stretch, grab some chai, or text a friend. The feed will be here.',
+    buttons: [
+      { text: 'Keep scrolling', style: 'cancel' },
+      { text: 'Done for now', onPress: () => {} },
+    ],
   });
 }

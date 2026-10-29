@@ -24,6 +24,8 @@ export type SheetItem = {
   cancelable: boolean;
   /** Closed by tapping outside / back button */
   onDismiss?: () => void;
+  /** A small painting above the title (require('…jpg')) */
+  image?: any;
 };
 
 interface FeedbackState {
@@ -75,6 +77,11 @@ export function appAlert(title: string, message?: string, buttons?: AlertButton[
   useFeedback.getState().openSheet({ title, message, buttons: list, cancelable: options?.cancelable ?? true, onDismiss: options?.onDismiss });
 }
 
+/** A choice sheet with a painting on top (e.g. the break reminder) */
+export function appSheet(opts: { title: string; message?: string; buttons: AlertButton[]; image?: any; onDismiss?: () => void }) {
+  useFeedback.getState().openSheet({ ...opts, cancelable: true });
+}
+
 /** Short message at the bottom of the screen, with an optional action like "Undo" */
 export function toast(title: string, opts: { message?: string; kind?: ToastItem['kind']; action?: ToastItem['action']; duration?: number } = {}) {
   useFeedback.getState().showToast({
@@ -82,7 +89,7 @@ export function toast(title: string, opts: { message?: string; kind?: ToastItem[
     message: opts.message,
     kind: opts.kind ?? 'info',
     action: opts.action,
-    duration: opts.duration ?? (opts.action ? 5000 : 2800),
+    duration: opts.duration ?? (opts.action ? 6000 : 3200),
   });
 }
 
@@ -90,7 +97,7 @@ export function toast(title: string, opts: { message?: string; kind?: ToastItem[
  * "Undo" instead of "Are you sure?": hide it now, really do it after a few seconds unless Undo is tapped.
  * `hide` removes it from the screen, `restore` puts it back, `commit` does the real (server) work.
  */
-export function withUndo(label: string, steps: { hide: () => void; restore: () => void; commit: () => Promise<unknown> | void }, ms = 5000) {
+export function withUndo(label: string, steps: { hide: () => void; restore: () => void; commit: () => Promise<unknown> | void }, ms = 6000) {
   let undone = false;
   steps.hide();
   const timer = setTimeout(() => {

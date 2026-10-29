@@ -99,7 +99,12 @@ export default function DevicesScreen() {
             {current ? (
               <Section title="This phone" order={0}>
                 <Card>
-                  <Row icon={icon(current)} title={current.device} sub={`Signed in since ${since(current.signed_in_at)}`} />
+                  <Row
+                    icon={icon(current)}
+                    title={current.device}
+                    sub={`Signed in since ${since(current.signed_in_at)}`}
+                    right={<View style={[styles.chip, { backgroundColor: 'rgba(92,184,92,0.14)' }]}><Text style={[styles.chipText, { color: C.T.accent }]}>This device</Text></View>}
+                  />
                 </Card>
               </Section>
             ) : null}
@@ -107,7 +112,7 @@ export default function DevicesScreen() {
             <Section
               title="Other devices"
               order={1}
-              note={others.length ? 'Don’t recognise one? Sign it out, then change your password.' : undefined}
+              note={others.length ? 'Don’t recognise one? Sign it out, then change your password in Settings. Places are rough, based on the network.' : undefined}
             >
               <Card>
                 {others.length ? others.map(d => (
@@ -145,5 +150,7 @@ const styles = StyleSheet.create({
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontWeight: '700' },
   signOut: { fontSize: 14, fontWeight: '600', marginLeft: 8 },
+  chip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8 },
+  chipText: { fontSize: 12, fontWeight: '600' },
   skeleton: { height: 52, borderRadius: 12, margin: 6 },
 });

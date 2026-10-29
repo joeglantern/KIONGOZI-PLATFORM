@@ -1,8 +1,8 @@
 // Shows the in-app toast and choice sheet (see utils/alert.ts). Mounted once in App.tsx.
 // On iPhone it draws in a full-window overlay so it also appears over open modals.
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, Modal, useWindowDimensions } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
+import { View, Text, Pressable, StyleSheet, Platform, Modal, useWindowDimensions, Image } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -37,6 +37,7 @@ function ToastView() {
   const insets = useSafeAreaInsets();
   const isDark = useThemeStore(s => s.isDark);
   const y = useSharedValue(120);
+  const left = useSharedValue(1); // Undo window remaining (1 → 0)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shown, setShown] = useState(toast);
 
@@ -48,7 +49,9 @@ function ToastView() {
     }
     setShown(toast);
     if (toast.kind === 'error') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-    else if (toast.action) Haptics.selectionAsync().catch(() => {});
+    else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    left.value = 1;
+    if (toast.action) left.value = withTiming(0, { duration: toast.duration, easing: Easing.linear });
     y.value = 120;
     y.value = withSpring(0, { damping: 17, stiffness: 230 });
     timer.current = setTimeout(() => {
@@ -58,6 +61,7 @@ function ToastView() {
   }, [toast?.id]);
 
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }], opacity: y.value > 100 ? 0 : 1 }));
+  const bar = useAnimatedStyle(() => ({ width: `${left.value * 100}%` }));
   if (!shown) return null;
 
   const icon = shown.kind === 'error' ? 'alert-circle' : shown.kind === 'success' ? 'checkmark-circle' : null;
@@ -85,6 +89,12 @@ function ToastView() {
           >
             <Text style={styles.toastActionText}>{shown.action.label}</Text>
           </Pressable>
+        ) : null}
+        {shown.action ? (
+          // How long Undo is still possible
+          <View style={styles.countdownTrack} pointerEvents="none">
+            <Animated.View style={[styles.countdown, bar]} />
+          </View>
         ) : null}
       </Pressable>
     </Animated.View>
@@ -118,6 +128,11 @@ function SheetBody({ onPress }: { onPress: (b?: AlertButton) => void }) {
   return (
     <View style={[styles.sheet, { backgroundColor: T.surface, paddingBottom: insets.bottom + 12 }]}>
       <View style={[styles.grabber, { backgroundColor: T.border }]} />
+      {sheet.image ? (
+        <View style={styles.paintingWrap}>
+          <Image source={sheet.image} style={styles.painting} />
+        </View>
+      ) : null}
       {sheet.title ? <Text style={[styles.sheetTitle, { color: T.text }]}>{sheet.title}</Text> : null}
       {sheet.message ? <Text style={[styles.sheetMsg, { color: T.textSub }]}>{sheet.message}</Text> : null}
       <View style={{ height: 14 }} />
@@ -127,7 +142,11 @@ function SheetBody({ onPress }: { onPress: (b?: AlertButton) => void }) {
         return (
           <Pressable
             key={`${b.text}-${i}`}
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(b); }}
+            onPress={() => {
+              if (destructive) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+              else Haptics.selectionAsync().catch(() => {});
+              onPress(b);
+            }}
             style={({ pressed }) => [
               styles.btn,
               destructive ? { backgroundColor: 'rgba(255,69,58,0.12)' } : primary ? { backgroundColor: T.text } : { borderWidth: 1.5, borderColor: T.border },
@@ -201,13 +220,18 @@ function SheetModalAndroid() {
 const styles = StyleSheet.create({
   toastWrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
   toast: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 440, width: '100%',
+    flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 440, width: '100%', overflow: 'hidden',
     paddingVertical: 12, paddingHorizontal: 16, borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.10)',
     shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8,
   },
   toastTitle: { color: '#FFFFFF', fontSize: 14.5, fontWeight: '600' },
   toastMsg: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginTop: 2, lineHeight: 18 },
-  toastAction: { paddingHorizontal: 6, paddingVertical: 4 },
+  toastAction: { paddingHorizontal: 8, paddingVertical: 8, marginRight: -4 },
+  countdownTrack: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2 },
+  countdown: { height: 2, backgroundColor: 'rgba(92,184,92,0.55)' },
+  paintingWrap: { alignSelf: 'center', marginTop: 4, marginBottom: 14, transform: [{ rotate: '-2deg' }], shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
+  painting: { width: 112, height: 112, borderRadius: 18 },
   toastActionText: { color: '#5CB85C', fontSize: 15, fontWeight: '700' },
 
   backdrop: { backgroundColor: 'rgba(0,0,0,0.45)' },

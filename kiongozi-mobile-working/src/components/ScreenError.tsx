@@ -1,7 +1,7 @@
 // When one screen breaks, only that screen shows a calm card; the rest of the app keeps working.
 // The error is sent to crash reports with the screen's name.
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../hooks/useTheme';
@@ -40,8 +40,8 @@ function ErrorCard({ onRetry, onBack, retried }: { onRetry: () => void; onBack?:
   const bg = T.bg, text = T.text, sub = T.textSub, surface = T.surface;
   return (
     <View style={[styles.wrap, { backgroundColor: bg }]}>
-      <View style={[styles.icon, { backgroundColor: surface }]}>
-        <Ionicons name="bandage-outline" size={26} color={text} />
+      <View style={styles.paintingWrap}>
+        <Image source={require('../../assets/spots/spot-mended.jpg')} style={styles.painting} accessibilityIgnoresInvertColors />
       </View>
       <Text style={[styles.title, { color: text }]}>This screen hit a snag</Text>
       <Text style={[styles.body, { color: sub }]}>
@@ -63,7 +63,8 @@ function ErrorCard({ onRetry, onBack, retried }: { onRetry: () => void; onBack?:
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  icon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
+  paintingWrap: { marginBottom: 22, transform: [{ rotate: '-2deg' }], shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  painting: { width: 132, height: 132, borderRadius: 22 },
   title: { fontSize: 19, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
   body: { fontSize: 14.5, lineHeight: 21, textAlign: 'center', marginBottom: 26, maxWidth: 320 },
   primary: { alignSelf: 'stretch', height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', maxWidth: 340, width: '100%' },
