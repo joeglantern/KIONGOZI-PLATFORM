@@ -1,6 +1,7 @@
 // Explore: trending list, a photo/video mosaic, people to follow, then posts.
 // Search keeps recent searches on the device and shows people first.
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { TAB_LIST_INSET } from '../../navigation/tabInset';
 import {
   View, Text, TextInput, StyleSheet, FlatList, Pressable, ActivityIndicator,
   ScrollView, Image, useWindowDimensions, Animated,
@@ -381,7 +382,7 @@ export default function ExploreScreen() {
       </View>
 
       {showRecents ? (
-        <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} {...TAB_LIST_INSET}>
           {recents.length > 0 ? (
             <>
               <View style={styles.recentHead}>
@@ -409,7 +410,7 @@ export default function ExploreScreen() {
           )}
         </ScrollView>
       ) : isSuggesting ? (
-        <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} {...TAB_LIST_INSET}>
           {suggestedTags.map((h: any) => (
             <Pressable key={h.id} style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]} onPress={() => runSearch(`#${h.tag}`)}>
               <View style={styles.suggIconWrap}><Ionicons name="pricetag-outline" size={16} color={T.textSub} /></View>
@@ -439,6 +440,7 @@ export default function ExploreScreen() {
         </View>
       ) : isResults ? (
         <FlatList
+          {...TAB_LIST_INSET}
           data={resultItems}
           keyExtractor={(item) => `${item._type}_${item.id}`}
           keyboardShouldPersistTaps="handled"
@@ -480,6 +482,7 @@ export default function ExploreScreen() {
         />
       ) : (
         <Animated.FlatList
+          {...TAB_LIST_INSET}
           data={listPosts}
           keyExtractor={(item: Post) => item.id}
           onEndReached={() => { if (exploreCursor && !refreshing) fetchExploreFeed(); }}

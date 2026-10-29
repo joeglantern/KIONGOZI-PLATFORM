@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TAB_LIST_INSET } from '../../navigation/tabInset';
 import { noteFeedScroll } from '../../utils/breakReminder';
 import { deletePostWithUndo } from '../../utils/deletePost';
 import {
@@ -414,6 +415,7 @@ export default function FeedScreen() {
       >
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
           <Animated.FlatList
+            {...TAB_LIST_INSET}
             ref={(r: any) => { listRefs.current[0] = r; }}
             data={forYouRows}
             renderItem={renderPost}
@@ -451,6 +453,7 @@ export default function FeedScreen() {
 
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
           <Animated.FlatList
+            {...TAB_LIST_INSET}
             ref={(r: any) => { listRefs.current[1] = r; }}
             data={feedPosts}
             renderItem={renderPost}

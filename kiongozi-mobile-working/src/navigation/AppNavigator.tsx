@@ -4,6 +4,8 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Image, Animated, Platf
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeBottomTabNavigator } from '@bottom-tabs/react-navigation';
+import { NATIVE_TABS } from './tabInset';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, NavigationContainerRef, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -174,6 +176,21 @@ function AIChatTabIcon() {
 // ─── Bottom Tab Navigator ────────────────────────────────────────────────────
 
 const Tab = createBottomTabNavigator();
+// iPhone: Apple's own tab bar (Liquid Glass on iOS 26, shrinks while you scroll down)
+const NativeTab = createNativeBottomTabNavigator();
+const ROOT_SCREENS = new Set(['FeedMain', 'ExploreMain', 'NotificationsMain', 'ProfileMain']);
+
+/** Name of the screen actually showing (deepest focused route). */
+function focusedLeaf(state: any): string | undefined {
+  let st = state;
+  let name: string | undefined;
+  while (st?.routes) {
+    const r = st.routes[st.index ?? 0];
+    name = r?.name;
+    st = r?.state;
+  }
+  return name;
+}
 
 function EmptyScreen() {
   return <View />;
@@ -185,12 +202,13 @@ interface AppNavigatorProps {
 
 export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorProps = {}) {
   const [chatVisible, setChatVisible] = useState(false);
+  const [tabBarHidden, setTabBarHidden] = useState(false);
   // Ads and links can open Kiongozi AI (kchat://ai)
   useEffect(() => onAppEvent('openAI', () => setChatVisible(true)), []);
   const forceUpdate = useForceUpdate();
   const internalNavRef = useRef<NavigationContainerRef<any>>(null);
   const navRef = externalNavRef ?? internalNavRef;
-  const { addNotification, fetchNotifications } = useNotificationStore();
+  const { addNotification, fetchNotifications, unreadCount } = useNotificationStore();
   const { user, sessionExpired } = useAuthStore();
   const insets = useSafeAreaInsets();
   const T = useTheme();
@@ -260,7 +278,42 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 
   return (
     <View style={styles.root}>
-      <NavigationContainer ref={navRef} theme={navTheme} linking={linking} onReady={() => { storyNav.current = navRef.current as any; }}>
+      <NavigationContainer
+        ref={navRef}
+        theme={navTheme}
+        linking={linking}
+        onReady={() => { storyNav.current = navRef.current as any; }}
+        onStateChange={st => {
+          if (!NATIVE_TABS) return;
+          const leaf = focusedLeaf(st);
+          // a tab that hasn't been opened yet has no nested state: its root is showing
+          setTabBarHidden(!!leaf && !ROOT_SCREENS.has(leaf) && !['Feed', 'Explore', 'Notifications', 'Profile'].includes(leaf));
+        }}
+      >
+        {NATIVE_TABS ? (
+          <NativeTab.Navigator
+            tabBarHidden={tabBarHidden}
+            minimizeBehavior="onScrollDown"
+            hapticFeedbackEnabled
+            tabBarActiveTintColor={isDark ? '#FFFFFF' : '#111111'}
+            screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}
+          >
+            <NativeTab.Screen name="Feed" component={FeedStackNavigator} options={{ title: 'Home', tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'house.fill' : 'house' }) }} />
+            <NativeTab.Screen name="Explore" component={ExploreStackNavigator} options={{ title: 'Explore', tabBarIcon: () => ({ sfSymbol: 'magnifyingglass' }) }} />
+            <NativeTab.Screen
+              name="AIChat"
+              component={EmptyScreen}
+              options={{ title: 'Kiongozi', preventsDefault: true, tabBarIcon: () => ({ sfSymbol: 'sparkles' }) }}
+              listeners={{ tabPress: () => setChatVisible(true) }}
+            />
+            <NativeTab.Screen
+              name="Notifications"
+              component={NotificationsStackNavigator}
+              options={{ title: 'Activity', tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : String(unreadCount)) : undefined, tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'heart.fill' : 'heart' }) }}
+            />
+            <NativeTab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: 'Profile', tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'person.crop.circle.fill' : 'person.crop.circle' }) }} />
+          </NativeTab.Navigator>
+        ) : (
         <Tab.Navigator
           screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}
           screenOptions={({ route }) => ({
@@ -311,6 +364,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
           <Tab.Screen name="Notifications" component={NotificationsStackNavigator} />
           <Tab.Screen name="Profile" component={ProfileStackNavigator} />
         </Tab.Navigator>
+        )}
       </NavigationContainer>
 
       {/* Stories: viewer and composer, opened from anywhere via the story store */}

@@ -1,6 +1,7 @@
 import { appAlert } from '../../utils/alert';
 import { deletePostWithUndo, hideFromList } from '../../utils/deletePost';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TAB_LIST_INSET } from '../../navigation/tabInset';
 import {
   View, Text, Pressable, StyleSheet, FlatList,
   Animated, ActivityIndicator, RefreshControl, Image, Share,
@@ -465,6 +466,7 @@ export default function ProfileTabScreen() {
       </View>
 
       <Animated.FlatList
+        {...TAB_LIST_INSET}
         data={displayPosts}
         keyExtractor={(item: any) => item.id}
         onScroll={bubbleRefresh.onScroll}

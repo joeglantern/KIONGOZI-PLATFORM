@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kiongozi Chat",
     "slug": "kiongozi-mobile-working",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Kenya's civic social network — connect with youth, share your voice, and chat with an AI guide on governance, civic rights, and the green economy.",
     "orientation": "portrait",
     "icon": "./assets/party-icon.png",
@@ -17,24 +17,24 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kiongozi.chat",
-      "buildNumber": "12",
+      "buildNumber": "14",
       "usesAppleSignIn": true,
-      "associatedDomains": ["applinks:api.kiongozi.org"],
+      "associatedDomains": [
+        "applinks:api.kiongozi.org"
+      ],
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice input functionality.",
-        "NSSpeechRecognitionUsageDescription": "This app needs access to speech recognition to convert your voice to text.",
-        "NSPhotoLibraryUsageDescription": "Kiongozi needs access to your photo library to share images and videos in posts.",
-        "NSCameraUsageDescription": "Kiongozi needs access to your camera to take photos and videos for posts.",
-        "NSPhotoLibraryAddUsageDescription": "Kiongozi needs permission to save media to your photo library.",
+        "NSPhotoLibraryUsageDescription": "Kiongozi opens your photo library when you choose a photo or video to attach to a post or message, or to set your profile picture, for example a photo from a community clean-up you are posting about.",
+        "NSCameraUsageDescription": "Kiongozi uses your camera when you choose to take a photo for a message or film a clip for Mzinga, for example a picture of a notice from your county office.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "NSMicrophoneUsageDescription": "Kiongozi uses your microphone to record sound when you film a clip for Mzinga, for example a short video of a youth meeting with what people said."
       }
     },
     "android": {
       "package": "com.kiongozi.mobile",
-      "versionCode": 13,
+      "versionCode": 14,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -46,7 +46,10 @@
               "pathPrefix": "/posts"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -77,8 +80,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Kiongozi needs access to your photo library to share images and videos.",
-          "cameraPermission": "Kiongozi needs access to your camera to capture photos and videos."
+          "photosPermission": "Kiongozi opens your photo library when you choose a photo or video to attach to a post or message, or to set your profile picture, for example a photo from a community clean-up you are posting about.",
+          "cameraPermission": "Kiongozi uses your camera when you choose to take a photo for a message or film a clip for Mzinga, for example a picture of a notice from your county office.",
+          "microphonePermission": "Kiongozi uses your microphone to record sound when you film a clip for Mzinga, for example a short video of a youth meeting with what people said."
         }
       ],
       [
@@ -97,7 +101,13 @@
         }
       ],
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Kiongozi uses your microphone to record sound when you film a clip for Mzinga, for example a short video of a youth meeting with what people said."
+        }
+      ]
     ],
     "owner": "afosi",
     "extra": {

@@ -1,6 +1,7 @@
 // Activity: notifications grouped like modern apps ("mercy and 12 others liked your post"),
 // split into New / Today / This week / Earlier, with filter chips, post previews and Follow back.
 import React, { useEffect, useMemo, useState } from 'react';
+import { TAB_LIST_INSET } from '../../navigation/tabInset';
 import {
   View, Text, StyleSheet, Pressable, ActivityIndicator, Image, ScrollView, Animated,
 } from 'react-native';
@@ -396,6 +397,7 @@ export default function NotificationsScreen() {
         <RowsSkeleton count={7} avatar={44} label="Loading activity" />
       ) : (
         <Animated.SectionList
+          {...TAB_LIST_INSET}
           sections={sections}
           keyExtractor={r => r.key}
           stickySectionHeadersEnabled={false}
