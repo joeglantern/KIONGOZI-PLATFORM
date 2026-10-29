@@ -16,6 +16,7 @@ import { VerifiedBadge } from './VerifiedBadge';
 import { FeedVideo } from './FeedVideo';
 import { FitImage, VideoTile, useImageRatio } from './media';
 import { toggleInteraction, markInteraction } from '../../stores/interactionSync';
+import { useStoryStore } from '../../stores/storyStore';
 
 const LIKE_RED = '#FF3040';
 
@@ -226,6 +227,7 @@ export function PostCard({
   const repostScale = useRef(new Animated.Value(1)).current;
   const [repostSheetOpen, setRepostSheetOpen] = useState(false);
   const [optionsSheetOpen, setOptionsSheetOpen] = useState(false);
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Double-tap to like
@@ -358,6 +360,29 @@ export function PostCard({
       });
     } catch {}
   }, [activePost.id, activePost.content, activePost.profiles?.full_name]);
+
+  // Share button: add the post to your story (IG style) or share it outside the app
+  const openShareSheet = useCallback(() => {
+    Haptics.selectionAsync();
+    setShareSheetOpen(true);
+  }, []);
+  const addToStory = useCallback(() => {
+    const m = [...(activePost.post_media ?? [])].sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))[0];
+    const p = activePost.profiles;
+    useStoryStore.getState().openComposerWith({
+      post: {
+        id: activePost.id,
+        username: p?.username ?? '',
+        full_name: p?.full_name ?? null,
+        avatar_url: p?.avatar_url ?? null,
+        is_verified: !!p?.is_verified,
+        text: (activePost.content || '').slice(0, 280),
+        image: m ? ((m.media_type === 'video' ? m.thumbnail_url : m.url) || null) : null,
+      },
+    });
+  }, [activePost]);
+  // Only public posts can go on a story (the server checks too)
+  const canStory = (activePost.visibility ?? 'public') === 'public';
 
   const handleBookmark = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -590,7 +615,7 @@ export function PostCard({
 
             <Pressable
               style={({ pressed }) => [styles.action, actionBox, pressed && styles.actionPressed]}
-              onPress={handleShare}
+              onPress={canStory ? openShareSheet : handleShare}
               hitSlop={hit}
               accessibilityRole="button"
               accessibilityLabel="Share"
@@ -663,6 +688,16 @@ export function PostCard({
         ] : [
           { label: 'Repost',     icon: 'repeat-outline',  onPress: doRepost },
           { label: 'Quote Post', icon: 'create-outline',  onPress: () => setQuoteVisible(true) },
+        ]}
+      />
+
+      {/* Share sheet */}
+      <ActionSheet
+        visible={shareSheetOpen}
+        onClose={() => setShareSheetOpen(false)}
+        items={[
+          { label: 'Add to story', icon: 'add-circle-outline', onPress: addToStory },
+          { label: 'Share via…', icon: 'share-outline', onPress: handleShare },
         ]}
       />
 

@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import apiClient from './apiClient';
+import { useStoryStore } from '../stores/storyStore';
 
 export async function registerForPushNotifications(): Promise<string | null> {
   // Remote push notifications were removed from Expo Go on Android in SDK 53.
@@ -95,6 +96,11 @@ export function setupNotificationHandlers(navigation: any): () => void {
           participantAvatar:   fromAvatar,
         },
       });
+    } else if (data?.story_id && fromUserId) {
+      // Story mention / countdown reminder: open their stories, or their profile once they've expired
+      useStoryStore.getState().openUser(fromUserId).then(ok => {
+        if (!ok && fromUsername) navigation.navigate('Notifications', { screen: 'PublicProfile', params: { username: fromUsername } });
+      }).catch(() => {});
     } else if (postId) {
       navigation.navigate('Notifications', {
         screen: 'PostDetail',

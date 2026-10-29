@@ -5,7 +5,7 @@ import { appAlert } from '../../utils/alert';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, Animated, Dimensions, TextInput,
-  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Keyboard, StatusBar, Share, Linking,
+  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Keyboard, StatusBar, Share, Linking, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing, SharedValue } from 'react-native-reanimated';
@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useStoryStore, StoryGroup, Story } from '../../stores/storyStore';
+import { useStoryStore, StoryGroup, Story, StoryOverlay } from '../../stores/storyStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore } from '../../stores/socialStore';
 import ReportModal from '../../screens/social/ReportModal';
@@ -22,7 +22,8 @@ import apiClient from '../../utils/apiClient';
 import { setFeedPaused } from '../social/videoPlayback';
 import { UserAvatar } from '../social/UserAvatar';
 import { VerifiedBadge } from '../social/VerifiedBadge';
-import { StoryBackground, StoryText, StoryOverlays, POLL_H, FramedMedia, mediaFrameOf, LinkPill, LINK_H, linkLabel } from './StoryParts';
+import { StoryBackground, StoryText, StoryOverlays, POLL_H, FramedMedia, mediaFrameOf, LinkPill, LINK_H, linkLabel, CLOSE_RING } from './StoryParts';
+import { MentionPill, QuestionCard, SliderCard, CountdownCard, PostSticker, stickerSize, isInteractive, QUESTION_COLORS } from './StoryStickers';
 import { PollCard, POLL_W } from './PollCard';
 import { REACTIONS, storyAge, storyNav } from './storyAssets';
 
@@ -34,6 +35,8 @@ const { width: W, height: H } = Dimensions.get('window'); // first guess only (m
 // is a different height from Dimensions 'window', which put the reply bar and likes in odd places.
 const SizeCtx = createContext({ W, H });
 const useSize = () => useContext(SizeCtx);
+// Stops paging between people while a finger is on the emoji slider
+const ScrollLockCtx = createContext<(locked: boolean) => void>(() => {});
 const IMAGE_MS = 5000;
 const textMs = (t?: string | null) => Math.min(10000, 5000 + (t?.length ?? 0) * 40);
 // Viewers sheet: 470 by design, but never more than ~62% of the screen so the shrunken story
@@ -80,6 +83,7 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
   const [page, setPage] = useState(Math.max(0, startIndex));
   const scrollX = useRef(new Animated.Value(startIndex * W)).current;
   const drag = useSharedValue(0); // swipe-down distance, driven on the UI thread
+  const [locked, setLocked] = useState(false);
 
   const goPage = useCallback((next: number) => {
     if (next < 0) return;
@@ -122,12 +126,14 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
       <StatusBar barStyle="light-content" />
       <GestureDetector gesture={dismiss}>
       <Reanimated.View style={[{ flex: 1 }, cardStyle]}>
+        <ScrollLockCtx.Provider value={setLocked}>
         <Animated.FlatList
           ref={listRef as any}
           data={groups}
           horizontal
           pagingEnabled
           bounces={false}
+          scrollEnabled={!locked}
           showsHorizontalScrollIndicator={false}
           initialScrollIndex={Math.max(0, startIndex)}
           getItemLayout={(_, i) => ({ length: W, offset: W * i, index: i })}
@@ -157,6 +163,7 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
             );
           }}
         />
+        </ScrollLockCtx.Provider>
       </Reanimated.View>
       </GestureDetector>
     </Reanimated.View>
@@ -169,7 +176,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   const insets = useSafeAreaInsets();
   const { W, H } = useSize();
   const { user } = useAuthStore();
-  const { markSeen, setReaction, removeStory, setPoll } = useStoryStore();
+  const { markSeen, setReaction, removeStory, setPoll, setSlider, setReminded } = useStoryStore();
   const stories = group.stories;
   const isMine = group.user.id === user?.id;
 
@@ -187,7 +194,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   const [muted, setMuted] = useState(false);
   const [report, setReport] = useState<null | { type: 'story' | 'user'; id: string }>(null); // report modal target
   const [videoMs, setVideoMs] = useState<number | null>(null);
-  const paused = !active || holding || typing || sheet || !!report || !ready;
+  const [answering, setAnswering] = useState<StoryOverlay | null>(null); // question box being answered
+  const paused = !active || holding || typing || sheet || !!report || !ready || !!answering;
   const muteUser = useSocialStore(s => s.muteUser);
 
   // Own story + viewers sheet: the story shrinks into a small card above the sheet (UI thread)
@@ -276,11 +284,35 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   }, [idx]);
 
   // Leaving this person: stop where we are
-  useEffect(() => { if (!active) setTyping(false); }, [active]);
+  useEffect(() => { if (!active) { setTyping(false); setAnswering(null); } }, [active]);
 
   if (!story) return null;
 
   const onTap = (x: number) => (x < W * 0.3 ? prev() : next());
+
+  // Mention / post stickers leave the viewer for the profile or the post
+  const goTo = (screen: 'PublicProfile' | 'PostDetail', params: Record<string, any>) => {
+    const nav = storyNav.current;
+    if (!nav) return;
+    Haptics.selectionAsync().catch(() => {});
+    onClose();
+    nav.navigate('Feed', { screen, params });
+  };
+
+  const slide = async (v: number) => {
+    const before = story.slider || { avg: null, count: 0, mine: null };
+    const count = before.count + 1;
+    setSlider(story.id, { avg: ((before.avg ?? 0) * before.count + v) / count, count, mine: v });
+    const r: any = await apiClient.slideStory(story.id, v).catch(() => null);
+    setSlider(story.id, r?.success ? r.data : before);
+  };
+
+  const toggleRemind = async () => {
+    const was = !!story.countdown?.reminded;
+    setReminded(story.id, !was);
+    const r: any = await apiClient.remindStoryCountdown(story.id, !was).catch(() => null);
+    if (!r?.success) { setReminded(story.id, was); appAlert('Could not save', r?.error || 'Try again.'); }
+  };
 
   const confirmDelete = () => {
     setHolding(true);
@@ -440,6 +472,46 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         );
       })}
 
+      {/* Mention, question, slider, countdown and post stickers: live, above the tap zones */}
+      {(story.overlays || []).map((o, i) => {
+        if (!isInteractive(o)) return null;
+        const k = W / 390;
+        let body: React.ReactNode = null;
+        if (o.type === 'mention' && o.text) {
+          body = (
+            <Pressable onPress={() => goTo('PublicProfile', { username: o.text })} style={({ pressed }) => pressed && { transform: [{ scale: 0.96 }] }}
+              accessibilityRole="link" accessibilityLabel={`Open @${o.text}'s profile`}>
+              <MentionPill username={o.text} k={k} />
+            </Pressable>
+          );
+        } else if (o.type === 'question') {
+          body = (
+            <QuestionCard prompt={o.text || ''} color={o.bg} avatarUrl={group.user.avatar_url} name={group.user.full_name || group.user.username} k={k}
+              onPress={() => (isMine ? setSheet(true) : setAnswering(o))} />
+          );
+        } else if (o.type === 'slider') {
+          body = (
+            <SliderCard question={o.text} emoji={o.emoji} k={k} mine={story.slider?.mine} avg={story.slider?.avg} count={story.slider?.count}
+              showResults={isMine} onSlide={isMine ? undefined : slide} />
+          );
+        } else if (o.type === 'countdown' && o.ends_at) {
+          body = <CountdownCard title={o.text} endsAt={o.ends_at} k={k} reminded={story.countdown?.reminded} onToggleRemind={isMine ? undefined : toggleRemind} live={active} />;
+        } else if (o.type === 'post' && o.post) {
+          body = (
+            <Pressable onPress={() => goTo('PostDetail', { postId: o.post!.id })} style={({ pressed }) => pressed && { transform: [{ scale: 0.97 }] }}
+              accessibilityRole="button" accessibilityLabel={`Open @${o.post.username}'s post`}>
+              <PostSticker post={o.post} k={k} />
+            </Pressable>
+          );
+        }
+        if (!body) return null;
+        return (
+          <StickerSlot key={`s${i}`} o={o} minTop={insets.top + 64} maxBottom={footerTop - 12} hidden={longHold || sheet || typing || !!answering} onHold={setHolding}>
+            {body}
+          </StickerSlot>
+        );
+      })}
+
       {/* Chrome */}
       <View style={[styles.chrome, { opacity: longHold ? 0 : 1 }]} pointerEvents={sheet ? 'none' : 'box-none'}>
       <Reanimated.View style={[styles.chrome, chromeFade]} pointerEvents="box-none">
@@ -465,6 +537,11 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             <Text style={styles.username} numberOfLines={1}>{isMine ? 'Your story' : group.user.username}</Text>
             {group.user.is_verified && !isMine && <VerifiedBadge size={14} />}
             <Text style={styles.age}>{storyAge(story.created_at)}</Text>
+            {story.audience === 'close_friends' && (
+              <View style={styles.closeBadge} accessibilityLabel="Close friends">
+                <Ionicons name="star" size={10} color="#fff" />
+              </View>
+            )}
           </View>
           {story.media_type === 'video' && (
             <Pressable style={styles.iconBtn} onPress={() => setMuted(m => !m)} accessibilityLabel={muted ? 'Unmute' : 'Mute'}>
@@ -515,6 +592,15 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
           onCloseViewer={onClose}
         />
       )}
+      {answering && (
+        <AnswerSheet
+          storyId={story.id}
+          prompt={answering.text || ''}
+          color={answering.bg}
+          to={group.user.username}
+          onClose={() => setAnswering(null)}
+        />
+      )}
       {report && (
         <ReportModal
           target={{ type: report.type, id: report.id, displayName: report.type === 'story' ? `@${group.user.username}'s story` : group.user.username }}
@@ -522,6 +608,99 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         />
       )}
     </View>
+  );
+}
+
+/**
+ * Places a live sticker at its x/y, kept between the header and the bottom controls (it may have
+ * been dragged low in the composer, and screens differ). Touching it pauses the story.
+ */
+function StickerSlot({ o, minTop, maxBottom, hidden, onHold, children }: {
+  o: StoryOverlay; minTop: number; maxBottom: number; hidden: boolean; onHold: (h: boolean) => void; children: React.ReactNode;
+}) {
+  const { W, H } = useSize();
+  const lock = useContext(ScrollLockCtx);
+  const [h, setH] = useState(() => stickerSize(o, W / 390)?.h ?? 100);
+  const hold = (on: boolean) => { onHold(on); if (o.type === 'slider') lock(on); };
+  const half = (h * (o.scale || 1)) / 2;
+  const minC = minTop + half, maxC = maxBottom - half;
+  const cy = maxC >= minC ? Math.min(maxC, Math.max(minC, o.y * H)) : (minC + maxC) / 2;
+  return (
+    <View
+      pointerEvents={hidden ? 'none' : 'box-none'}
+      style={{ position: 'absolute', left: 0, width: W, top: cy - h / 2, alignItems: 'center', opacity: hidden ? 0 : 1,
+        transform: [{ translateX: (o.x - 0.5) * W }, { rotate: `${o.rotation || 0}deg` }, { scale: o.scale || 1 }] }}
+    >
+      <View
+        onLayout={e => { const nh = e.nativeEvent.layout.height; if (Math.abs(nh - h) > 1) setH(nh); }}
+        onTouchStart={() => hold(true)} onTouchEnd={() => hold(false)} onTouchCancel={() => hold(false)}
+      >
+        {children}
+      </View>
+    </View>
+  );
+}
+
+/** Answer a question box: the card with a text field; the answer goes to the author's viewers sheet. */
+function AnswerSheet({ storyId, prompt, color, to, onClose }: {
+  storyId: string; prompt: string; color?: string; to: string; onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [text, setText] = useState('');
+  const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [kb, setKb] = useState(0);
+  const pop = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(pop, { toValue: 1, useNativeDriver: true, damping: 16, stiffness: 240 }).start();
+    if (Platform.OS !== 'android') return;
+    // Edge-to-edge modal: lift above the keyboard ourselves (as the reply bar does)
+    const show = Keyboard.addListener('keyboardDidShow', e => setKb(e.endCoordinates?.height || 0));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKb(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  const send = async () => {
+    const t = text.trim();
+    if (!t || state !== 'idle') return;
+    setState('sending');
+    const r: any = await apiClient.answerStoryQuestion(storyId, t).catch(() => null);
+    if (r?.success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setState('sent');
+      Keyboard.dismiss();
+      setTimeout(onClose, 900);
+    } else {
+      setState('idle');
+      appAlert("Couldn't send", r?.error || 'Check your connection and try again.');
+    }
+  };
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[StyleSheet.absoluteFill, styles.answerWrap, { paddingTop: insets.top + 40, paddingBottom: kb ? kb + 16 : insets.bottom + 40 }]}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => { Keyboard.dismiss(); onClose(); }} accessibilityLabel="Close" />
+      <Animated.View style={[styles.answerCard, { opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] }]}>
+        <View style={[styles.answerHead, { backgroundColor: color || QUESTION_COLORS[0] }]}>
+          <Text style={styles.answerPrompt} numberOfLines={3}>{prompt}</Text>
+        </View>
+        {state === 'sent' ? (
+          <View style={styles.answerSent}>
+            <Ionicons name="checkmark-circle" size={22} color="#1DB954" />
+            <Text style={styles.answerSentText}>Imetumwa kwa @{to}</Text>
+          </View>
+        ) : (
+          <View style={styles.answerRow}>
+            <TextInput
+              autoFocus value={text} onChangeText={setText} placeholder="Andika jibu…" placeholderTextColor="#8E8E93"
+              style={styles.answerInput} multiline maxLength={300}
+            />
+            <Pressable onPress={send} disabled={!text.trim() || state !== 'idle'} style={[styles.answerSend, (!text.trim() || state !== 'idle') && { opacity: 0.4 }]}
+              accessibilityLabel="Send answer">
+              {state === 'sending' ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="arrow-up" size={20} color="#fff" />}
+            </Pressable>
+          </View>
+        )}
+      </Animated.View>
+      <Text style={styles.answerNote}>@{to} ndiye pekee atakayeona jibu lako</Text>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -700,6 +879,9 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
   const insets = useSafeAreaInsets();
   const [rows, setRows] = useState<any[] | null>(null);
   const [count, setCount] = useState(story.view_count ?? 0);
+  const [responses, setResponses] = useState<any[]>([]);
+  const [sliderStats, setSliderStats] = useState<{ avg: number | null; count: number } | null>(null);
+  const sliderEmoji = story.overlays?.find(o => o.type === 'slider')?.emoji || '😍';
   const [sort, setSort] = useState<'reactions' | 'recent'>('reactions');
   const [opening, setOpening] = useState<string | null>(null);
   const canMessage = !!storyNav.current;
@@ -707,7 +889,10 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
   useEffect(() => {
     progress.value = withSpring(1, { damping: 24, stiffness: 220 });
     apiClient.getStoryViewers(story.id).then((r: any) => {
-      if (r.success) { setRows(r.data.viewers || []); setCount(r.data.count ?? 0); } else setRows([]);
+      if (r.success) {
+        setRows(r.data.viewers || []); setCount(r.data.count ?? 0);
+        setResponses(r.data.responses || []); setSliderStats(r.data.slider || null);
+      } else setRows([]);
     }).catch(() => setRows([]));
   }, [story.id]);
 
@@ -769,13 +954,48 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
         </View>
         {shown === null ? (
           <ActivityIndicator color="#fff" style={{ marginTop: 24 }} />
-        ) : shown.length === 0 ? (
+        ) : shown.length === 0 && !responses.length ? (
           <Text style={styles.sheetEmpty}>Bado hakuna aliyeona. Shiriki zaidi!</Text>
         ) : (
           <FlatList
             data={shown}
             keyExtractor={(r, i) => r.profiles?.id || String(i)}
             contentContainerStyle={{ paddingHorizontal: 8 }}
+            ListHeaderComponent={(responses.length || sliderStats) ? (
+              <View style={{ paddingBottom: 6 }}>
+                {!!sliderStats && (
+                  <View style={styles.sliderSum} accessibilityLabel={`Slider average ${Math.round((sliderStats.avg ?? 0) * 100)} percent`}>
+                    <Text style={{ fontSize: 22 }}>{sliderEmoji}</Text>
+                    <View style={styles.sliderSumTrack}>
+                      <View style={[styles.sliderSumFill, { width: `${Math.round((sliderStats.avg ?? 0) * 100)}%` }]} />
+                    </View>
+                    <Text style={styles.sliderSumText}>{sliderStats.count ? `${Math.round((sliderStats.avg ?? 0) * 100)}% · ${sliderStats.count}` : 'Bado'}</Text>
+                  </View>
+                )}
+                {responses.length > 0 && (
+                  <>
+                    <Text style={styles.respTitle}>Majibu · {responses.length}</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }}>
+                      {responses.map((a: any) => {
+                        const p = a.profiles;
+                        return (
+                          <Pressable key={a.id} onPress={() => message(p)} disabled={!canMessage}
+                            style={({ pressed }) => [styles.respCard, pressed && { transform: [{ scale: 0.97 }] }]}
+                            accessibilityLabel={`Answer from ${p?.username}: ${a.answer}. Tap to reply.`}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <UserAvatar avatarUrl={p?.avatar_url} size={22} name={p?.full_name || p?.username} />
+                              <Text style={styles.respName} numberOfLines={1}>{p?.username}</Text>
+                            </View>
+                            <Text style={styles.respText} numberOfLines={4}>{a.answer}</Text>
+                            {canMessage && <Text style={styles.respReply}>{opening === p?.id ? 'Inafungua…' : 'Jibu kwa DM'}</Text>}
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
+                )}
+              </View>
+            ) : null}
             renderItem={({ item }) => {
               const p = item.profiles;
               const name = p?.full_name || p?.username;
@@ -786,6 +1006,12 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
                     <Text style={styles.viewerName} numberOfLines={1}>{name}</Text>
                     <Text style={styles.viewerSub} numberOfLines={1}>@{p?.username} · {storyAge(item.viewed_at)}</Text>
                   </View>
+                  {item.slide !== undefined && (
+                    <View style={styles.viewerSlide}>
+                      <Text style={{ fontSize: 15 }}>{sliderEmoji}</Text>
+                      <Text style={styles.viewerSlideText}>{Math.round(item.slide * 100)}%</Text>
+                    </View>
+                  )}
                   {!!item.reaction && <Text style={{ fontSize: 22 }}>{item.reaction}</Text>}
                   {canMessage && !!p?.id && (
                     <Pressable style={styles.viewerMsg} onPress={() => message(p)} accessibilityLabel={`Message ${name}`}>
@@ -848,5 +1074,27 @@ const styles = StyleSheet.create({
   sheetEmpty: { color: '#8E8E93', textAlign: 'center', marginTop: 24, marginBottom: 24, fontSize: 15 },
   viewerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 9 },
   viewerName: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  closeBadge: { width: 18, height: 18, borderRadius: 9, backgroundColor: CLOSE_RING[0], alignItems: 'center', justifyContent: 'center' },
+  answerWrap: { backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  answerCard: { width: '100%', maxWidth: 340, backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden' },
+  answerHead: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 16 },
+  answerPrompt: { color: '#fff', fontSize: 19, lineHeight: 24, fontWeight: '800', textAlign: 'center' },
+  answerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10 },
+  answerInput: { flex: 1, minHeight: 44, maxHeight: 120, borderRadius: 14, backgroundColor: '#F1F1F3', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12, color: '#111', fontSize: 15 },
+  answerSend: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
+  answerSent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 64 },
+  answerSentText: { color: '#111', fontSize: 15, fontWeight: '700' },
+  answerNote: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 12, fontWeight: '600' },
+  sliderSum: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 12, marginBottom: 8, padding: 12, borderRadius: 16, backgroundColor: '#1C1C1E' },
+  sliderSumTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#3A3A3C', overflow: 'hidden' },
+  sliderSumFill: { height: '100%', borderRadius: 3, backgroundColor: '#FF5A5F' },
+  sliderSumText: { color: '#fff', fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  respTitle: { color: '#AEAEB2', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', paddingHorizontal: 14, paddingTop: 4, paddingBottom: 8 },
+  respCard: { width: 188, minHeight: 104, borderRadius: 16, backgroundColor: '#1C1C1E', padding: 12, gap: 8 },
+  respName: { color: '#fff', fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  respText: { color: '#fff', fontSize: 14, lineHeight: 19, flex: 1 },
+  respReply: { color: '#8E8E93', fontSize: 12, fontWeight: '600' },
+  viewerSlide: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, height: 26, borderRadius: 13, backgroundColor: '#1C1C1E' },
+  viewerSlideText: { color: '#fff', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
   viewerSub: { color: '#8E8E93', fontSize: 13 },
 });

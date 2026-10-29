@@ -35,6 +35,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useForceUpdate, openStore } from '../hooks/useForceUpdate';
 import { StoryViewer } from '../components/stories/StoryViewer';
 import { StoryComposer } from '../components/stories/StoryComposer';
+import { MzingaHost } from '../components/mzinga/MzingaHive';
 import { storyNav } from '../components/stories/storyAssets';
 import { OrbVideo } from '../components/ai/OrbVideo';
 import { useProfileStore } from '../stores/profileStore';
@@ -315,6 +316,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
       {/* Stories: viewer and composer, opened from anywhere via the story store */}
       <StoryViewer />
       <StoryComposer />
+      <MzingaHost />
       <ConfettiHost />
 
       {/* Kiongozi AI Chat Modal — fullscreen */}

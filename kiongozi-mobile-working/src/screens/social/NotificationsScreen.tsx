@@ -13,6 +13,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
+import { useStoryStore } from '../../stores/storyStore';
 import { useTheme } from '../../hooks/useTheme';
 import { RowsSkeleton } from '../../components/social/Skeleton';
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
@@ -243,7 +244,8 @@ function ReplyActions({ item, T }: { item: SocialNotification; T: Theme }) {
 function NotificationRow({ row, onPress, onRemove, T }: { row: Row; onPress: () => void; onRemove: (id: string) => void; T: Theme }) {
   const first = row.items[0];
   const others = row.items.length - 1;
-  const action = ACTION[row.type];
+  const action: [string, string] | undefined = row.type === 'mention' && first.data?.story_id
+    ? ['alikutaja kwenye story', 'walikutaja kwenye story'] : ACTION[row.type];
   const name = first.fromUsername || '';
   const hasPost = ['like', 'repost', 'comment', 'mention'].includes(row.type) && !!first.postId;
   const isRequest = row.type === 'follow_request' && !first.read;
@@ -341,6 +343,11 @@ export default function NotificationsScreen() {
     const item = row.items[0];
     if (item.type === 'dm' && item.conversationId) {
       navigation.navigate('DMConversation', { conversationId: item.conversationId, participantName: item.fromUsername || 'Message', participantUsername: item.fromUsername, participantAvatar: item.fromAvatar });
+    } else if (item.data?.story_id && item.fromUserId) {
+      // Mentioned in a story: watch it (falls back to their profile once it has expired)
+      useStoryStore.getState().openUser(item.fromUserId).then(ok => {
+        if (!ok && item.fromUsername) navigation.navigate('PublicProfile', { username: item.fromUsername });
+      }).catch(() => {});
     } else if (item.postId) {
       navigation.navigate('PostDetail', { postId: item.postId });
     } else if (item.fromUsername) {

@@ -211,6 +211,57 @@ class FeedService {
   }
 
   /**
+   * Mzinga (clips): public video posts, ranked by engagement with recency gravity,
+   * never the same author twice in a row. Cursor is an offset into the ranked pool.
+   */
+  async getClipsFeed(
+    limit: number,
+    offset = 0,
+    userId?: string
+  ): Promise<{ data: any[]; nextCursor: string | null }> {
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const [excludeIds, privateUserIds] = await Promise.all([
+      userId ? getExcludeIds(userId) : Promise.resolve([]),
+      getPrivateUserIds(),
+    ]);
+    const exclude = new Set([...excludeIds, ...privateUserIds]);
+
+    const { data: pool, error } = await supabaseServiceClient
+      .from('posts')
+      .select(postSelect().replace('post_media (', 'post_media!inner (') as '*')
+      .eq('visibility', 'public')
+      .is('parent_post_id', null)
+      .is('repost_of_id', null)
+      .eq('post_media.media_type', 'video')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (error) throw error;
+
+    const now = Date.now();
+    const ranked = (pool || [])
+      .filter((p: any) => !exclude.has(p.user_id))
+      .map((p: any) => {
+        const hours = (now - new Date(p.created_at).getTime()) / 3600000;
+        const eng = (p.like_count || 0) + (p.comment_count || 0) * 2 + (p.repost_count || 0) * 3 + (p.view_count || 0) * 0.05;
+        return { p, s: (eng + 1) / Math.pow(hours + 2, 1.2) };
+      })
+      .sort((a, b) => b.s - a.s)
+      .map(x => x.p);
+
+    // Same author never twice in a row (reorder inside the page, nothing is dropped)
+    const page = ranked.slice(offset, offset + limit);
+    for (let k = 1; k < page.length; k++) {
+      if (page[k].user_id !== page[k - 1].user_id) continue;
+      const swap = page.findIndex((q: any, m: number) => m > k && q.user_id !== page[k - 1].user_id);
+      if (swap > 0) [page[k], page[swap]] = [page[swap], page[k]];
+    }
+
+    const nextCursor = offset + limit < ranked.length ? String(offset + limit) : null;
+    return { data: await enrichWithUserState(page, userId), nextCursor };
+  }
+
+  /**
    * "For You" feed with interest-based scoring.
    *
    * Scoring formula:

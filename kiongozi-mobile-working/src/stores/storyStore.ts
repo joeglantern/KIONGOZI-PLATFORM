@@ -5,10 +5,28 @@ import { saveSnap, readSnap } from '../utils/snapshot';
 
 export type TextStyleId = 'plain' | 'pill' | 'outline';
 
+export type StoryAudience = 'everyone' | 'followers' | 'close_friends';
+
+/** Snapshot of a shared post (made by the server; see StoryStickers PostSticker). */
+export interface StoryPostCard {
+  id: string;
+  username: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  is_verified?: boolean;
+  text?: string;
+  image?: string | null;
+}
+
 export interface StoryOverlay {
-  type: 'sticker' | 'text' | 'poll' | 'link';
+  type: 'sticker' | 'text' | 'poll' | 'link' | 'mention' | 'question' | 'slider' | 'countdown' | 'post';
   url?: string;       // link sticker (http/https)
   options?: string[]; // poll answers (2)
+  user_id?: string;   // mention: who (text = their username)
+  emoji?: string;     // slider emoji
+  ends_at?: string;   // countdown end (ISO)
+  post_id?: string;   // post sticker
+  post?: StoryPostCard;
   key?: string;       // sticker id (see components/stories/storyAssets); '__media' = photo/video framing (StoryParts MEDIA_KEY)
   text?: string;
   color?: string;
@@ -37,14 +55,18 @@ export interface Story {
   text_style?: TextStyleId | null;
   overlays: StoryOverlay[];
   caption?: string | null;
-  audience: 'everyone' | 'followers';
+  audience: StoryAudience;
   view_count?: number;
   created_at: string;
   expires_at: string;
   seen: boolean;
   my_reaction?: string | null;
   poll?: { counts: [number, number]; mine: number | null };
+  slider?: StorySlider;
+  countdown?: { reminded: boolean };
 }
+
+export interface StorySlider { avg: number | null; count: number; mine: number | null }
 
 export interface StoryUser {
   id: string;
@@ -58,8 +80,13 @@ export interface StoryGroup {
   user: StoryUser;
   stories: Story[];
   has_unseen: boolean;
+  /** has a close-friends story (green ring) */
+  close_friends?: boolean;
   latest_at: string;
 }
+
+/** What the composer opens with, e.g. a post shared to your story. */
+export interface ComposerSeed { post?: StoryPostCard }
 
 interface StoryState {
   groups: StoryGroup[];
@@ -68,6 +95,7 @@ interface StoryState {
   /** viewer: the list of groups being paged through and where to start */
   viewer: { groups: StoryGroup[]; index: number } | null;
   composerOpen: boolean;
+  composerSeed: ComposerSeed | null;
   posting: boolean;
   meId: string | null;
 
@@ -79,6 +107,10 @@ interface StoryState {
   markSeen: (storyId: string) => void;
   setReaction: (storyId: string, emoji: string) => void;
   setPoll: (storyId: string, poll: { counts: [number, number]; mine: number | null }) => void;
+  setSlider: (storyId: string, slider: StorySlider) => void;
+  setReminded: (storyId: string, reminded: boolean) => void;
+  /** Open the composer with something already on the canvas (e.g. "Add to story" on a post) */
+  openComposerWith: (seed: ComposerSeed) => void;
   addMine: (story: Story, me: StoryUser) => void;
   removeStory: (storyId: string) => void;
   setComposerOpen: (open: boolean) => void;
@@ -110,6 +142,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   loaded: false,
   viewer: null,
   composerOpen: false,
+  composerSeed: null,
   posting: false,
   meId: null,
 
@@ -169,15 +202,31 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     }));
   },
 
+  setSlider: (storyId, slider) => {
+    set(s => ({
+      groups: mapStories(s.groups, storyId, st => ({ ...st, slider })),
+      viewer: s.viewer && { ...s.viewer, groups: mapStories(s.viewer.groups, storyId, st => ({ ...st, slider })) },
+    }));
+  },
+
+  setReminded: (storyId, reminded) => {
+    set(s => ({
+      groups: mapStories(s.groups, storyId, st => ({ ...st, countdown: { reminded } })),
+      viewer: s.viewer && { ...s.viewer, groups: mapStories(s.viewer.groups, storyId, st => ({ ...st, countdown: { reminded } })) },
+    }));
+  },
+
+  openComposerWith: (seed) => set({ composerSeed: seed, composerOpen: true }),
+
   addMine: (story, me) => {
     set(s => {
       const idx = s.groups.findIndex(g => g.user.id === me.id);
       if (idx >= 0) {
         const g = s.groups[idx];
-        const updated = { ...g, stories: [...g.stories, story], latest_at: story.created_at };
+        const updated = { ...g, stories: [...g.stories, story], latest_at: story.created_at, close_friends: g.close_friends || story.audience === 'close_friends' };
         return { groups: [updated, ...s.groups.filter((_, i) => i !== idx)] };
       }
-      return { groups: [{ user: me, stories: [story], has_unseen: false, latest_at: story.created_at }, ...s.groups] };
+      return { groups: [{ user: me, stories: [story], has_unseen: false, close_friends: story.audience === 'close_friends', latest_at: story.created_at }, ...s.groups] };
     });
   },
 
@@ -191,7 +240,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     }));
   },
 
-  setComposerOpen: (open) => set({ composerOpen: open }),
+  setComposerOpen: (open) => set(open ? { composerOpen: true } : { composerOpen: false, composerSeed: null }),
   setPosting: (p) => set({ posting: p }),
   hydrate: async () => {
     if (get().groups.length) return;
@@ -205,5 +254,5 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     if (groups.length) set({ groups });
   },
 
-  reset: () => set({ groups: [], loaded: false, viewer: null, composerOpen: false, posting: false }),
+  reset: () => set({ groups: [], loaded: false, viewer: null, composerOpen: false, composerSeed: null, posting: false }),
 }));

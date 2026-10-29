@@ -56,7 +56,7 @@ export function StoryRail() {
   const renderOther = ({ item }: { item: StoryGroup }) => (
     <Squish onPress={() => openGroup(item)} label={`${item.user.full_name || item.user.username}'s story${item.has_unseen ? ', new' : ''}`}>
       <View style={styles.item}>
-        <StoryRing size={SIZE} state={item.has_unseen ? 'unseen' : 'seen'} bg={T.bg}>
+        <StoryRing size={SIZE} state={item.has_unseen ? 'unseen' : 'seen'} bg={T.bg} close={item.close_friends}>
           <UserAvatar
             avatarUrl={item.user.avatar_url ?? undefined}
             size={ringInnerSize(SIZE, item.has_unseen ? 'unseen' : 'seen')}
@@ -148,7 +148,7 @@ export function StoryStack() {
       <View style={{ flexDirection: 'row' }}>
         {shown.map((g, i) => (
           <View key={g.user.id} style={{ marginLeft: i ? -10 : 0, zIndex: 3 - i }}>
-            <StoryRing size={30} state={g.has_unseen ? 'unseen' : 'seen'} bg={T.surface2}>
+            <StoryRing size={30} state={g.has_unseen ? 'unseen' : 'seen'} bg={T.surface2} close={g.close_friends}>
               <UserAvatar avatarUrl={g.user.avatar_url ?? undefined} size={ringInnerSize(30, g.has_unseen ? 'unseen' : 'seen')} name={g.user.full_name || g.user.username} />
             </StoryRing>
           </View>

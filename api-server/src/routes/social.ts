@@ -67,6 +67,19 @@ router.get('/explore', optionalAuth, async (req: Request, res: Response): Promis
   }
 });
 
+// GET /api/v1/social/clips — Mzinga: ranked public video posts (cursor = offset)
+router.get('/clips', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 24, 60);
+    const offset = Math.max(parseInt(req.query.cursor as string) || 0, 0);
+    const result = await FeedService.getClipsFeed(limit, offset, req.user?.id);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Clips error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch clips' });
+  }
+});
+
 // GET /api/v1/social/posts/:id — Single post + thread
 router.get('/posts/:id', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {

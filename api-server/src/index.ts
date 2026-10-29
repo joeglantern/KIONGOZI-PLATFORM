@@ -41,6 +41,7 @@ import assistRoutes from './routes/assist';
 import sessionsRoutes from './routes/sessions';
 import funnelRoutes from './routes/funnel';
 import { startWeeklyRecapJob } from './jobs/weeklyRecapPush';
+import { startStoryCountdownJob } from './jobs/storyCountdownReminders';
 import legalRoutes from './routes/legal';
 import exportRoutes from './routes/export';
 
@@ -214,6 +215,7 @@ app.use(errorHandler);
 
 // Start server
 startWeeklyRecapJob();
+startStoryCountdownJob();
 
 server.listen(PORT, () => {
   console.log(`🚀 Kiongozi API Server running on port ${PORT}`);

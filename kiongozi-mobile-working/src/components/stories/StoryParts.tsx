@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StoryOverlay } from '../../stores/storyStore';
 import { STICKERS, PATTERNS, bgById, fontById, fitFontSize, fitLineHeight, textAnchoredTop, TEXT_TOP } from './storyAssets';
 import { PollCard, POLL_W } from './PollCard';
+import { MentionPill, QuestionCard, SliderCard, CountdownCard, PostSticker, stickerSize, isInteractive } from './StoryStickers';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore } from '../../stores/themeStore';
 
@@ -152,11 +153,28 @@ export function LinkPill({ url, k }: { url: string; k: number }) {
 }
 export const LINK_H = 40;
 
-/** One overlay, positioned in a canvas of width×height. */
-export function OverlayItem({ o, width, height }: { o: StoryOverlay; width: number; height: number }) {
+/** One overlay, positioned in a canvas of width×height. `author` puts a face on the question box. */
+export function OverlayItem({ o, width, height, author }: {
+  o: StoryOverlay; width: number; height: number; author?: { avatar_url?: string | null; name?: string };
+}) {
   if (isMediaFrame(o)) return null; // media framing, not a sticker
   const k = width / 390; // keep sizes proportional across screen sizes
   const transform = [{ rotate: `${o.rotation || 0}deg` }, { scale: o.scale || 1 }];
+  const size = stickerSize(o, k);
+  if (size) {
+    const body = o.type === 'mention' ? <MentionPill username={o.text || ''} k={k} />
+      : o.type === 'question' ? <QuestionCard prompt={o.text || ''} color={o.bg} avatarUrl={author?.avatar_url} name={author?.name} k={k} />
+      : o.type === 'slider' ? <SliderCard question={o.text} emoji={o.emoji} k={k} />
+      : o.type === 'countdown' && o.ends_at ? <CountdownCard title={o.text} endsAt={o.ends_at} k={k} live={false} />
+      : o.type === 'post' && o.post ? <PostSticker post={o.post} k={k} />
+      : null;
+    if (!body) return null;
+    return (
+      <View style={{ position: 'absolute', left: o.x * width - width / 2, width, top: o.y * height - size.h / 2, alignItems: 'center', transform }} pointerEvents="none">
+        {body}
+      </View>
+    );
+  }
   if (o.type === 'sticker' && o.key && STICKERS[o.key]) {
     const s = STICKERS[o.key];
     const w = STICKER_BASE * k;
@@ -201,7 +219,7 @@ export function StoryOverlays({ overlays, width, height, skipPolls }: { overlays
   if (!overlays?.length) return null;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {overlays.map((o, i) => ((skipPolls && (o.type === 'poll' || o.type === 'link')) || isMediaFrame(o) ? null : <OverlayItem key={i} o={o} width={width} height={height} />))}
+      {overlays.map((o, i) => ((skipPolls && (o.type === 'poll' || o.type === 'link' || isInteractive(o))) || isMediaFrame(o) ? null : <OverlayItem key={i} o={o} width={width} height={height} />))}
     </View>
   );
 }
@@ -213,8 +231,11 @@ const ringWidth = (size: number, state: 'unseen' | 'seen') =>
   state === 'unseen' ? (size >= 48 ? 3 : 2) : (size >= 48 ? 1.5 : 1);
 const defaultGap = (size: number) => (size >= 48 ? 3 : 1.5);
 
-export function StoryRing({ size, state, children, gap, bg }: {
-  size: number; state: 'unseen' | 'seen' | 'none'; children: React.ReactNode; gap?: number; bg: string;
+/** Close friends ring (IG green). */
+export const CLOSE_RING: [string, string] = ['#1DB954', '#0E8F3E'];
+
+export function StoryRing({ size, state, children, gap, bg, close }: {
+  size: number; state: 'unseen' | 'seen' | 'none'; children: React.ReactNode; gap?: number; bg: string; close?: boolean;
 }) {
   const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
@@ -236,7 +257,7 @@ export function StoryRing({ size, state, children, gap, bg }: {
     );
   }
   return (
-    <LinearGradient colors={[T.accent, RING_COLORS[1], RING_COLORS[2]]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
+    <LinearGradient colors={close ? CLOSE_RING : [T.accent, RING_COLORS[1], RING_COLORS[2]]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
       style={{ width: size, height: size, borderRadius: size / 2, padding: ring }}>
       {content}
     </LinearGradient>

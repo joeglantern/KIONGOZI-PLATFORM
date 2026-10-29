@@ -602,6 +602,12 @@ class ApiClient {
     return this.request(`/api/v1/social/explore${params}`, { method: 'GET' });
   }
 
+  /** Mzinga: ranked public video posts (cursor is an offset) */
+  async getClips(cursor?: string | null) {
+    const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return this.request(`/api/v1/social/clips${params}`, { method: 'GET' });
+  }
+
   /** Get a single post by ID */
   async getPost(postId: string) {
     return this.request(`/api/v1/social/posts/${postId}`, { method: 'GET' });
@@ -657,6 +663,28 @@ class ApiClient {
   }
   async deleteStory(storyId: string) {
     return this.request(`/api/v1/social/stories/${storyId}`, { method: 'DELETE' });
+  }
+  async answerStoryQuestion(storyId: string, answer: string) {
+    return this.request(`/api/v1/social/stories/${storyId}/answer`, { method: 'POST', body: JSON.stringify({ answer }) });
+  }
+  async slideStory(storyId: string, value: number) {
+    return this.request(`/api/v1/social/stories/${storyId}/slide`, { method: 'POST', body: JSON.stringify({ value }) });
+  }
+  async remindStoryCountdown(storyId: string, on: boolean) {
+    return this.request(`/api/v1/social/stories/${storyId}/remind`, { method: 'POST', body: JSON.stringify({ on }) });
+  }
+  /** Mention search for story stickers (people you follow first; empty q = some you follow) */
+  async searchStoryPeople(q: string) {
+    return this.request(`/api/v1/social/stories/people?q=${encodeURIComponent(q)}`, { method: 'GET' });
+  }
+  async getCloseFriends() {
+    return this.request('/api/v1/social/stories/close-friends', { method: 'GET' });
+  }
+  async addCloseFriend(userId: string) {
+    return this.request(`/api/v1/social/stories/close-friends/${userId}`, { method: 'POST' });
+  }
+  async removeCloseFriend(userId: string) {
+    return this.request(`/api/v1/social/stories/close-friends/${userId}`, { method: 'DELETE' });
   }
 
   /** Count a video view (fire and forget) */

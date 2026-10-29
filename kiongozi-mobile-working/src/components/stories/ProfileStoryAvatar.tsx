@@ -35,7 +35,7 @@ export function ProfileStoryAvatar({ userId, avatarUrl, size, isBot, isVerified 
       accessibilityRole="button"
       accessibilityLabel="View story"
     >
-      <StoryRing size={size} state={state} bg={T.bg}>{avatar}</StoryRing>
+      <StoryRing size={size} state={state} bg={T.bg} close={group?.close_friends}>{avatar}</StoryRing>
     </Pressable>
   );
 }

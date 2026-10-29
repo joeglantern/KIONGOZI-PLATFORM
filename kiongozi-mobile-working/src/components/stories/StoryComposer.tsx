@@ -3,7 +3,7 @@
 // Photos/videos can be framed IG-style (pinch = zoom, drag = move, twist = rotate, double-tap = fit);
 // the framing is saved as a '__media' overlay entry (see StoryParts MEDIA_KEY).
 import { appAlert } from '../../utils/alert';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, TextInput, Dimensions, PanResponder,
   KeyboardAvoidingView, Platform, ScrollView, Keyboard,
@@ -16,13 +16,16 @@ import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { useStoryStore, StoryOverlay, Story } from '../../stores/storyStore';
+import { useStoryStore, StoryOverlay, Story, StoryAudience } from '../../stores/storyStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { StoryBackground, OverlayItem, STICKER_BASE, POLL_H, MEDIA_KEY, coverBox, MediaBackdrop, TEXT_STYLES, textStyleFx } from './StoryParts';
 import { POLL_W } from './PollCard';
+import { stickerSize } from './StoryStickers';
+import { MentionEntry, QuestionEntry, SliderEntry, CountdownEntry, AudienceSheet, CloseFriendsSheet } from './StoryStickerEditors';
+import { CLOSE_RING } from './StoryParts';
 import { celebrate } from '../Confetti';
 import { BACKGROUNDS, FONTS, TEXT_COLORS, STICKERS, fontById, fitFontSize, fitLineHeight, textAnchoredTop, TEXT_TOP, bgById } from './storyAssets';
 
@@ -43,6 +46,9 @@ let nextId = 1;
 
 type Picked = { uri: string; type: 'image' | 'video'; width?: number; height?: number; durationMs?: number; thumb?: string };
 type Frame = { tx: SharedValue<number>; ty: SharedValue<number>; zoom: SharedValue<number>; rot: SharedValue<number> };
+
+// Tray chip colours (IG-style coloured labels on white)
+const TRAY_CHIP = { mention: '#D9366F', question: '#1D4E89', slider: '#F5A33D', countdown: '#6A2C82' } as const;
 
 const round4 = (n: number) => Math.round(n * 10000) / 10000;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
@@ -67,6 +73,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const { user } = useAuthStore();
   const me = useProfileStore(s => s.currentUserProfile);
   const { addMine, setPosting } = useStoryStore();
+  const seed = useStoryStore(s => s.composerSeed);
 
   const [media, setMedia] = useState<Picked | null>(null);
   const [text, setText] = useState('');
@@ -75,7 +82,12 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const [textStyle, setTextStyle] = useState<(typeof TEXT_STYLES)[number]>('plain');
   const [color, setColor] = useState<string | null>(null);
   const [overlays, setOverlays] = useState<Draft[]>([]);
-  const [audience, setAudience] = useState<'everyone' | 'followers'>('everyone');
+  const [audience, setAudience] = useState<StoryAudience>('everyone');
+  const [audienceOpen, setAudienceOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  const [closeCount, setCloseCount] = useState<number | null>(null);
+  // Interactive sticker entry screen that is open (from the sticker tray)
+  const [entry, setEntry] = useState<null | 'mention' | 'question' | 'slider' | 'countdown'>(null);
   const [trayOpen, setTrayOpen] = useState(false);
   const [labelDraft, setLabelDraft] = useState<string | null>(null);
   const [linkDraft, setLinkDraft] = useState<string | null>(null);
@@ -104,7 +116,19 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const shownText = text || 'Andika kitu…';
   const textSize = fitFontSize(shownText);
   const anchored = textAnchoredTop(shownText);
-  const canPost = isText ? text.trim().length > 0 : true;
+  // Sticker-only text stories are fine (e.g. a shared post card)
+  const canPost = isText ? text.trim().length > 0 || overlays.length > 0 : true;
+
+  // "Add to story" from a post: start with its card on the canvas
+  useEffect(() => {
+    if (!seed?.post) return;
+    const p = seed.post;
+    setOverlays(o => [...o.filter(x => x.type !== 'post'), { _id: nextId++, type: 'post', post_id: p.id, post: p, x: 0.5, y: 0.52, scale: 1, rotation: 0 }]);
+  }, [seed?.post?.id]);
+  // Close friends count for the audience sheet
+  useEffect(() => {
+    apiClient.getCloseFriends().then((r: any) => { if (r?.success) setCloseCount((r.data || []).length); }).catch(() => {});
+  }, []);
 
   const pick = async (from: 'library' | 'camera') => {
     Keyboard.dismiss();
@@ -162,6 +186,18 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
     const ok = /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(u) && u.length <= 300;
     if (ok) setOverlays(o => [...o.filter(x => x.type !== 'link'), { _id: nextId++, type: 'link', url: u, x: 0.5, y: 0.72, scale: 1, rotation: 0 }]);
     setLinkDraft(null);
+  };
+
+  /** Interactive stickers: one of each kind (mentions can repeat) */
+  const placeSticker = (o: StoryOverlay) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setOverlays(list => [...(o.type === 'mention' ? list : list.filter(x => x.type !== o.type)), { ...o, _id: nextId++ }]);
+    setEntry(null);
+  };
+  const pickAudience = (a: StoryAudience) => {
+    setAudience(a);
+    setAudienceOpen(false);
+    if (a === 'close_friends' && closeCount === 0) setFriendsOpen(true); // nobody on the list yet
   };
 
   const addPoll = () => {
@@ -294,7 +330,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             placeholderTextColor={bgById(bg).dark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)'}
             multiline
             maxLength={700}
-            autoFocus
+            autoFocus={!seed?.post}
             style={[fontById(font), styles.textInput, { color: textColor, fontSize: textSize, lineHeight: fitLineHeight(textSize) }, styleFx.box && { ...styleFx.box, minWidth: 80 }, styleFx.text]}
           />
         </View>
@@ -305,6 +341,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
         <DraggableOverlay
           key={o._id}
           o={o}
+          author={{ avatar_url: me?.avatar_url, name: me?.full_name || me?.username }}
           onChange={p => updateOverlay(o._id, p)}
           onDragState={(d, trash) => { setDragging(d); setOverTrash(trash); }}
           onDrop={trash => { if (trash) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); removeOverlay(o._id); } }}
@@ -366,9 +403,14 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             </ScrollView>
           )}
           <View style={styles.bottomRow}>
-            <Pressable style={styles.audience} onPress={() => setAudience(a => (a === 'everyone' ? 'followers' : 'everyone'))} accessibilityLabel="Who can see this story">
-              <Ionicons name={audience === 'everyone' ? 'globe-outline' : 'people-outline'} size={18} color="#fff" />
-              <Text style={styles.audienceText} numberOfLines={1}>{audience === 'everyone' ? 'Kila mtu' : 'Wafuasi'}{NARROW ? '' : ' · 24h'}</Text>
+            <Pressable style={[styles.audience, audience === 'close_friends' && { backgroundColor: CLOSE_RING[0] }]}
+              onPress={() => { Keyboard.dismiss(); Haptics.selectionAsync().catch(() => {}); setAudienceOpen(true); }}
+              accessibilityLabel="Who can see this story">
+              <Ionicons name={audience === 'everyone' ? 'globe-outline' : audience === 'followers' ? 'people-outline' : 'star'} size={18} color="#fff" />
+              <Text style={styles.audienceText} numberOfLines={1}>
+                {audience === 'everyone' ? 'Kila mtu' : audience === 'followers' ? 'Wafuasi' : 'Marafiki wa karibu'}{NARROW || audience === 'close_friends' ? '' : ' · 24h'}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.8)" />
             </Pressable>
             <View style={{ flex: 1, minWidth: 0 }} />
             <Pressable style={[styles.share, styles.shareMain, !canPost && { opacity: 0.4 }]} onPress={post} disabled={!canPost} accessibilityLabel="Share story">
@@ -386,6 +428,20 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
           <View style={[styles.tray, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.grabber} />
             <Text style={styles.trayTitle}>Stickers</Text>
+            <View style={styles.chipGrid}>
+              {([
+                ['mention', '@TAJA', 'at'],
+                ['question', 'SWALI', 'chatbubble-ellipses'],
+                ['slider', 'SLIDER', 'happy'],
+                ['countdown', 'COUNTDOWN', 'timer'],
+              ] as const).map(([id, label, icon]) => (
+                <Pressable key={id} onPress={() => { Haptics.selectionAsync().catch(() => {}); setTrayOpen(false); setEntry(id); }}
+                  style={({ pressed }) => [styles.trayChip, pressed && { transform: [{ scale: 0.95 }] }]} accessibilityLabel={`Add ${id} sticker`}>
+                  <Ionicons name={icon} size={16} color={TRAY_CHIP[id]} />
+                  <Text style={[styles.trayChipText, { color: TRAY_CHIP[id] }]}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
             <View style={styles.trayGrid}>
               {Object.entries(STICKERS).map(([key, s]) => (
                 <Pressable key={key} onPress={() => addSticker(key)} style={({ pressed }) => [styles.trayItem, pressed && { transform: [{ scale: 0.94 }] }]} accessibilityLabel={`Add ${s.label} sticker`}>
@@ -454,6 +510,30 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             <Text style={styles.shareText}>Weka link</Text>
           </Pressable>
         </KeyboardAvoidingView>
+      )}
+
+      {/* Interactive sticker entries */}
+      {entry === 'mention' && (
+        <MentionEntry onCancel={() => setEntry(null)} onPick={p => placeSticker({ type: 'mention', user_id: p.id, text: p.username, x: 0.5, y: 0.36 + (overlays.filter(x => x.type === 'mention').length % 4) * 0.07, scale: 1, rotation: 0 })} />
+      )}
+      {entry === 'question' && (
+        <QuestionEntry onCancel={() => setEntry(null)} onDone={(q, c) => placeSticker({ type: 'question', text: q, bg: c, x: 0.5, y: 0.5, scale: 1, rotation: 0 })} />
+      )}
+      {entry === 'slider' && (
+        <SliderEntry onCancel={() => setEntry(null)} onDone={(q, e) => placeSticker({ type: 'slider', text: q || undefined, emoji: e, x: 0.5, y: 0.6, scale: 1, rotation: 0 })} />
+      )}
+      {entry === 'countdown' && (
+        <CountdownEntry onCancel={() => setEntry(null)} onDone={(t, at) => placeSticker({ type: 'countdown', text: t, ends_at: at, x: 0.5, y: 0.45, scale: 1, rotation: 0 })} />
+      )}
+      {audienceOpen && (
+        <AudienceSheet value={audience} closeCount={closeCount} onChange={pickAudience} onClose={() => setAudienceOpen(false)}
+          onManage={() => { setAudienceOpen(false); setFriendsOpen(true); }} />
+      )}
+      {friendsOpen && (
+        <CloseFriendsSheet
+          onCount={setCloseCount}
+          onClose={() => { setFriendsOpen(false); if (closeCount !== null && closeCount > 0) setAudience('close_friends'); }}
+        />
       )}
 
       {/* Text label entry */}
@@ -564,8 +644,8 @@ function ComposerVideo({ uri }: { uri: string }) {
 }
 
 /** One overlay you can drag (1 finger) and pinch / rotate (2 fingers). Drop on the bin to delete. */
-function DraggableOverlay({ o, onChange, onDragState, onDrop }: {
-  o: StoryOverlay; onChange: (p: Partial<StoryOverlay>) => void;
+function DraggableOverlay({ o, author, onChange, onDragState, onDrop }: {
+  o: StoryOverlay; author?: { avatar_url?: string | null; name?: string }; onChange: (p: Partial<StoryOverlay>) => void;
   onDragState: (dragging: boolean, overTrash: boolean) => void; onDrop: (trash: boolean) => void;
 }) {
   const start = useRef({ x: 0, y: 0, scale: 1, rotation: 0, dist: 0, angle: 0, pinching: false });
@@ -611,11 +691,12 @@ function DraggableOverlay({ o, onChange, onDragState, onDrop }: {
 
   // Hit box sized to the overlay
   const k = W / 390;
-  const w = (o.type === 'sticker' ? STICKER_BASE : o.type === 'poll' ? POLL_W : 220) * k * o.scale;
-  const h = (o.type === 'sticker' && o.key ? STICKER_BASE / STICKERS[o.key].ratio : o.type === 'poll' ? POLL_H : 50) * k * o.scale;
+  const own = stickerSize(o, k);
+  const w = own ? own.w * o.scale : (o.type === 'sticker' ? STICKER_BASE : o.type === 'poll' ? POLL_W : 220) * k * o.scale;
+  const h = own ? own.h * o.scale : (o.type === 'sticker' && o.key ? STICKER_BASE / STICKERS[o.key].ratio : o.type === 'poll' ? POLL_H : 50) * k * o.scale;
   return (
     <>
-      <OverlayItem o={o} width={W} height={H} />
+      <OverlayItem o={o} width={W} height={H} author={author} />
       <View
         {...pan.panHandlers}
         style={{ position: 'absolute', left: o.x * W - w / 2, top: o.y * H - h / 2, width: w, height: h }}
@@ -674,6 +755,9 @@ const styles = StyleSheet.create({
   grabber: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: '#3A3A3C', marginTop: 10 },
   trayTitle: { color: '#fff', fontSize: 18, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 14, marginBottom: 10 },
   trayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  trayChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 14, borderRadius: 10, backgroundColor: '#FFFFFF' },
+  trayChipText: { fontSize: 14, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 0.3 },
   trayItem: { width: (W - 32 - 24) / 3, height: (W - 32 - 24) / 3, borderRadius: 16, backgroundColor: '#1C1C1E', padding: 10 },
   labelEntry: { backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   pollEntry: { width: '100%', backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 10 },
