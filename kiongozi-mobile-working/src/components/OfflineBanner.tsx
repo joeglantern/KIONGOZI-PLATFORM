@@ -21,7 +21,10 @@ export function OfflineBanner() {
   const [mode, setMode] = useState<Mode>('hidden');
   const [checking, setChecking] = useState(false);
   const shrinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const y = useSharedValue(-80);
+  // Hidden = fully above the screen, even under a Dynamic Island (insets.top ~59)
+  const offY = -(insets.top + 140);
+  const y = useSharedValue(offY);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     if (shrinkTimer.current) clearTimeout(shrinkTimer.current);
@@ -39,12 +42,18 @@ export function OfflineBanner() {
   }, [online, backAt]);
 
   useEffect(() => {
-    y.value = mode === 'hidden'
-      ? withTiming(-80, { duration: 220 })
-      : withSpring(0, { damping: 18, stiffness: 220 });
-  }, [mode, y]);
+    if (mode === 'hidden') {
+      y.value = withTiming(offY, { duration: 220 });
+      // Unmount once it has slid away so nothing can peek out behind the status bar
+      const t = setTimeout(() => setMounted(false), 260);
+      return () => clearTimeout(t);
+    }
+    setMounted(true);
+    y.value = withSpring(0, { damping: 18, stiffness: 220 });
+  }, [mode, y, offY]);
 
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  if (!mounted && mode === 'hidden') return null;
 
   const retry = async () => {
     if (checking || online) return;

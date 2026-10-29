@@ -6,6 +6,9 @@
 import { create } from 'zustand';
 import { AppState } from 'react-native';
 
+// iOS cuts sockets when the phone locks; failures then say nothing about their internet
+const inForeground = () => AppState.currentState === 'active';
+
 const HEALTH = 'https://api.kiongozi.org/api/v1/health';
 const NEUTRAL = 'https://clients3.google.com/generate_204';
 
@@ -59,6 +62,7 @@ export const useNet = create<NetState>((set, get) => ({
 
   reportFail: () => {
     if (get().status !== 'online' || confirming) return; // already handling it
+    if (!inForeground()) return;
     confirming = true;
     confirm().finally(() => { confirming = false; });
   },
@@ -74,6 +78,8 @@ export const useNet = create<NetState>((set, get) => ({
 async function confirm() {
   if (await apiUp()) { useNet.getState().reportOk(); return; }
   const internet = await reach(NEUTRAL, 6000);
+  // Went to the background while checking: the results can't be trusted
+  if (!inForeground()) return;
   const status: NetStatus = internet ? 'server' : 'offline';
   useNet.setState({ status, online: false });
   retryLoop();
@@ -95,5 +101,8 @@ function retryLoop() {
 
 // Back in the app: if we were offline, check again right away (after the radio wakes up)
 AppState.addEventListener('change', s => {
-  if (s === 'active' && useNet.getState().status !== 'online') setTimeout(() => useNet.getState().check(), 800);
+  if (s === 'active' && useNet.getState().status !== 'online') {
+    delay = 3000;
+    setTimeout(() => useNet.getState().check(), 800);
+  }
 });
