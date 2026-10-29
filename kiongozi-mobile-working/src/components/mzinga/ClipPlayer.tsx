@@ -18,6 +18,7 @@ import { toggleInteraction } from '../../stores/interactionSync';
 import apiClient from '../../utils/apiClient';
 import { storyNav } from '../stories/storyAssets';
 import { useVideoThumb } from '../social/media';
+import { setFeedPaused } from '../social/videoPlayback';
 import { UserAvatar } from '../social/UserAvatar';
 import { ClipComments } from './ClipComments';
 import { useSafeAreaInsets as useInsets } from 'react-native-safe-area-context';
@@ -355,11 +356,30 @@ function RailBtn({ icon, label, onPress, color = '#fff', a11y }: { icon: any; la
   );
 }
 
+// Only one clip may ever make sound: starting one pauses and mutes every other clip player
+// (neighbours preloaded on either side, the same clip on another street, a player left open).
+const clipPlayers = new Set<VideoPlayer>();
+function claimSound(p: VideoPlayer) {
+  clipPlayers.forEach(o => {
+    if (o === p) return;
+    try { o.muted = true; o.pause(); } catch {}
+  });
+  setFeedPaused('clip', true);
+}
+
 function ClipVideo({ url, playing, muted, rate, fit, onPlayer }: {
   url: string; playing: boolean; muted: boolean; rate: number; fit: 'cover' | 'contain'; onPlayer: (p: VideoPlayer) => void;
 }) {
   const o = useSharedValue(0);
-  const player = useVideoPlayer(url, p => { p.loop = true; p.muted = muted; });
+  // Preloaded players start silent; sound is switched on only when this one plays
+  const player = useVideoPlayer(url, p => { p.loop = true; p.muted = true; });
+  useEffect(() => {
+    clipPlayers.add(player);
+    return () => {
+      clipPlayers.delete(player);
+      if (!clipPlayers.size) setFeedPaused('clip', false);
+    };
+  }, [player]);
   useEffect(() => { onPlayer(player); }, [player, onPlayer]);
   useEffect(() => {
     const sub = player.addListener('statusChange', ({ status }) => {
@@ -367,8 +387,10 @@ function ClipVideo({ url, playing, muted, rate, fit, onPlayer }: {
     });
     return () => sub.remove();
   }, [player, o]);
-  useEffect(() => { if (playing) player.play(); else player.pause(); }, [playing, player]);
-  useEffect(() => { player.muted = muted; }, [muted, player]);
+  useEffect(() => {
+    if (playing) { claimSound(player); player.muted = muted; player.play(); }
+    else { player.pause(); player.muted = true; }
+  }, [playing, muted, player]);
   useEffect(() => { player.playbackRate = rate; }, [rate, player]);
   const st = useAnimatedStyle(() => ({ opacity: o.value }));
   return (

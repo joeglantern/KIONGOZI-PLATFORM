@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/auth';
 import NotificationService from '../services/NotificationService';
 import BotService from '../services/BotService';
 import { bridgeListening } from './devBridge';
+import { startTyping, stopTyping } from '../services/DmTyping';
 import OpenAI, { toFile } from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -378,6 +379,8 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
         if (!isToBot) return;
         // The owner's coding assistant answers these while it is listening
         if (bridgeListening(userId)) return;
+        // Show Kiongozi AI typing while it thinks
+        startTyping(conversationId, 60 * 1000);
         // Wait for a voice note's words so the AI can answer what was said
         await transcriptP;
 
@@ -398,7 +401,7 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
           .filter(m => m.content);
 
         const reply = await BotService.generateBotReply(messages, { chat: true });
-        if (!reply) return;
+        if (!reply) { stopTyping(conversationId); return; }
 
         const now = new Date().toISOString();
         const { data: botMessage } = await supabaseServiceClient
@@ -418,6 +421,7 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
           .update({ last_message_at: now, updated_at: now })
           .eq('id', conversationId);
 
+        stopTyping(conversationId);
         const io = (req as any).io;
         if (io && botMessage) {
           io.to(`user:${userId}`).emit('dm:message_new', { conversationId, message: botMessage });
@@ -425,6 +429,7 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
         }
       } catch (e) {
         console.error('Bot DM reply error:', e);
+        stopTyping(conversationId);
       }
     });
 

@@ -7,6 +7,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { supabaseServiceClient } from '../config/supabase';
 import NotificationService from '../services/NotificationService';
+import { startTyping, stopTyping } from '../services/DmTyping';
 
 const BOT_USER_ID = process.env.BOT_USER_ID || '00000000-0000-0000-0000-000000000001';
 // @liban and @afosi unless set
@@ -103,9 +104,24 @@ router.post('/reply', async (req: Request, res: Response): Promise<void> => {
       });
     }
     io?.to(`dm:${conversationId}`).emit('dm:message_new', { conversationId, message: msg });
+    if (!req.body?.keep_typing) stopTyping(conversationId);
     res.status(201).json({ success: true, data: msg });
   } catch (e) {
     console.error('Bridge reply error:', e);
+    res.status(500).json({ success: false, error: 'Failed' });
+  }
+});
+
+// POST /api/v1/dev-bridge/typing { on, conversation_id? } — show/hide "typing…" while working
+router.post('/typing', async (req: Request, res: Response): Promise<void> => {
+  try {
+    lastPoll = Date.now();
+    const chats = await ownerChats();
+    const conversationId = req.body?.conversation_id || chats[0];
+    if (!conversationId || !chats.includes(conversationId)) { res.status(404).json({ success: false, error: 'No owner chat' }); return; }
+    if (req.body?.on === false) stopTyping(conversationId); else startTyping(conversationId, 10 * 60 * 1000);
+    res.json({ success: true });
+  } catch (e) {
     res.status(500).json({ success: false, error: 'Failed' });
   }
 });

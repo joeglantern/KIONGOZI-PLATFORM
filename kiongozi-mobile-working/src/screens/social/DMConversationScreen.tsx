@@ -495,13 +495,8 @@ export default function DMConversationScreen() {
           />
         )}
 
-        {/* Input / Coming Soon */}
-        {isBot ? (
-          <View style={[styles.comingSoonBar, { paddingBottom: 20 + insets.bottom }]}>
-            <Text style={styles.comingSoonTitle}>Coming Soon</Text>
-            <Text style={styles.comingSoonSub}>AI replies in direct messages</Text>
-          </View>
-        ) : (
+        {/* Input (Kiongozi AI chats too: it replies right here) */}
+        {(
           <View style={[styles.inputBar, { paddingBottom: kbOpen ? 8 : Math.max(insets.bottom, 12) + 4 }]}>
             <ReplyChips
               conversationId={conversationId}
