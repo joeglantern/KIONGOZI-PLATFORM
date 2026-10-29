@@ -895,10 +895,10 @@ class ApiClient {
   }
 
   /** Send a DM message */
-  async sendDM(conversationId: string, content: string, mediaUrl?: string, mediaType?: string, replyToId?: string) {
+  async sendDM(conversationId: string, content: string, mediaUrl?: string, mediaType?: string, replyToId?: string, durationMs?: number) {
     return this.request(`/api/v1/dm/conversations/${conversationId}`, {
       method: 'POST',
-      body: JSON.stringify({ content, media_url: mediaUrl, media_type: mediaType, reply_to_id: replyToId })
+      body: JSON.stringify({ content, media_url: mediaUrl, media_type: mediaType, reply_to_id: replyToId, duration_ms: durationMs })
     });
   }
 

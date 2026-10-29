@@ -4,6 +4,7 @@ import {
   View, Text, StyleSheet, FlatList, TextInput, Image, ActivityIndicator,
   TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Keyboard, Pressable,
 } from 'react-native';
+import { VoiceRecorder, canRecordVoice } from '../../components/social/VoiceNote';
 import { ChatSkeleton } from '../../components/social/Skeleton';
 import { MessageMenu } from '../../components/social/MessageMenu';
 import { SelectTextSheet } from '../../components/social/SelectTextSheet';
@@ -242,6 +243,16 @@ export default function DMConversationScreen() {
           Haptics.selectionAsync().catch(() => {});
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'dm_messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const msg = payload.new as DMMessage;
+          if (!msg?.id) return;
+          const cur = msgsRef.current.find(m => m.id === msg.id);
+          if (cur) useDMStore.getState().replaceMessage(conversationId, msg.id, { ...cur, ...msg, sender: cur.sender });
+        }
+      )
       .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
         if (!payload || payload.user_id === user.id) return;
         if (typingTimer.current) clearTimeout(typingTimer.current);
@@ -317,7 +328,7 @@ export default function DMConversationScreen() {
     isSending.current = false;
   }, [text, mediaUri, conversationId, user, appendMessage]);
 
-  const queueMessage = useCallback((m: { content: string; mediaUri?: string; replyToId?: string }) => {
+  const queueMessage = useCallback((m: { content: string; mediaUri?: string; replyToId?: string; mediaType?: 'image' | 'audio'; durationMs?: number }) => {
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const createdAt = new Date().toISOString();
     appendMessage(conversationId, {
@@ -326,7 +337,8 @@ export default function DMConversationScreen() {
       sender_id: user!.id,
       content: m.content || undefined,
       media_url: m.mediaUri,
-      media_type: m.mediaUri ? 'image' : undefined,
+      media_type: m.mediaUri ? (m.mediaType || 'image') : undefined,
+      duration_ms: m.durationMs,
       reply_to_id: m.replyToId,
       is_read: false,
       created_at: createdAt,
@@ -334,7 +346,7 @@ export default function DMConversationScreen() {
     } as DMMessage, true); // own message — skip unread increment
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setTimeout(() => scrollToBottom(true), 30);
-    enqueue({ t: 'dm', conversationId, tempId, senderId: user!.id, createdAt, content: m.content, mediaUri: m.mediaUri, replyToId: m.replyToId });
+    enqueue({ t: 'dm', conversationId, tempId, senderId: user!.id, createdAt, content: m.content, mediaUri: m.mediaUri, replyToId: m.replyToId, mediaType: m.mediaType, durationMs: m.durationMs });
   }, [conversationId, user, appendMessage]);
 
   /** "Not sent · Tap to retry": send the same message again as a new one at the bottom */
@@ -342,7 +354,7 @@ export default function DMConversationScreen() {
     Haptics.selectionAsync().catch(() => {});
     removeMessage(conversationId, msg.id);
     const local = msg.media_url && !/^https?:/i.test(msg.media_url) ? msg.media_url : undefined;
-    queueMessage({ content: msg.content || '', mediaUri: local, replyToId: msg.reply_to_id });
+    queueMessage({ content: msg.content || '', mediaUri: local, replyToId: msg.reply_to_id, mediaType: msg.media_type === 'audio' ? 'audio' : undefined, durationMs: msg.duration_ms || undefined });
   }, [conversationId, removeMessage, queueMessage]);
 
   const renderItem = useCallback(({ item }: { item: ListItem }) => {
@@ -519,7 +531,7 @@ export default function DMConversationScreen() {
                     Replying to {replyingTo.sender_id === user?.id ? 'yourself' : participantName}
                   </Text>
                   <Text style={styles.replyPreviewText} numberOfLines={1}>
-                    {replyingTo.content || (replyingTo.media_url ? 'Photo' : 'Message')}
+                    {replyingTo.content || (replyingTo.media_type === 'audio' ? 'Voice note' : replyingTo.media_url ? 'Photo' : 'Message')}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.replyDismiss}>
@@ -575,6 +587,19 @@ export default function DMConversationScreen() {
                   </TouchableOpacity>
                 )}
               </View>
+              {!hasContent && !editingMessage && canRecordVoice && (
+                <VoiceRecorder
+                  accent={T.accent}
+                  textColor={T.text}
+                  subColor={T.textSub}
+                  barBg={T.surface}
+                  onSend={v => {
+                    const replyToId = replyingTo?.id;
+                    setReplyingTo(null);
+                    queueMessage({ content: '', mediaUri: v.uri, mediaType: 'audio', durationMs: v.durationMs, replyToId });
+                  }}
+                />
+              )}
             </View>
           </View>
         )}

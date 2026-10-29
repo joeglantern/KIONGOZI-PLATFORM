@@ -4,6 +4,35 @@ import { authenticateToken } from '../middleware/auth';
 import NotificationService from '../services/NotificationService';
 import BotService from '../services/BotService';
 import { bridgeListening } from './devBridge';
+import OpenAI, { toFile } from 'openai';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+/** Writes out what was said in a voice note (English, Swahili or Sheng) and saves it on the message. */
+async function transcribeVoiceNote(messageId: string, mediaUrl: string): Promise<string | null> {
+  let text: string | null = null;
+  try {
+    const marker = '/object/public/social-media/';
+    const i = mediaUrl.indexOf(marker);
+    if (process.env.OPENAI_API_KEY && i >= 0) {
+      const path = decodeURIComponent(mediaUrl.slice(i + marker.length).split('?')[0]);
+      const { data: blob, error } = await supabaseServiceClient.storage.from('social-media').download(path);
+      if (error || !blob) throw error || new Error('missing audio');
+      const file = await toFile(Buffer.from(await blob.arrayBuffer()), 'voice.m4a', { type: 'audio/mp4' });
+      const out: any = await openai.audio.transcriptions.create({
+        file,
+        model: 'gpt-4o-mini-transcribe',
+        prompt: 'A voice note between friends in Kenya. It may be in English, Swahili or Sheng.',
+      });
+      text = String(out?.text || '').trim().slice(0, 4000) || null;
+    }
+  } catch (e) {
+    console.error('Voice note transcribe error:', (e as any)?.message || e);
+  }
+  // '' marks "tried, nothing to show" so the app stops saying "Transcribing…"
+  await supabaseServiceClient.from('dm_messages').update({ transcript: text ?? '' }).eq('id', messageId);
+  return text;
+}
 
 const BOT_USER_ID = process.env.BOT_USER_ID || '00000000-0000-0000-0000-000000000001';
 
@@ -219,6 +248,7 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
     const userId = req.user!.id;
     const { id: conversationId } = req.params;
     const { content, media_url, media_type } = req.body;
+    const durationMs = Number.isFinite(Number(req.body?.duration_ms)) ? Math.max(0, Math.min(15 * 60 * 1000, Math.round(Number(req.body.duration_ms)))) : null;
 
     if (!content && !media_url) {
       res.status(400).json({ success: false, error: 'Message content or media required' });
@@ -268,7 +298,8 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
         sender_id: userId,
         content: content || null,
         media_url: media_url || null,
-        media_type: media_type || null
+        media_type: media_type || null,
+        ...(media_type === 'audio' ? { duration_ms: durationMs } : {}),
       })
       .select(`
         *,
@@ -280,6 +311,11 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
       res.status(500).json({ success: false, error: 'Failed to send message' });
       return;
     }
+
+    // Voice notes get a transcript in the background (the app updates live when it lands)
+    const transcriptP: Promise<string | null> = media_type === 'audio' && media_url
+      ? transcribeVoiceNote(message.id, media_url)
+      : Promise.resolve(null);
 
     // Update conversation timestamp
     await supabaseServiceClient
@@ -342,11 +378,13 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
         if (!isToBot) return;
         // The owner's coding assistant answers these while it is listening
         if (bridgeListening(userId)) return;
+        // Wait for a voice note's words so the AI can answer what was said
+        await transcriptP;
 
         // Fetch last 10 messages for context
         const { data: history } = await supabaseServiceClient
           .from('dm_messages')
-          .select('content, sender_id, media_url')
+          .select('content, sender_id, media_url, media_type, transcript')
           .eq('conversation_id', conversationId)
           .order('created_at', { ascending: false })
           .limit(10);
@@ -355,7 +393,7 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
         const messages = (history || []).reverse()
           .map((m: any) => ({
             role: m.sender_id === BOT_USER_ID ? 'assistant' as const : 'user' as const,
-            content: m.content || (m.media_url ? '[sent a photo]' : '')
+            content: m.content || (m.media_type === 'audio' ? (m.transcript ? `[voice note] ${m.transcript}` : '[sent a voice note]') : m.media_url ? '[sent a photo]' : '')
           }))
           .filter(m => m.content);
 

@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
 import { FitImage, VideoTile } from './media';
+import { VoiceBubbleBody } from './VoiceNote';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore } from '../../stores/themeStore';
 
@@ -66,7 +67,8 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
   const C = useMemo(() => bubbleColors(isDark, T.accent), [isDark, T.accent]);
   const bubbleRef = useRef<View>(null);
 
-  const mediaOnly = !!message.media_url && !message.content;
+  const isVoice = message.media_type === 'audio' && !!message.media_url;
+  const mediaOnly = !!message.media_url && !message.content && !isVoice;
   const emojiOnly = !message.media_url && !replyPreview && bigEmoji(message.content);
   const bg = isOwn ? C.own : C.other;
   const fg = isOwn ? C.ownText : C.otherText;
@@ -166,6 +168,23 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
               bg="#111"
               style={[{ width: 240, aspectRatio: 0.8 }, mediaOnly ? null : { borderRadius: 13, marginBottom: 5, marginTop: 1 }]}
             />
+          )}
+
+          {isVoice && (
+            <View style={showMeta ? { paddingBottom: 12 } : undefined}>
+              <VoiceBubbleBody
+                id={message.id}
+                url={message.media_url!}
+                durationMs={message.duration_ms}
+                fg={fg}
+                meta={meta}
+                accent={T.accent}
+                isOwn={isOwn}
+                transcript={message.transcript}
+                pending={message._pending}
+                createdAt={message.created_at}
+              />
+            </View>
           )}
 
           {message.content ? (

@@ -12,7 +12,8 @@ function withQueued(conversationId: string, list: DMMessage[]): DMMessage[] {
     .map(j => ({
       id: j.tempId, conversation_id: j.conversationId, sender_id: j.senderId,
       content: j.content || undefined, media_url: j.mediaUrl || j.mediaUri,
-      media_type: (j.mediaUri || j.mediaUrl) ? 'image' : undefined,
+      media_type: (j.mediaUri || j.mediaUrl) ? (j.mediaType || 'image') : undefined,
+      duration_ms: j.durationMs,
       reply_to_id: j.replyToId, is_read: false, created_at: j.createdAt, _pending: true,
     } as DMMessage));
   return extra.length ? [...list, ...extra] : list;
@@ -40,7 +41,11 @@ export interface DMMessage {
   sender_id: string;
   content?: string;
   media_url?: string;
-  media_type?: 'image' | 'video';
+  media_type?: 'image' | 'video' | 'audio';
+  /** voice notes */
+  duration_ms?: number | null;
+  /** voice notes: written by the server; '' = nothing to show */
+  transcript?: string | null;
   is_read: boolean;
   read_at?: string;
   created_at: string;

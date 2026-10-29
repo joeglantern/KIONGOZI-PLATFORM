@@ -15,6 +15,8 @@ export type DMJob = {
   t: 'dm'; id: string; tries: number;
   conversationId: string; tempId: string; senderId: string; createdAt: string;
   content: string; mediaUri?: string; mediaUrl?: string; replyToId?: string;
+  /** 'audio' for voice notes (default photo) */
+  mediaType?: 'image' | 'audio'; durationMs?: number;
 };
 export type IxJob = { t: 'ix'; id: string; tries: number; kind: 'like' | 'bookmark' | 'repost'; postId: string; want: boolean };
 export type FollowJob = { t: 'follow'; id: string; tries: number; userId: string; want: boolean };
@@ -75,10 +77,10 @@ export function clearOutbox() {
 }
 
 /** Upload a photo picked for a chat message; returns its public URL */
-export async function uploadDMImage(uri: string, userId: string): Promise<string> {
+export async function uploadDMImage(uri: string, userId: string, kind: 'image' | 'audio' = 'image'): Promise<string> {
   const { supabase } = require('./supabaseClient');
-  const ext = uri.split('.').pop()?.toLowerCase().split('?')[0] || 'jpg';
-  const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+  const ext = uri.split('.').pop()?.toLowerCase().split('?')[0] || (kind === 'audio' ? 'm4a' : 'jpg');
+  const mimeType = kind === 'audio' ? 'audio/mp4' : ext === 'png' ? 'image/png' : 'image/jpeg';
   const storagePath = `dms/${userId}/${Date.now()}.${ext}`;
   const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -98,7 +100,7 @@ async function runDM(job: DMJob): Promise<Result> {
   const { useDMStore } = require('../stores/dmStore');
   if (job.mediaUri && !job.mediaUrl) {
     try {
-      job.mediaUrl = await uploadDMImage(job.mediaUri, job.senderId);
+      job.mediaUrl = await uploadDMImage(job.mediaUri, job.senderId, job.mediaType || 'image');
       save();
     } catch (e: any) {
       // The photo file is gone (phone cleared it): nothing we can send
@@ -106,7 +108,7 @@ async function runDM(job: DMJob): Promise<Result> {
       return 'network';
     }
   }
-  const r: any = await api.sendDM(job.conversationId, job.content, job.mediaUrl, job.mediaUrl ? 'image' : undefined, job.replyToId);
+  const r: any = await api.sendDM(job.conversationId, job.content, job.mediaUrl, job.mediaUrl ? (job.mediaType || 'image') : undefined, job.replyToId, job.durationMs);
   if (r?.success && r.data) {
     useDMStore.getState().replaceMessage(job.conversationId, job.tempId, r.data);
     return 'done';

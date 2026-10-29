@@ -55,7 +55,7 @@ router.get('/inbox', async (req: Request, res: Response): Promise<void> => {
     if (!chats.length) { res.json({ success: true, data: [], chats: [] }); return; }
     const { data, error } = await supabaseServiceClient
       .from('dm_messages')
-      .select('id, conversation_id, sender_id, content, media_url, media_type, created_at')
+      .select('id, conversation_id, sender_id, content, media_url, media_type, transcript, created_at')
       .in('conversation_id', chats)
       .in('sender_id', BRIDGE_OWNERS)
       .gt('created_at', since)

@@ -197,6 +197,7 @@ export default function DMListScreen() {
       ? last.content
       : last?.media_type === 'video' ? 'Sent a video'
       : last?.media_type === 'image' ? 'Sent a photo'
+      : last?.media_type === 'audio' ? 'Voice note'
       : 'Say hello';
     return (
       <Pressable
