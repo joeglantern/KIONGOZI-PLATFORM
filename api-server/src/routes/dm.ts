@@ -3,6 +3,7 @@ import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
 import NotificationService from '../services/NotificationService';
 import BotService from '../services/BotService';
+import { bridgeListening } from './devBridge';
 
 const BOT_USER_ID = process.env.BOT_USER_ID || '00000000-0000-0000-0000-000000000001';
 
@@ -339,21 +340,26 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
       try {
         const isToBot = participants?.some((p: any) => p.user_id === BOT_USER_ID);
         if (!isToBot) return;
+        // The owner's coding assistant answers these while it is listening
+        if (bridgeListening(userId)) return;
 
         // Fetch last 10 messages for context
         const { data: history } = await supabaseServiceClient
           .from('dm_messages')
-          .select('content, sender_id')
+          .select('content, sender_id, media_url')
           .eq('conversation_id', conversationId)
           .order('created_at', { ascending: false })
           .limit(10);
 
-        const messages = (history || []).reverse().map((m: any) => ({
-          role: m.sender_id === BOT_USER_ID ? 'assistant' as const : 'user' as const,
-          content: m.content
-        }));
+        // Photos without words still count as a turn (the AI can't see them yet)
+        const messages = (history || []).reverse()
+          .map((m: any) => ({
+            role: m.sender_id === BOT_USER_ID ? 'assistant' as const : 'user' as const,
+            content: m.content || (m.media_url ? '[sent a photo]' : '')
+          }))
+          .filter(m => m.content);
 
-        const reply = await BotService.generateBotReply(messages);
+        const reply = await BotService.generateBotReply(messages, { chat: true });
         if (!reply) return;
 
         const now = new Date().toISOString();

@@ -197,6 +197,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   const [answering, setAnswering] = useState<StoryOverlay | null>(null); // question box being answered
   const paused = !active || holding || typing || sheet || !!report || !ready || !!answering;
   const muteUser = useSocialStore(s => s.muteUser);
+  const lockPaging = useContext(ScrollLockCtx);
 
   // Own story + viewers sheet: the story shrinks into a small card above the sheet (UI thread)
   const sheetP = useSharedValue(0);
@@ -492,7 +493,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
         } else if (o.type === 'slider') {
           body = (
             <SliderCard question={o.text} emoji={o.emoji} k={k} mine={story.slider?.mine} avg={story.slider?.avg} count={story.slider?.count}
-              showResults={isMine} onSlide={isMine ? undefined : slide} />
+              showResults={isMine} onSlide={isMine ? undefined : slide}
+              onTouch={d => { setHolding(d); lockPaging(d); }} />
           );
         } else if (o.type === 'countdown' && o.ends_at) {
           body = <CountdownCard title={o.text} endsAt={o.ends_at} k={k} reminded={story.countdown?.reminded} onToggleRemind={isMine ? undefined : toggleRemind} live={active} />;
@@ -619,9 +621,10 @@ function StickerSlot({ o, minTop, maxBottom, hidden, onHold, children }: {
   o: StoryOverlay; minTop: number; maxBottom: number; hidden: boolean; onHold: (h: boolean) => void; children: React.ReactNode;
 }) {
   const { W, H } = useSize();
-  const lock = useContext(ScrollLockCtx);
   const [h, setH] = useState(() => stickerSize(o, W / 390)?.h ?? 100);
-  const hold = (on: boolean) => { onHold(on); if (o.type === 'slider') lock(on); };
+  // The slider holds via its own gesture (SliderCard onTouch): its pan cancels JS touches
+  // when it activates, so a touch-cancel here would unpause the story mid-drag.
+  const hold = (on: boolean) => { if (o.type !== 'slider') onHold(on); };
   const half = (h * (o.scale || 1)) / 2;
   const minC = minTop + half, maxC = maxBottom - half;
   const cy = maxC >= minC ? Math.min(maxC, Math.max(minC, o.y * H)) : (minC + maxC) / 2;

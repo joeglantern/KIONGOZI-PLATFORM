@@ -602,9 +602,10 @@ class ApiClient {
     return this.request(`/api/v1/social/explore${params}`, { method: 'GET' });
   }
 
-  /** Mzinga: ranked public video posts (cursor is an offset) */
-  async getClips(cursor?: string | null) {
-    const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  /** Mzinga: ranked public video posts. `loaded` = ids already shown, so the next page never skips or repeats */
+  async getClips(loaded: string[] = [], cursor?: string | null) {
+    // cursor (an offset) is for an API that predates exclude; newer ones ignore it when exclude is sent
+    const params = loaded.length ? `?exclude=${loaded.map(id => id.slice(0, 8)).join(',')}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}` : '';
     return this.request(`/api/v1/social/clips${params}`, { method: 'GET' });
   }
 

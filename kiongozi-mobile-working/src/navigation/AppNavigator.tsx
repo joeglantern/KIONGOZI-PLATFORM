@@ -38,6 +38,7 @@ import { useForceUpdate, openStore } from '../hooks/useForceUpdate';
 import { StoryViewer } from '../components/stories/StoryViewer';
 import { StoryComposer } from '../components/stories/StoryComposer';
 import { MzingaHost } from '../components/mzinga/MzingaHive';
+import { BarazaHost } from '../components/baraza/BarazaHost';
 import { storyNav } from '../components/stories/storyAssets';
 import { OrbVideo } from '../components/ai/OrbVideo';
 import { useProfileStore } from '../stores/profileStore';
@@ -185,11 +186,19 @@ function focusedLeaf(state: any): string | undefined {
   let st = state;
   let name: string | undefined;
   while (st?.routes) {
-    const r = st.routes[st.index ?? 0];
+    // a partial state without index focuses its last route
+    const r = st.routes[st.index ?? st.routes.length - 1];
     name = r?.name;
     st = r?.state;
   }
   return name;
+}
+
+/** Native tab bar only shows on a tab's root screen. */
+function hidesTabBar(state: any): boolean {
+  const leaf = focusedLeaf(state);
+  // a tab that hasn't been opened yet has no nested state: its root is showing
+  return !!leaf && !ROOT_SCREENS.has(leaf) && !['Feed', 'Explore', 'Notifications', 'Profile'].includes(leaf);
 }
 
 function EmptyScreen() {
@@ -282,19 +291,20 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
         ref={navRef}
         theme={navTheme}
         linking={linking}
-        onReady={() => { storyNav.current = navRef.current as any; }}
+        onReady={() => {
+          storyNav.current = navRef.current as any;
+          // onStateChange skips the first state, so a cold-start link (posts/:id) needs this
+          if (NATIVE_TABS) setTabBarHidden(hidesTabBar(navRef.current?.getRootState()));
+        }}
         onStateChange={st => {
-          if (!NATIVE_TABS) return;
-          const leaf = focusedLeaf(st);
-          // a tab that hasn't been opened yet has no nested state: its root is showing
-          setTabBarHidden(!!leaf && !ROOT_SCREENS.has(leaf) && !['Feed', 'Explore', 'Notifications', 'Profile'].includes(leaf));
+          if (NATIVE_TABS) setTabBarHidden(hidesTabBar(st));
         }}
       >
         {NATIVE_TABS ? (
           <NativeTab.Navigator
             tabBarHidden={tabBarHidden}
             minimizeBehavior="onScrollDown"
-            hapticFeedbackEnabled
+            // no hapticFeedbackEnabled: the tabPress listener below already ticks
             tabBarActiveTintColor={isDark ? '#FFFFFF' : '#111111'}
             screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}
           >
@@ -371,6 +381,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
       <StoryViewer />
       <StoryComposer />
       <MzingaHost />
+      <BarazaHost />
       <ConfettiHost />
 
       {/* Kiongozi AI Chat Modal — fullscreen */}

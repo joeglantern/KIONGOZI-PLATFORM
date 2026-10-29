@@ -19,6 +19,8 @@ import apiClient from '../../utils/apiClient';
 import { storyNav } from '../stories/storyAssets';
 import { useVideoThumb } from '../social/media';
 import { UserAvatar } from '../social/UserAvatar';
+import { ClipComments } from './ClipComments';
+import { useSafeAreaInsets as useInsets } from 'react-native-safe-area-context';
 
 const HONEY = '#F2B544';
 const CLAMP = Extrapolation.CLAMP;
@@ -44,6 +46,8 @@ function PlayerBody() {
   const { closePlayer, markSeen, fetch } = useClipStore.getState();
   const [active, setActive] = useState(start?.index ?? 0);
   const [muted, setMuted] = useState(!soundOn);
+  const [comments, setComments] = useState(false);
+  const insetsTop = useInsets().top;
   const origin = useRef(start?.origin).current;
   const startIndex = useRef(start?.index ?? 0).current;
 
@@ -80,6 +84,19 @@ function PlayerBody() {
       top: -interpolate(open.value, [0, 1], [o.y, 0]),
     };
   });
+  // Comments open: the clip shrinks into the space above the sheet and keeps playing
+  const cp = useSharedValue(0);
+  useEffect(() => { cp.value = withSpring(comments ? 1 : 0, { damping: 22, stiffness: 220 }); }, [comments, cp]);
+  const shrink = useAnimatedStyle(() => {
+    const s = Math.max(0.2, (H * 0.36 - insetsTop - 8) / H);
+    return {
+      transform: [
+        { translateY: interpolate(cp.value, [0, 1], [0, -H * (1 - s) / 2 + insetsTop + 4]) },
+        { scale: interpolate(cp.value, [0, 1], [1, s]) },
+      ],
+      borderRadius: interpolate(cp.value, [0, 1], [0, 18]),
+    };
+  });
   const scrim = useAnimatedStyle(() => ({ opacity: interpolate(open.value, [0, 1], [0, 1]) * interpolate(pinch.value, [0.6, 1], [0.4, 1], CLAMP) }));
 
   const pinchG = Gesture.Pinch()
@@ -94,13 +111,16 @@ function PlayerBody() {
     if (v?.index != null) setActive(v.index);
   }).current;
 
+  // One view per clip you land on (not again when the next page of clips arrives)
+  const viewed = useRef<string | null>(null);
+  const activeId = clips[active]?.id;
   useEffect(() => {
-    const p = clips[active];
-    if (!p) return;
-    markSeen(p.id);
-    apiClient.recordPostView(p.id).catch(() => {});
-    if (active >= clips.length - 4) fetch();
-  }, [active, clips, markSeen, fetch]);
+    if (!activeId || viewed.current === activeId) return;
+    viewed.current = activeId;
+    markSeen(activeId);
+    apiClient.recordPostView(activeId).catch(() => {});
+  }, [activeId, markSeen]);
+  useEffect(() => { if (active >= clips.length - 4) fetch(); }, [active, clips.length, fetch]);
 
   const toggleSound = () => { soundOn = muted; setMuted(m => !m); Haptics.selectionAsync().catch(() => {}); };
 
@@ -110,7 +130,9 @@ function PlayerBody() {
       <GestureDetector gesture={pinchG}>
         <Animated.View style={[styles.frame, frame]}>
           <Animated.View style={[{ position: 'absolute', width: W, height: H }, inner]}>
+            <Animated.View style={[{ flex: 1, overflow: 'hidden' }, shrink]}>
             <FlatList
+              scrollEnabled={!comments}
               data={clips}
               keyExtractor={p => p.id}
               pagingEnabled
@@ -132,8 +154,17 @@ function PlayerBody() {
                   muted={muted}
                   onToggleSound={toggleSound}
                   onClose={close}
+                  onComments={() => setComments(true)}
+                  chrome={!comments}
                 />
               )}
+            />
+            </Animated.View>
+            <ClipComments
+              post={clips[active] || null}
+              open={comments}
+              onClose={() => setComments(false)}
+              onCount={(id, n) => useClipStore.getState().bumpComments(id, n)}
             />
           </Animated.View>
         </Animated.View>
@@ -142,9 +173,9 @@ function PlayerBody() {
   );
 }
 
-const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onToggleSound, onClose }: {
+const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onToggleSound, onClose, onComments, chrome }: {
   post: Post; W: number; H: number; state: 'play' | 'warm' | 'cold'; muted: boolean;
-  onToggleSound: () => void; onClose: () => void;
+  onToggleSound: () => void; onClose: () => void; onComments: () => void; chrome: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const v = clipVideo(post)!;
@@ -256,6 +287,7 @@ const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onTogg
         </View>
       )}
 
+      {chrome && <>
       {/* Shade so the words read on any video */}
       <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.45)', 'transparent']} style={[styles.shadeTop, { height: insets.top + 90 }]} />
       <LinearGradient pointerEvents="none" colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.shadeBottom} />
@@ -279,7 +311,7 @@ const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onTogg
           </View>
         </Pressable>
         <RailBtn icon={liked ? 'heart' : 'heart-outline'} color={liked ? '#FF3B5C' : '#fff'} label={fmt(likes)} onPress={() => like()} a11y={liked ? 'Unlike' : 'Like'} />
-        <RailBtn icon="chatbubble-outline" label={fmt(post.comment_count)} onPress={() => go('PostDetail', { postId: post.id })} a11y="Comments" />
+        <RailBtn icon="chatbubble-outline" label={fmt(post.comment_count)} onPress={onComments} a11y="Comments" />
         <RailBtn icon="paper-plane-outline" label="Share" onPress={share} a11y="Share" />
       </View>
 
@@ -298,6 +330,7 @@ const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onTogg
       <View style={[styles.track, { bottom: insets.bottom + 14 }]} pointerEvents="none">
         <Animated.View style={[styles.trackFill, bar]} />
       </View>
+      </>}
     </View>
   );
 });

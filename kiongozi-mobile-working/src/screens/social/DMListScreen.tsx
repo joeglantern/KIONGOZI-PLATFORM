@@ -20,6 +20,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { RowsSkeleton } from '../../components/social/Skeleton';
 import { BottomSheet } from '../../components/social/BottomSheet';
 
+const KIONGOZI_AI_ID = '00000000-0000-0000-0000-000000000001';
+
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -166,6 +168,13 @@ export default function DMListScreen() {
     setStartingFor(null);
   }, [navigation]);
 
+  // Kiongozi AI is always one tap away, until you already have a chat with it
+  const hasAIChat = conversations.some(c => c.participants?.[0]?.id === KIONGOZI_AI_ID);
+  const openAI = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    handleSelectUser({ id: KIONGOZI_AI_ID, username: 'kiongozi', full_name: 'Kiongozi AI', avatar_url: null, is_bot: true } as any);
+  }, [handleSelectUser]);
+
   const closeModal = useCallback(() => {
     setNewDMVisible(false);
     setSearchQuery('');
@@ -297,6 +306,16 @@ export default function DMListScreen() {
           data={visibleConversations}
           keyExtractor={item => item.id}
           renderItem={renderConversation}
+          ListHeaderComponent={!hasAIChat && !showArchived && !listQuery ? (
+            <TouchableOpacity style={styles.aiRow} onPress={openAI} disabled={startingFor === KIONGOZI_AI_ID} accessibilityRole="button" accessibilityLabel="Chat with Kiongozi AI">
+              <UserAvatar avatarUrl={null} size={54} isBot name="Kiongozi AI" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.aiTitle}>Kiongozi AI</Text>
+                <Text style={styles.aiSub} numberOfLines={1}>Ask anything, any time</Text>
+              </View>
+              {startingFor === KIONGOZI_AI_ID ? <ActivityIndicator color={T.accent} /> : <Ionicons name="sparkles" size={20} color={T.accent} />}
+            </TouchableOpacity>
+          ) : null}
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={styles.emptyIcon}>
@@ -443,6 +462,9 @@ export default function DMListScreen() {
 
 function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme>) {
   return StyleSheet.create({
+    aiRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
+    aiTitle: { fontSize: 16, fontWeight: '700', color: T.text },
+    aiSub: { fontSize: 14, color: T.textSub, marginTop: 2 },
     container: { flex: 1, backgroundColor: T.bg },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingBottom: 4, backgroundColor: T.bg },
     backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

@@ -9,6 +9,7 @@ import {
 import { ExploreSkeleton, RowsSkeleton, FeedSkeleton } from '../../components/social/Skeleton';
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
 import { MzingaStrip } from '../../components/mzinga/MzingaStrip';
+import { BarazaStrip } from '../../components/baraza/BarazaStrip';
 import { saveSnap, readSnap } from '../../utils/snapshot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -279,6 +280,7 @@ export default function ExploreScreen() {
   const DefaultHeader = (
     <View>
       <MzingaStrip />
+      <BarazaStrip />
       {trends.length > 0 && (
         <View style={styles.block}>
           <Text style={[styles.blockTitle, { marginBottom: 6 }]}>Trending in Kenya</Text>

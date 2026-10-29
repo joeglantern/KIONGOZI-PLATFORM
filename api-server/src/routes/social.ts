@@ -67,12 +67,14 @@ router.get('/explore', optionalAuth, async (req: Request, res: Response): Promis
   }
 });
 
-// GET /api/v1/social/clips — Mzinga: ranked public video posts (cursor = offset)
+// GET /api/v1/social/clips — Mzinga: ranked public video posts
+// ?exclude=<id prefixes already loaded, comma separated> (older builds page with ?cursor=offset)
 router.get('/clips', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 24, 60);
     const offset = Math.max(parseInt(req.query.cursor as string) || 0, 0);
-    const result = await FeedService.getClipsFeed(limit, offset, req.user?.id);
+    const served = String(req.query.exclude || '').split(',').filter(x => /^[0-9a-f]{8}$/i.test(x)).slice(0, 500).map(x => x.toLowerCase());
+    const result = await FeedService.getClipsFeed(limit, served.length ? 0 : offset, req.user?.id, served);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('Clips error:', err);

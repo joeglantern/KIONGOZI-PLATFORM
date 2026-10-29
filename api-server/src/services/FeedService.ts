@@ -217,7 +217,10 @@ class FeedService {
   async getClipsFeed(
     limit: number,
     offset = 0,
-    userId?: string
+    userId?: string,
+    /** First 8 hex chars of clip ids the app already has. The ranking moves between requests
+     *  (time, likes), so paging by offset skips or repeats clips; skipping what was served doesn't. */
+    served: string[] = []
   ): Promise<{ data: any[]; nextCursor: string | null }> {
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const [excludeIds, privateUserIds] = await Promise.all([
@@ -250,14 +253,17 @@ class FeedService {
       .map(x => x.p);
 
     // Same author never twice in a row (reorder inside the page, nothing is dropped)
-    const page = ranked.slice(offset, offset + limit);
+    const servedSet = new Set(served);
+    const rest = servedSet.size ? ranked.filter((p: any) => !servedSet.has(String(p.id).slice(0, 8))) : ranked.slice(offset);
+    const page = rest.slice(0, limit);
     for (let k = 1; k < page.length; k++) {
       if (page[k].user_id !== page[k - 1].user_id) continue;
       const swap = page.findIndex((q: any, m: number) => m > k && q.user_id !== page[k - 1].user_id);
       if (swap > 0) [page[k], page[swap]] = [page[swap], page[k]];
     }
 
-    const nextCursor = offset + limit < ranked.length ? String(offset + limit) : null;
+    // Old app builds send the offset back; new ones only check that it isn't null
+    const nextCursor = rest.length > limit ? String(offset + limit) : null;
     return { data: await enrichWithUserState(page, userId), nextCursor };
   }
 

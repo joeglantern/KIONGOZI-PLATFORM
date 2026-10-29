@@ -72,7 +72,8 @@ export function MzingaHost() {
     <>
       {hiveOpen && <MzingaHive />}
       {player && !hiveOpen && <ClipPlayer standalone />}
-      {composerOpen && <ClipComposer />}
+      {/* Over the hive the composer is rendered inside the hive's Modal (iOS can't present two sibling Modals) */}
+      {composerOpen && !hiveOpen && <ClipComposer />}
     </>
   );
 }
@@ -85,6 +86,7 @@ function MzingaHive() {
   const loaded = useClipStore(s => s.loaded);
   const seen = useClipStore(s => s.seen);
   const player = useClipStore(s => s.player);
+  const composerOpen = useClipStore(s => s.composerOpen);
   const { closeHive, play, openComposer } = useClipStore.getState();
 
   const items = useMemo(() => clips.slice(0, MAX_CELLS), [clips]);
@@ -130,6 +132,15 @@ function MzingaHive() {
     const t = setTimeout(() => setPreview(focus), 420);
     return () => clearTimeout(t);
   }, [focus]);
+
+  // The list shrank under the focused cell (e.g. a refresh): go back to the centre
+  useEffect(() => {
+    if (focus < Math.max(1, items.length)) return;
+    tx.value = withSpring(0, { damping: 18, stiffness: 140 });
+    ty.value = withSpring(0, { damping: 18, stiffness: 140 });
+    setFocus(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
 
   const onFocus = (i: number) => {
     setFocus(i);
@@ -207,7 +218,8 @@ function MzingaHive() {
       tx.value = withDecay({ velocity: e.velocityX, clamp: [-bound.x, bound.x], rubberBandEffect: true, deceleration: 0.994 }, xMain ? after : undefined);
       ty.value = withDecay({ velocity: e.velocityY, clamp: [-bound.y, bound.y], rubberBandEffect: true, deceleration: 0.994 }, xMain ? undefined : after);
     });
-  const tap = Gesture.Tap().maxDuration(260).onEnd(e => { runOnJS(onTap)(e.absoluteX, e.absoluteY); });
+  // x/y are local to the full-screen hive view, the same space as cx/cy
+  const tap = Gesture.Tap().maxDuration(260).onEnd((e, ok) => { if (ok) runOnJS(onTap)(e.x, e.y); });
   const gesture = Gesture.Exclusive(pan, tap);
 
   const close = () => {
@@ -236,7 +248,7 @@ function MzingaHive() {
                   cx={cx} cy={cy} halfW={halfW} halfH={halfH}
                   tx={tx} ty={ty} intro={intro}
                   seen={!!seen[p.id]}
-                  live={preview === i && !player}
+                  live={preview === i && !player && !composerOpen}
                 />
               )) : loaded ? (
                 <EmptyCell cx={cx} cy={cy} />
@@ -283,6 +295,7 @@ function MzingaHive() {
           </View>
 
           {player && <ClipPlayer />}
+          {composerOpen && <ClipComposer />}
         </Animated.View>
       </GestureHandlerRootView>
     </Modal>
@@ -330,8 +343,11 @@ function LivePreview({ url }: { url: string }) {
   const o = useSharedValue(0);
   const player = useVideoPlayer(url, p => { p.loop = true; p.muted = true; p.play(); });
   useEffect(() => {
+    const show = () => { o.value = withTiming(1, { duration: 260 }); };
+    // it may already be ready (cached) before this listener is attached
+    if (player.status === 'readyToPlay') show();
     const sub = player.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay') o.value = withTiming(1, { duration: 260 });
+      if (status === 'readyToPlay') show();
     });
     return () => sub.remove();
   }, [player, o]);

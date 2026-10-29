@@ -256,17 +256,18 @@ async function notifyMentions(story: any, authorId: string) {
     .filter(id => id !== authorId);
   if (!ids.length) return;
   let allowed = ids;
+  const { data: me } = await db.from('profiles').select('full_name, username, avatar_url, is_private').eq('id', authorId).maybeSingle();
   if (story.audience === 'close_friends') {
     const { data } = await db.from('close_friends').select('friend_id').eq('owner_id', authorId).in('friend_id', ids);
     const ok = new Set((data || []).map((r: any) => r.friend_id));
     allowed = ids.filter(id => ok.has(id));
-  } else if (story.audience === 'followers') {
+  } else if (story.audience === 'followers' || me?.is_private) {
+    // A private account's stories only reach followers, whatever the audience says
     const { data } = await db.from('follows').select('follower_id').eq('following_id', authorId).in('follower_id', ids);
     const ok = new Set((data || []).map((r: any) => r.follower_id));
     allowed = ids.filter(id => ok.has(id));
   }
   if (!allowed.length) return;
-  const { data: me } = await db.from('profiles').select('full_name, username, avatar_url').eq('id', authorId).maybeSingle();
   for (const uid of allowed) {
     await NotificationService.notify({
       userId: uid,

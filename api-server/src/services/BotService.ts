@@ -92,8 +92,12 @@ class BotService {
   }
 
   async generateBotReply(
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    opts: { chat?: boolean } = {}
   ): Promise<string | null> {
+    // DMs are a conversation, so they get room for a proper answer; post replies stay short
+    const maxTokens = opts.chat ? 600 : 100;
+    const maxChars = opts.chat ? 2400 : BOT_MAX_REPLY_CHARS;
     try {
       const completion = await openai.chat.completions.create(
         {
@@ -102,7 +106,7 @@ class BotService {
             { role: 'system', content: SYSTEM_PROMPT },
             ...messages
           ],
-          max_tokens: 100,
+          max_tokens: maxTokens,
           temperature: 0.7,
         },
         { timeout: 15000 }
@@ -111,8 +115,8 @@ class BotService {
       const text = completion.choices[0]?.message?.content?.trim();
       if (!text) return null;
 
-      return text.length > BOT_MAX_REPLY_CHARS
-        ? text.slice(0, BOT_MAX_REPLY_CHARS - 1) + '…'
+      return text.length > maxChars
+        ? text.slice(0, maxChars - 1) + '…'
         : text;
     } catch (err) {
       console.error('OpenAI error in BotService:', err);

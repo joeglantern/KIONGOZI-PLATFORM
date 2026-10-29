@@ -31,6 +31,7 @@ import socialRoutes from './routes/social';
 import followsRoutes from './routes/follows';
 import profilesSocialRoutes from './routes/profiles-social';
 import dmRoutes from './routes/dm';
+import devBridgeRoutes from './routes/devBridge';
 import uploadRoutes from './routes/upload';
 import reportsRoutes from './routes/reports';
 import blocksRoutes from './routes/blocks';
@@ -38,6 +39,7 @@ import storiesRoutes from './routes/stories';
 import growthRoutes from './routes/growth';
 import adsRoutes, { adsAdminRoutes } from './routes/ads';
 import assistRoutes from './routes/assist';
+import barazaRoutes from './routes/baraza';
 import sessionsRoutes from './routes/sessions';
 import funnelRoutes from './routes/funnel';
 import { startWeeklyRecapJob } from './jobs/weeklyRecapPush';
@@ -142,9 +144,11 @@ app.use('/api/v1/social', storiesRoutes);
 app.use('/api/v1/social', growthRoutes);
 app.use('/api/v1/ads', adsRoutes);
 app.use('/api/v1/assist', assistRoutes);
+app.use('/api/v1/baraza', barazaRoutes);
 // Ad creatives (immutable files, cached hard)
 app.use('/ads-media', express.static(require('path').join(process.cwd(), 'assets', 'ads'), { maxAge: '30d', immutable: true }));
 app.use('/api/v1/dm', dmRoutes);
+app.use('/api/v1/dev-bridge', devBridgeRoutes);
 app.use('/api/v1/legal', legalRoutes);
 app.use('/api/v1/user', exportRoutes);
 

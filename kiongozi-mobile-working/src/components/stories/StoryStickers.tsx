@@ -98,7 +98,8 @@ export function SliderCard({ question, emoji, k, mine, avg, count, showResults, 
   const lastTick = useSharedValue(-1);
   const avgP = useSharedValue(0);
 
-  useEffect(() => { if (answered) pos.value = withSpring(mine as number, SPRING); }, [mine]);
+  // Back to the start if a failed send rolled the answer back
+  useEffect(() => { pos.value = withSpring(answered ? (mine as number) : 0, SPRING); }, [mine]);
   useEffect(() => { avgP.value = revealed && avg !== null && avg !== undefined ? withSpring(1, SPRING) : 0; }, [revealed, avg]);
 
   const tick = () => { Haptics.selectionAsync().catch(() => {}); };
@@ -119,7 +120,8 @@ export function SliderCard({ question, emoji, k, mine, avg, count, showResults, 
       const b = Math.floor(v * 10);
       if (b !== lastTick.value) { lastTick.value = b; runOnJS(tick)(); }
     })
-    .onEnd(() => { if (pos.value > 0.02) runOnJS(submit)(pos.value); })
+    // Cancelled (e.g. the viewer took the touch) or barely moved: nothing is sent, the emoji goes back
+    .onEnd((_, success) => { if (success && pos.value > 0.02) runOnJS(submit)(pos.value); else pos.value = withSpring(0, SPRING); })
     .onFinalize(() => { active.value = withSpring(0, SPRING); runOnJS(down)(false); });
 
   const knobStyle = useAnimatedStyle(() => ({

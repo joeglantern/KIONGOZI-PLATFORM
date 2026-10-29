@@ -38,6 +38,14 @@ export function ClipComposer() {
   const [caption, setCaption] = useState('');
   const [audience, setAudience] = useState<'public' | 'followers'>('public');
   const [posting, setPosting] = useState(false);
+  const [kb, setKb] = useState(0);
+
+  // Android draws edge to edge, so the window doesn't shrink for the keyboard: pad for it ourselves
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', e => setKb(e.endCoordinates.height));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKb(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const pick = async (from: 'camera' | 'library') => {
     const perm = from === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -63,6 +71,7 @@ export function ClipComposer() {
 
   // Cover candidates spread across the clip (also gives us the real, rotated shape)
   useEffect(() => {
+    setCover(0);
     if (!clip) { setFrames([]); return; }
     let live = true;
     const dur = Math.max(1000, clip.durationMs || 3000);
@@ -124,10 +133,11 @@ export function ClipComposer() {
       if (!res.success || !res.data) throw new Error(res.error || 'Could not post');
       const p = res.data;
       if (!p.post_media?.length) p.post_media = [{ id: 'local', media_type: 'video', url: videoUrl, thumbnail_url: coverUrl, width: clip.width, height: clip.height, order_index: 0 }];
-      useClipStore.getState().added(p);
+      // Followers-only clips stay out of the hive (as the note says); they still go in the feed
+      if (audience === 'public') useClipStore.getState().added(p);
       useSocialStore.getState().prependPost(p);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      appAlert('Posted to Mzinga', 'Your clip is in the hive.');
+      appAlert('Posted to Mzinga', audience === 'public' ? 'Your clip is in the hive.' : 'Your followers can see it on your profile and in their feed.');
       close();
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
@@ -174,8 +184,8 @@ export function ClipComposer() {
             </View>
           </Animated.View>
         ) : (
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 110 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <KeyboardAvoidingView style={{ flex: 1, paddingBottom: Platform.OS === 'android' ? kb : 0 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <View style={styles.previewRow}>
                 <Preview uri={clip.uri} width={previewW} ratio={(clip.width || 9) / (clip.height || 16)} />
                 <View style={styles.cellCol}>
@@ -227,7 +237,8 @@ export function ClipComposer() {
               </Pressable>
             </ScrollView>
 
-            <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+            {/* In the flow (not absolute) so it rides up with the keyboard */}
+            <View style={[styles.footer, { paddingBottom: kb ? 12 : insets.bottom + 12 }]}>
               <Pressable onPress={post} disabled={posting} style={({ pressed }) => [styles.postBtn, pressed && { transform: [{ scale: 0.98 }] }, posting && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Post clip">
                 {posting ? <ActivityIndicator color="#1A1206" /> : <Ionicons name="arrow-up" size={18} color="#1A1206" />}
                 <Text style={styles.postText}>{posting ? 'Putting it in the hive…' : 'Put in the hive'}</Text>
@@ -334,7 +345,7 @@ const styles = StyleSheet.create({
   swap: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', marginTop: 26, padding: 8 },
   swapText: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
 
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: 'rgba(10,9,7,0.94)' },
+  footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: 'rgba(10,9,7,0.94)' },
   postBtn: { height: 52, borderRadius: 26, backgroundColor: HONEY, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   postText: { color: '#1A1206', fontSize: 16.5, fontWeight: '800' },
 });

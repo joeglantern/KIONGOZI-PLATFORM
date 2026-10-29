@@ -32,7 +32,22 @@ interface ClipState {
   closeComposer: () => void;
   added: (post: Post) => void;
   markSeen: (id: string) => void;
+  bumpComments: (id: string, n: number) => void;
+  /** Sign out: forget clips, open screens and the watched list */
+  reset: () => void;
 }
+
+let seenLoad: Promise<void> | null = null;
+/** Read the stored watched list once and merge it in. */
+const loadSeen = () => {
+  if (!seenLoad) {
+    seenLoad = AsyncStorage.getItem(SEEN_KEY)
+      .then(v => (v ? JSON.parse(v) : {}))
+      .catch(() => ({}))
+      .then(stored => { useClipStore.setState(st => ({ seen: { ...stored, ...st.seen } })); });
+  }
+  return seenLoad;
+};
 
 export const useClipStore = create<ClipState>((set, get) => ({
   clips: [],
@@ -47,16 +62,17 @@ export const useClipStore = create<ClipState>((set, get) => ({
   fetch: async (refresh = false) => {
     const s = get();
     if (s.loading || (!refresh && s.loaded && !s.cursor)) return;
+    // mark busy before any await, so a second call can't start a duplicate request
+    set({ loading: true });
+    await loadSeen();
     if (!s.loaded && !s.clips.length) {
       // last-seen hive first, so it never opens empty
-      const [snap, seen] = await Promise.all([
-        readSnap<Post[]>('clips'),
-        AsyncStorage.getItem(SEEN_KEY).then(v => (v ? JSON.parse(v) : {})).catch(() => ({})),
-      ]);
-      set(st => ({ clips: st.clips.length ? st.clips : snap || [], seen: { ...seen, ...st.seen } }));
+      const snap = await readSnap<Post[]>('clips');
+      set(st => ({ clips: st.clips.length ? st.clips : snap || [] }));
     }
-    set({ loading: true });
-    const res: any = await apiClient.getClips(refresh ? null : get().cursor);
+    // Next page = whatever the server ranks highest that we don't have yet
+    const more = !refresh && get().loaded;
+    const res: any = await apiClient.getClips(more ? get().clips.map(p => p.id) : [], more ? get().cursor : null);
     if (res.success) {
       const rows: Post[] = (res.data || []).filter((p: Post) => clipVideo(p));
       rows.forEach(p => useSocialStore.getState().seedInteraction(p));
@@ -80,7 +96,11 @@ export const useClipStore = create<ClipState>((set, get) => ({
     useSocialStore.getState().seedInteraction(post);
     set(st => ({ clips: [post, ...st.clips.filter(p => p.id !== post.id)] }));
   },
-  markSeen: id => {
+  bumpComments: (id, n) => set(st => ({ clips: st.clips.map(p => (p.id === id ? { ...p, comment_count: (p.comment_count || 0) + n } : p)) })),
+  markSeen: async id => {
+    if (get().seen[id]) return;
+    // merge the stored list first, or this write would replace it
+    await loadSeen();
     if (get().seen[id]) return;
     const seen = { ...get().seen, [id]: 1 as const };
     // keep the newest 500
@@ -88,5 +108,10 @@ export const useClipStore = create<ClipState>((set, get) => ({
     if (keys.length > 500) keys.slice(0, keys.length - 500).forEach(k => delete seen[k]);
     set({ seen });
     AsyncStorage.setItem(SEEN_KEY, JSON.stringify(seen)).catch(() => {});
+  },
+  reset: () => {
+    seenLoad = null;
+    set({ clips: [], cursor: null, loading: false, loaded: false, seen: {}, hiveOpen: false, player: null, composerOpen: false });
+    AsyncStorage.removeItem(SEEN_KEY).catch(() => {});
   },
 }));

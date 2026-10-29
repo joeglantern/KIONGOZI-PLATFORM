@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView, useWindowDimensions, InteractionManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
@@ -369,7 +369,7 @@ export function PostCard({
   const addToStory = useCallback(() => {
     const m = [...(activePost.post_media ?? [])].sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))[0];
     const p = activePost.profiles;
-    useStoryStore.getState().openComposerWith({
+    const seed = {
       post: {
         id: activePost.id,
         username: p?.username ?? '',
@@ -379,7 +379,10 @@ export function PostCard({
         text: (activePost.content || '').slice(0, 280),
         image: m ? ((m.media_type === 'video' ? m.thumbnail_url : m.url) || null) : null,
       },
-    });
+    };
+    // The composer is a full-screen Modal; iOS won't present it while the sheet's Modal is still
+    // going away, so wait a beat for that to finish
+    setTimeout(() => InteractionManager.runAfterInteractions(() => useStoryStore.getState().openComposerWith(seed)), 120);
   }, [activePost]);
   // Only public posts can go on a story (the server checks too)
   const canStory = (activePost.visibility ?? 'public') === 'public';
