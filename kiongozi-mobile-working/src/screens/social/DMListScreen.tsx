@@ -192,6 +192,8 @@ export default function DMListScreen() {
     return (
       <Pressable
         style={({ pressed }) => [styles.convRow, pressed && { backgroundColor: T.surface }]}
+        // Load the saved messages the moment a finger lands, so the chat opens already filled
+        onPressIn={() => { useDMStore.getState().hydrateMessages(item.id); }}
         onPress={() => navigation.navigate('DMConversation', {
           conversationId: item.id,
           participantName: other?.full_name,

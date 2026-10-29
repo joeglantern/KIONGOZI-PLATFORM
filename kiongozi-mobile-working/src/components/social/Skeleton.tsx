@@ -153,3 +153,21 @@ export function ProfileSkeleton({ posts = 2 }: { posts?: number }) {
     </View>
   );
 }
+
+/** A chat while its messages load: bubbles on both sides, newest at the bottom */
+export function ChatSkeleton() {
+  const sweep = useSweep();
+  const rows: [boolean, number, number][] = [
+    [false, 52, 36], [false, 38, 36], [true, 46, 36], [false, 64, 56], [true, 34, 36], [true, 58, 36], [false, 44, 36],
+  ];
+  return (
+    <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: 12 }} accessibilityLabel="Loading messages" accessibilityRole="progressbar">
+      {rows.map(([own, w, h], i) => (
+        <View key={i} style={{ flexDirection: 'row', justifyContent: own ? 'flex-end' : 'flex-start', paddingHorizontal: 10, marginTop: rows[i - 1]?.[0] === own ? 3 : 12 }}>
+          {!own && <View style={{ width: 36 }} />}
+          <Block sweep={sweep} style={{ width: `${w}%`, height: h, borderRadius: 18 }} />
+        </View>
+      ))}
+    </View>
+  );
+}

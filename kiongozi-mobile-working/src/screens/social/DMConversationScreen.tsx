@@ -2,8 +2,12 @@ import { appAlert } from '../../utils/alert';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Image, ActivityIndicator,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Modal,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Keyboard, Pressable,
 } from 'react-native';
+import { ChatSkeleton } from '../../components/social/Skeleton';
+import { MessageMenu } from '../../components/social/MessageMenu';
+import { SelectTextSheet } from '../../components/social/SelectTextSheet';
+import type { BubbleRect } from '../../components/social/DMBubble';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -69,8 +73,12 @@ function buildList(messages: DMMessage[], myId: string): ListItem[] {
 
     const prev = messages[i - 1];
     const next = messages[i + 1];
-    const sameSenderAsPrev = prev && prev.sender_id === msg.sender_id && dayKey(prev.created_at) === day;
-    const sameSenderAsNext = next && next.sender_id === msg.sender_id && dayKey(next.created_at) === day;
+    // One group = same sender, same day, sent within 3 minutes of each other (Signal / iMessage)
+    const close = (a: DMMessage, b: DMMessage) =>
+      a.sender_id === b.sender_id && dayKey(a.created_at) === dayKey(b.created_at) &&
+      Math.abs(new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) < 3 * 60 * 1000;
+    const sameSenderAsPrev = !!prev && close(prev, msg);
+    const sameSenderAsNext = !!next && close(next, msg);
 
     items.push({
       type: 'message',
@@ -113,14 +121,22 @@ export default function DMConversationScreen() {
   const [uploading, setUploading] = useState(false);
   const [viewerMessage, setViewerMessage] = useState<DMMessage | null>(null);
   const [replyingTo, setReplyingTo] = useState<DMMessage | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ message: DMMessage; isOwn: boolean } | null>(null);
-  const [unsendConfirm, setUnsendConfirm] = useState(false);
+  const [menu, setMenu] = useState<{ message: DMMessage; isOwn: boolean; rect: BubbleRect } | null>(null);
+  const [selectText, setSelectText] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<DMMessage | null>(null);
-  const sheetY = useRef(new Animated.Value(300)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
   const sendScale = useRef(new Animated.Value(0)).current;
+  // The list is inverted (newest at offset 0), so "bottom" is offset 0: no jumps, no scrollToEnd
+  const scrollToBottom = useCallback((animated = true) => flatListRef.current?.scrollToOffset({ offset: 0, animated }), []);
+
+  // While the keyboard is up, the home-indicator gap under the input goes away (no double gap)
+  const [kbOpen, setKbOpen] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   // Animate send button in/out when there's text or a media attachment
   const hasContent = text.trim().length > 0 || mediaUri !== null;
@@ -164,23 +180,10 @@ export default function DMConversationScreen() {
     }
   }, []);
 
-  const openContextMenu = useCallback((message: DMMessage, isOwn: boolean) => {
-    setContextMenu({ message, isOwn });
-    setUnsendConfirm(false);
-    sheetY.setValue(300);
-    backdropOpacity.setValue(0);
-    Animated.parallel([
-      Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }),
-      Animated.timing(backdropOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-    ]).start();
-  }, [sheetY, backdropOpacity]);
-
-  const closeContextMenu = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(sheetY, { toValue: 300, duration: 180, useNativeDriver: true }),
-      Animated.timing(backdropOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-    ]).start(() => setContextMenu(null));
-  }, [sheetY, backdropOpacity]);
+  const openContextMenu = useCallback((message: DMMessage, isOwn: boolean, rect: BubbleRect) => {
+    Keyboard.dismiss();
+    setMenu({ message, isOwn, rect });
+  }, []);
 
   const conversationMessages = messages[conversationId] || [];
 
@@ -191,15 +194,20 @@ export default function DMConversationScreen() {
   }, [conversationMessages]);
 
   const listItems = useMemo(
-    () => buildList(conversationMessages, user?.id || ''),
+    () => buildList(conversationMessages, user?.id || '').reverse(),
     [conversationMessages, user?.id]
   );
+
+  // 'loading' until we know: shimmer bubbles, never the "new chat" wave for a chat that has messages
+  const [ready, setReady] = useState(() => (useDMStore.getState().messages[conversationId]?.length ?? 0) > 0);
+  useEffect(() => { if (conversationMessages.length) setReady(true); }, [conversationMessages.length]);
 
   useEffect(() => {
     // Saved messages show first (works offline). Only do a blocking full reload when nothing
     // was saved; the realtime SUBSCRIBED callback catches anything that arrived while away.
     hydrateMessages(conversationId).then(() => {
-      if (!(useDMStore.getState().messages[conversationId]?.length)) fetchMessages(conversationId, true);
+      if (useDMStore.getState().messages[conversationId]?.length) { setReady(true); return; }
+      Promise.resolve(fetchMessages(conversationId, true)).finally(() => setReady(true));
     });
     markRead(conversationId);
     apiClient.markDMRead(conversationId);
@@ -231,8 +239,7 @@ export default function DMConversationScreen() {
 
           appendMessage(conversationId, msg, true);
           apiClient.markDMRead(conversationId);
-          // Scroll to reveal the new incoming message
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+          Haptics.selectionAsync().catch(() => {});
         }
       )
       .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
@@ -247,7 +254,7 @@ export default function DMConversationScreen() {
           // Re-fetch on subscription connect to catch any messages
           // that arrived between the initial load and the subscription being established
           await fetchMessages(conversationId, true);
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 120);
+          setReady(true);
         }
       });
     channelRef.current = channel;
@@ -280,10 +287,6 @@ export default function DMConversationScreen() {
   // Leaving the chat stops our "typing…" on their side
   useEffect(() => () => { if (lastTypingSent.current) sendTyping(false); }, [sendTyping]);
 
-  // Reveal the typing bubble when it appears
-  useEffect(() => {
-    if (peerTyping) setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
-  }, [peerTyping]);
 
   const handleSend = useCallback(async () => {
     if (!text.trim() && !mediaUri) return;
@@ -329,7 +332,8 @@ export default function DMConversationScreen() {
       created_at: createdAt,
       _pending: true,
     } as DMMessage, true); // own message — skip unread increment
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setTimeout(() => scrollToBottom(true), 30);
     enqueue({ t: 'dm', conversationId, tempId, senderId: user!.id, createdAt, content: m.content, mediaUri: m.mediaUri, replyToId: m.replyToId });
   }, [conversationId, user, appendMessage]);
 
@@ -366,7 +370,7 @@ export default function DMConversationScreen() {
         avatarUrl={participantAvatar}
         avatarName={participantName || participantUsername}
         onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
-        onLongPress={() => openContextMenu(item.message, isOwn)}
+        onLongPress={(rect) => openContextMenu(item.message, isOwn, rect)}
         onRetry={item.message._failed ? () => retryMessage(item.message) : undefined}
         replyPreview={repliedTo ? {
           senderName: repliedTo.sender_id === user?.id ? 'You' : (participantName || 'Them'),
@@ -378,7 +382,7 @@ export default function DMConversationScreen() {
   }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap, isBot, isDark, retryMessage]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -443,25 +447,10 @@ export default function DMConversationScreen() {
         </View>
 
         {/* Messages */}
-        <FlatList
-          ref={flatListRef}
-          data={listItems}
-          keyExtractor={item => item.key}
-          renderItem={renderItem}
-          contentContainerStyle={styles.messageList}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          ListFooterComponent={peerTyping ? <TypingBubble avatarUrl={participantAvatar} name={participantName || participantUsername} /> : null}
-          ListHeaderComponent={
-            messageCursors[conversationId] ? (
-              <TouchableOpacity
-                style={styles.loadOlderBtn}
-                onPress={() => fetchMessages(conversationId, false)}
-              >
-                <Text style={styles.loadOlderText}>Load older messages</Text>
-              </TouchableOpacity>
-            ) : null
-          }
-          ListEmptyComponent={
+        {!ready && !listItems.length ? (
+          <ChatSkeleton />
+        ) : !listItems.length ? (
+          <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss} accessible={false}>
             <View style={styles.empty}>
               <UserAvatar avatarUrl={participantAvatar} size={84} name={participantName || participantUsername} />
               <Text style={styles.emptyName}>{participantName || 'Say hello'}</Text>
@@ -472,17 +461,36 @@ export default function DMConversationScreen() {
                 </TouchableOpacity>
               )}
             </View>
-          }
-        />
+          </Pressable>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            inverted
+            data={listItems}
+            keyExtractor={item => item.key}
+            renderItem={renderItem}
+            contentContainerStyle={styles.messageList}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
+            maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 120 }}
+            initialNumToRender={18}
+            windowSize={11}
+            // Inverted: the header sits at the bottom (typing), the footer at the top (older)
+            ListHeaderComponent={peerTyping ? <TypingBubble avatarUrl={participantAvatar} name={participantName || participantUsername} /> : null}
+            ListFooterComponent={messageCursors[conversationId] ? <ActivityIndicator style={{ marginVertical: 14 }} color={T.textMuted} /> : <View style={{ height: 8 }} />}
+            onEndReached={() => { if (messageCursors[conversationId]) fetchMessages(conversationId, false); }}
+            onEndReachedThreshold={0.4}
+          />
+        )}
 
         {/* Input / Coming Soon */}
         {isBot ? (
-          <View style={styles.comingSoonBar}>
+          <View style={[styles.comingSoonBar, { paddingBottom: 20 + insets.bottom }]}>
             <Text style={styles.comingSoonTitle}>Coming Soon</Text>
             <Text style={styles.comingSoonSub}>AI replies in direct messages</Text>
           </View>
         ) : (
-          <View style={styles.inputBar}>
+          <View style={[styles.inputBar, { paddingBottom: kbOpen ? 8 : Math.max(insets.bottom, 12) + 4 }]}>
             <ReplyChips
               conversationId={conversationId}
               last={(messages[conversationId] || [])[(messages[conversationId] || []).length - 1]}
@@ -530,10 +538,15 @@ export default function DMConversationScreen() {
             )}
 
             <View style={styles.inputRow}>
+              <Pressable
+                style={({ pressed }) => [styles.plusBtn, pressed && { transform: [{ scale: 0.92 }], opacity: 0.8 }]}
+                onPress={() => { Haptics.selectionAsync().catch(() => {}); handlePickImage(); }}
+                disabled={uploading}
+                accessibilityLabel="Send a photo"
+              >
+                <Ionicons name="add" size={22} color={T.text} />
+              </Pressable>
               <View style={styles.inputPill}>
-                <TouchableOpacity style={styles.pillIcon} onPress={handlePickImage} disabled={uploading} accessibilityLabel="Send a photo">
-                  <Ionicons name="add" size={24} color={uploading ? T.textMuted : T.text} />
-                </TouchableOpacity>
                 <TextInput
                   ref={inputRef}
                   style={styles.input}
@@ -545,20 +558,20 @@ export default function DMConversationScreen() {
                   maxLength={1000}
                 />
                 {hasContent ? (
-                  <Animated.View style={{ transform: [{ scale: sendScale }] }}>
+                  <Animated.View style={{ transform: [{ scale: sendScale.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }], opacity: sendScale }}>
                     <TouchableOpacity
                       onPress={handleSend}
                       disabled={!hasContent || uploading}
                       style={styles.sendBtn}
                       activeOpacity={0.8}
-                      accessibilityLabel="Send"
+                      accessibilityLabel={editingMessage ? 'Save edit' : 'Send'}
                     >
-                      {uploading ? <ActivityIndicator size="small" color="#000" /> : <Ionicons name="arrow-up" size={18} color="#000" />}
+                      {uploading ? <ActivityIndicator size="small" color="#000" /> : <Ionicons name={editingMessage ? 'checkmark' : 'arrow-up'} size={18} color="#000" />}
                     </TouchableOpacity>
                   </Animated.View>
                 ) : (
                   <TouchableOpacity style={styles.pillIcon} onPress={handleCamera} disabled={uploading} accessibilityLabel="Take a photo">
-                    <Ionicons name="camera-outline" size={22} color={uploading ? T.textMuted : T.text} />
+                    <Ionicons name="camera-outline" size={21} color={T.textSub} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -578,72 +591,48 @@ export default function DMConversationScreen() {
         caption={viewerMessage?.content}
       />
 
-      {/* Context menu bottom sheet */}
-      {contextMenu && (
-        <Modal transparent animationType="none" onRequestClose={closeContextMenu}>
-          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
-              <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeContextMenu} activeOpacity={1} />
-            </Animated.View>
-
-            <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
-              {/* Sheet handle */}
-              <View style={styles.sheetHandle} />
-
-              {!unsendConfirm ? (
-                <>
-                  {contextMenu.message.content ? (
-                    <TouchableOpacity style={styles.sheetItem} onPress={() => { Clipboard.setStringAsync(contextMenu.message.content!); closeContextMenu(); }} activeOpacity={0.7}>
-                      <Ionicons name="copy-outline" size={22} color={T.text} />
-                      <Text style={styles.sheetItemText}>Copy</Text>
-                    </TouchableOpacity>
-                  ) : null}
-
-                  <TouchableOpacity style={styles.sheetItem} onPress={() => { setReplyingTo(contextMenu.message); closeContextMenu(); }} activeOpacity={0.7}>
-                    <Ionicons name="arrow-undo-outline" size={22} color={T.text} />
-                    <Text style={styles.sheetItemText}>Reply</Text>
-                  </TouchableOpacity>
-
-                  {contextMenu.isOwn && !contextMenu.message._pending && contextMenu.message.content && (
-                    <TouchableOpacity style={styles.sheetItem} onPress={() => { setEditingMessage(contextMenu.message); setText(contextMenu.message.content || ''); closeContextMenu(); }} activeOpacity={0.7}>
-                      <Ionicons name="pencil-outline" size={22} color={T.text} />
-                      <Text style={styles.sheetItemText}>Edit</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {contextMenu.isOwn && !contextMenu.message._pending && (
-                    <TouchableOpacity style={styles.sheetItem} onPress={() => setUnsendConfirm(true)} activeOpacity={0.7}>
-                      <Ionicons name="trash-outline" size={22} color={T.error} />
-                      <Text style={[styles.sheetItemText, { color: T.error }]}>Unsend</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              ) : (
-                <>
-                  <View style={styles.sheetConfirm}>
-                    <Text style={styles.sheetConfirmTitle}>Unsend this message?</Text>
-                    <Text style={styles.sheetConfirmSub}>This will be removed for everyone.</Text>
-                  </View>
-                  <TouchableOpacity style={styles.sheetItem} onPress={() => { unsendMessage(conversationId, contextMenu.message.id); closeContextMenu(); }} activeOpacity={0.7}>
-                    <Ionicons name="trash-outline" size={22} color={T.error} />
-                    <Text style={[styles.sheetItemText, { color: T.error }]}>Confirm unsend</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.sheetItem} onPress={() => setUnsendConfirm(false)} activeOpacity={0.7}>
-                    <Ionicons name="arrow-back-outline" size={22} color={T.text} />
-                    <Text style={styles.sheetItemText}>Back</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              <View style={styles.sheetDivider} />
-              <TouchableOpacity style={styles.sheetItem} onPress={closeContextMenu} activeOpacity={0.7}>
-                <Ionicons name="close-outline" size={22} color={T.textSub} />
-                <Text style={[styles.sheetItemText, { color: T.textSub }]}>Cancel</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-        </Modal>
+      {menu && (
+        <MessageMenu
+          rect={menu.rect}
+          isOwn={menu.isOwn}
+          onClose={() => setMenu(null)}
+          preview={
+            <DMBubble
+              floating
+              message={menu.message}
+              isOwn={menu.isOwn}
+              isFirst
+              isLast
+              avatarUrl={participantAvatar}
+              avatarName={participantName || participantUsername}
+              replyPreview={(() => {
+                const r = menu.message.reply_to_id ? messageMap[menu.message.reply_to_id] : undefined;
+                return r ? { senderName: r.sender_id === user?.id ? 'You' : (participantName || 'Them'), content: r.content || (r.media_url ? '📷 Photo' : 'Message') } : undefined;
+              })()}
+            />
+          }
+          actions={[
+            ...(!isBot && !menu.message._pending ? [{ key: 'reply', label: 'Reply', icon: 'arrow-undo-outline', onPress: () => { setReplyingTo(menu.message); setTimeout(() => inputRef.current?.focus(), 80); } }] : []),
+            ...(menu.message.content ? [
+              { key: 'copy', label: 'Copy', icon: 'copy-outline', onPress: () => { Clipboard.setStringAsync(menu.message.content!); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); } },
+              { key: 'select', label: 'Select text', icon: 'text-outline', onPress: () => setSelectText(menu.message.content!) },
+            ] : []),
+            ...(menu.isOwn && !menu.message._pending && menu.message.content ? [{ key: 'edit', label: 'Edit', icon: 'pencil-outline', onPress: () => { setEditingMessage(menu.message); setText(menu.message.content || ''); setTimeout(() => inputRef.current?.focus(), 80); } }] : []),
+            ...(menu.isOwn && !menu.message._pending ? [{
+              key: 'unsend', label: 'Unsend', icon: 'trash-outline', danger: true,
+              onPress: () => {
+                const m = menu.message;
+                appAlert('Unsend this message?', 'It will be removed for everyone in this chat.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Unsend', style: 'destructive', onPress: () => unsendMessage(conversationId, m.id) },
+                ]);
+              },
+            }] : []),
+          ]}
+        />
       )}
+
+      <SelectTextSheet text={selectText} onClose={() => setSelectText(null)} />
     </SafeAreaView>
   );
 }
@@ -678,10 +667,10 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
 
     messageList: { paddingVertical: 12, paddingBottom: 4 },
 
-    dateSep: { alignItems: 'center', marginTop: 10, marginBottom: 6 },
-    dateLabel: { fontSize: 12, color: T.textMuted, fontWeight: '500' },
+    dateSep: { alignItems: 'center', marginTop: 14, marginBottom: 6 },
+    dateLabel: { fontSize: 11.5, color: T.textSub, fontWeight: '600', backgroundColor: T.surface, overflow: 'hidden', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
 
-    empty: { alignItems: 'center', marginTop: 70, gap: 6 },
+    empty: { alignItems: 'center', marginTop: 90, gap: 6 },
     emptyName: { color: T.text, fontSize: 20, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 8 },
     emptyText: { color: T.textMuted, fontSize: 15 },
     waveBtn: { marginTop: 14, height: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: T.surface2, justifyContent: 'center' },
@@ -694,7 +683,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       paddingTop: 6,
       // SafeAreaView adds the home-indicator / nav-bar inset below this; when Android
       // reports 0 there, give the pill a little more room off the screen edge.
-      paddingBottom: bottomInset > 0 ? 8 : 12,
       backgroundColor: T.bg,
     },
     replyPreviewBar: {
@@ -730,20 +718,22 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       top: -6,
       right: -6,
     },
-    inputRow: { flexDirection: 'row', alignItems: 'flex-end' },
+    inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    plusBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: T.surface2, marginBottom: 1 },
     inputPill: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'flex-end',
-      minHeight: 44,
-      borderRadius: 22,
-      borderWidth: 1,
+      minHeight: 38,
+      borderRadius: 19,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: T.border,
-      paddingHorizontal: 4,
+      paddingLeft: 14,
+      paddingRight: 3,
       paddingVertical: 3,
-      backgroundColor: T.bg,
+      backgroundColor: T.surface,
     },
-    pillIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    pillIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     attachBtn: {
       width: 38,
       height: 44,
@@ -762,17 +752,18 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     input: {
       flex: 1,
       fontSize: 16,
+      lineHeight: 21,
       color: T.text,
-      maxHeight: 120,
-      paddingHorizontal: 4,
-      paddingTop: Platform.OS === 'ios' ? 9 : 7,
-      paddingBottom: Platform.OS === 'ios' ? 9 : 7,
+      maxHeight: 132,
+      paddingHorizontal: 0,
+      paddingTop: Platform.OS === 'ios' ? 6 : 4,
+      paddingBottom: Platform.OS === 'ios' ? 6 : 4,
     },
     sendBtn: {
       backgroundColor: T.accent,
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
     },
