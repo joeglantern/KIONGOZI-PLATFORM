@@ -1,10 +1,11 @@
 // Full-screen story viewer.
 // Tap right/left = next/previous, hold = pause, swipe down = close, swipe sideways = next/previous person.
 // Replies and reactions go to the author as DMs. Your own stories show who has seen them.
+import { appAlert } from '../../utils/alert';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, Animated, Dimensions, TextInput,
-  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Alert, Keyboard, StatusBar, Share, Linking,
+  KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Keyboard, StatusBar, Share, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing, SharedValue } from 'react-native-reanimated';
@@ -283,7 +284,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
 
   const confirmDelete = () => {
     setHolding(true);
-    Alert.alert('Delete this story?', 'It will be removed for everyone.', [
+    appAlert('Delete this story?', 'It will be removed for everyone.', [
       { text: 'Cancel', style: 'cancel', onPress: () => setHolding(false) },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
@@ -294,7 +295,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             if (stories.length === 1) onClose();
             else if (idx === stories.length - 1) setIdx(i => i - 1);
             removeStory(story.id);
-          } else Alert.alert('Could not delete', res.error || 'Try again.');
+          } else appAlert('Could not delete', res.error || 'Try again.');
         },
       },
     ], { cancelable: true, onDismiss: () => setHolding(false) });
@@ -304,14 +305,14 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   const openMore = () => {
     const u = group.user.username;
     setHolding(true);
-    Alert.alert(`@${u}`, undefined, [
+    appAlert(`@${u}`, undefined, [
       {
         text: `Mute @${u}`, onPress: async () => {
           setHolding(false);
           try {
             await muteUser(group.user.id);
-            Alert.alert('Muted', `You won't see posts from @${u} in your feed.`);
-          } catch { Alert.alert('Could not mute', 'Try again.'); }
+            appAlert('Muted', `You won't see posts from @${u} in your feed.`);
+          } catch { appAlert('Could not mute', 'Try again.'); }
         },
       },
       ...(story ? [{ text: 'Report story', style: 'destructive' as const, onPress: () => { setHolding(false); setReport({ type: 'story', id: story.id }); } }] : []),
@@ -737,7 +738,7 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
         params: { conversationId: res.data.id, participantName: p.full_name || p.username, participantUsername: p.username, participantAvatar: p.avatar_url },
       });
     } catch (e: any) {
-      Alert.alert('Could not open chat', e?.message || 'Try again.');
+      appAlert('Could not open chat', e?.message || 'Try again.');
     } finally {
       setOpening(null);
     }

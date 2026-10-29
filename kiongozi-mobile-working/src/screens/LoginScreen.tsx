@@ -1,3 +1,4 @@
+import { appAlert } from '../utils/alert';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
@@ -5,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -78,18 +78,18 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
     if (result.success) {
       setOtpVerified(true);
     } else {
-      Alert.alert('Invalid code', result.error || 'The code is incorrect or has expired.');
+      appAlert('Invalid code', result.error || 'The code is incorrect or has expired.');
       setOtpCode('');
     }
   };
 
   const handleSetNewPassword = async () => {
     if (newPassword.length < 8) {
-      Alert.alert('Too short', 'Password must be at least 8 characters.');
+      appAlert('Too short', 'Password must be at least 8 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Mismatch', 'Passwords do not match.');
+      appAlert('Mismatch', 'Passwords do not match.');
       return;
     }
     setResetPwLoading(true);
@@ -97,7 +97,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
     const result = await updatePassword(newPassword);
     setResetPwLoading(false);
     if (!result.success) {
-      Alert.alert('Error', result.error || 'Failed to update password.');
+      appAlert('Error', result.error || 'Failed to update password.');
     }
     // On success, authStore sets user → app navigates away automatically
   };
@@ -180,27 +180,27 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
 
   const handleSubmit = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      appAlert('Error', 'Please fill in all fields');
       return;
     }
 
     if (isSignUp && (!firstName || !lastName)) {
-      Alert.alert('Error', 'Please enter your first and last name');
+      appAlert('Error', 'Please enter your first and last name');
       return;
     }
 
     if (isSignUp && username.length > 0 && username.length < 3) {
-      Alert.alert('Error', 'Username must be at least 3 characters');
+      appAlert('Error', 'Username must be at least 3 characters');
       return;
     }
 
     if (isSignUp && (usernameStatus === 'taken' || usernameStatus === 'reserved')) {
-      Alert.alert('Error', usernameStatus === 'reserved' ? 'That username is reserved' : 'That username is already taken');
+      appAlert('Error', usernameStatus === 'reserved' ? 'That username is reserved' : 'That username is already taken');
       return;
     }
 
     if (isSignUp && username.length > 0 && usernameStatus === 'checking') {
-      Alert.alert('Please wait', 'Still checking username availability');
+      appAlert('Please wait', 'Still checking username availability');
       return;
     }
 
@@ -212,10 +212,10 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
       if (result.success) {
         onLoginSuccess();
       } else {
-        Alert.alert('Error', result.error || 'Authentication failed');
+        appAlert('Error', result.error || 'Authentication failed');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong');
+      appAlert('Error', error.message || 'Something went wrong');
     }
   };
 
@@ -321,7 +321,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                         if (result.success) {
                           setResetSent(true);
                         } else {
-                          Alert.alert('Error', result.error || 'Failed to send code.');
+                          appAlert('Error', result.error || 'Failed to send code.');
                         }
                       }}
                       activeOpacity={0.8}
@@ -386,7 +386,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                         setResetLoading(true);
                         await resetPassword(resetEmail);
                         setResetLoading(false);
-                        Alert.alert('Code resent', 'A new code has been sent to your email.');
+                        appAlert('Code resent', 'A new code has been sent to your email.');
                       }}
                     >
                       <Text style={styles.resendText}>
@@ -650,7 +650,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                   onPress={async () => {
                     const result = await signInWithGoogle();
                     if (!result.success && result.error && result.error !== 'Sign-in cancelled') {
-                      Alert.alert('Google Sign-In Failed', result.error);
+                      appAlert('Google Sign-In Failed', result.error);
                     }
                   }}
                 >
@@ -672,7 +672,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                     onPress={async () => {
                       const result = await signInWithApple();
                       if (!result.success && result.error && result.error !== 'Sign-in cancelled') {
-                        Alert.alert('Apple Sign-In Failed', result.error);
+                        appAlert('Apple Sign-In Failed', result.error);
                       }
                     }}
                   />

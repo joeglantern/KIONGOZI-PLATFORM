@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useState } from 'react';
+import { deletePostWithUndo } from '../../utils/deletePost';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable,
 } from 'react-native';
@@ -44,8 +45,8 @@ export default function BookmarksScreen() {
   }, [navigation]);
 
   const handleDeletePost = useCallback((postId: string) => {
-    apiClient.deletePost(postId).then(() => deletePost(postId)).catch(() => {});
-  }, [deletePost]);
+    deletePostWithUndo(postId);
+  }, []);
 
   const handleEditPress = useCallback((postId: string, content: string, visibility: 'public' | 'followers') => {
     setEditTarget({ id: postId, content, visibility });

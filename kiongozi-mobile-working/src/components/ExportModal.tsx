@@ -1,3 +1,4 @@
+import { appAlert } from '../utils/alert';
 import React, { useState } from 'react';
 import {
   View,
@@ -7,8 +8,7 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
+  } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import exportUtils, { ExportFormat, ExportScope, Conversation } from '../utils/exportUtils';
@@ -71,7 +71,7 @@ export default function ExportModal({
           if (currentConversation) {
             conversationsToExport = [currentConversation];
           } else {
-            Alert.alert('No Current Conversation', 'Please start a conversation first.');
+            appAlert('No Current Conversation', 'Please start a conversation first.');
             return;
           }
           break;
@@ -81,7 +81,7 @@ export default function ExportModal({
       }
 
       if (conversationsToExport.length === 0) {
-        Alert.alert('No Conversations', 'No conversations available to export.');
+        appAlert('No Conversations', 'No conversations available to export.');
         return;
       }
 
@@ -102,7 +102,7 @@ export default function ExportModal({
     } catch (error) {
       console.error('Export error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Export Failed', 'Could not export conversations. Please try again.');
+      appAlert('Export Failed', 'Could not export conversations. Please try again.');
     } finally {
       setExporting(false);
     }
@@ -179,7 +179,7 @@ export default function ExportModal({
                 ]}
                 onPress={() => {
                   if (option.key === 'current' && !currentConversation) {
-                    Alert.alert('No Current Conversation', 'Please start a conversation first.');
+                    appAlert('No Current Conversation', 'Please start a conversation first.');
                     return;
                   }
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

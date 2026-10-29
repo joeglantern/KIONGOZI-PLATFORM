@@ -1,16 +1,17 @@
 import { supabaseServiceClient } from '../config/supabase';
+import { mediaAlt } from '../config/mediaColumns';
 
-const POST_SELECT = `
+const postSelect = () => `
   id, content, visibility, like_count, comment_count, repost_count, view_count,
   is_bot_reply, created_at, updated_at,
   user_id, parent_post_id, repost_of_id,
   profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-  post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder),
+  post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder${mediaAlt()}),
   repost_of:repost_of_id (
     id, content, visibility, like_count, comment_count, repost_count, view_count,
     is_bot_reply, created_at, updated_at, user_id,
     profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-    post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
+    post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder${mediaAlt()})
   )
 `;
 
@@ -136,7 +137,7 @@ class FeedService {
 
     let query = supabaseServiceClient
       .from('posts')
-      .select(POST_SELECT)
+      .select(postSelect() as '*')
       .in('user_id', followingIds)
       .is('parent_post_id', null)
       .order('created_at', { ascending: false })
@@ -184,7 +185,7 @@ class FeedService {
 
     let query = supabaseServiceClient
       .from('posts')
-      .select(POST_SELECT)
+      .select(postSelect() as '*')
       .eq('visibility', 'public')
       .is('parent_post_id', null)
       .order('created_at', { ascending: false })
@@ -243,7 +244,7 @@ class FeedService {
       // Wider pool: 400 posts from last 14 days
       supabaseServiceClient
         .from('posts')
-        .select(POST_SELECT)
+        .select(postSelect() as '*')
         .eq('visibility', 'public')
         .is('parent_post_id', null)
         .neq('user_id', userId)
@@ -374,7 +375,7 @@ class FeedService {
 
       let fallbackQuery = supabaseServiceClient
         .from('posts')
-        .select(POST_SELECT)
+        .select(postSelect() as '*')
         .eq('visibility', 'public')
         .is('parent_post_id', null)
         .order('created_at', { ascending: false })

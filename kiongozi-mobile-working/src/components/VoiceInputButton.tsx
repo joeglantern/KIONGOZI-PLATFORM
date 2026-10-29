@@ -2,6 +2,7 @@
  * VoiceInputButton Component
  * Real voice input functionality with speech-to-text for mobile and web
  */
+import { appAlert } from '../utils/alert';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   TouchableOpacity,
@@ -10,7 +11,6 @@ import {
   StyleSheet,
   Animated,
   Modal,
-  Alert,
   Platform,
   PermissionsAndroid,
 } from 'react-native';
@@ -174,7 +174,7 @@ export default function VoiceInputButton({
     }
     
     setError(errorMessage);
-    Alert.alert('Voice Input Error', errorMessage);
+    appAlert('Voice Input Error', errorMessage);
   };
 
   const onSpeechResults = (e: any) => {
@@ -228,7 +228,7 @@ export default function VoiceInputButton({
       }
     } catch (error) {
       console.error('Speech recognition error:', error);
-      Alert.alert(
+      appAlert(
         'Voice Input Error',
         'Failed to start voice recognition. Please try again.',
         [{ text: 'OK' }]
@@ -314,7 +314,7 @@ export default function VoiceInputButton({
         }
         
         setError(errorMessage);
-        Alert.alert('Voice Input Error', errorMessage);
+        appAlert('Voice Input Error', errorMessage);
       };
 
       recognition.onend = () => {
@@ -336,7 +336,7 @@ export default function VoiceInputButton({
   const startMobileSpeechRecognition = async () => {
     // Check if Voice library is available
     if (!isVoiceAvailable || !Voice) {
-      Alert.alert(
+      appAlert(
         'Voice Recognition Unavailable',
         'Voice recognition is not available in this environment.\n\n' +
         'This feature requires:\n' +
@@ -365,7 +365,7 @@ export default function VoiceInputButton({
       if (Platform.OS === 'android') {
         const hasPermission = await checkAndroidPermissions();
         if (!hasPermission) {
-          Alert.alert(
+          appAlert(
             'Permission Required',
             'Microphone permission is required for voice input.',
             [{ text: 'OK' }]
@@ -378,7 +378,7 @@ export default function VoiceInputButton({
       if (Voice.isAvailable) {
         const isAvailable = await Voice.isAvailable();
         if (!isAvailable) {
-          Alert.alert(
+          appAlert(
             'Speech Recognition Unavailable',
             'Speech recognition is not available on this device.',
             [{ text: 'OK' }]
@@ -403,7 +403,7 @@ export default function VoiceInputButton({
         }
       }
       
-      Alert.alert(
+      appAlert(
         'Voice Input Error',
         errorMessage + '\n\nTry using the web version for testing.',
         [
@@ -436,7 +436,7 @@ export default function VoiceInputButton({
   };
 
   const showUnsupportedAlert = () => {
-    Alert.alert(
+    appAlert(
       'Voice Input Unavailable',
       'Voice input is not supported in this environment. Please type your message instead.',
       [{ text: 'OK' }]

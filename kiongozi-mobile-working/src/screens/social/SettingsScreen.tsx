@@ -1,3 +1,4 @@
+import { appAlert } from '../../utils/alert';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -5,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Alert,
   Modal,
   TextInput,
   ActivityIndicator,
@@ -96,7 +96,7 @@ export default function SettingsScreen() {
           await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
           setPushEnabled(true);
         } else {
-          Alert.alert(
+          appAlert(
             'Permission Denied',
             'Please allow notifications in your device settings to enable push notifications.'
           );
@@ -124,7 +124,7 @@ export default function SettingsScreen() {
       const res = await apiClient.updatePrivacySettings({ is_private: value });
       if (!res.success) {
         setPrivateAccount(prev);
-        Alert.alert('Error', 'Failed to update privacy setting.');
+        appAlert('Error', 'Failed to update privacy setting.');
       } else if (currentUserProfile?.username) {
         fetchCurrentUserProfile(currentUserProfile.username);
       }
@@ -142,12 +142,12 @@ export default function SettingsScreen() {
     try {
       const res = await apiClient.exportUserData();
       if (res.success || res.data) {
-        Alert.alert('Data Export', 'Your data is being prepared. You will receive an email with a download link within 24 hours.');
+        appAlert('Data Export', 'Your data is being prepared. You will receive an email with a download link within 24 hours.');
       } else {
-        Alert.alert('Error', res.error || 'Failed to export data.');
+        appAlert('Error', res.error || 'Failed to export data.');
       }
     } catch {
-      Alert.alert('Error', 'Failed to export data. Please try again.');
+      appAlert('Error', 'Failed to export data. Please try again.');
     } finally {
       setExportLoading(false);
     }
@@ -170,15 +170,15 @@ export default function SettingsScreen() {
 
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      appAlert('Error', 'Please fill in all fields.');
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters.');
+      appAlert('Error', 'Password must be at least 6 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      appAlert('Error', 'Passwords do not match.');
       return;
     }
 
@@ -186,9 +186,9 @@ export default function SettingsScreen() {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) {
-        Alert.alert('Error', error.message);
+        appAlert('Error', error.message);
       } else {
-        Alert.alert('Success', 'Password updated successfully.');
+        appAlert('Success', 'Password updated successfully.');
         setPasswordModalVisible(false);
         setNewPassword('');
         setConfirmPassword('');
@@ -205,6 +205,8 @@ export default function SettingsScreen() {
   const setLowData = usePrefs(s => s.setLowData);
   const showActivity = usePrefs(s => s.showActivity);
   const setShowActivity = usePrefs(s => s.setShowActivity);
+  const breakReminder = usePrefs(s => s.breakReminder);
+  const setBreakReminder = usePrefs(s => s.setBreakReminder);
   const features = usePrefs(s => s.features);
   const blockedCount = useSocialStore(s => s.blockedUserIds.length);
   const mutedCount = useSocialStore(s => s.mutedUserIds.length);
@@ -338,6 +340,14 @@ export default function SettingsScreen() {
               sub={lowData ? 'On · tap to play videos, nothing loads ahead' : 'Off · videos play as you scroll'}
               right={<Toggle value={lowData} onChange={setLowData} label="Low-data mode" />}
             />
+            {features.break_reminder && (
+              <Row
+                icon="cafe-outline"
+                title="Break reminders"
+                sub={breakReminder ? 'On · a gentle nudge after 30 minutes of scrolling' : 'Off'}
+                right={<Toggle value={breakReminder} onChange={setBreakReminder} label="Break reminders" />}
+              />
+            )}
           </Card>
         </Section>
 
@@ -357,6 +367,7 @@ export default function SettingsScreen() {
         <Section title="Account" order={5}>
           <Card>
             <Row icon="key-outline" title="Change password" chevron onPress={() => setPasswordModalVisible(true)} />
+            <Row icon="phone-portrait-outline" title="Where you’re logged in" sub="See your devices, sign out a lost phone" chevron onPress={() => navigation.navigate('Devices')} />
             <Row
               icon="download-outline"
               title="Download your data"

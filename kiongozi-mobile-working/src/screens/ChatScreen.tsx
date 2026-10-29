@@ -1,9 +1,9 @@
 // Kiongozi AI chat — clean, Apple-like: small living orb, time-aware greeting, compact suggestion
 // pills, soft input card, and a ChatGPT-style history drawer that follows your finger (UI thread).
+import { appAlert } from '../utils/alert';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, Pressable, FlatList, SectionList, StyleSheet, Platform, Alert,
-  ActivityIndicator, useWindowDimensions, Keyboard, KeyboardAvoidingView, StatusBar, Share, Image, Modal, ScrollView,
+  View, Text, TextInput, TouchableOpacity, Pressable, FlatList, SectionList, StyleSheet, Platform, ActivityIndicator, useWindowDimensions, Keyboard, KeyboardAvoidingView, StatusBar, Share, Image, Modal, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -313,7 +313,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
   };
 
   const deleteConversation = (convId: string) => {
-    Alert.alert('Delete Chat', 'Delete this conversation?', [
+    appAlert('Delete Chat', 'Delete this conversation?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive',
@@ -400,7 +400,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
           setMessages(prev => prev.filter(m => m.id !== aiId));
           setIsGenerating(false);
           setStreamingId(null);
-          Alert.alert('Error', 'Failed to get a response. Please try again.');
+          appAlert('Error', 'Failed to get a response. Please try again.');
         },
         abortControllerRef.current?.signal
       );

@@ -2,6 +2,21 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../utils/apiClient';
 import { saveSnap, readSnap } from '../utils/snapshot';
+import { queuedDMs } from '../utils/outbox';
+
+/** Messages still waiting in the outbox, added after what the server/snapshot returned */
+function withQueued(conversationId: string, list: DMMessage[]): DMMessage[] {
+  const have = new Set(list.map(m => m.id));
+  const extra = queuedDMs(conversationId)
+    .filter(j => !have.has(j.tempId))
+    .map(j => ({
+      id: j.tempId, conversation_id: j.conversationId, sender_id: j.senderId,
+      content: j.content || undefined, media_url: j.mediaUrl || j.mediaUri,
+      media_type: (j.mediaUri || j.mediaUrl) ? 'image' : undefined,
+      reply_to_id: j.replyToId, is_read: false, created_at: j.createdAt, _pending: true,
+    } as DMMessage));
+  return extra.length ? [...list, ...extra] : list;
+}
 
 // Offline: chats list + the last 40 messages of each chat are kept on the phone
 const persistConvs = () => saveSnap('dm.convs', useDMStore.getState().conversations);
@@ -32,6 +47,8 @@ export interface DMMessage {
   sender?: DMParticipant;
   reply_to_id?: string;
   _pending?: boolean;
+  /** The server refused it: shown as 'Not sent · Tap to retry' */
+  _failed?: boolean;
   _edited?: boolean;
 }
 
@@ -62,6 +79,7 @@ interface DMState {
   appendMessage: (conversationId: string, message: DMMessage, skipUnreadIncrement?: boolean) => void;
   replaceMessage: (conversationId: string, tempId: string, real: DMMessage) => void;
   removeMessage: (conversationId: string, id: string) => void;
+  markMessageFailed: (conversationId: string, id: string) => void;
   unsendMessage: (conversationId: string, messageId: string) => Promise<void>;
   updateMessageContent: (conversationId: string, messageId: string, content: string) => Promise<void>;
   markRead: (conversationId: string) => void;
@@ -95,8 +113,9 @@ export const useDMStore = create<DMState>((set, get) => ({
   hydrateMessages: async (conversationId) => {
     if (get().messages[conversationId]?.length) return;
     const saved = await readSnap<DMMessage[]>(`dm.msgs.${conversationId}`);
-    if (Array.isArray(saved) && saved.length && !get().messages[conversationId]?.length) {
-      set(s => ({ messages: { ...s.messages, [conversationId]: saved } }));
+    const list = withQueued(conversationId, Array.isArray(saved) ? saved : []);
+    if (list.length && !get().messages[conversationId]?.length) {
+      set(s => ({ messages: { ...s.messages, [conversationId]: list } }));
     }
   },
 
@@ -132,10 +151,14 @@ export const useDMStore = create<DMState>((set, get) => ({
           messages: {
             ...s.messages,
             [conversationId]: refresh
-              ? res.data
-              : [...(res.data), ...(s.messages[conversationId] || [])]
+              ? withQueued(conversationId, [
+                  ...(res.data as DMMessage[]),
+                  // keep messages that failed to send so they can be retried
+                  ...(s.messages[conversationId] || []).filter(m => m._failed),
+                ])
+              : [...(res.data as DMMessage[]), ...(s.messages[conversationId] || [])]
           },
-          messageCursors: { ...s.messageCursors, [conversationId]: res.nextCursor || null }
+          messageCursors: { ...s.messageCursors, [conversationId]: (res as any).nextCursor || null }
         }));
         if (refresh) persistMsgs(conversationId);
       }
@@ -176,6 +199,15 @@ export const useDMStore = create<DMState>((set, get) => ({
     }));
     persistMsgs(conversationId);
     persistConvs();
+  },
+
+  markMessageFailed: (conversationId: string, id: string) => {
+    set(s => ({
+      messages: {
+        ...s.messages,
+        [conversationId]: (s.messages[conversationId] || []).map(m => m.id === id ? { ...m, _pending: false, _failed: true } : m),
+      },
+    }));
   },
 
   removeMessage: (conversationId: string, id: string) => {

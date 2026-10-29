@@ -1,7 +1,7 @@
+import { appAlert } from '../utils/alert';
 import { useEffect } from 'react'
 import * as Linking from 'expo-linking'
 import { supabase } from '../utils/supabaseClient'
-import { Alert } from 'react-native'
 
 interface UseSupabaseDeepLinkOptions {
   onAuthSuccess?: () => void
@@ -69,7 +69,7 @@ export function useSupabaseDeepLink(options?: UseSupabaseDeepLinkOptions) {
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) {
-            Alert.alert('Authentication Error', 'Failed to complete sign in. Please try again.')
+            appAlert('Authentication Error', 'Failed to complete sign in. Please try again.')
             return
           }
           if (options?.onAuthSuccess) options.onAuthSuccess()
@@ -81,7 +81,7 @@ export function useSupabaseDeepLink(options?: UseSupabaseDeepLinkOptions) {
         if (access_token && refresh_token) {
           const { data, error } = await supabase.auth.setSession({ access_token, refresh_token })
           if (error) {
-            Alert.alert('Authentication Error', 'Failed to complete sign in. Please try again.')
+            appAlert('Authentication Error', 'Failed to complete sign in. Please try again.')
             return
           }
           if (options?.onAuthSuccess) {
@@ -102,11 +102,11 @@ export function useSupabaseDeepLink(options?: UseSupabaseDeepLinkOptions) {
           // Setting the session with a recovery token fires PASSWORD_RECOVERY via onAuthStateChange
           const { error } = await supabase.auth.setSession({ access_token, refresh_token })
           if (error) {
-            Alert.alert('Link Expired', 'This password reset link has expired. Please request a new one.')
+            appAlert('Link Expired', 'This password reset link has expired. Please request a new one.')
           }
           // App.tsx PASSWORD_RECOVERY listener will show ResetPasswordScreen automatically
         } else {
-          Alert.alert('Invalid Link', 'This password reset link is invalid. Please request a new one.')
+          appAlert('Invalid Link', 'This password reset link is invalid. Please request a new one.')
         }
       }
     } catch (error) {

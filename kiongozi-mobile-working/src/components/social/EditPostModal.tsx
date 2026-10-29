@@ -1,8 +1,8 @@
+import { appAlert } from '../../utils/alert';
 import React, { useState, useEffect } from 'react';
 import {
   Modal, View, Text, TextInput, StyleSheet, TouchableOpacity,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
-} from 'react-native';
+  ActivityIndicator, KeyboardAvoidingView, Platform, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
@@ -41,10 +41,10 @@ export function EditPostModal({ visible, postId, initialContent, initialVisibili
         updatePost(postId, { content: content.trim(), visibility });
         onClose();
       } else {
-        Alert.alert('Error', res.error || 'Failed to save changes. Please try again.');
+        appAlert('Error', res.error || 'Failed to save changes. Please try again.');
       }
     } catch {
-      Alert.alert('Error', 'Failed to save changes. Please try again.');
+      appAlert('Error', 'Failed to save changes. Please try again.');
     } finally {
       setSaving(false);
     }

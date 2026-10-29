@@ -99,6 +99,9 @@ export const APP_CONFIG_DEFAULTS = {
     prefetch: true,
     presence: true,
     offline_cache: true,
+    ads: true,
+    smart_replies: true,
+    break_reminder: true,
   } as Record<string, boolean>,
 };
 
@@ -119,6 +122,8 @@ router.get('/app-config', async (_req, res) => {
         android: { ...APP_CONFIG_DEFAULTS.android, ...(stored.android ?? {}) },
         ios: { ...APP_CONFIG_DEFAULTS.ios, ...(stored.ios ?? {}) },
         features: { ...APP_CONFIG_DEFAULTS.features, ...(stored.features ?? {}) },
+        // Crash reporting key for the app; empty = off. Set SENTRY_DSN_MOBILE on the server.
+        sentry_dsn: stored.sentry_dsn ?? process.env.SENTRY_DSN_MOBILE ?? '',
       },
     });
   } catch (error) {

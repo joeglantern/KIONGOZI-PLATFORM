@@ -1,3 +1,5 @@
+// Crash reports first, so Sentry can see every request
+import { Sentry } from './instrument';
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
@@ -35,6 +37,9 @@ import blocksRoutes from './routes/blocks';
 import storiesRoutes from './routes/stories';
 import growthRoutes from './routes/growth';
 import adsRoutes, { adsAdminRoutes } from './routes/ads';
+import assistRoutes from './routes/assist';
+import sessionsRoutes from './routes/sessions';
+import funnelRoutes from './routes/funnel';
 import { startWeeklyRecapJob } from './jobs/weeklyRecapPush';
 import legalRoutes from './routes/legal';
 import exportRoutes from './routes/export';
@@ -114,10 +119,12 @@ app.use('/api/v1/health', healthRoutes);
 // API routes — only chat and auth have strict per-route limits; everything else relies on the global limiter
 app.use('/api/v1/auth', authRateLimit.middleware(), authRoutes);
 app.use('/api/v1/chat', chatRateLimit.middleware(), chatRoutes);
+app.use('/api/v1/user', sessionsRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/content', contentRoutes);
 app.use('/api/v1/progress', progressRoutes);
 app.use('/api/v1/admin/ads', adsAdminRoutes);
+app.use('/api/v1/admin/funnel', funnelRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/admin/security', adminSecurityRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
@@ -133,6 +140,7 @@ app.use('/api/v1/social', blocksRoutes);
 app.use('/api/v1/social', storiesRoutes);
 app.use('/api/v1/social', growthRoutes);
 app.use('/api/v1/ads', adsRoutes);
+app.use('/api/v1/assist', assistRoutes);
 // Ad creatives (immutable files, cached hard)
 app.use('/ads-media', express.static(require('path').join(process.cwd(), 'assets', 'ads'), { maxAge: '30d', immutable: true }));
 app.use('/api/v1/dm', dmRoutes);
@@ -200,6 +208,8 @@ app.use('/', shareRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);
+// Send server errors (5xx) to Sentry, then answer as before
+if (process.env.SENTRY_DSN) Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 // Start server

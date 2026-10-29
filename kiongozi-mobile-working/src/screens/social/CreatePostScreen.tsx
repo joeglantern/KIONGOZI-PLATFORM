@@ -1,7 +1,7 @@
+import { appAlert } from '../../utils/alert';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, Pressable, StyleSheet, TextInput, Keyboard, ScrollView, Image, Alert,
-  ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions, LayoutChangeEvent,
+  View, Text, Pressable, StyleSheet, TextInput, Keyboard, ScrollView, Image, ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions, LayoutChangeEvent,
   ImageSourcePropType,
 } from 'react-native';
 import Animated, {
@@ -232,7 +232,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const addAssets = async (assets: ImagePicker.ImagePickerAsset[], type: 'image' | 'video') => {
     const oversized = assets.filter(a => a.fileSize && a.fileSize > MAX_BYTES);
     if (oversized.length > 0) {
-      Alert.alert('File too large', `${oversized.length} file(s) exceed 8 MB and cannot be uploaded.`);
+      appAlert('File too large', `${oversized.length} file(s) exceed 8 MB and cannot be uploaded.`);
     }
     const validAssets = assets.filter(a => !a.fileSize || a.fileSize <= MAX_BYTES);
     if (validAssets.length === 0) return;
@@ -268,7 +268,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const pickMedia = async (type: 'image' | 'video') => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow access to your photo library in Settings.');
+      appAlert('Permission required', 'Please allow access to your photo library in Settings.');
       return;
     }
 
@@ -285,7 +285,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow camera access in Settings.');
+      appAlert('Permission required', 'Please allow camera access in Settings.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.9 });
@@ -379,7 +379,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         // Block posting if any uploads failed
         if (uploaded.length < media.length) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-          Alert.alert('Upload failed', lastError || `${media.length - uploaded.length} file(s) could not be uploaded. Please try again.`);
+          appAlert('Upload failed', lastError || `${media.length - uploaded.length} file(s) could not be uploaded. Please try again.`);
           setPosting(false);
           return;
         }
@@ -397,11 +397,11 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         onClose();
       } else {
         setUploadStatus({});
-        Alert.alert('Error', res.error || 'Failed to post. Try again.');
+        appAlert('Error', res.error || 'Failed to post. Try again.');
       }
     } catch (e) {
       setUploadStatus({});
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      appAlert('Error', 'Something went wrong. Please try again.');
     } finally {
       setPosting(false);
     }

@@ -3,6 +3,7 @@
 // loop sends whatever is still needed. The final state is always what the server confirmed.
 import apiClient from '../utils/apiClient';
 import { useSocialStore, PostInteraction } from './socialStore';
+import { enqueue, isNetworkError, settleInteraction } from '../utils/outbox';
 
 export type InteractionKind = 'like' | 'bookmark' | 'repost';
 
@@ -44,21 +45,36 @@ export function markInteraction(postId: string, kind: InteractionKind, on: boole
   setState(postId, kind, on);
 }
 
-async function send(kind: InteractionKind, postId: string, want: boolean): Promise<{ ok: boolean; on?: boolean; count?: number }> {
+type SendResult = { ok: boolean; on?: boolean; count?: number; network?: boolean };
+
+async function send(kind: InteractionKind, postId: string, want: boolean): Promise<SendResult> {
   if (kind === 'like') {
     const r: any = await apiClient.likePost(postId); // server toggles and tells us the result
-    return r.success ? { ok: true, on: !!r.liked, count: typeof r.like_count === 'number' ? r.like_count : undefined } : { ok: false };
+    return r.success ? { ok: true, on: !!r.liked, count: typeof r.like_count === 'number' ? r.like_count : undefined } : { ok: false, network: isNetworkError(r) };
   }
   if (kind === 'bookmark') {
     const r: any = await apiClient.bookmarkPost(postId);
-    return r.success ? { ok: true, on: !!r.bookmarked } : { ok: false };
+    return r.success ? { ok: true, on: !!r.bookmarked } : { ok: false, network: isNetworkError(r) };
   }
   const r: any = want ? await apiClient.repostPost(postId) : await apiClient.unrepostPost(postId);
   if (r.success) return { ok: true, on: want };
   // Already in the wanted state on the server: treat as done
   if (want && /already reposted/i.test(r.error || '')) return { ok: true, on: true };
   if (!want && /not found/i.test(r.error || '')) return { ok: true, on: false };
-  return { ok: false };
+  return { ok: false, network: isNetworkError(r) };
+}
+
+/** Used by the outbox after a restart: make the server match `want` (likes/bookmarks are toggles). */
+export async function ensureInteraction(postId: string, kind: InteractionKind, want: boolean): Promise<'done' | 'network' | 'rejected'> {
+  for (let i = 0; i < 2; i++) {
+    const r = await send(kind, postId, want);
+    if (!r.ok) return r.network ? 'network' : 'rejected';
+    if (r.on === want) {
+      if (get(postId)) setState(postId, kind, want, r.count);
+      return 'done';
+    }
+  }
+  return 'rejected';
 }
 
 async function pump(postId: string, kind: InteractionKind) {
@@ -71,8 +87,14 @@ async function pump(postId: string, kind: InteractionKind) {
       if (!cur) return;
       const want = cur[FIELD[kind]];
       if (want === serverState.get(key)) return;
-      let res: { ok: boolean; on?: boolean; count?: number };
-      try { res = await send(kind, postId, want); } catch { res = { ok: false }; }
+      let res: SendResult;
+      try { res = await send(kind, postId, want); } catch { res = { ok: false, network: true }; }
+      if (!res.ok && res.network) {
+        // No connection: keep what they tapped and send it when the connection is back
+        enqueue({ t: 'ix', kind, postId, want });
+        return;
+      }
+      if (res.ok) settleInteraction(kind, postId);
       if (!res.ok) {
         // Failed (offline, rate limited, server error): show what the server really has
         setState(postId, kind, serverState.get(key)!);

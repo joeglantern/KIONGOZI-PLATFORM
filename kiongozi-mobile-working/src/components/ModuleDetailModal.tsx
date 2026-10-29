@@ -2,6 +2,7 @@
  * ModuleDetailModal Component
  * Beautiful full-screen modal for viewing module details
  */
+import { appAlert } from '../utils/alert';
 import React, { useState } from 'react';
 import {
   View,
@@ -12,8 +13,7 @@ import {
   Modal,
   useColorScheme,
   Dimensions,
-  Alert,
-} from 'react-native';
+  } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -109,7 +109,7 @@ export default function ModuleDetailModal({
     } catch (error) {
       // Revert state on error
       setIsBookmarked(!isBookmarked);
-      Alert.alert(
+      appAlert(
         'Error',
         'Failed to update bookmark. Please try again.',
         [{ text: 'OK' }]
@@ -122,7 +122,7 @@ export default function ModuleDetailModal({
   const handleShare = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // TODO: Implement sharing functionality
-    Alert.alert(
+    appAlert(
       'Share Module',
       'Sharing functionality coming soon!',
       [{ text: 'OK' }]

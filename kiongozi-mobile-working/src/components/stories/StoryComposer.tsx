@@ -2,10 +2,11 @@
 // with draggable / pinchable stickers and text labels. Posting uploads in the background.
 // Photos/videos can be framed IG-style (pinch = zoom, drag = move, twist = rotate, double-tap = fit);
 // the framing is saved as a '__media' overlay entry (see StoryParts MEDIA_KEY).
+import { appAlert } from '../../utils/alert';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, TextInput, Dimensions, PanResponder,
-  Alert, KeyboardAvoidingView, Platform, ScrollView, Keyboard,
+  KeyboardAvoidingView, Platform, ScrollView, Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, SharedValue } from 'react-native-reanimated';
@@ -113,17 +114,17 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
     let res: ImagePicker.ImagePickerResult;
     if (from === 'camera') {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) { Alert.alert('Camera', 'Allow camera access in Settings to take a story photo.'); return; }
+      if (!perm.granted) { appAlert('Camera', 'Allow camera access in Settings to take a story photo.'); return; }
       res = await ImagePicker.launchCameraAsync(opts);
     } else {
       res = await ImagePicker.launchImageLibraryAsync(opts);
     }
     if (res.canceled || !res.assets?.[0]) return;
     const a = res.assets[0];
-    if (a.fileSize && a.fileSize > MAX_BYTES) { Alert.alert('Too big', 'Pick a photo or video under 50 MB.'); return; }
+    if (a.fileSize && a.fileSize > MAX_BYTES) { appAlert('Too big', 'Pick a photo or video under 50 MB.'); return; }
     const type = a.type === 'video' ? 'video' : 'image';
     if (type === 'video' && a.duration && a.duration > 61000) {
-      Alert.alert('Video too long', 'Stories can be up to 60 seconds. Trim it and try again.');
+      appAlert('Video too long', 'Stories can be up to 60 seconds. Trim it and try again.');
       return;
     }
     let width = a.width, height = a.height, thumb: string | undefined;
@@ -211,7 +212,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       celebrate();
     } catch (e: any) {
-      Alert.alert("Story didn't post", e?.message || 'Check your connection and try again.');
+      appAlert("Story didn't post", e?.message || 'Check your connection and try again.');
     } finally {
       setPosting(false);
     }

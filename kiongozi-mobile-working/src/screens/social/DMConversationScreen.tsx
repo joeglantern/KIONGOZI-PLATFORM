@@ -1,7 +1,8 @@
+import { appAlert } from '../../utils/alert';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Image, ActivityIndicator,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Alert, Modal,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Modal,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,9 @@ import { TypingBubble } from '../../components/social/TypingBubble';
 import { SwipeToReply } from '../../components/social/SwipeToReply';
 import { useIsOnline } from '../../stores/presenceStore';
 import { useThemeStore } from '../../stores/themeStore';
+import { enqueue } from '../../utils/outbox';
+import { ReplyChips } from '../../components/social/ReplyChips';
+import * as Haptics from 'expo-haptics';
 
 // ─── Date label helpers ───────────────────────────────────────────────────────
 
@@ -132,7 +136,7 @@ export default function DMConversationScreen() {
   const handlePickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow access to your photo library in Settings.');
+      appAlert('Permission required', 'Please allow access to your photo library in Settings.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -148,7 +152,7 @@ export default function DMConversationScreen() {
   const handleCamera = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Camera permission required', 'Please allow camera access in Settings to take photos.');
+      appAlert('Camera permission required', 'Please allow camera access in Settings to take photos.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -304,61 +308,38 @@ export default function DMConversationScreen() {
     setMediaUri(null);
     setReplyingTo(null);
 
-    const tempId = `temp_${Date.now()}`;
+    // The message shows straight away with a clock; the outbox uploads the photo, sends it and
+    // swaps in the real message. With no connection it waits and sends when the connection is back.
+    queueMessage({ content, mediaUri: attachedUri || undefined, replyToId });
+    isSending.current = false;
+  }, [text, mediaUri, conversationId, user, appendMessage]);
+
+  const queueMessage = useCallback((m: { content: string; mediaUri?: string; replyToId?: string }) => {
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const createdAt = new Date().toISOString();
     appendMessage(conversationId, {
       id: tempId,
       conversation_id: conversationId,
       sender_id: user!.id,
-      content: content || undefined,
-      media_url: attachedUri || undefined,
-      media_type: attachedUri ? 'image' : undefined,
+      content: m.content || undefined,
+      media_url: m.mediaUri,
+      media_type: m.mediaUri ? 'image' : undefined,
+      reply_to_id: m.replyToId,
       is_read: false,
-      created_at: new Date().toISOString(),
+      created_at: createdAt,
       _pending: true,
     } as DMMessage, true); // own message — skip unread increment
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+    enqueue({ t: 'dm', conversationId, tempId, senderId: user!.id, createdAt, content: m.content, mediaUri: m.mediaUri, replyToId: m.replyToId });
+  }, [conversationId, user, appendMessage]);
 
-    try {
-      let uploadedUrl: string | undefined;
-      if (attachedUri) {
-        setUploading(true);
-        const ext = attachedUri.split('.').pop()?.toLowerCase() || 'jpg';
-        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-        const storagePath = `dms/${user!.id}/${Date.now()}.${ext}`;
-        const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', attachedUri);
-          xhr.responseType = 'arraybuffer';
-          xhr.onload = () => resolve(xhr.response);
-          xhr.onerror = () => reject(new Error('Failed to read file'));
-          xhr.send();
-        });
-        const { error: uploadError } = await supabase.storage
-          .from('social-media')
-          .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: false });
-        setUploading(false);
-        if (uploadError) throw new Error(uploadError.message);
-        const { data: urlData } = supabase.storage.from('social-media').getPublicUrl(storagePath);
-        uploadedUrl = urlData.publicUrl;
-      }
-
-      const res = await apiClient.sendDM(conversationId, content, uploadedUrl, uploadedUrl ? 'image' : undefined, replyToId);
-      if (res.success && res.data) {
-        replaceMessage(conversationId, tempId, res.data);
-      } else {
-        removeMessage(conversationId, tempId);
-        setText(content);
-        if (attachedUri) setMediaUri(attachedUri);
-      }
-    } catch {
-      setUploading(false);
-      removeMessage(conversationId, tempId);
-      setText(content);
-      if (attachedUri) setMediaUri(attachedUri);
-    } finally {
-      isSending.current = false;
-    }
-  }, [text, mediaUri, conversationId, user, appendMessage, replaceMessage, removeMessage]);
+  /** "Not sent · Tap to retry": send the same message again as a new one at the bottom */
+  const retryMessage = useCallback((msg: DMMessage) => {
+    Haptics.selectionAsync().catch(() => {});
+    removeMessage(conversationId, msg.id);
+    const local = msg.media_url && !/^https?:/i.test(msg.media_url) ? msg.media_url : undefined;
+    queueMessage({ content: msg.content || '', mediaUri: local, replyToId: msg.reply_to_id });
+  }, [conversationId, removeMessage, queueMessage]);
 
   const renderItem = useCallback(({ item }: { item: ListItem }) => {
     if (item.type === 'date') {
@@ -386,6 +367,7 @@ export default function DMConversationScreen() {
         avatarName={participantName || participantUsername}
         onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
         onLongPress={() => openContextMenu(item.message, isOwn)}
+        onRetry={item.message._failed ? () => retryMessage(item.message) : undefined}
         replyPreview={repliedTo ? {
           senderName: repliedTo.sender_id === user?.id ? 'You' : (participantName || 'Them'),
           content: repliedTo.content || (repliedTo.media_url ? '📷 Photo' : 'Message'),
@@ -393,7 +375,7 @@ export default function DMConversationScreen() {
       />
       </SwipeToReply>
     );
-  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap, isBot, isDark]);
+  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap, isBot, isDark, retryMessage]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -501,6 +483,13 @@ export default function DMConversationScreen() {
           </View>
         ) : (
           <View style={styles.inputBar}>
+            <ReplyChips
+              conversationId={conversationId}
+              last={(messages[conversationId] || [])[(messages[conversationId] || []).length - 1]}
+              myId={user?.id}
+              hidden={!!text.trim() || !!editingMessage || !!mediaUri}
+              onPick={t => { setText(t); setDraft(conversationId, t); setTimeout(() => inputRef.current?.focus(), 30); }}
+            />
             {editingMessage && (
               <View style={[styles.replyPreviewBar, styles.editBar]}>
                 <View style={styles.replyPreviewContent}>

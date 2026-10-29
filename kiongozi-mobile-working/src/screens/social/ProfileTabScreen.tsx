@@ -1,7 +1,9 @@
+import { appAlert } from '../../utils/alert';
+import { deletePostWithUndo, hideFromList } from '../../utils/deletePost';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, FlatList,
-  Animated, ActivityIndicator, RefreshControl, Image, Alert, Share,
+  Animated, ActivityIndicator, RefreshControl, Image, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -198,7 +200,7 @@ export default function ProfileTabScreen() {
 
   const handlePickBanner = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permission required', 'Please allow photo library access in Settings.'); return; }
+    if (status !== 'granted') { appAlert('Permission required', 'Please allow photo library access in Settings.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true, aspect: [3, 1], quality: 0.85,
@@ -215,11 +217,11 @@ export default function ProfileTabScreen() {
         updateCurrentUserProfile({ ...(res.data.banner_url ? { banner_url: res.data.banner_url } : {}) });
         setLocalBannerUri(null);
       } else {
-        Alert.alert('Upload failed', res.error || 'Could not update cover photo.');
+        appAlert('Upload failed', res.error || 'Could not update cover photo.');
         setLocalBannerUri(null);
       }
     } catch {
-      Alert.alert('Upload failed', 'Network error. Please try again.');
+      appAlert('Upload failed', 'Network error. Please try again.');
       setLocalBannerUri(null);
     } finally {
       setUploadingBanner(false);
@@ -228,7 +230,7 @@ export default function ProfileTabScreen() {
 
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permission required', 'Please allow photo library access in Settings.'); return; }
+    if (status !== 'granted') { appAlert('Permission required', 'Please allow photo library access in Settings.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true, aspect: [1, 1], quality: 0.85,
@@ -245,11 +247,11 @@ export default function ProfileTabScreen() {
         updateCurrentUserProfile({ ...(res.data.avatar_url ? { avatar_url: res.data.avatar_url } : {}) });
         setLocalAvatarUri(null);
       } else {
-        Alert.alert('Upload failed', res.error || 'Could not update photo.');
+        appAlert('Upload failed', res.error || 'Could not update photo.');
         setLocalAvatarUri(null);
       }
     } catch {
-      Alert.alert('Upload failed', 'Network error. Please try again.');
+      appAlert('Upload failed', 'Network error. Please try again.');
       setLocalAvatarUri(null);
     } finally {
       setUploadingAvatar(false);
@@ -460,12 +462,11 @@ export default function ProfileTabScreen() {
             currentUserId={user?.id}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
             onProfilePress={(username: string) => navigation.navigate('PublicProfile', { username: username || item.profiles?.username })}
-            onDeletePress={async () => {
+            onDeletePress={() => {
               if (activeTab === 'saved') {
                 setSavedPosts(prev => prev.filter((p: any) => p.id !== item.id));
               } else {
-                await apiClient.deletePost(item.id);
-                setPosts(prev => prev.filter(p => p.id !== item.id && p.repost_of_id !== item.id));
+                deletePostWithUndo(item.id, { hide: () => hideFromList(setPosts as any, item.id) });
               }
             }}
           />

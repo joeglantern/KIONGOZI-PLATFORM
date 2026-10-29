@@ -1,6 +1,6 @@
+import { appAlert } from './alert';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Alert } from 'react-native';
 
 export type ExportFormat = 'text';
 export type ExportScope = 'current' | 'all';
@@ -38,7 +38,7 @@ class ExportUtils {
       const { conversations } = options;
 
       if (conversations.length === 0) {
-        Alert.alert('No Data', 'No conversations to export.');
+        appAlert('No Data', 'No conversations to export.');
         return false;
       }
 
@@ -57,13 +57,13 @@ class ExportUtils {
           dialogTitle: 'Export Conversations',
         });
       } else {
-        Alert.alert('Export Complete', `File saved as ${filename}`);
+        appAlert('Export Complete', `File saved as ${filename}`);
       }
 
       return true;
     } catch (error) {
       console.error('Export error:', error);
-      Alert.alert('Export Failed', 'Could not export conversations. Please try again.');
+      appAlert('Export Failed', 'Could not export conversations. Please try again.');
       return false;
     }
   }

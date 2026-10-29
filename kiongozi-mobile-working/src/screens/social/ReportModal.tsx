@@ -1,7 +1,8 @@
+import { appAlert } from '../../utils/alert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, Modal, TextInput,
-  StyleSheet, Alert, ActivityIndicator, ScrollView,
+  StyleSheet, ActivityIndicator, ScrollView,
   KeyboardAvoidingView, Platform, Animated, Dimensions, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,7 +59,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
 
   const handleSubmit = async () => {
     if (!selectedReason) {
-      Alert.alert('Select a reason', 'Please choose a reason for your report.');
+      appAlert('Select a reason', 'Please choose a reason for your report.');
       return;
     }
     if (!target) return;
@@ -77,10 +78,10 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
       } else if (res.error?.includes('already reported')) {
         setDone('duplicate');
       } else {
-        Alert.alert('Error', res.error || 'Failed to submit report. Please try again.');
+        appAlert('Error', res.error || 'Failed to submit report. Please try again.');
       }
     } catch {
-      Alert.alert('Error', 'Failed to submit report. Please try again.');
+      appAlert('Error', 'Failed to submit report. Please try again.');
     } finally {
       setLoading(false);
     }

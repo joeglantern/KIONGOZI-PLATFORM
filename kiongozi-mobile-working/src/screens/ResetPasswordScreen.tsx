@@ -1,3 +1,4 @@
+import { appAlert } from '../utils/alert';
 import React, { useState } from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -44,22 +44,22 @@ export default function ResetPasswordScreen({ visible, onDismiss }: ResetPasswor
 
   const handleSubmit = async () => {
     if (newPassword.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters.');
+      appAlert('Error', 'Password must be at least 8 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      appAlert('Error', 'Passwords do not match.');
       return;
     }
     setLoading(true);
     const result = await updatePassword(newPassword);
     setLoading(false);
     if (result.success) {
-      Alert.alert('Password updated', 'Your password has been changed. Please sign in.', [
+      appAlert('Password updated', 'Your password has been changed. Please sign in.', [
         { text: 'OK', onPress: onDismiss },
       ]);
     } else {
-      Alert.alert('Error', result.error || 'Failed to update password.');
+      appAlert('Error', result.error || 'Failed to update password.');
     }
   };
 

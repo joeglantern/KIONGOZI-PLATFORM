@@ -1,5 +1,6 @@
+import { appAlert } from '../utils/alert';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, Image, Animated, Platform, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Image, Animated, Platform, ScrollView, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -26,6 +27,7 @@ import BlockedUsersScreen from '../screens/social/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/social/MutedUsersScreen';
 import FindFriendsScreen from '../screens/social/FindFriendsScreen';
 import InviteScreen from '../screens/social/InviteScreen';
+import DevicesScreen from '../screens/social/DevicesScreen';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../utils/supabaseClient';
@@ -38,13 +40,21 @@ import { OrbVideo } from '../components/ai/OrbVideo';
 import { useProfileStore } from '../stores/profileStore';
 import { ConfettiHost } from '../components/Confetti';
 import { onAppEvent } from '../utils/appEvents';
+import { ScreenErrorBoundary } from '../components/ScreenError';
+
+// Every screen gets its own crash card ("Try again" / "Go back") instead of taking the app down
+const screenLayout = ({ children, route, navigation }: any) => (
+  <ScreenErrorBoundary name={route.name} onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}>
+    {children}
+  </ScreenErrorBoundary>
+);
 
 // ─── Stack Navigators ────────────────────────────────────────────────────────
 
 const FeedStack = createNativeStackNavigator();
 function FeedStackNavigator() {
   return (
-    <FeedStack.Navigator screenOptions={{ headerShown: false }}>
+    <FeedStack.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout}>
       <FeedStack.Screen name="FeedMain" component={FeedScreen} />
       <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
       <FeedStack.Screen name="PublicProfile" component={PublicProfileScreen} />
@@ -60,7 +70,7 @@ function FeedStackNavigator() {
 const ExploreStack = createNativeStackNavigator();
 function ExploreStackNavigator() {
   return (
-    <ExploreStack.Navigator screenOptions={{ headerShown: false }}>
+    <ExploreStack.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout}>
       <ExploreStack.Screen name="ExploreMain" component={ExploreScreen} />
       <ExploreStack.Screen name="PostDetail" component={PostDetailScreen} />
       <ExploreStack.Screen name="PublicProfile" component={PublicProfileScreen} />
@@ -77,7 +87,7 @@ function ExploreStackNavigator() {
 const NotificationsStack = createNativeStackNavigator();
 function NotificationsStackNavigator() {
   return (
-    <NotificationsStack.Navigator screenOptions={{ headerShown: false }}>
+    <NotificationsStack.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout}>
       <NotificationsStack.Screen name="NotificationsMain" component={NotificationsScreen} />
       <NotificationsStack.Screen name="PostDetail" component={PostDetailScreen} />
       <NotificationsStack.Screen name="PublicProfile" component={PublicProfileScreen} />
@@ -91,7 +101,7 @@ function NotificationsStackNavigator() {
 const ProfileStack = createNativeStackNavigator();
 function ProfileStackNavigator() {
   return (
-    <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
+    <ProfileStack.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout}>
       <ProfileStack.Screen name="ProfileMain" component={ProfileTabScreen} />
       <ProfileStack.Screen name="PostDetail" component={PostDetailScreen} />
       <ProfileStack.Screen name="Settings" component={SettingsScreen} />
@@ -102,6 +112,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="Bookmarks" component={BookmarksScreen} />
       <ProfileStack.Screen name="FollowList" component={FollowListScreen} />
       <ProfileStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
+      <ProfileStack.Screen name="Devices" component={DevicesScreen} />
       <ProfileStack.Screen name="MutedUsers" component={MutedUsersScreen} />
       <ProfileStack.Screen name="FindFriends" component={FindFriendsScreen} />
       <ProfileStack.Screen name="Invite" component={InviteScreen} />
@@ -207,7 +218,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 
   useEffect(() => {
     if (sessionExpired) {
-      Alert.alert('Session expired', 'Your session has expired. Please sign in again.');
+      appAlert('Session expired', 'Your session has expired. Please sign in again.');
     }
   }, [sessionExpired]);
 

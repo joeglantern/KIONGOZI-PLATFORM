@@ -1,7 +1,9 @@
+import { appAlert } from '../../utils/alert';
+import { deletePostWithUndo, hideFromList } from '../../utils/deletePost';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable,
-  TextInput, KeyboardAvoidingView, Platform, Alert, Keyboard,
+  TextInput, KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -224,18 +226,18 @@ export default function PostDetailScreen() {
     } catch {
       setReplies(prev => prev.filter(r => r.id !== tempReply.id));
       setReplyText(content);
-      Alert.alert('Failed to send', 'Your reply could not be sent. Please try again.');
+      appAlert('Failed to send', 'Your reply could not be sent. Please try again.');
     }
     setSending(false);
   }, [replyText, sending, postId, user, post, currentUserProfile]);
 
   const handleDeletePost = useCallback((pid: string) => {
-    apiClient.deletePost(pid).then(() => {
-      deletePost(pid);
-      if (pid === postId) navigation.goBack();
-      else setReplies(prev => prev.filter(r => r.id !== pid));
-    }).catch(() => {});
-  }, [deletePost, postId, navigation]);
+    if (pid === postId) {
+      deletePostWithUndo(pid, { after: () => navigation.goBack() });
+    } else {
+      deletePostWithUndo(pid, { hide: () => hideFromList(setReplies as any, pid) });
+    }
+  }, [postId, navigation]);
 
   const handleEditPress = useCallback((pid: string, content: string, visibility: 'public' | 'followers') => {
     setEditTarget({ id: pid, content, visibility });

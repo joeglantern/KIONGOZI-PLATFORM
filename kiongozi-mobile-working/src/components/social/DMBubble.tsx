@@ -20,6 +20,8 @@ interface DMBubbleProps {
   onMediaPress?: () => void;
   onLongPress?: () => void;
   replyPreview?: { senderName: string; content: string };
+  /** Tap on "Not sent · Tap to retry" */
+  onRetry?: () => void;
 }
 
 /** 24h "10:42" — built by hand so it's identical on every device/locale */
@@ -41,7 +43,7 @@ function bigEmoji(text?: string | null) {
   });
 }
 
-export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarName, onMediaPress, onLongPress, replyPreview }: DMBubbleProps) {
+export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarName, onMediaPress, onLongPress, replyPreview, onRetry }: DMBubbleProps) {
   const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
   const C = useMemo(() => ({
@@ -71,14 +73,17 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
       {message._edited && <Text style={[styles.time, { color: meta }]}>edited · </Text>}
       <Text style={[styles.time, { color: (mediaOnly) ? '#fff' : meta }]}>{formatTime(message.created_at)}</Text>
       {isOwn && (
-        message._pending
+        message._failed
+          ? <Ionicons name="alert-circle" size={13} color={mediaOnly ? '#fff' : meta} style={{ marginLeft: 3 }} />
+          : message._pending
           ? <Ionicons name="time-outline" size={12} color={mediaOnly ? '#fff' : meta} style={{ marginLeft: 3 }} />
           : <Ionicons name={message.is_read ? 'checkmark-done' : 'checkmark'} size={14} color={mediaOnly ? '#fff' : message.is_read ? '#000' : meta} style={{ marginLeft: 3 }} />
       )}
     </View>
   ) : null;
 
-  return (
+  const failed = isOwn && message._failed;
+  const row = (
     <View style={[styles.row, isOwn ? styles.rowOwn : styles.rowOther, isFirst && styles.groupStart]}>
       {!isOwn && (
         <View style={styles.avatarSlot}>{isLast ? <UserAvatar avatarUrl={avatarUrl} size={28} name={avatarName} /> : null}</View>
@@ -98,7 +103,8 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
             !isOwn && !mediaOnly && { borderWidth: 1, borderColor: C.otherBorder },
             corners,
             mediaOnly && styles.mediaBubble,
-            message._pending && { opacity: 0.6 },
+            message._pending && { opacity: 0.75 },
+            message._failed && { opacity: 0.5 },
             pressed && { opacity: 0.85 },
           ]}
         >
@@ -139,9 +145,21 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
       )}
     </View>
   );
+  if (!failed) return row;
+  return (
+    <View>
+      {row}
+      <Pressable onPress={onRetry} hitSlop={8} accessibilityRole="button" accessibilityLabel="Message not sent. Tap to retry." style={styles.failRow}>
+        <Ionicons name="alert-circle" size={14} color={T.error} />
+        <Text style={[styles.failText, { color: T.error }]}>Not sent · Tap to retry</Text>
+      </Pressable>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  failRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 4, marginTop: 4, marginRight: 14 },
+  failText: { fontSize: 12.5, fontWeight: '600' },
   row: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 2, paddingHorizontal: 10 },
   groupStart: { marginTop: 10 },
   rowOwn: { justifyContent: 'flex-end' },

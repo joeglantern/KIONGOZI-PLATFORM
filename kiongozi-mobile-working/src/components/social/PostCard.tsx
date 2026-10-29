@@ -183,12 +183,12 @@ interface PostCardProps {
   variant?: 'default' | 'detail';
 }
 
-function SmartImage({ url, onPress, w, h, placeholder }: { url: string; onPress: () => void; w?: number; h?: number; placeholder?: string | null }) {
+function SmartImage({ url, onPress, w, h, placeholder, alt }: { url: string; onPress: () => void; w?: number; h?: number; placeholder?: string | null; alt?: string | null }) {
   const T = useTheme();
   // Real shape from the stored size (no layout jump) or measured; tall/wide photos are shown
   // whole over a blurred copy instead of being cropped.
   const ratio = useImageRatio(url, w && h ? w / h : null);
-  return <FitImage uri={url} ratio={ratio} placeholder={placeholder} onPress={onPress} bg={T.surface2} radius={16} minRatio={0.75} maxRatio={1.91} style={{ marginTop: 4 }} />;
+  return <FitImage uri={url} ratio={ratio} placeholder={placeholder} alt={alt} onPress={onPress} bg={T.surface2} radius={16} minRatio={0.75} maxRatio={1.91} style={{ marginTop: 4 }} />;
 }
 
 function timeAgo(dateStr: string): string {
@@ -538,7 +538,7 @@ export function PostCard({
                       onWatched={recordView}
                     />
                   ) : (
-                    <SmartImage url={activePost.post_media[0].url} w={activePost.post_media[0].width} h={activePost.post_media[0].height} placeholder={activePost.post_media[0].placeholder} onPress={() => openViewer(0)} />
+                    <SmartImage url={activePost.post_media[0].url} w={activePost.post_media[0].width} h={activePost.post_media[0].height} placeholder={activePost.post_media[0].placeholder} alt={(activePost.post_media[0] as any).alt_text} onPress={() => openViewer(0)} />
                   )}
                 </View>
               ) : (
@@ -671,10 +671,10 @@ export function PostCard({
         visible={optionsSheetOpen}
         onClose={() => setOptionsSheetOpen(false)}
         items={isOwnPost ? [
-          ...(onEditPress ? [{ label: 'Edit Post',   icon: 'pencil-outline', onPress: () => onEditPress(activePost.id, activePost.content, activePost.visibility ?? 'public') }] : []),
-          ...(onDeletePress ? [{ label: 'Delete Post', icon: 'trash-outline',  color: T.error, onPress: () => setDeleteConfirmOpen(true) }] : []),
+          ...(onEditPress ? [{ label: 'Edit post',   icon: 'pencil-outline', onPress: () => onEditPress(activePost.id, activePost.content, activePost.visibility ?? 'public') }] : []),
+          ...(onDeletePress ? [{ label: 'Delete post', icon: 'trash-outline',  color: T.error, onPress: onDeletePress }] : []),
         ] : [
-          ...(onReportPress ? [{ label: 'Report Post', icon: 'flag-outline', color: T.error, onPress: () => onReportPress!(activePost.id) }] : []),
+          ...(onReportPress ? [{ label: 'Report post', icon: 'flag-outline', color: T.error, onPress: () => onReportPress!(activePost.id) }] : []),
         ]}
       />
 
@@ -915,6 +915,7 @@ function PostMediaCarousel({
                 key={m.id}
                 uri={m.url}
                 placeholder={m.placeholder}
+                alt={(m as any).alt_text}
                 ratio={m.width && m.height ? m.width / m.height : null}
                 minRatio={frameRatio}
                 maxRatio={frameRatio}

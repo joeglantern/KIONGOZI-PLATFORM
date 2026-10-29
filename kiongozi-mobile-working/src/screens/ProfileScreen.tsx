@@ -1,3 +1,4 @@
+import { appAlert } from '../utils/alert';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -5,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   Switch,
   Modal,
   RefreshControl,
@@ -72,7 +72,7 @@ export default function ProfileScreen({
 
   const handleSignOut = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
+    appAlert(
       'Sign Out',
       'Are you sure you want to sign out?',
       [
@@ -88,7 +88,7 @@ export default function ProfileScreen({
 
   const handleDeleteAccount = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert(
+    appAlert(
       'Delete Account',
       'This action cannot be undone. All your conversations and data will be permanently deleted.',
       [
@@ -101,7 +101,7 @@ export default function ProfileScreen({
               const response = await apiClient.deleteAccount();
 
               if (response.success) {
-                Alert.alert(
+                appAlert(
                   'Account Deleted',
                   'Your account has been permanently deleted.',
                   [
@@ -114,11 +114,11 @@ export default function ProfileScreen({
                   ]
                 );
               } else {
-                Alert.alert('Error', response.error || 'Failed to delete account. Please try again.');
+                appAlert('Error', response.error || 'Failed to delete account. Please try again.');
               }
             } catch (error: any) {
               console.error('Error deleting account:', error);
-              Alert.alert('Error', 'Failed to delete account. Please try again.');
+              appAlert('Error', 'Failed to delete account. Please try again.');
             }
           }
         }
@@ -166,7 +166,7 @@ export default function ProfileScreen({
       type: 'navigation' as const,
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Alert.alert(
+        appAlert(
           'Privacy & Security',
           'Your data is stored securely and never shared with third parties.\n\n• Your conversations are private\n• Learning progress is stored locally\n• Account can be deleted anytime',
           [
@@ -182,7 +182,7 @@ export default function ProfileScreen({
       type: 'navigation' as const,
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Alert.alert('Coming Soon', 'Help & support will be available in a future update.');
+        appAlert('Coming Soon', 'Help & support will be available in a future update.');
       },
     },
   ];

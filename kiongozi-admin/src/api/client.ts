@@ -108,3 +108,9 @@ export const getAds = () => api.get('/api/v1/admin/ads').then(r => (r.data?.data
 export const createAd = (body: Partial<AdCampaign>) => api.post('/api/v1/admin/ads', body).then(r => r.data)
 export const updateAd = (id: string, body: Partial<AdCampaign>) => api.patch(`/api/v1/admin/ads/${id}`, body).then(r => r.data)
 export const endAd = (id: string) => api.delete(`/api/v1/admin/ads/${id}`).then(r => r.data)
+
+
+// ── Funnel: signed up → posted → followed → DM → came back next day, per sign-up week ──
+export type FunnelWeek = { week: string; signed_up: number; posted: number; followed: number; messaged: number; came_back_next_day: number }
+export const getFunnel = (weeks = 8) =>
+  api.get('/api/v1/admin/funnel', { params: { weeks } }).then(r => (r.data?.data ?? []) as FunnelWeek[])

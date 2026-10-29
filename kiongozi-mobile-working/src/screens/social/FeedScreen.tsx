@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { noteFeedScroll } from '../../utils/breakReminder';
+import { deletePostWithUndo } from '../../utils/deletePost';
 import {
   View, Text, StyleSheet, RefreshControl, ActivityIndicator,
   TouchableOpacity, ScrollView, useWindowDimensions, Image, Modal, Animated, FlatList, Platform,
@@ -126,8 +128,8 @@ export default function FeedScreen() {
   }, [navigation]);
 
   const handleDeletePost = useCallback((postId: string) => {
-    apiClient.deletePost(postId).then(() => deletePost(postId)).catch(() => {});
-  }, [deletePost]);
+    deletePostWithUndo(postId);
+  }, []);
 
   const handleEditPress = useCallback((postId: string, content: string, visibility: 'public' | 'followers') => {
     setEditTarget({ id: postId, content, visibility });
@@ -419,6 +421,8 @@ export default function FeedScreen() {
             viewabilityConfig={adViewability}
             onViewableItemsChanged={onAdViewable}
             onScroll={onScrollFor(0)}
+            onScrollBeginDrag={noteFeedScroll}
+            onMomentumScrollEnd={noteFeedScroll}
             scrollEventThrottle={16}
             contentContainerStyle={{ paddingTop: headerH }}
             scrollIndicatorInsets={{ top: headerH }}
@@ -452,6 +456,8 @@ export default function FeedScreen() {
             renderItem={renderPost}
             keyExtractor={(item: Post) => `fw_${item.id}`}
             onScroll={onScrollFor(1)}
+            onScrollBeginDrag={noteFeedScroll}
+            onMomentumScrollEnd={noteFeedScroll}
             scrollEventThrottle={16}
             contentContainerStyle={{ paddingTop: headerH }}
             scrollIndicatorInsets={{ top: headerH }}

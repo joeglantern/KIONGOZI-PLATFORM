@@ -696,14 +696,50 @@ class ApiClient {
     return this.request(`/api/v1/social/posts/${postId}/ancestors`, { method: 'GET' });
   }
 
-  /** Follow a user */
+  /** Follow a user. Offline, it's kept and sent when the connection is back (counts as done). */
   async followUser(userId: string) {
+    return this.followOrQueue(userId, true);
+  }
+
+  /** Unfollow a user (queued the same way when offline) */
+  async unfollowUser(userId: string) {
+    return this.followOrQueue(userId, false);
+  }
+
+  // ── Small AI helpers ──
+  /** Three short reply ideas for the last message in a chat (empty when there's nothing to answer) */
+  async getReplySuggestions(conversationId: string) {
+    return this.request<{ replies: string[] }>('/api/v1/assist/replies', { method: 'POST', body: JSON.stringify({ conversationId }) });
+  }
+
+  // ── Where you're logged in ──
+  async getSessions() {
+    return this.request<any[]>('/api/v1/user/sessions', { method: 'GET' });
+  }
+  async signOutSession(id: string) {
+    return this.request(`/api/v1/user/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+  async signOutOtherSessions() {
+    return this.request('/api/v1/user/sessions', { method: 'DELETE' });
+  }
+
+  async followUserNow(userId: string) {
     return this.request(`/api/v1/social/follow/${userId}`, { method: 'POST' });
   }
 
-  /** Unfollow a user */
-  async unfollowUser(userId: string) {
+  async unfollowUserNow(userId: string) {
     return this.request(`/api/v1/social/follow/${userId}`, { method: 'DELETE' });
+  }
+
+  private async followOrQueue(userId: string, want: boolean): Promise<ApiResponse<any>> {
+    const outbox = require('./outbox');
+    const r = want ? await this.followUserNow(userId) : await this.unfollowUserNow(userId);
+    if (outbox.isNetworkError(r)) {
+      outbox.enqueue({ t: 'follow', userId, want });
+      return { success: true, data: { queued: true } } as any;
+    }
+    if (r.success) outbox.settleFollow(userId);
+    return r;
   }
 
   /** Get own profile (by auth token — no username needed) */

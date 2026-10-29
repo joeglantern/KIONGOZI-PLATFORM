@@ -69,7 +69,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           useDMStore.getState().reset();
           useProfileStore.getState().reset();
           useNotificationStore.getState().reset();
-          require('../utils/snapshot').clearSnaps();
+          require('../utils/snapshot').clearSnaps(); require('../utils/outbox').clearOutbox();
           require('./presenceStore').usePresence.getState().stop();
         }
         // TOKEN_REFRESH_FAILED: keep the user logged in — they'll get 401s on
@@ -274,7 +274,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       useDMStore.getState().reset();
       useProfileStore.getState().reset();
       useNotificationStore.getState().reset();
-      require('../utils/snapshot').clearSnaps();
+      require('../utils/snapshot').clearSnaps(); require('../utils/outbox').clearOutbox();
       require('./presenceStore').usePresence.getState().stop();
     } catch (error) {
       console.error('Sign out error:', error);

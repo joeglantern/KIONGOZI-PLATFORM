@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { deletePostWithUndo, hideFromList } from '../../utils/deletePost';
 import {
   View, Text, StyleSheet, Pressable,
   Image, ActivityIndicator, FlatList, Share,
@@ -128,11 +129,8 @@ export default function PublicProfileScreen() {
   }, [username, postsCursor, postsLoadingMore]);
 
   const handleDeletePost = useCallback((postId: string) => {
-    apiClient.deletePost(postId).then(() => {
-      setPosts(prev => prev.filter(p => p.id !== postId));
-      deleteFromStore(postId);
-    }).catch(() => {});
-  }, [deleteFromStore]);
+    deletePostWithUndo(postId, { hide: () => hideFromList(setPosts as any, postId) });
+  }, []);
 
   const handleEditPress = useCallback((postId: string, content: string, visibility: 'public' | 'followers') => {
     setEditTarget({ id: postId, content, visibility });

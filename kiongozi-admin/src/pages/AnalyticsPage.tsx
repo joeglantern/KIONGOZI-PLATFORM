@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getAnalytics } from '../api/client'
 import type { AnalyticsPoint } from '../api/client'
 import { cn, formatNumber } from '../lib/utils'
+import FunnelCard from '../components/FunnelCard'
 
 type Range = '7d' | '30d' | '90d'
 
@@ -106,6 +107,8 @@ export default function AnalyticsPage() {
 
   return (
     <div>
+      <FunnelCard />
+
       {/* Range selector */}
       <div className="flex items-center gap-4 mb-6">
         {RANGES.map((r, i) => (

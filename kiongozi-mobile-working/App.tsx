@@ -14,6 +14,10 @@ import { useSocialStore } from './src/stores/socialStore';
 import { useThemeStore } from './src/stores/themeStore';
 import { supabase } from './src/utils/supabaseClient';
 import * as WebBrowser from 'expo-web-browser';
+import { bootCrashReports, setCrashUser } from './src/utils/crash';
+
+// Crash reports start before anything renders (uses the key saved from the last launch)
+bootCrashReports();
 
 WebBrowser.maybeCompleteAuthSession();
 import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
@@ -27,6 +31,9 @@ import { usePrefs } from './src/stores/prefsStore';
 import { watchInviteLinks, claimPendingInvite } from './src/utils/invites';
 import * as Notifications from 'expo-notifications';
 import { OfflineBanner } from './src/components/OfflineBanner';
+import { ScreenErrorBoundary } from './src/components/ScreenError';
+import { loadOutbox } from './src/utils/outbox';
+import { FeedbackHost } from './src/components/FeedbackHost';
 import { usePresence } from './src/stores/presenceStore';
 import { useProfileStore } from './src/stores/profileStore';
 import { useNotificationStore } from './src/stores/notificationStore';
@@ -80,6 +87,7 @@ export default function App() {
 
   // On auth: register push token + load block/mute lists
   useEffect(() => {
+    setCrashUser(user?.id ?? null);
     if (user) {
       registerForPushNotifications().catch(err =>
         console.error('Push registration error:', err)
@@ -92,6 +100,8 @@ export default function App() {
       useDMStore.getState().loadPersistedDMState().catch(() => {});
       useStoryStore.getState().hydrate().catch(() => {});
       usePresence.getState().start(user.id);
+      // Send whatever was done offline last time (messages, likes, follows)
+      loadOutbox().catch(() => {});
     }
   }, [user]);
 
@@ -166,16 +176,19 @@ export default function App() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemedStatusBar />
-        {user ? (
-          <AppNavigator navRef={navRef} />
-        ) : (
-          <LoginScreen onLoginSuccess={() => {}} />
-        )}
+        <ScreenErrorBoundary name={user ? 'app' : 'login'}>
+          {user ? (
+            <AppNavigator navRef={navRef} />
+          ) : (
+            <LoginScreen onLoginSuccess={() => {}} />
+          )}
+        </ScreenErrorBoundary>
         <ResetPasswordScreen
           visible={showResetPassword}
           onDismiss={() => setShowResetPassword(false)}
         />
         <OfflineBanner />
+        <FeedbackHost />
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

@@ -1,3 +1,4 @@
+import { appAlert } from '../../utils/alert';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   Image,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -81,7 +81,7 @@ export default function EditProfileScreen() {
   const pickImage = async (field: 'avatar' | 'banner') => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow photo library access in Settings.');
+      appAlert('Permission required', 'Please allow photo library access in Settings.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -98,14 +98,14 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (usernameStatus === 'taken' || usernameStatus === 'reserved') {
-      Alert.alert(
+      appAlert(
         'Username unavailable',
         usernameStatus === 'reserved' ? 'That username is reserved.' : 'That username is already taken.'
       );
       return;
     }
     if (usernameStatus === 'checking') {
-      Alert.alert('Please wait', 'Still checking username availability.');
+      appAlert('Please wait', 'Still checking username availability.');
       return;
     }
 
@@ -133,10 +133,10 @@ export default function EditProfileScreen() {
         });
         navigation.goBack();
       } else {
-        Alert.alert('Error', res.error || 'Failed to update profile.');
+        appAlert('Error', res.error || 'Failed to update profile.');
       }
     } catch {
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      appAlert('Error', 'Failed to update profile. Please try again.');
     } finally {
       setSaving(false);
     }

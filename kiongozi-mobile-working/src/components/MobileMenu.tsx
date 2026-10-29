@@ -1,3 +1,4 @@
+import { appAlert } from '../utils/alert';
 import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   ScrollView,
   RefreshControl,
   Animated,
-  Alert,
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -93,7 +93,7 @@ function SwipeableConversationItem({
       if (translationX < -100) {
         // Swipe left to delete
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Alert.alert(
+        appAlert(
           'Delete Conversation',
           'Are you sure you want to delete this conversation? This action cannot be undone.',
           [

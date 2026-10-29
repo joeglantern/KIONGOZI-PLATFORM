@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import { mediaAlt } from '../config/mediaColumns';
+import { describePostImages } from './assist';
 import { optimizePostMedia } from '../services/ImageOptimizer';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
@@ -80,7 +82,7 @@ router.get('/posts/:id', optionalAuth, async (req: Request, res: Response): Prom
           id, content, visibility, like_count, comment_count, repost_count, view_count,
           is_bot_reply, created_at, updated_at, user_id,
           profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
+          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder${mediaAlt()})
         )
       `)
       .eq('id', id)
@@ -197,7 +199,7 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
         .select();
       postMedia = insertedMedia || [];
       // Shrink photos to WebP + blurred placeholder (background; rows update in place)
-      setImmediate(() => { optimizePostMedia(post.id).catch(() => {}); });
+      setImmediate(() => { optimizePostMedia(post.id).catch(() => {}); describePostImages(post.id); });
     }
 
     const completePost = { ...post, post_media: postMedia };
@@ -414,7 +416,7 @@ router.post('/posts/:id/repost', authenticateToken, async (req: Request, res: Re
           id, content, visibility, like_count, comment_count, repost_count, view_count,
           is_bot_reply, created_at, updated_at, user_id,
           profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
+          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder${mediaAlt()})
         )
       `)
       .single();
@@ -557,7 +559,7 @@ router.post('/posts/:id/reply', authenticateToken, async (req: Request, res: Res
         order_index: idx
       }));
       await supabaseServiceClient.from('post_media').insert(mediaRows);
-      setImmediate(() => { optimizePostMedia(post.id).catch(() => {}); });
+      setImmediate(() => { optimizePostMedia(post.id).catch(() => {}); describePostImages(post.id); });
     }
 
     // Process mentions
@@ -867,7 +869,7 @@ router.get('/bookmarks', authenticateToken, async (req: Request, res: Response):
           view_count, is_bot_reply, created_at, updated_at,
           user_id, parent_post_id, repost_of_id,
           profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
+          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder${mediaAlt()})
         )
       `)
       .eq('user_id', req.user!.id)
