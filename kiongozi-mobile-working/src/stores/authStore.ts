@@ -66,6 +66,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const { useNotificationStore } = require('./notificationStore');
           useSocialStore.getState().reset();
       useStoryStore.getState().reset();
+      require('./mitaaStore').useMitaaStore.getState().reset();
       require('./clipStore').useClipStore.getState().reset();
           useDMStore.getState().reset();
           useProfileStore.getState().reset();
@@ -272,6 +273,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { useNotificationStore } = require('./notificationStore');
       useSocialStore.getState().reset();
       useStoryStore.getState().reset();
+      require('./mitaaStore').useMitaaStore.getState().reset();
       require('./clipStore').useClipStore.getState().reset();
       useDMStore.getState().reset();
       useProfileStore.getState().reset();

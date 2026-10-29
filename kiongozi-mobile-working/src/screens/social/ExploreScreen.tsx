@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { ExploreSkeleton, RowsSkeleton, FeedSkeleton } from '../../components/social/Skeleton';
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
-import { MzingaStrip } from '../../components/mzinga/MzingaStrip';
 import { BarazaStrip } from '../../components/baraza/BarazaStrip';
 import { saveSnap, readSnap } from '../../utils/snapshot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -279,7 +278,6 @@ export default function ExploreScreen() {
 
   const DefaultHeader = (
     <View>
-      <MzingaStrip />
       <BarazaStrip />
       {trends.length > 0 && (
         <View style={styles.block}>
@@ -347,7 +345,12 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]} onLayout={onHeaderLayout}>
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
+          {navigation.canGoBack() && (
+            <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={{ marginRight: 6 }} accessibilityLabel="Back">
+              <Ionicons name="chevron-back" size={26} color={T.text} />
+            </Pressable>
+          )}
+          <Text style={[styles.headerTitle, { flex: 1 }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
           <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('FindFriends')} accessibilityLabel="Find friends">
             <Ionicons name="person-add-outline" size={20} color={T.text} />
           </Pressable>

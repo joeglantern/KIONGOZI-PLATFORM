@@ -1,5 +1,5 @@
-// Post a clip to Mzinga: record or pick a video, choose the cover frame (shown live inside a
-// hive cell, exactly how people will find it), write a caption, put it in the hive.
+// Post a clip to Mitaa: record or pick a video, choose the cover frame, write a caption
+// (its #tags decide which streets it shows up on), and post.
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal, View, Text, StyleSheet, Pressable, TextInput, Image, ScrollView, ActivityIndicator,
@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useClipStore } from '../../stores/clipStore';
+import { useMitaaStore } from '../../stores/mitaaStore';
 import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../utils/supabaseClient';
@@ -133,11 +134,11 @@ export function ClipComposer() {
       if (!res.success || !res.data) throw new Error(res.error || 'Could not post');
       const p = res.data;
       if (!p.post_media?.length) p.post_media = [{ id: 'local', media_type: 'video', url: videoUrl, thumbnail_url: coverUrl, width: clip.width, height: clip.height, order_index: 0 }];
-      // Followers-only clips stay out of the hive (as the note says); they still go in the feed
-      if (audience === 'public') useClipStore.getState().added(p);
+      // Followers-only clips stay out of Mitaa (as the note says); they still go in the feed
+      if (audience === 'public') { useClipStore.getState().added(p); useMitaaStore.getState().added(p); }
       useSocialStore.getState().prependPost(p);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      appAlert('Posted to Mzinga', audience === 'public' ? 'Your clip is in the hive.' : 'Your followers can see it on your profile and in their feed.');
+      appAlert('Posted', audience === 'public' ? 'Your clip is on Mitaa. Its #tags put it on those streets.' : 'Your followers can see it on your profile and in their feed.');
       close();
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
@@ -176,7 +177,7 @@ export function ClipComposer() {
         {!clip ? (
           <Animated.View entering={FadeIn.duration(220)} style={styles.pickWrap}>
             <HiveMark />
-            <Text style={styles.pickTitle}>Add to the hive</Text>
+            <Text style={styles.pickTitle}>Post a clip</Text>
             <Text style={styles.pickSub}>Up to {MAX_SEC} seconds. Hold your phone upright, it looks best.</Text>
             <View style={styles.pickRow}>
               <PickCard icon="videocam" label="Record" onPress={() => pick('camera')} primary />
@@ -189,7 +190,7 @@ export function ClipComposer() {
               <View style={styles.previewRow}>
                 <Preview uri={clip.uri} width={previewW} ratio={(clip.width || 9) / (clip.height || 16)} />
                 <View style={styles.cellCol}>
-                  <Text style={styles.cellLabel}>In the hive</Text>
+                  <Text style={styles.cellLabel}>Cover</Text>
                   <CoverCell uri={frames[cover]?.uri} />
                   <Text style={styles.cellHint}>Pick the frame{'\n'}people tap</Text>
                 </View>
@@ -217,7 +218,7 @@ export function ClipComposer() {
               <TextInput
                 value={caption}
                 onChangeText={setCaption}
-                placeholder="Say something, add #tags"
+                placeholder="Say something. #tags put it on a street"
                 placeholderTextColor="rgba(255,255,255,0.35)"
                 style={styles.input}
                 multiline
@@ -229,7 +230,7 @@ export function ClipComposer() {
                 <Text style={styles.audienceText}>{audience === 'public' ? 'Everyone' : 'Followers only'}</Text>
                 <Ionicons name="chevron-expand" size={15} color="rgba(255,255,255,0.5)" />
               </Pressable>
-              {audience === 'followers' && <Text style={styles.note}>Followers-only clips don't appear in the public hive.</Text>}
+              {audience === 'followers' && <Text style={styles.note}>Followers-only clips don't appear on Mitaa.</Text>}
 
               <Pressable onPress={() => setClip(null)} style={styles.swap} accessibilityRole="button">
                 <Ionicons name="swap-horizontal" size={16} color="rgba(255,255,255,0.7)" />
@@ -241,7 +242,7 @@ export function ClipComposer() {
             <View style={[styles.footer, { paddingBottom: kb ? 12 : insets.bottom + 12 }]}>
               <Pressable onPress={post} disabled={posting} style={({ pressed }) => [styles.postBtn, pressed && { transform: [{ scale: 0.98 }] }, posting && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Post clip">
                 {posting ? <ActivityIndicator color="#1A1206" /> : <Ionicons name="arrow-up" size={18} color="#1A1206" />}
-                <Text style={styles.postText}>{posting ? 'Putting it in the hive…' : 'Put in the hive'}</Text>
+                <Text style={styles.postText}>{posting ? 'Posting…' : 'Post to Mitaa'}</Text>
               </Pressable>
             </View>
           </KeyboardAvoidingView>

@@ -15,6 +15,15 @@ const postSelect = () => `
   )
 `;
 
+/** Same author never twice in a row (reorders in place, nothing is dropped). */
+function spreadAuthors(page: any[]) {
+  for (let k = 1; k < page.length; k++) {
+    if (page[k].user_id !== page[k - 1].user_id) continue;
+    const swap = page.findIndex((q: any, m: number) => m > k && q.user_id !== page[k - 1].user_id);
+    if (swap > 0) [page[k], page[swap]] = [page[swap], page[k]];
+  }
+}
+
 /** The post a row is "about": the original for a repost, itself otherwise. */
 const subjectId = (p: any) => p.repost_of_id || p.id;
 
@@ -220,8 +229,25 @@ class FeedService {
     userId?: string,
     /** First 8 hex chars of clip ids the app already has. The ranking moves between requests
      *  (time, likes), so paging by offset skips or repeats clips; skipping what was served doesn't. */
-    served: string[] = []
+    served: string[] = [],
+    /** Mitaa street: 'foryou' (default), 'fresh', 'following' or 'tag:<name>' */
+    street = 'foryou'
   ): Promise<{ data: any[]; nextCursor: string | null }> {
+    const ranked = await this.streetClips(street, userId);
+
+    // Same author never twice in a row (reorder inside the page, nothing is dropped)
+    const servedSet = new Set(served);
+    const rest = servedSet.size ? ranked.filter((p: any) => !servedSet.has(String(p.id).slice(0, 8))) : ranked.slice(offset);
+    const page = rest.slice(0, limit);
+    spreadAuthors(page);
+
+    // Old app builds send the offset back; new ones only check that it isn't null
+    const nextCursor = rest.length > limit ? String(offset + limit) : null;
+    return { data: await enrichWithUserState(page, userId), nextCursor };
+  }
+
+  /** Public video posts from the last 90 days, ranked by engagement with recency gravity. */
+  private async rankedClipPool(userId?: string): Promise<any[]> {
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const [excludeIds, privateUserIds] = await Promise.all([
       userId ? getExcludeIds(userId) : Promise.resolve([]),
@@ -251,20 +277,66 @@ class FeedService {
       })
       .sort((a, b) => b.s - a.s)
       .map(x => x.p);
+    return ranked;
+  }
 
-    // Same author never twice in a row (reorder inside the page, nothing is dropped)
-    const servedSet = new Set(served);
-    const rest = servedSet.size ? ranked.filter((p: any) => !servedSet.has(String(p.id).slice(0, 8))) : ranked.slice(offset);
-    const page = rest.slice(0, limit);
-    for (let k = 1; k < page.length; k++) {
-      if (page[k].user_id !== page[k - 1].user_id) continue;
-      const swap = page.findIndex((q: any, m: number) => m > k && q.user_id !== page[k - 1].user_id);
-      if (swap > 0) [page[k], page[swap]] = [page[swap], page[k]];
+  /** The clips of one Mitaa street, in order. */
+  private async streetClips(street: string, userId?: string): Promise<any[]> {
+    const ranked = await this.rankedClipPool(userId);
+    if (street === 'fresh') {
+      return [...ranked].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
+    if (street === 'following') {
+      if (!userId) return [];
+      const { data: f } = await supabaseServiceClient.from('follows').select('following_id').eq('follower_id', userId);
+      const ids = new Set((f || []).map((r: any) => r.following_id));
+      return ranked.filter((p: any) => ids.has(p.user_id));
+    }
+    if (street.startsWith('tag:')) {
+      const tag = street.slice(4).toLowerCase();
+      return ranked.filter((p: any) => extractHashtags(p.content || '').includes(`#${tag}`));
+    }
+    return ranked;
+  }
 
-    // Old app builds send the offset back; new ones only check that it isn't null
-    const nextCursor = rest.length > limit ? String(offset + limit) : null;
-    return { data: await enrichWithUserState(page, userId), nextCursor };
+  /**
+   * Mitaa: clips arranged as streets. "For you" first, then people you follow, the busiest
+   * #tags (each its own street), and fresh clips last. Each street carries its first clips.
+   */
+  async getClipStreets(userId?: string, perStreet = 8): Promise<any[]> {
+    const ranked = await this.rankedClipPool(userId);
+    if (!ranked.length) return [];
+    const streets: { key: string; title: string; kind: string; clips: any[]; total: number }[] = [];
+    const add = (key: string, title: string, kind: string, list: any[]) => {
+      if (list.length) { const page = list.slice(0, perStreet); spreadAuthors(page); streets.push({ key, title, kind, clips: page, total: list.length }); }
+    };
+
+    add('foryou', 'Kwako', 'foryou', ranked);
+    if (userId) {
+      const { data: f } = await supabaseServiceClient.from('follows').select('following_id').eq('follower_id', userId);
+      const ids = new Set((f || []).map((r: any) => r.following_id));
+      add('following', 'Unaowafuata', 'following', ranked.filter((p: any) => ids.has(p.user_id)));
+    }
+    // Busiest tags: at least 2 clips each, up to 8 streets
+    const byTag = new Map<string, any[]>();
+    for (const p of ranked) {
+      for (const t of new Set(extractHashtags(p.content || ''))) {
+        if (!byTag.has(t)) byTag.set(t, []);
+        byTag.get(t)!.push(p);
+      }
+    }
+    [...byTag.entries()]
+      .filter(([, l]) => l.length >= 2)
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 8)
+      .forEach(([t, l]) => add(`tag:${t.slice(1)}`, t, 'tag', l));
+    add('fresh', 'Mpya', 'fresh', [...ranked].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+
+    // Fill user state once for every clip shown
+    const all = streets.flatMap(st => st.clips);
+    const enriched = await enrichWithUserState(all, userId);
+    const byId = new Map(enriched.map((p: any) => [p.id, p]));
+    return streets.map(st => ({ ...st, clips: st.clips.map(c => byId.get(c.id) || c) }));
   }
 
   /**

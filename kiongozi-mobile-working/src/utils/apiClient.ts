@@ -609,6 +609,17 @@ class ApiClient {
     return this.request(`/api/v1/social/clips${params}`, { method: 'GET' });
   }
 
+  /** Mitaa: clips grouped into streets (For you, Following, busy #tags, Fresh) */
+  async getClipStreets() {
+    return this.request(`/api/v1/social/clips/streets`, { method: 'GET' });
+  }
+
+  /** More clips for one Mitaa street, skipping the ones already loaded */
+  async getStreetClips(street: string, loaded: string[] = []) {
+    const ex = loaded.length ? `&exclude=${loaded.map(id => id.slice(0, 8)).join(',')}` : '';
+    return this.request(`/api/v1/social/clips?street=${encodeURIComponent(street)}&limit=12${ex}`, { method: 'GET' });
+  }
+
   /** Get a single post by ID */
   async getPost(postId: string) {
     return this.request(`/api/v1/social/posts/${postId}`, { method: 'GET' });

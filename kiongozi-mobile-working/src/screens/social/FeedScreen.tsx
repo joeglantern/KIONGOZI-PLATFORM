@@ -125,7 +125,7 @@ export default function FeedScreen() {
   }, [navigation]);
 
   const handleHashtagPress = useCallback((tag: string) => {
-    navigation.navigate('Explore', { screen: 'ExploreMain', params: { initialQuery: `#${tag}` } });
+    navigation.navigate('Search', { initialQuery: `#${tag}` });
   }, [navigation]);
 
   const handleDeletePost = useCallback((postId: string) => {
@@ -526,6 +526,10 @@ export default function FeedScreen() {
           <View style={styles.headerRow}>
             <Image source={require('../../../assets/kchat-logo.png')} style={[styles.headerLogo, { width: LOGO_W, height: Math.round(LOGO_W * 0.35) }]} resizeMode="contain" />
             <View style={styles.headerIcons}>
+              {/* Search & trending live here now that the tab is Mitaa */}
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('Search')} accessibilityRole="button" accessibilityLabel="Search and trending">
+                <Ionicons name="search" size={24} color={T.text} />
+              </TouchableOpacity>
               <TouchableOpacity style={styles.headerIconBtn} onPress={() => setCreatePostVisible(true)} accessibilityRole="button" accessibilityLabel="New post">
                 {/* Rounded square with a plus (design: 18×18 rect rx6, 8px plus, 1.8 stroke) */}
                 <View style={styles.newPostBox}>

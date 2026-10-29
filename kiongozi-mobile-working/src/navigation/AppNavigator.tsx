@@ -14,6 +14,7 @@ import { useThemeStore } from '../stores/themeStore';
 // Screens
 import FeedScreen from '../screens/social/FeedScreen';
 import ExploreScreen from '../screens/social/ExploreScreen';
+import MitaaScreen from '../screens/social/MitaaScreen';
 import NotificationsScreen from '../screens/social/NotificationsScreen';
 import PostDetailScreen from '../screens/social/PostDetailScreen';
 import PublicProfileScreen from '../screens/social/PublicProfileScreen';
@@ -61,6 +62,9 @@ function FeedStackNavigator() {
     <FeedStack.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout}>
       <FeedStack.Screen name="FeedMain" component={FeedScreen} />
       <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <FeedStack.Screen name="Search" component={ExploreScreen} />
+      <FeedStack.Screen name="FindFriends" component={FindFriendsScreen} />
+      <FeedStack.Screen name="Invite" component={InviteScreen} />
       <FeedStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <FeedStack.Screen name="EditProfile" component={EditProfileScreen} />
       <FeedStack.Screen name="Bookmarks" component={BookmarksScreen} />
@@ -198,7 +202,7 @@ function focusedLeaf(state: any): string | undefined {
 function hidesTabBar(state: any): boolean {
   const leaf = focusedLeaf(state);
   // a tab that hasn't been opened yet has no nested state: its root is showing
-  return !!leaf && !ROOT_SCREENS.has(leaf) && !['Feed', 'Explore', 'Notifications', 'Profile'].includes(leaf);
+  return !!leaf && !ROOT_SCREENS.has(leaf) && !['Feed', 'Mitaa', 'Explore', 'Notifications', 'Profile'].includes(leaf);
 }
 
 function EmptyScreen() {
@@ -309,7 +313,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}
           >
             <NativeTab.Screen name="Feed" component={FeedStackNavigator} options={{ title: 'Home', tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'house.fill' : 'house' }) }} />
-            <NativeTab.Screen name="Explore" component={ExploreStackNavigator} options={{ title: 'Explore', tabBarIcon: () => ({ sfSymbol: 'magnifyingglass' }) }} />
+            <NativeTab.Screen name="Mitaa" component={MitaaScreen} options={{ title: 'Mitaa', tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'play.rectangle.on.rectangle.fill' : 'play.rectangle.on.rectangle' }) }} />
             <NativeTab.Screen
               name="AIChat"
               component={EmptyScreen}
@@ -322,6 +326,8 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
               options={{ title: 'Activity', tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : String(unreadCount)) : undefined, tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'heart.fill' : 'heart' }) }}
             />
             <NativeTab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: 'Profile', tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'person.crop.circle.fill' : 'person.crop.circle' }) }} />
+            {/* Search & trending: opened from the Home header and hashtags, not a tab of its own */}
+            <NativeTab.Screen name="Explore" component={ExploreStackNavigator} options={{ title: 'Explore', tabBarItemHidden: true, tabBarIcon: () => ({ sfSymbol: 'magnifyingglass' }) }} />
           </NativeTab.Navigator>
         ) : (
         <Tab.Navigator
@@ -343,7 +349,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             tabBarInactiveTintColor: T.tabIconInactive,
             tabBarIcon: ({ color, focused }) => {
               if (route.name === 'Feed') return <TabIcon name="home" focused={focused} color={color} />;
-              if (route.name === 'Explore') return <TabIcon name="search" focused={focused} color={color} size={25} />;
+              if (route.name === 'Mitaa') return <TabIcon name="play-circle" focused={focused} color={color} size={27} />;
               if (route.name === 'Notifications') return <NotificationTabIcon color={color} focused={focused} />;
               if (route.name === 'Profile') return <ProfileTabIcon focused={focused} color={color} />;
               return null;
@@ -351,7 +357,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
           })}
         >
           <Tab.Screen name="Feed" component={FeedStackNavigator} />
-          <Tab.Screen name="Explore" component={ExploreStackNavigator} />
+          <Tab.Screen name="Mitaa" component={MitaaScreen} />
 
           {/* Center AI tab — opens Kiongozi chat modal, no navigation */}
           <Tab.Screen
@@ -373,6 +379,8 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
 
           <Tab.Screen name="Notifications" component={NotificationsStackNavigator} />
           <Tab.Screen name="Profile" component={ProfileStackNavigator} />
+          {/* Search & trending: opened from the Home header and hashtags, not a tab of its own */}
+          <Tab.Screen name="Explore" component={ExploreStackNavigator} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
         </Tab.Navigator>
         )}
       </NavigationContainer>

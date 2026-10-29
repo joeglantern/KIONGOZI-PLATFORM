@@ -173,9 +173,13 @@ function PlayerBody() {
   );
 }
 
-const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onToggleSound, onClose, onComments, chrome }: {
+export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onToggleSound, onClose, onComments, chrome, bottomInset, hideTop }: {
   post: Post; W: number; H: number; state: 'play' | 'warm' | 'cold'; muted: boolean;
   onToggleSound: () => void; onClose: () => void; onComments: () => void; chrome: boolean;
+  /** Mitaa tab: room for the tab bar instead of the home indicator */
+  bottomInset?: number;
+  /** Mitaa tab draws its own header */
+  hideTop?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const v = clipVideo(post)!;
@@ -255,7 +259,7 @@ const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onTogg
   };
   const share = async () => {
     try {
-      await Share.share({ message: `${post.profiles?.full_name || post.profiles?.username} on Mzinga`, url: `https://api.kiongozi.org/posts/${post.id}` });
+      await Share.share({ message: `${post.profiles?.full_name || post.profiles?.username} on KChat`, url: `https://api.kiongozi.org/posts/${post.id}` });
     } catch {}
   };
 
@@ -293,18 +297,18 @@ const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onTogg
       <LinearGradient pointerEvents="none" colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.shadeBottom} />
 
       {/* Top bar */}
-      <View style={[styles.top, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
-        <Pressable onPress={onClose} style={styles.topBtn} hitSlop={8} accessibilityLabel="Back to the hive">
+      {!hideTop && <View style={[styles.top, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
+        <Pressable onPress={onClose} style={styles.topBtn} hitSlop={8} accessibilityLabel="Close">
           <Ionicons name="chevron-down" size={24} color="#fff" />
         </Pressable>
-        <Text style={styles.brand}>Mzinga</Text>
+        <Text style={styles.brand}>Mitaa</Text>
         <Pressable onPress={onToggleSound} style={styles.topBtn} hitSlop={8} accessibilityLabel={muted ? 'Sound on' : 'Sound off'}>
           <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={20} color="#fff" />
         </Pressable>
-      </View>
+      </View>}
 
       {/* Right rail */}
-      <View style={[styles.rail, { bottom: insets.bottom + 96 }]} pointerEvents="box-none">
+      <View style={[styles.rail, { bottom: (bottomInset ?? insets.bottom) + 96 }]} pointerEvents="box-none">
         <Pressable onPress={() => go('PublicProfile', { username: post.profiles?.username })} accessibilityLabel={`Open ${post.profiles?.username}'s profile`}>
           <View style={styles.railAvatar}>
             <UserAvatar avatarUrl={post.profiles?.avatar_url} name={post.profiles?.full_name || post.profiles?.username} size={44} />
@@ -316,7 +320,7 @@ const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onTogg
       </View>
 
       {/* Who and what */}
-      <View style={[styles.info, { bottom: insets.bottom + 30, right: 84 }]} pointerEvents="box-none">
+      <View style={[styles.info, { bottom: (bottomInset ?? insets.bottom) + 30, right: 84 }]} pointerEvents="box-none">
         <Pressable onPress={() => go('PublicProfile', { username: post.profiles?.username })}>
           <Text style={styles.name}>@{post.profiles?.username}</Text>
         </Pressable>
@@ -327,7 +331,7 @@ const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onTogg
         ) : null}
       </View>
 
-      <View style={[styles.track, { bottom: insets.bottom + 14 }]} pointerEvents="none">
+      <View style={[styles.track, { bottom: (bottomInset ?? insets.bottom) + 14 }]} pointerEvents="none">
         <Animated.View style={[styles.trackFill, bar]} />
       </View>
       </>}

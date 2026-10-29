@@ -74,11 +74,24 @@ router.get('/clips', optionalAuth, async (req: Request, res: Response): Promise<
     const limit = Math.min(parseInt(req.query.limit as string) || 24, 60);
     const offset = Math.max(parseInt(req.query.cursor as string) || 0, 0);
     const served = String(req.query.exclude || '').split(',').filter(x => /^[0-9a-f]{8}$/i.test(x)).slice(0, 500).map(x => x.toLowerCase());
-    const result = await FeedService.getClipsFeed(limit, served.length ? 0 : offset, req.user?.id, served);
+    const raw = String(req.query.street || 'foryou').toLowerCase();
+    const street = /^(foryou|fresh|following|tag:[a-z0-9_]{1,50})$/.test(raw) ? raw : 'foryou';
+    const result = await FeedService.getClipsFeed(limit, served.length ? 0 : offset, req.user?.id, served, street);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('Clips error:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch clips' });
+  }
+});
+
+// GET /api/v1/social/clips/streets — Mitaa: clips grouped into streets (topics)
+router.get('/clips/streets', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await FeedService.getClipStreets(req.user?.id);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Clip streets error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch streets' });
   }
 });
 
