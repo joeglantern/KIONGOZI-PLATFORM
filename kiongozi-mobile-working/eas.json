@@ -64,7 +64,7 @@
       },
       "ios": {
         "buildConfiguration": "Release",
-        "image": "latest"
+        "image": "sdk-54"
       },
       "channel": "production",
       "cache": {
