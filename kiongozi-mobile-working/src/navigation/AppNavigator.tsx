@@ -76,6 +76,22 @@ function FeedStackNavigator() {
   );
 }
 
+// Mitaa keeps its own stack so opening a profile from a clip stays in the tab,
+// and Back lands on the same clip
+const MitaaStack = createNativeStackNavigator();
+function MitaaStackNavigator() {
+  return (
+    <MitaaStack.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout}>
+      <MitaaStack.Screen name="MitaaMain" component={MitaaScreen} />
+      <MitaaStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <MitaaStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <MitaaStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <MitaaStack.Screen name="DMConversation" component={DMConversationScreen} />
+      <MitaaStack.Screen name="FollowList" component={FollowListScreen} />
+    </MitaaStack.Navigator>
+  );
+}
+
 const ExploreStack = createNativeStackNavigator();
 function ExploreStackNavigator() {
   return (
@@ -184,7 +200,7 @@ function AIChatTabIcon() {
 const Tab = createBottomTabNavigator();
 // iPhone: Apple's own tab bar (Liquid Glass on iOS 26, shrinks while you scroll down)
 const NativeTab = createNativeBottomTabNavigator();
-const ROOT_SCREENS = new Set(['FeedMain', 'ExploreMain', 'NotificationsMain', 'ProfileMain']);
+const ROOT_SCREENS = new Set(['FeedMain', 'MitaaMain', 'ExploreMain', 'NotificationsMain', 'ProfileMain']);
 
 /** Name of the screen actually showing (deepest focused route). */
 function focusedLeaf(state: any): string | undefined {
@@ -314,7 +330,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
             screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}
           >
             <NativeTab.Screen name="Feed" component={FeedStackNavigator} options={{ title: 'Home', tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'house.fill' : 'house' }) }} />
-            <NativeTab.Screen name="Mitaa" component={MitaaScreen} options={{ title: 'Mitaa', tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'play.rectangle.on.rectangle.fill' : 'play.rectangle.on.rectangle' }) }} />
+            <NativeTab.Screen name="Mitaa" component={MitaaStackNavigator} options={{ title: 'Mitaa', tabBarIcon: ({ focused }) => ({ sfSymbol: focused ? 'play.rectangle.on.rectangle.fill' : 'play.rectangle.on.rectangle' }) }} />
             <NativeTab.Screen
               name="AIChat"
               component={EmptyScreen}
@@ -358,7 +374,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
           })}
         >
           <Tab.Screen name="Feed" component={FeedStackNavigator} />
-          <Tab.Screen name="Mitaa" component={MitaaScreen} />
+          <Tab.Screen name="Mitaa" component={MitaaStackNavigator} />
 
           {/* Center AI tab — opens Kiongozi chat modal, no navigation */}
           <Tab.Screen

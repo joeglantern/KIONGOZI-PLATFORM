@@ -945,7 +945,7 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
           </Pressable>
         </View>
         <View style={styles.chips}>
-          {([['reactions', 'Reactions kwanza'], ['recent', 'Mpya kwanza']] as const).map(([key, label]) => {
+          {([['reactions', 'Reactions first'], ['recent', 'Newest first']] as const).map(([key, label]) => {
             const on = sort === key;
             return (
               <Pressable key={key} onPress={() => setSort(key)} style={[styles.chip, on && styles.chipOn]}

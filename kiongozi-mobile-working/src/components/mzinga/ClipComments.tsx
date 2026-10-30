@@ -26,13 +26,17 @@ const ago = (iso: string) => {
   return `${Math.floor(s / 86400)}d`;
 };
 
-export function ClipComments({ post, open, onClose, onCount }: {
+export function ClipComments({ post, open, onClose, onCount, bottomInset = 0 }: {
   post: Post | null; open: boolean; onClose: () => void; onCount: (postId: string, n: number) => void;
+  /** room under the input for a bar floating over the screen (the iPhone tab bar in Mitaa) */
+  bottomInset?: number;
 }) {
   const { height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const sheetH = Math.round(H * 0.64);
-  const y = useSharedValue(sheetH);
+  // Extra room the floating bar needs beyond the home indicator space the input already leaves
+  const extra = Math.max(0, bottomInset - insets.bottom);
+  const y = useSharedValue(sheetH + extra + 40);
   const [rows, setRows] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
@@ -44,9 +48,9 @@ export function ClipComments({ post, open, onClose, onCount }: {
   const user = useAuthStore(s => s.user);
 
   useEffect(() => {
-    y.value = open ? withSpring(0, { damping: 22, stiffness: 220 }) : withTiming(sheetH + 40, { duration: 220 });
+    y.value = open ? withSpring(0, { damping: 22, stiffness: 220 }) : withTiming(sheetH + extra + 40, { duration: 220 });
     if (!open) Keyboard.dismiss();
-  }, [open, sheetH, y]);
+  }, [open, sheetH, extra, y]);
 
   // Load when opened for a new clip
   useEffect(() => {
@@ -114,7 +118,7 @@ export function ClipComments({ post, open, onClose, onCount }: {
       <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, scrim]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close comments" />
       </Animated.View>
-      <Animated.View style={[styles.sheet, { height: sheetH + kb, paddingBottom: kb ? kb : 0 }, sheet]}>
+      <Animated.View style={[styles.sheet, { height: Math.min(sheetH + (kb || extra), H - insets.top - 24), paddingBottom: kb ? kb : 0 }, sheet]}>
         <GestureDetector gesture={drag}>
           <View style={styles.head}>
             <View style={styles.grabber} />
@@ -149,7 +153,7 @@ export function ClipComments({ post, open, onClose, onCount }: {
           )}
         />
 
-        <View style={[styles.inputBar, { paddingBottom: kb ? 8 : Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.inputBar, { paddingBottom: kb ? 8 : Math.max(insets.bottom, bottomInset, 12) }]}>
           <UserAvatar avatarUrl={me?.avatar_url} name={me?.full_name || me?.username} size={32} />
           <View style={styles.pill}>
             <TextInput

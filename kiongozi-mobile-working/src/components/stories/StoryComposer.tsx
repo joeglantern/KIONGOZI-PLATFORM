@@ -206,7 +206,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
     if (!q) { setPollDraft(null); return; }
     setOverlays(o => [...o.filter(x => x.type !== 'poll'), {
       _id: nextId++, type: 'poll', text: q,
-      options: [pollDraft.a.trim() || 'Ndiyo', pollDraft.b.trim() || 'Hapana'],
+      options: [pollDraft.a.trim() || 'Yes', pollDraft.b.trim() || 'No'],
       x: 0.5, y: 0.62, scale: 1, rotation: 0,
     }]);
     setPollDraft(null);
@@ -289,7 +289,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   );
   if (!hasPoll) {
     tools.push(
-      <Pressable key="poll" style={styles.tool} onPress={() => { Keyboard.dismiss(); setPollDraft({ q: '', a: 'Ndiyo', b: 'Hapana' }); }} accessibilityLabel="Add a poll">
+      <Pressable key="poll" style={styles.tool} onPress={() => { Keyboard.dismiss(); setPollDraft({ q: '', a: 'Yes', b: 'No' }); }} accessibilityLabel="Add a poll">
         <Ionicons name="stats-chart" size={18} color="#fff" />
       </Pressable>,
     );
@@ -480,10 +480,10 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
           </View>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
             <Pressable style={[styles.share, { backgroundColor: 'rgba(255,255,255,0.15)' }]} onPress={() => setPollDraft(null)}>
-              <Text style={[styles.shareText, { color: '#fff' }]}>Ghairi</Text>
+              <Text style={[styles.shareText, { color: '#fff' }]}>Cancel</Text>
             </Pressable>
             <Pressable style={[styles.share, !pollDraft.q.trim() && { opacity: 0.4 }]} onPress={addPoll} disabled={!pollDraft.q.trim()}>
-              <Text style={styles.shareText}>Weka poll</Text>
+              <Text style={styles.shareText}>Add poll</Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -507,7 +507,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             returnKeyType="done"
           />
           <Pressable style={[styles.share, { marginTop: 18 }]} onPress={addLink}>
-            <Text style={styles.shareText}>Weka link</Text>
+            <Text style={styles.shareText}>Add link</Text>
           </Pressable>
         </KeyboardAvoidingView>
       )}
@@ -551,7 +551,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             returnKeyType="done"
           />
           <Pressable style={[styles.share, { marginTop: 18 }]} onPress={addLabel}>
-            <Text style={styles.shareText}>Weka</Text>
+            <Text style={styles.shareText}>Add</Text>
           </Pressable>
         </KeyboardAvoidingView>
       )}

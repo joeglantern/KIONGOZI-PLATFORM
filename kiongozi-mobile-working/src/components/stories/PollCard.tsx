@@ -39,7 +39,7 @@ export function PollCard({ question, options, counts, mine, showResults, onVote,
                 width: fills[i].interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
               }]} />
             )}
-            <Text style={[styles.optText, { fontSize: 15 * k }]} numberOfLines={1}>{options[i] || (i ? 'Hapana' : 'Ndiyo')}</Text>
+            <Text style={[styles.optText, { fontSize: 15 * k }]} numberOfLines={1}>{options[i] || (i ? 'No' : 'Yes')}</Text>
             {revealed && <Text style={[styles.pct, { fontSize: 14 * k }]}>{pct[i]}%</Text>}
           </View>
         );

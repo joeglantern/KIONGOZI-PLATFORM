@@ -299,6 +299,28 @@ export default function DMConversationScreen() {
   useEffect(() => () => { if (lastTypingSent.current) sendTyping(false); }, [sendTyping]);
 
 
+  // Kiongozi AI answers on the server a few seconds later. The live channel usually brings it in,
+  // but if it misses (new chat, flaky network) check for the answer for up to a minute.
+  const botPoll = useRef<ReturnType<typeof setInterval> | null>(null);
+  const awaitBotReply = useCallback(() => {
+    if (!isBot) return;
+    if (botPoll.current) clearInterval(botPoll.current);
+    const theirs = () => msgsRef.current.filter(m => m.sender_id !== user?.id).length;
+    const before = theirs();
+    let tries = 0;
+    setPeerTyping(true);
+    botPoll.current = setInterval(async () => {
+      tries++;
+      await Promise.resolve(fetchMessages(conversationId, true)).catch(() => {});
+      if (theirs() > before || tries >= 20) {
+        if (botPoll.current) clearInterval(botPoll.current);
+        botPoll.current = null;
+        setPeerTyping(false);
+      }
+    }, 3000);
+  }, [isBot, conversationId, user?.id, fetchMessages]);
+  useEffect(() => () => { if (botPoll.current) clearInterval(botPoll.current); }, []);
+
   const handleSend = useCallback(async () => {
     if (!text.trim() && !mediaUri) return;
     if (isSending.current) return; // prevent double-send
@@ -325,8 +347,9 @@ export default function DMConversationScreen() {
     // The message shows straight away with a clock; the outbox uploads the photo, sends it and
     // swaps in the real message. With no connection it waits and sends when the connection is back.
     queueMessage({ content, mediaUri: attachedUri || undefined, replyToId });
+    awaitBotReply();
     isSending.current = false;
-  }, [text, mediaUri, conversationId, user, appendMessage]);
+  }, [text, mediaUri, conversationId, user, appendMessage, awaitBotReply]);
 
   const queueMessage = useCallback((m: { content: string; mediaUri?: string; replyToId?: string; mediaType?: 'image' | 'audio'; durationMs?: number }) => {
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -592,6 +615,7 @@ export default function DMConversationScreen() {
                     const replyToId = replyingTo?.id;
                     setReplyingTo(null);
                     queueMessage({ content: '', mediaUri: v.uri, mediaType: 'audio', durationMs: v.durationMs, replyToId });
+                    awaitBotReply();
                   }}
                 />
               )}

@@ -36,7 +36,7 @@ function Buttons({ onCancel, onDone, doneLabel, disabled }: { onCancel: () => vo
   return (
     <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
       <Pressable style={[styles.btn, styles.btnGhost]} onPress={onCancel}>
-        <Text style={[styles.btnText, { color: '#fff' }]}>Ghairi</Text>
+        <Text style={[styles.btnText, { color: '#fff' }]}>Cancel</Text>
       </Pressable>
       <Pressable style={[styles.btn, disabled && { opacity: 0.4 }]} onPress={onDone} disabled={disabled}>
         <Text style={styles.btnText}>{doneLabel}</Text>
@@ -92,7 +92,7 @@ export function MentionEntry({ onPick, onCancel }: { onPick: (p: Person) => void
             style={styles.searchInput} autoCapitalize="none" autoCorrect={false} maxLength={30} returnKeyType="search"
           />
         </View>
-        <Pressable onPress={onCancel} hitSlop={8} accessibilityLabel="Cancel"><Text style={styles.cancel}>Ghairi</Text></Pressable>
+        <Pressable onPress={onCancel} hitSlop={8} accessibilityLabel="Cancel"><Text style={styles.cancel}>Cancel</Text></Pressable>
       </View>
       {rows === null ? <ActivityIndicator color="#fff" style={{ marginTop: 24 }} /> : (
         <FlatList
@@ -171,10 +171,10 @@ function quickTimes(now = new Date()) {
   const tomorrow = at(now, 1, 9);
   const toSat = (6 - now.getDay() + 7) % 7 || 7;
   return [
-    { label: 'Baada ya saa 1', date: inHour },
-    { label: now.getHours() >= 20 ? 'Kesho 8pm' : 'Leo 8pm', date: tonight },
-    { label: 'Kesho 9am', date: tomorrow },
-    { label: 'Jumamosi', date: at(now, toSat, 10) },
+    { label: 'In 1 hour', date: inHour },
+    { label: now.getHours() >= 20 ? 'Tomorrow 8pm' : 'Tonight 8pm', date: tonight },
+    { label: 'Tomorrow 9am', date: tomorrow },
+    { label: 'Saturday', date: at(now, toSat, 10) },
   ];
 }
 function fromNow(d: Date) {
@@ -270,8 +270,8 @@ export function AudienceSheet({ value, closeCount, onChange, onManage, onClose }
   const y = useRef(new Animated.Value(320)).current;
   useEffect(() => { Animated.spring(y, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 240 }).start(); }, []);
   const opts: { id: StoryAudience; icon: any; title: string; sub: string }[] = [
-    { id: 'everyone', icon: 'globe-outline', title: 'Kila mtu', sub: 'Yeyote anayeweza kuona akaunti yako' },
-    { id: 'followers', icon: 'people-outline', title: 'Wafuasi', sub: 'Watu wanaokufuata tu' },
+    { id: 'everyone', icon: 'globe-outline', title: 'Everyone', sub: 'Anyone who can see your account' },
+    { id: 'followers', icon: 'people-outline', title: 'Followers', sub: 'Only people who follow you' },
     { id: 'close_friends', icon: 'star', title: 'Close friends', sub: closeCount === null ? 'People you picked' : `${closeCount} people you picked` },
   ];
   return (
@@ -295,7 +295,7 @@ export function AudienceSheet({ value, closeCount, onChange, onManage, onClose }
               </View>
               {green && (
                 <Pressable onPress={onManage} hitSlop={8} style={styles.edit} accessibilityLabel="Edit close friends">
-                  <Text style={styles.editText}>Badilisha</Text>
+                  <Text style={styles.editText}>Change</Text>
                 </Pressable>
               )}
               <View style={[styles.radio, on && { borderColor: green ? GREEN : '#fff' }]}>

@@ -59,6 +59,11 @@ export function UserAvatar({
           source={{ uri: avatarUrl, cache: 'force-cache' }}
           style={{ width: size, height: size, borderRadius: radius, backgroundColor: T.surface2 }}
         />
+      ) : isBot || name?.trim() === 'Kiongozi AI' ? (
+        // Kiongozi AI wears the app's logo everywhere, same as its chat header
+        <View style={[styles.placeholder, { width: size, height: size, borderRadius: radius, backgroundColor: '#14110F' }]}>
+          <Image source={require('../../../assets/kchat-logo.png')} style={{ width: size * 0.86, height: size * 0.86 }} resizeMode="contain" />
+        </View>
       ) : initials ? (
         <View style={[styles.placeholder, { width: size, height: size, borderRadius: radius, backgroundColor: neutral ? (isDark ? '#2A2A2E' : '#E5E5EA') : colorFor(name!.trim().toLowerCase()) }]}>
           <Text

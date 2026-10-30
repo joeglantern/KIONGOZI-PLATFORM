@@ -12,40 +12,47 @@ interface MitaaState {
   streets: Street[];
   loading: boolean;
   loaded: boolean;
+  /** last load failed (shown only when there is nothing cached to fall back on) */
+  error: boolean;
   /** where you are on each street */
   pos: Record<string, number>;
   fetch: (refresh?: boolean) => Promise<void>;
   more: (key: string) => Promise<void>;
   setPos: (key: string, i: number) => void;
   bumpComments: (postId: string, n: number) => void;
+  /** Not interested: drop a clip from every street for this session */
+  hide: (postId: string) => void;
   added: (post: Post) => void;
   reset: () => void;
 }
 
 const busy = new Set<string>();
+const hidden = new Set<string>();
+const keep = (p: Post) => !!clipVideo(p) && !hidden.has(p.id);
 
 export const useMitaaStore = create<MitaaState>((set, get) => ({
   streets: [],
   loading: false,
   loaded: false,
+  error: false,
   pos: {},
 
   fetch: async (refresh = false) => {
     if (get().loading) return;
-    set({ loading: true });
+    set({ loading: true, error: false });
     if (!get().streets.length) {
-      const snap = await readSnap<Street[]>('mitaa');
+      const snap = await readSnap<Street[]>('mitaa').catch(() => null);
       if (snap?.length && !get().streets.length) set({ streets: snap });
     }
-    const r: any = await apiClient.getClipStreets();
-    if (r.success && Array.isArray(r.data)) {
+    const r: any = await apiClient.getClipStreets().catch(() => null);
+    if (r?.success && Array.isArray(r.data)) {
       const streets: Street[] = r.data
-        .map((s: any) => ({ ...s, clips: (s.clips || []).filter((p: Post) => clipVideo(p)), more: (s.total || 0) > (s.clips || []).length }))
+        .map((s: any) => ({ ...s, clips: (s.clips || []).filter(keep), more: (s.total || 0) > (s.clips || []).length }))
         .filter((s: Street) => s.clips.length);
       streets.forEach(s => s.clips.forEach(p => useSocialStore.getState().seedInteraction(p)));
-      set({ streets, loaded: true, loading: false, ...(refresh ? { pos: {} } : {}) });
+      set({ streets, loaded: true, loading: false, error: false, ...(refresh ? { pos: {} } : {}) });
       saveSnap('mitaa', streets.map(s => ({ ...s, clips: s.clips.slice(0, 4) })), 0);
-    } else set({ loading: false, loaded: true });
+    } else set({ loading: false, loaded: true, error: true });
   },
 
   more: async key => {
@@ -55,7 +62,7 @@ export const useMitaaStore = create<MitaaState>((set, get) => ({
     try {
       const r: any = await apiClient.getStreetClips(key, st.clips.map(p => p.id));
       if (r.success) {
-        const rows: Post[] = (r.data || []).filter((p: Post) => clipVideo(p));
+        const rows: Post[] = (r.data || []).filter(keep);
         rows.forEach(p => useSocialStore.getState().seedInteraction(p));
         set(s => ({
           streets: s.streets.map(x => {
@@ -74,10 +81,15 @@ export const useMitaaStore = create<MitaaState>((set, get) => ({
     streets: s.streets.map(x => ({ ...x, clips: x.clips.map(p => (p.id === postId ? { ...p, comment_count: (p.comment_count || 0) + n } : p)) })),
   })),
 
+  hide: postId => {
+    hidden.add(postId);
+    set(s => ({ streets: s.streets.map(x => (x.clips.some(p => p.id === postId) ? { ...x, clips: x.clips.filter(p => p.id !== postId) } : x)) }));
+  },
+
   // Your new clip goes to the front of "Kwako" and "Mpya" right away
   added: post => set(s => ({
     streets: s.streets.map(x => (x.kind === 'foryou' || x.kind === 'fresh' ? { ...x, clips: [post, ...x.clips.filter(p => p.id !== post.id)] } : x)),
   })),
 
-  reset: () => set({ streets: [], loading: false, loaded: false, pos: {} }),
+  reset: () => { hidden.clear(); set({ streets: [], loading: false, loaded: false, error: false, pos: {} }); },
 }));

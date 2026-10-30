@@ -1,6 +1,6 @@
 // Shared drawing for stories: text-story backgrounds, overlays (stickers/text), the avatar ring.
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StoryOverlay } from '../../stores/storyStore';
@@ -81,15 +81,27 @@ export function FramedMedia({ frame, mw, mh, width, height, backdropUri, childre
   );
 }
 
+/** The kitenge/kanga tile laid out by hand: resizeMode="repeat" only draws one tile on Android. */
+const TILE = 384;
+function PatternTiles({ source }: { source: any }) {
+  const { width, height } = useWindowDimensions();
+  const cols = Math.ceil(width / TILE), rows = Math.ceil(height / TILE);
+  return (
+    <View style={[StyleSheet.absoluteFill, { opacity: 0.1, overflow: 'hidden', flexDirection: 'row', flexWrap: 'wrap', width: cols * TILE }]}>
+      {Array.from({ length: cols * rows }, (_, i) => (
+        <Image key={i} source={source} style={{ width: TILE, height: TILE }} fadeDuration={0} />
+      ))}
+    </View>
+  );
+}
+
 /** Background for text stories: gradient + optional kitenge/kanga tile. */
 export function StoryBackground({ bg }: { bg?: string | null }) {
   const b = bgById(bg);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <LinearGradient colors={b.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      {b.pattern && (
-        <Image source={PATTERNS[b.pattern]} resizeMode="repeat" style={[StyleSheet.absoluteFill, { opacity: 0.1 }]} />
-      )}
+      {b.pattern && <PatternTiles source={PATTERNS[b.pattern]} />}
     </View>
   );
 }

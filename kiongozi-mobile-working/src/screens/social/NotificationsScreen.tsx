@@ -54,11 +54,11 @@ const ACTION: Record<string, [string, string]> = {
 };
 
 const FILTERS: { id: string; label: string; types: string[] | null }[] = [
-  { id: 'all', label: 'Zote', types: null },
+  { id: 'all', label: 'All', types: null },
   { id: 'mentions', label: 'Mentions', types: ['mention'] },
-  { id: 'replies', label: 'Majibu', types: ['comment'] },
+  { id: 'replies', label: 'Replies', types: ['comment'] },
   { id: 'likes', label: 'Likes', types: ['like'] },
-  { id: 'follows', label: 'Wafuasi', types: ['follow', 'follow_request'] },
+  { id: 'follows', label: 'Follows', types: ['follow', 'follow_request'] },
 ];
 
 /** A row: one notification, or several of the same kind on the same post. */
@@ -70,13 +70,13 @@ function buildSections(list: SocialNotification[]) {
   const now = Date.now();
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const bucket = (n: SocialNotification) => {
-    if (!n.read) return 'Mpya';
+    if (!n.read) return 'New';
     const t = new Date(n.created_at).getTime();
-    if (t >= startOfToday.getTime()) return 'Leo';
-    if (now - t < 7 * 86400000) return 'Wiki hii';
-    return 'Zamani';
+    if (t >= startOfToday.getTime()) return 'Today';
+    if (now - t < 7 * 86400000) return 'This week';
+    return 'Earlier';
   };
-  const order = ['Mpya', 'Leo', 'Wiki hii', 'Zamani'];
+  const order = ['New', 'Today', 'This week', 'Earlier'];
   const sections: Record<string, Row[]> = {};
   const index: Record<string, Row> = {};
   for (const n of list) {
@@ -148,11 +148,11 @@ function FollowBack({ userId, T }: { userId?: string; T: Theme }) {
       }}
       style={({ pressed }) => [rowStyles.pill, done ? { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border, paddingHorizontal: 15 } : { backgroundColor: T.text }, pressed && { opacity: 0.8 }]}
       accessibilityRole="button"
-      accessibilityLabel={done ? 'Unamfuata' : 'Fuata pia'}
+      accessibilityLabel={done ? 'Following' : 'Follow back'}
     >
       {state === 'busy'
         ? <ActivityIndicator size="small" color={T.bg} />
-        : <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{done ? 'Unamfuata' : 'Fuata pia'}</Text>}
+        : <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{done ? 'Following' : 'Follow back'}</Text>}
     </Pressable>
   );
 }
@@ -178,7 +178,7 @@ function FollowRequestButtons({ item, onRemove, T }: { item: SocialNotification;
         {loading === 'accept' ? <ActivityIndicator size="small" color="#000" /> : <Text style={[rowStyles.pillText, { color: '#000' }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Kubali</Text>}
       </Pressable>
       <Pressable onPress={() => act('decline')} disabled={!!loading} style={[rowStyles.pill, { borderWidth: 1, borderColor: T.border, paddingHorizontal: 15, minWidth: 92 }]}>
-        {loading === 'decline' ? <ActivityIndicator size="small" color={T.text} /> : <Text style={[rowStyles.pillText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Futa</Text>}
+        {loading === 'decline' ? <ActivityIndicator size="small" color={T.text} /> : <Text style={[rowStyles.pillText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Decline</Text>}
       </Pressable>
     </View>
   );
