@@ -127,7 +127,6 @@ export default function MitaaScreen() {
           <Animated.View key={street.key} entering={FadeInDown.duration(220)} style={styles.pillWrap} pointerEvents="none">
             <View style={styles.pill}>
               <Text style={styles.pillTitle} numberOfLines={1}>{street.title}</Text>
-              <Text style={styles.pillCount}>{at + 1}/{street.more ? `${street.clips.length}+` : street.clips.length}</Text>
             </View>
             <Dots count={Math.min(street.clips.length, 9)} at={Math.min(at, 8)} />
           </Animated.View>

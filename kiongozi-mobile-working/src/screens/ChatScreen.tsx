@@ -144,7 +144,7 @@ function groupConversations(conversations: Conversation[]): ConvSection[] {
   const sections: ConvSection[] = [];
   if (today.length) sections.push({ title: 'Today', data: today });
   if (yesterday.length) sections.push({ title: 'Yesterday', data: yesterday });
-  if (thisWeek.length) sections.push({ title: 'This Week', data: thisWeek });
+  if (thisWeek.length) sections.push({ title: 'This week', data: thisWeek });
   if (older.length) sections.push({ title: 'Older', data: older });
   return sections;
 }

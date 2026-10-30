@@ -58,7 +58,7 @@ export function PollCard({ question, options, counts, mine, showResults, onVote,
       })}
       {revealed && (
         <Text style={[styles.total, { fontSize: 12 * k, marginTop: 8 * k }]}>
-          {total === 1 ? 'Kura 1' : `Kura ${total}`}
+          {total === 1 ? '1 vote' : `${total} votes`}
         </Text>
       )}
     </View>

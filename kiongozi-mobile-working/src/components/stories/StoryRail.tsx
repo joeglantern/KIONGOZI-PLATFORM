@@ -104,7 +104,7 @@ export function StoryRail() {
                   </Pressable>
                 )}
               </View>
-              <Text style={[styles.name, styles.nameSeen]} numberOfLines={1}>{mine ? 'Your story' : 'Ongeza story'}</Text>
+              <Text style={[styles.name, styles.nameSeen]} numberOfLines={1}>{mine ? 'Your story' : 'Add story'}</Text>
             </View>
           </Squish>
           {!loaded && [0, 1, 2, 3].map(i => (

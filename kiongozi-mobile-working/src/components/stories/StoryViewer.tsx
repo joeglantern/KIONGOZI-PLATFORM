@@ -687,12 +687,12 @@ function AnswerSheet({ storyId, prompt, color, to, onClose }: {
         {state === 'sent' ? (
           <View style={styles.answerSent}>
             <Ionicons name="checkmark-circle" size={22} color="#1DB954" />
-            <Text style={styles.answerSentText}>Imetumwa kwa @{to}</Text>
+            <Text style={styles.answerSentText}>Sent to @{to}</Text>
           </View>
         ) : (
           <View style={styles.answerRow}>
             <TextInput
-              autoFocus value={text} onChangeText={setText} placeholder="Andika jibu…" placeholderTextColor="#8E8E93"
+              autoFocus value={text} onChangeText={setText} placeholder="Write an answer…" placeholderTextColor="#8E8E93"
               style={styles.answerInput} multiline maxLength={300}
             />
             <Pressable onPress={send} disabled={!text.trim() || state !== 'idle'} style={[styles.answerSend, (!text.trim() || state !== 'idle') && { opacity: 0.4 }]}
@@ -764,7 +764,7 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
       if (!id) throw new Error(conv?.error || 'Could not open chat');
       const res: any = await apiClient.sendDM(id, content, media || undefined, media ? 'image' : undefined);
       if (!res.success) throw new Error(res.error);
-      setSent('Imetumwa ✓');
+      setSent('Sent ✓');
     } catch (e: any) {
       setSent(e?.message || 'Haikutumwa');
     }
@@ -822,7 +822,7 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder={`Jibu ${group.user.username}…`}
+            placeholder={`Reply to ${group.user.username}…`}
             placeholderTextColor="rgba(255,255,255,0.75)"
             style={styles.replyInput}
             onFocus={() => setFocus(true)}
@@ -866,7 +866,7 @@ function OwnFooter({ story, bottom, onOpenViewers, onDelete, onTop }: {
     <View style={[styles.footer, { position: 'absolute', left: 0, right: 0, bottom: Math.max(bottom + 8, 14) }]} onLayout={e => onTop(e.nativeEvent.layout.y)}>
       <Pressable style={styles.seenBtn} onPress={onOpenViewers} accessibilityLabel="See who viewed your story">
         <Ionicons name="eye-outline" size={20} color="#fff" />
-        <Text style={styles.seenText} numberOfLines={1}>Imeonekana na {story.view_count ?? 0}</Text>
+        <Text style={styles.seenText} numberOfLines={1}>Seen by {story.view_count ?? 0}</Text>
       </Pressable>
       <View style={{ flex: 1 }} />
       <Pressable style={styles.footerBtn} onPress={onDelete} accessibilityLabel="Delete story">
@@ -939,7 +939,7 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
         <View style={styles.grabber} />
         <View style={styles.sheetHead}>
           <Ionicons name="eye-outline" size={20} color="#fff" />
-          <Text style={styles.sheetTitle} numberOfLines={1}>Imeonekana na {count}</Text>
+          <Text style={styles.sheetTitle} numberOfLines={1}>Seen by {count}</Text>
           <Pressable style={styles.sheetDelete} onPress={onDelete} accessibilityLabel="Delete story">
             <Ionicons name="trash-outline" size={18} color="#fff" />
           </Pressable>
@@ -958,7 +958,7 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
         {shown === null ? (
           <ActivityIndicator color="#fff" style={{ marginTop: 24 }} />
         ) : shown.length === 0 && !responses.length ? (
-          <Text style={styles.sheetEmpty}>Bado hakuna aliyeona. Shiriki zaidi!</Text>
+          <Text style={styles.sheetEmpty}>No views yet. Share it around.</Text>
         ) : (
           <FlatList
             data={shown}
@@ -972,12 +972,12 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
                     <View style={styles.sliderSumTrack}>
                       <View style={[styles.sliderSumFill, { width: `${Math.round((sliderStats.avg ?? 0) * 100)}%` }]} />
                     </View>
-                    <Text style={styles.sliderSumText}>{sliderStats.count ? `${Math.round((sliderStats.avg ?? 0) * 100)}% · ${sliderStats.count}` : 'Bado'}</Text>
+                    <Text style={styles.sliderSumText}>{sliderStats.count ? `${Math.round((sliderStats.avg ?? 0) * 100)}% · ${sliderStats.count}` : 'No answers yet'}</Text>
                   </View>
                 )}
                 {responses.length > 0 && (
                   <>
-                    <Text style={styles.respTitle}>Majibu · {responses.length}</Text>
+                    <Text style={styles.respTitle}>Answers · {responses.length}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }}>
                       {responses.map((a: any) => {
                         const p = a.profiles;
@@ -990,7 +990,7 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
                               <Text style={styles.respName} numberOfLines={1}>{p?.username}</Text>
                             </View>
                             <Text style={styles.respText} numberOfLines={4}>{a.answer}</Text>
-                            {canMessage && <Text style={styles.respReply}>{opening === p?.id ? 'Inafungua…' : 'Jibu kwa DM'}</Text>}
+                            {canMessage && <Text style={styles.respReply}>{opening === p?.id ? 'Opening…' : 'Reply in DM'}</Text>}
                           </Pressable>
                         );
                       })}

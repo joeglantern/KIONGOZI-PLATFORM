@@ -92,7 +92,7 @@ export function UserAvatar({
       {/* Bot badge only — verified badge renders next to the name, not on the avatar */}
       {isBot && !editable && (
         <View style={[styles.badge, { bottom: -2, right: -2 }]}>
-          <Ionicons name="hardware-chip" size={size * 0.35} color="#805ad5" />
+          <Ionicons name="sparkles" size={size * 0.32} color="#3FA845" />
         </View>
       )}
     </View>

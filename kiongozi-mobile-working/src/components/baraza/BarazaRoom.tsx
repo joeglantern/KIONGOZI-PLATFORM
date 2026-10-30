@@ -391,7 +391,7 @@ function Live({ state }: { state: BarazaState }) {
           <Text style={styles.title} numberOfLines={1}>{room.title}</Text>
           <View style={styles.metaRow}>
             <View style={styles.liveDot} />
-            <Text style={styles.meta}>live · {DELAY_LABEL} · {state.count} here</Text>
+            <Text style={styles.meta}>Live · {state.count} listening</Text>
             <View style={styles.recPill}><View style={styles.recDotSm} /><Text style={styles.recText}>Recorded</Text></View>
           </View>
         </View>
@@ -457,7 +457,7 @@ function Live({ state }: { state: BarazaState }) {
                   <UserAvatar avatarUrl={p.profile?.avatar_url} name={p.profile?.full_name || p.profile?.username} size={40} />
                 </View>
                 {pos ? <View style={styles.handBadge}><Text style={styles.handNum}>{pos}</Text></View> : null}
-                {p.role === 'host' ? <Text style={styles.hostTag}>host</Text> : null}
+                {p.role === 'host' ? <Text style={styles.hostTag}>Host</Text> : null}
               </Pressable>
             </Animated.View>
           );

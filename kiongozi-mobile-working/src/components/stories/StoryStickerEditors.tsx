@@ -88,7 +88,7 @@ export function MentionEntry({ onPick, onCancel }: { onPick: (p: Person) => void
         <View style={styles.searchPill}>
           <Text style={styles.at}>@</Text>
           <TextInput
-            autoFocus value={q} onChangeText={setQ} placeholder="Tafuta mtu…" placeholderTextColor="#8E8E93"
+            autoFocus value={q} onChangeText={setQ} placeholder="Search people…" placeholderTextColor="#8E8E93"
             style={styles.searchInput} autoCapitalize="none" autoCorrect={false} maxLength={30} returnKeyType="search"
           />
         </View>
@@ -100,7 +100,7 @@ export function MentionEntry({ onPick, onCancel }: { onPick: (p: Person) => void
           keyExtractor={p => p.id}
           keyboardShouldPersistTaps="always"
           contentContainerStyle={{ paddingVertical: 8 }}
-          ListEmptyComponent={<Text style={styles.empty}>{q ? 'Hakuna aliyepatikana' : 'Andika jina au @username'}</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{q ? 'No one found' : 'Type a name or @username'}</Text>}
           renderItem={({ item }) => <PersonRow p={item} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); onPick(item); }} />}
         />
       )}
@@ -120,7 +120,7 @@ export function QuestionEntry({ onDone, onCancel }: { onDone: (prompt: string, c
             autoFocus value={prompt} onChangeText={setPrompt} placeholder="Niulize swali" placeholderTextColor="rgba(255,255,255,0.7)"
             style={styles.qInput} multiline maxLength={90}
           />
-          <View style={styles.qFake}><Text style={styles.qFakeText}>Watu wataandika majibu hapa</Text></View>
+          <View style={styles.qFake}><Text style={styles.qFakeText}>People type their answers here</Text></View>
         </View>
         <View style={styles.colorRow}>
           {QUESTION_COLORS.map(c => (
@@ -143,7 +143,7 @@ export function SliderEntry({ onDone, onCancel }: { onDone: (question: string, e
       <Pop>
         <View style={styles.sEdit}>
           <TextInput
-            autoFocus value={q} onChangeText={setQ} placeholder="Uliza kitu… (hiari)" placeholderTextColor="#8E8E93"
+            autoFocus value={q} onChangeText={setQ} placeholder="Ask something (optional)" placeholderTextColor="#8E8E93"
             style={styles.sInput} multiline maxLength={80}
           />
           <SliderCard emoji={emoji} k={0.9} />
@@ -179,11 +179,11 @@ function quickTimes(now = new Date()) {
 }
 function fromNow(d: Date) {
   const ms = d.getTime() - Date.now();
-  if (ms <= 0) return 'imepita';
+  if (ms <= 0) return 'already passed';
   const h = Math.floor(ms / 3600000), m = Math.round((ms % 3600000) / 60000);
-  if (h >= 24) return `baada ya siku ${Math.floor(h / 24)}${h % 24 ? `, saa ${h % 24}` : ''}`;
-  if (h > 0) return `baada ya saa ${h}${m ? `, dak ${m}` : ''}`;
-  return `baada ya dak ${m}`;
+  if (h >= 24) return `in ${Math.floor(h / 24)}d${h % 24 ? ` ${h % 24}h` : ''}`;
+  if (h > 0) return `in ${h}h${m ? ` ${m}m` : ''}`;
+  return `in ${m}m`;
 }
 
 /** A step button that repeats while held. */
@@ -254,7 +254,7 @@ export function CountdownEntry({ onDone, onCancel }: { onDone: (title: string, e
             <Text style={styles.stepTime}>{pad(date.getMinutes())}</Text>
             <Step icon="add" label="15 minutes later" onStep={() => shift(15 * 60000)} />
           </View>
-          <Text style={styles.fromNow}>{ok ? `Inaisha ${fromNow(date)}` : 'Chagua muda ujao'}</Text>
+          <Text style={styles.fromNow}>{ok ? `Ends ${fromNow(date)}` : 'Pick a time in the future'}</Text>
         </View>
       </Pop>
       <Buttons onCancel={onCancel} onDone={() => onDone(title.trim() || 'Countdown', date.toISOString())} doneLabel="Weka countdown" disabled={!ok} />
@@ -272,7 +272,7 @@ export function AudienceSheet({ value, closeCount, onChange, onManage, onClose }
   const opts: { id: StoryAudience; icon: any; title: string; sub: string }[] = [
     { id: 'everyone', icon: 'globe-outline', title: 'Kila mtu', sub: 'Yeyote anayeweza kuona akaunti yako' },
     { id: 'followers', icon: 'people-outline', title: 'Wafuasi', sub: 'Watu wanaokufuata tu' },
-    { id: 'close_friends', icon: 'star', title: 'Marafiki wa karibu', sub: closeCount === null ? 'Watu uliowachagua' : `Watu ${closeCount} uliowachagua` },
+    { id: 'close_friends', icon: 'star', title: 'Close friends', sub: closeCount === null ? 'People you picked' : `${closeCount} people you picked` },
   ];
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -346,13 +346,13 @@ export function CloseFriendsSheet({ onClose, onCount }: { onClose: () => void; o
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[StyleSheet.absoluteFill, { backgroundColor: '#000', paddingTop: insets.top + 6 }]}>
       <View style={styles.cfHead}>
         <Pressable onPress={onClose} style={styles.cfBack} accessibilityLabel="Done"><Ionicons name="chevron-back" size={24} color="#fff" /></Pressable>
-        <Text style={styles.cfTitle}>Marafiki wa karibu</Text>
+        <Text style={styles.cfTitle}>Close friends</Text>
         <View style={styles.cfStar}><Ionicons name="star" size={14} color="#fff" /></View>
       </View>
-      <Text style={styles.cfSub}>Watu hawa tu wataona story za "Marafiki wa karibu". Hawataambiwa ukiwaongeza.</Text>
+      <Text style={styles.cfSub}>Only these people see your close friends stories. They are not told when you add them.</Text>
       <View style={[styles.searchPill, { marginHorizontal: 16, marginVertical: 10 }]}>
         <Ionicons name="search" size={16} color="#8E8E93" />
-        <TextInput value={q} onChangeText={setQ} placeholder="Tafuta" placeholderTextColor="#8E8E93" style={styles.searchInput}
+        <TextInput value={q} onChangeText={setQ} placeholder="Search" placeholderTextColor="#8E8E93" style={styles.searchInput}
           autoCapitalize="none" autoCorrect={false} maxLength={30} />
       </View>
       {friends === null ? <ActivityIndicator color="#fff" style={{ marginTop: 24 }} /> : (
@@ -362,7 +362,7 @@ export function CloseFriendsSheet({ onClose, onCount }: { onClose: () => void; o
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           ListHeaderComponent={!q.trim() && friends.length ? <Text style={styles.cfSection}>Kwenye orodha · {friends.length}</Text> : null}
-          ListEmptyComponent={<Text style={styles.empty}>{q ? 'Hakuna aliyepatikana' : 'Tafuta watu wa kuongeza'}</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{q ? 'No one found' : 'Search for people to add'}</Text>}
           renderItem={({ item, index }) => (
             <>
               {index === sectionAt && <Text style={styles.cfSection}>Mapendekezo</Text>}

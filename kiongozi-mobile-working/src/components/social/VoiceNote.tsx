@@ -277,7 +277,7 @@ export function VoiceBubbleBody({ id, url, durationMs, fg, meta, accent, isOwn, 
           <Text style={[styles.speedText, { color: fg }]}>{SPEEDS[speed]}×</Text>
         </Pressable>
       </View>
-      <Text style={[styles.vTime, { color: meta }]}>{mmss((playing || pos > 0 ? Math.max(0, dur - pos) : dur) * 1000)}</Text>
+      {dur > 0 && <Text style={[styles.vTime, { color: meta }]}>{mmss((playing || pos > 0 ? Math.max(0, dur - pos) : dur) * 1000)}</Text>}
       {transcript ? (
         <Pressable onPress={() => setOpen(o => !o)}>
           <Text style={[styles.transcript, { color: fg }]} numberOfLines={open ? undefined : 3}>{transcript}</Text>

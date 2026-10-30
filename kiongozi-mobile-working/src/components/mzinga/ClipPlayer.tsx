@@ -25,7 +25,7 @@ import { useSafeAreaInsets as useInsets } from 'react-native-safe-area-context';
 
 const HONEY = '#F2B544';
 const CLAMP = Extrapolation.CLAMP;
-const fmt = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n || 0));
+const fmt = (n: number) => { const s = (v: number, u: string) => `${v.toFixed(1).replace(/\.0$/, '')}${u}`; return n >= 1e6 ? s(n / 1e6, 'M') : n >= 1e3 ? s(n / 1e3, 'K') : String(n); };
 
 let soundOn = true; // remembered while the app is open
 
@@ -315,8 +315,8 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
             <UserAvatar avatarUrl={post.profiles?.avatar_url} name={post.profiles?.full_name || post.profiles?.username} size={44} />
           </View>
         </Pressable>
-        <RailBtn icon={liked ? 'heart' : 'heart-outline'} color={liked ? '#FF3B5C' : '#fff'} label={fmt(likes)} onPress={() => like()} a11y={liked ? 'Unlike' : 'Like'} />
-        <RailBtn icon="chatbubble-outline" label={fmt(post.comment_count)} onPress={onComments} a11y="Comments" />
+        <RailBtn icon={liked ? 'heart' : 'heart-outline'} color={liked ? '#FF3B5C' : '#fff'} label={likes ? fmt(likes) : 'Like'} onPress={() => like()} a11y={liked ? 'Unlike' : 'Like'} />
+        <RailBtn icon="chatbubble-outline" label={post.comment_count ? fmt(post.comment_count) : 'Comment'} onPress={onComments} a11y="Comments" />
         <RailBtn icon="paper-plane-outline" label="Share" onPress={share} a11y="Share" />
       </View>
 

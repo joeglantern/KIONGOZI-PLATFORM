@@ -57,7 +57,7 @@ export function QuestionCard({ prompt, color, avatarUrl, name, k, onPress }: {
         <Text style={[styles.qPrompt, { fontSize: 18 * k, lineHeight: 23 * k }]} numberOfLines={3}>{prompt || 'Niulize swali'}</Text>
       </View>
       <View style={[styles.qField, { margin: 10 * k, height: 40 * k, borderRadius: 12 * k }]}>
-        <Text style={[styles.qFieldText, { fontSize: 14 * k }]}>Andika jibu…</Text>
+        <Text style={[styles.qFieldText, { fontSize: 14 * k }]}>Type an answer…</Text>
       </View>
       <View style={[styles.qAvatar, { top: -14 * k, width: 32 * k, height: 32 * k, borderRadius: 16 * k, borderColor: bg }]}>
         <UserAvatar avatarUrl={avatarUrl ?? undefined} size={28 * k} name={name} />
@@ -160,7 +160,7 @@ export function SliderCard({ question, emoji, k, mine, avg, count, showResults, 
       </GestureDetector>
       {revealed && (
         <Text style={[styles.sMeta, { fontSize: 12 * k, marginTop: 6 * k }]}>
-          {avg === null || avg === undefined ? 'Bado hakuna jibu' : `Wastani ${Math.round(avg * 100)}% · ${count ?? 0} ${count === 1 ? 'jibu' : 'majibu'}`}
+          {avg === null || avg === undefined ? 'No answers yet' : `Average ${Math.round(avg * 100)}% · ${count ?? 0} ${count === 1 ? 'answer' : 'answers'}`}
         </Text>
       )}
     </View>

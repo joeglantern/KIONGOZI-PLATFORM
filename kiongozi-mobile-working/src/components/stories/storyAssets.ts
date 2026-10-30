@@ -58,16 +58,18 @@ export const textAnchoredTop = (text: string) => fitFontSize(text) >= 32;
 
 export const REACTIONS = ['😂', '😮', '😍', '😢', '👏', '🔥'];
 
-/** "saa 3", "dak 12" style times for the story header. */
+/** "3h", "12m" style times for the story header (matches the feed). */
 export function storyAge(iso: string) {
   const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
-  if (mins < 1) return 'sasa hivi';
-  if (mins < 60) return `dak ${mins}`;
-  return `saa ${Math.floor(mins / 60)}`;
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h`;
 }
 
 /** App link used when sharing a story (no server needed). */
-export const APP_LINK = 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile';
+export const APP_LINK = Platform.OS === 'ios'
+  ? 'https://apps.apple.com/app/id6789518676'
+  : 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile';
 
 /**
  * The story viewer is a Modal outside the NavigationContainer. AppNavigator can register its

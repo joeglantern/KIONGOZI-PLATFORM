@@ -113,7 +113,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const isText = !media;
   const textColor = color || (bgById(bg).dark ? '#000000' : '#FFFFFF');
   const styleFx = textStyleFx(textStyle, textColor);
-  const shownText = text || 'Andika kitu…';
+  const shownText = text || 'Type something…';
   const textSize = fitFontSize(shownText);
   const anchored = textAnchoredTop(shownText);
   // Sticker-only text stories are fine (e.g. a shared post card)
@@ -326,7 +326,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             ref={inputRef}
             value={text}
             onChangeText={setText}
-            placeholder="Andika kitu…"
+            placeholder="Type something…"
             placeholderTextColor={bgById(bg).dark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)'}
             multiline
             maxLength={700}
@@ -408,13 +408,13 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
               accessibilityLabel="Who can see this story">
               <Ionicons name={audience === 'everyone' ? 'globe-outline' : audience === 'followers' ? 'people-outline' : 'star'} size={18} color="#fff" />
               <Text style={styles.audienceText} numberOfLines={1}>
-                {audience === 'everyone' ? 'Kila mtu' : audience === 'followers' ? 'Wafuasi' : 'Marafiki wa karibu'}{NARROW || audience === 'close_friends' ? '' : ' · 24h'}
+                {audience === 'everyone' ? 'Everyone' : audience === 'followers' ? 'Followers' : 'Close friends'}{NARROW || audience === 'close_friends' ? '' : ' · 24h'}
               </Text>
               <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.8)" />
             </Pressable>
             <View style={{ flex: 1, minWidth: 0 }} />
             <Pressable style={[styles.share, styles.shareMain, !canPost && { opacity: 0.4 }]} onPress={post} disabled={!canPost} accessibilityLabel="Share story">
-              <Text style={styles.shareText}>Shiriki</Text>
+              <Text style={styles.shareText}>Share</Text>
               <Ionicons name="arrow-forward" size={18} color="#000" />
             </Pressable>
           </View>
@@ -461,7 +461,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
               autoFocus
               value={pollDraft.q}
               onChangeText={q => setPollDraft(d => d && { ...d, q })}
-              placeholder="Uliza swali… (Ask a question)"
+              placeholder="Ask a question…"
               placeholderTextColor="#8E8E93"
               style={styles.pollQ}
               maxLength={90}
@@ -543,7 +543,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
             autoFocus
             value={labelDraft}
             onChangeText={setLabelDraft}
-            placeholder="Andika…"
+            placeholder="Type…"
             placeholderTextColor="#666"
             style={styles.labelInput}
             maxLength={120}

@@ -201,7 +201,9 @@ function timeAgo(dateStr: string): string {
   if (hrs < 24) return `${hrs}h`;
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d`;
-  return new Date(dateStr).toLocaleDateString();
+  const d = new Date(dateStr);
+  const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+  return d.getFullYear() === new Date().getFullYear() ? `${d.getDate()} ${mon}` : `${d.getDate()} ${mon} ${d.getFullYear()}`;
 }
 
 export function PostCard({
@@ -478,7 +480,7 @@ export function PostCard({
                 // "Amina and 2 others reposted" (one card, all the reposters)
                 const others = ((activePost as any).recentReposters || []).filter((u: any) => u?.id && u.id !== post.user_id).length;
                 const extra = Math.max(others, (activePost.repost_count || 1) - 1);
-                return extra > 0 ? `${post.profiles?.full_name} and ${extra} other${extra === 1 ? '' : 's'} reposted` : `${post.profiles?.full_name} reposted`;
+                return extra > 0 ? `${post.profiles?.full_name || post.profiles?.username} and ${extra} other${extra === 1 ? '' : 's'} reposted` : `${post.profiles?.full_name || post.profiles?.username} reposted`;
               })()}</Text>
             </TouchableOpacity>
           )}
