@@ -402,6 +402,7 @@ export default function PublicProfileScreen() {
             size={AVATAR_SIZE}
             isBot={profile?.is_bot}
             isVerified={profile?.is_verified}
+            name={profile?.full_name || profile?.username}
           />
         </View>
 

@@ -224,20 +224,35 @@ export function StoryOverlays({ overlays, width, height, skipPolls }: { overlays
   );
 }
 
-/** Avatar ring: gradient when unseen, thin grey when seen, none when no story.
- *  Ring → `gap` of background colour → avatar (design: 3px gradient / 1.5px grey, 3px gap). */
+/** Avatar ring: a hand-painted brushstroke ring when unseen (one stroke per story, up to 8),
+ *  thin grey when seen, none when no story. Ring -> `gap` of background colour -> avatar. */
 export const RING_COLORS: [string, string, string] = ['#5CB85C', '#F5B83D', '#FF5A5F'];
 const ringWidth = (size: number, state: 'unseen' | 'seen') =>
-  state === 'unseen' ? (size >= 48 ? 3 : 2) : (size >= 48 ? 1.5 : 1);
+  state === 'unseen' ? Math.max(2.5, size * 0.09) : (size >= 48 ? 1.5 : 1);
 const defaultGap = (size: number) => (size >= 48 ? 3 : 1.5);
 
 /** Close friends ring (IG green). */
 export const CLOSE_RING: [string, string] = ['#1DB954', '#0E8F3E'];
 
-export function StoryRing({ size, state, children, gap, bg, close }: {
+// Painted rings (assets/stories/rings, made by a small brush script): index = story count - 1
+const PAINTED = [
+  require('../../../assets/stories/rings/ring_brand_1.png'), require('../../../assets/stories/rings/ring_brand_2.png'),
+  require('../../../assets/stories/rings/ring_brand_3.png'), require('../../../assets/stories/rings/ring_brand_4.png'),
+  require('../../../assets/stories/rings/ring_brand_5.png'), require('../../../assets/stories/rings/ring_brand_6.png'),
+  require('../../../assets/stories/rings/ring_brand_7.png'), require('../../../assets/stories/rings/ring_brand_8.png'),
+];
+const PAINTED_CLOSE = [
+  require('../../../assets/stories/rings/ring_close_1.png'), require('../../../assets/stories/rings/ring_close_2.png'),
+  require('../../../assets/stories/rings/ring_close_3.png'), require('../../../assets/stories/rings/ring_close_4.png'),
+  require('../../../assets/stories/rings/ring_close_5.png'), require('../../../assets/stories/rings/ring_close_6.png'),
+  require('../../../assets/stories/rings/ring_close_7.png'), require('../../../assets/stories/rings/ring_close_8.png'),
+];
+
+export function StoryRing({ size, state, children, gap, bg, close, count = 1 }: {
   size: number; state: 'unseen' | 'seen' | 'none'; children: React.ReactNode; gap?: number; bg: string; close?: boolean;
+  /** number of stories: the painted ring splits into this many strokes (max 8) */
+  count?: number;
 }) {
-  const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
   if (state === 'none') return <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>{children}</View>;
   const ring = ringWidth(size, state);
@@ -245,7 +260,7 @@ export function StoryRing({ size, state, children, gap, bg, close }: {
   const mid = size - ring * 2;
   const hole = mid - g * 2;
   const content = (
-    <View style={{ width: mid, height: mid, borderRadius: mid / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: mid, height: mid, borderRadius: mid / 2, backgroundColor: state === 'unseen' ? 'transparent' : bg, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ width: hole, height: hole, borderRadius: hole / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
         {children}
       </View>
@@ -256,11 +271,12 @@ export function StoryRing({ size, state, children, gap, bg, close }: {
       <View style={{ width: size, height: size, borderRadius: size / 2, padding: ring, backgroundColor: isDark ? '#3A3A3C' : '#C7C7CC' }}>{content}</View>
     );
   }
+  const n = Math.min(Math.max(Math.round(count) || 1, 1), 8);
   return (
-    <LinearGradient colors={close ? CLOSE_RING : [T.accent, RING_COLORS[1], RING_COLORS[2]]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
-      style={{ width: size, height: size, borderRadius: size / 2, padding: ring }}>
+    <View style={{ width: size, height: size, padding: ring }}>
+      <Image source={(close ? PAINTED_CLOSE : PAINTED)[n - 1]} style={{ position: 'absolute', width: size, height: size }} fadeDuration={0} />
       {content}
-    </LinearGradient>
+    </View>
   );
 }
 /** Avatar size that exactly fills a StoryRing of `size` (inside the ring and the gap). */

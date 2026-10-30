@@ -1,15 +1,17 @@
-// Profile avatar with a story ring; tapping it opens that person's stories.
+// Profile avatar with a painted story ring. Tap: with a story you choose between the story and the
+// photo; without one the photo opens full screen. On your own profile there is also "Change photo".
 import React, { useEffect, useState } from 'react';
 import { Pressable } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { useStoryStore, StoryGroup } from '../../stores/storyStore';
 import apiClient from '../../utils/apiClient';
 import { UserAvatar } from '../social/UserAvatar';
-import { StoryRing } from './StoryParts';
+import { StoryRing, ringInnerSize } from './StoryParts';
+import { avatarChoice } from '../social/AvatarHost';
 
-export function ProfileStoryAvatar({ userId, avatarUrl, size, isBot, isVerified }: {
+export function ProfileStoryAvatar({ userId, avatarUrl, size, isBot, isVerified, name, onChangePhoto }: {
   userId?: string; avatarUrl?: string; size: number; isBot?: boolean; isVerified?: boolean;
+  name?: string; onChangePhoto?: () => void;
 }) {
   const T = useTheme();
   const inRail = useStoryStore(s => s.groups.find(g => g.user.id === userId));
@@ -26,16 +28,23 @@ export function ProfileStoryAvatar({ userId, avatarUrl, size, isBot, isVerified 
 
   const group = inRail || fetched;
   const state = !group?.stories.length ? 'none' : group.has_unseen ? 'unseen' : 'seen';
-  const avatar = <UserAvatar avatarUrl={avatarUrl} size={state === 'none' ? size : size - 12} isBot={isBot} isVerified={isVerified} />;
+  const avatar = <UserAvatar avatarUrl={avatarUrl} size={state === 'none' ? size : ringInnerSize(size, state)} isBot={isBot} isVerified={isVerified} name={name} />;
 
-  if (state === 'none') return avatar;
+  const onPress = () => avatarChoice({
+    name,
+    avatarUrl,
+    group: state === 'none' ? null : group,
+    extra: onChangePhoto ? [{ label: avatarUrl ? 'Change photo' : 'Add a photo', icon: 'camera-outline', onPress: onChangePhoto }] : undefined,
+  });
+
   return (
     <Pressable
-      onPress={() => { Haptics.selectionAsync(); openViewer([group!], 0); }}
+      onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="View story"
+      accessibilityLabel={state === 'none' ? 'Profile photo' : 'Story or profile photo'}
+      style={({ pressed }) => pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }}
     >
-      <StoryRing size={size} state={state} bg={T.bg} close={group?.close_friends}>{avatar}</StoryRing>
+      <StoryRing size={size} state={state} bg={T.bg} close={group?.close_friends} count={group?.stories.length}>{avatar}</StoryRing>
     </Pressable>
   );
 }

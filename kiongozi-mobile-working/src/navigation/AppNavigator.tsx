@@ -40,6 +40,7 @@ import { StoryViewer } from '../components/stories/StoryViewer';
 import { StoryComposer } from '../components/stories/StoryComposer';
 import { MzingaHost } from '../components/mzinga/MzingaHive';
 import { BarazaHost } from '../components/baraza/BarazaHost';
+import { AvatarHost } from '../components/social/AvatarHost';
 import { storyNav } from '../components/stories/storyAssets';
 import { OrbVideo } from '../components/ai/OrbVideo';
 import { useProfileStore } from '../stores/profileStore';
@@ -390,6 +391,7 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
       <StoryComposer />
       <MzingaHost />
       <BarazaHost />
+      <AvatarHost />
       <ConfettiHost />
 
       {/* Kiongozi AI Chat Modal — fullscreen */}

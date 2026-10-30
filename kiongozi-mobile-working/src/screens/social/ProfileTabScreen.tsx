@@ -303,7 +303,7 @@ export default function ProfileTabScreen() {
       </Pressable>
 
       <View style={styles.body}>
-        {/* Avatar — tap opens story if there is one, otherwise the photo picker */}
+        {/* Avatar: tap to view your story or photo, or change it (the camera badge changes it straight away) */}
         <View style={[styles.avatarBlock, { marginTop: -(AVATAR_TOTAL / 2) }]}>
           <Pressable
             onPress={handlePickAvatar}
@@ -317,6 +317,8 @@ export default function ProfileTabScreen() {
               size={AVATAR_SIZE}
               isBot={profile?.is_bot}
               isVerified={profile?.is_verified}
+              name={profile?.full_name || profile?.username}
+              onChangePhoto={handlePickAvatar}
             />
             {uploadingAvatar && (
               <View style={styles.avatarUploading}>

@@ -6,7 +6,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore } from '../../stores/themeStore';
 import * as Haptics from 'expo-haptics';
 import { Post } from '../../stores/socialStore';
-import { UserAvatar } from './UserAvatar';
+import { FeedStoryAvatar } from '../stories/FeedStoryAvatar';
 import { HashtagHighlight } from './HashtagHighlight';
 import { MediaViewerModal, MediaItem, PostContext } from './MediaViewerModal';
 import QuotePostModal from './QuotePostModal';
@@ -451,15 +451,15 @@ export function PostCard({
       <View style={styles.inner}>
         {/* Left column: avatar + optional connector line */}
         <View style={styles.leftCol}>
-          <TouchableOpacity onPress={() => activePost.profiles?.username && onProfilePress?.(activePost.profiles.username)}>
-            <UserAvatar
-              avatarUrl={activePost.profiles?.avatar_url}
-              size={44}
-              isBot={activePost.profiles?.is_bot}
-              isVerified={activePost.profiles?.is_verified}
-              name={activePost.profiles?.full_name || activePost.profiles?.username}
-            />
-          </TouchableOpacity>
+          <FeedStoryAvatar
+            userId={activePost.user_id}
+            avatarUrl={activePost.profiles?.avatar_url}
+            size={44}
+            isBot={activePost.profiles?.is_bot}
+            isVerified={activePost.profiles?.is_verified}
+            name={activePost.profiles?.full_name || activePost.profiles?.username}
+            onPress={activePost.profiles?.username ? () => onProfilePress?.(activePost.profiles!.username!) : undefined}
+          />
           {hasConnectorBelow && (
             <View style={styles.connectorLine} />
           )}
