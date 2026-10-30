@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "com.kiongozi.mobile",
-      "versionCode": 15,
+      "versionCode": 16,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -94,9 +94,9 @@
             "enableShrinkResourcesInReleaseBuilds": false,
             "useAndroidX": true,
             "enableJetifier": true,
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0",
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
             "enableMinifyInReleaseBuilds": false
           }
         }
@@ -107,6 +107,13 @@
         "expo-audio",
         {
           "microphonePermission": "Kiongozi uses your microphone to record sound when you film a clip for Mzinga, for example a short video of a youth meeting with what people said."
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
         }
       ]
     ],
