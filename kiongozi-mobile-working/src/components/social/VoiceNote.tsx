@@ -16,6 +16,10 @@ export const canRecordVoice = audioAvailable;
 const MAX_MS = 5 * 60 * 1000;
 const CANCEL_X = -90;
 
+/** Rejects if `p` hasn't settled in `ms`, so a stuck mic never freezes the composer. */
+const withTimeout = <T,>(p: Promise<T>, ms: number, what: string) =>
+  Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${what} timed out`)), ms))]);
+
 const mmss = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -106,22 +110,24 @@ export function VoiceRecorder({ accent, textColor, subColor, barBg, onSend, onRe
     onRecordingChange?.(true);
     let failed = false;
     starting.current = (async () => {
-      const ok = await askMic();
+      const ok = await withTimeout(askMic(), 8000, 'mic permission');
       if (!ok) { failed = true; return; }
-      await rec.start();
+      await withTimeout(rec.start(), 5000, 'recorder start');
     })().catch(e => { failed = true; console.warn('[voice] could not start recording', e?.message || e); });
     await starting.current;
     if (failed) {
+      rec.stop().catch(() => {}); // in case the mic came up after we gave up on it
       setOn(false);
       onRecordingChange?.(false);
       dx.value = withSpring(0);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      say('Allow the microphone for KChat, then hold the mic again');
+      say("Couldn't start the mic. Check KChat can use it, then try again");
     }
   };
 
   const finish = async () => {
-    await starting.current;
+    // never wait on a mic that didn't come up; begin() closes the bar itself if it failed
+    await Promise.race([starting.current, new Promise(r => setTimeout(r, 6000))]);
     const out = await rec.stop();
     setOn(false);
     onRecordingChange?.(false);
@@ -313,9 +319,9 @@ const styles = StyleSheet.create({
   slideText: { fontSize: 14.5 },
   hint: { position: 'absolute', right: 0, bottom: 48, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, zIndex: 3 },
   hintText: { fontSize: 13.5, fontWeight: '600' },
-  mic: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', marginLeft: 6, zIndex: 4 },
+  mic: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginLeft: 6, zIndex: 4 },
   micPulse: { borderRadius: 19 },
-  micInner: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  micInner: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
 
   vRow: { flexDirection: 'row', alignItems: 'center' },
   play: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
