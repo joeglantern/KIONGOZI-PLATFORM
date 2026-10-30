@@ -69,7 +69,7 @@ function LiveCard({ b }: { b: LiveBaraza }) {
       </View>
       <Text style={styles.liveTitle} numberOfLines={2}>{b.title}</Text>
       <View style={styles.liveHost}>
-        <UserAvatar avatarUrl={who?.avatar_url} name={who?.full_name || who?.username} size={22} />
+        <UserAvatar avatarUrl={who?.avatar_url ?? undefined} name={who?.full_name || who?.username} size={22} />
         <Text style={styles.hostName} numberOfLines={1}>
           {b.speaker && b.speaker.id !== b.host?.id ? `@${b.speaker.username} has the stick` : `@${b.host?.username || ''}`}
         </Text>

@@ -10,8 +10,10 @@ import { barazaApi, BarazaMinutes } from '../../stores/barazaStore';
 import { UserAvatar } from '../social/UserAvatar';
 import { NoiseOverlay } from '../social/NoiseOverlay';
 import { HONEY, INK, Stick, PillButton } from './barazaUi';
+import { useBT } from './barazaTheme';
 
 export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: string; onClose: () => void; justEnded?: boolean }) {
+  const th = useBT();
   const insets = useSafeAreaInsets();
   const [m, setM] = useState<BarazaMinutes | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -43,20 +45,20 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
   return (
     <View style={{ flex: 1, paddingTop: insets.top + 8 }}>
       <View style={styles.header}>
-        <Pressable onPress={onClose} style={styles.round} hitSlop={8} accessibilityLabel="Close">
-          <Ionicons name="close" size={22} color="#fff" />
+        <Pressable onPress={onClose} style={[styles.round, { backgroundColor: th.soft }]} hitSlop={8} accessibilityLabel="Close">
+          <Ionicons name="close" size={22} color={th.ink} />
         </Pressable>
-        <Text style={styles.headTitle}>Minutes</Text>
+        <Text style={[styles.headTitle, { color: th.ink }]}>Minutes</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {!m ? (
-        <View style={styles.center}>{err ? <Text style={styles.muted}>{err}</Text> : <ActivityIndicator color={HONEY} />}</View>
+        <View style={styles.center}>{err ? <Text style={[styles.muted, { color: th.sub }]}>{err}</Text> : <ActivityIndicator color={th.accent} />}</View>
       ) : status !== 'ready' ? (
         <Writing ended={justEnded} failed={status === 'failed'} title={m.room.title} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}>
-          <Animated.View entering={FadeInDown.springify().damping(16)} style={styles.paper}>
+          <Animated.View entering={FadeInDown.springify().damping(16)} style={[styles.paper, !th.dark && styles.paperLift]}>
             <NoiseOverlay opacity={0.05} />
             <Text style={styles.kicker}>BARAZA MINUTES</Text>
             <Text style={styles.title}>{m.room.title}</Text>
@@ -76,7 +78,7 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
                       <Text style={styles.pointText}>{k.text}</Text>
                       {k.by ? (
                         <View style={styles.by}>
-                          <UserAvatar avatarUrl={k.by.avatar_url} name={k.by.full_name || k.by.username} size={16} />
+                          <UserAvatar avatarUrl={k.by.avatar_url ?? undefined} name={k.by.full_name || k.by.username} size={16} />
                           <Text style={styles.byText}>@{k.by.username}</Text>
                         </View>
                       ) : null}
@@ -106,7 +108,7 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
             )}
             {!m.key_points.length && !m.ahadi.length && !m.summary ? <Text style={styles.muted}>Nothing was recorded.</Text> : null}
           </Animated.View>
-          {m.room.minutes_post_id ? <Text style={styles.foot}>Also posted as a thread on @{m.host?.username}'s profile.</Text> : null}
+          {m.room.minutes_post_id ? <Text style={[styles.foot, { color: th.faint }]}>Also posted as a thread on @{m.host?.username}'s profile.</Text> : null}
         </ScrollView>
       )}
       {status !== 'ready' && m ? (
@@ -119,6 +121,7 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
 }
 
 function Writing({ ended, failed, title }: { ended?: boolean; failed?: boolean; title: string }) {
+  const th = useBT();
   const r = useSharedValue(0);
   useEffect(() => {
     r.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin) }), -1, true);
@@ -126,9 +129,9 @@ function Writing({ ended, failed, title }: { ended?: boolean; failed?: boolean; 
   const st = useAnimatedStyle(() => ({ transform: [{ rotate: `${-8 + r.value * 16}deg` }] }));
   return (
     <View style={[styles.center, { paddingHorizontal: 32 }]}>
-      <Animated.View style={st}><Stick size={64} /></Animated.View>
-      <Text style={styles.writeTitle}>{failed ? "Couldn't write the minutes" : ended ? 'The baraza has ended' : 'Writing the minutes'}</Text>
-      <Text style={[styles.muted, { textAlign: 'center', marginTop: 6, lineHeight: 20 }]}>
+      <Animated.View style={st}><Stick size={84} /></Animated.View>
+      <Text style={[styles.writeTitle, { color: th.ink }]}>{failed ? "Couldn't write the minutes" : ended ? 'The baraza has ended' : 'Writing the minutes'}</Text>
+      <Text style={[styles.muted, { color: th.sub, textAlign: 'center', marginTop: 6, lineHeight: 20 }]}>
         {failed
           ? 'Something went wrong on our side. The recording is safe; try again later.'
           : `Turning "${title}" into a summary, key points and Ahadi. Everyone who was here gets a notification when they're ready.`}
@@ -147,6 +150,7 @@ const styles = StyleSheet.create({
 
   // Warm paper card
   paper: { backgroundColor: '#F4ECDD', borderRadius: 22, padding: 22, overflow: 'hidden' },
+  paperLift: { shadowColor: '#6B4A1F', shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 4 },
   kicker: { color: '#8A5A2B', fontSize: 11, fontWeight: '800', letterSpacing: 1.4 },
   title: { color: '#20160A', fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.5, marginTop: 6, lineHeight: 29 },
   date: { color: '#7A6A55', fontSize: 13, marginTop: 4 },

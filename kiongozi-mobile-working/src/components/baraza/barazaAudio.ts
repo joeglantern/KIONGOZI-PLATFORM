@@ -88,10 +88,17 @@ export class TurnRecorder {
   private peak = -160;
   private timer: any = null;
   private meter: any = null;
+  private lastDb = -160;
 
   constructor(private onChunk: (c: Chunk) => void) {}
 
   get active() { return this.running; }
+
+  /** How loud the speaker is right now, 0 (quiet) to 1 (loud), for the stick's glow. */
+  get level() {
+    if (!this.running) return 0;
+    return Math.min(1, Math.max(0, (this.lastDb + 50) / 40));
+  }
 
   private async make() {
     const a = A();
@@ -123,9 +130,12 @@ export class TurnRecorder {
     this.meter = setInterval(() => {
       try {
         const m = this.cur?.getStatus?.()?.metering;
-        if (typeof m === 'number' && m > this.peak) this.peak = m;
+        if (typeof m === 'number') {
+          this.lastDb = m;
+          if (m > this.peak) this.peak = m;
+        }
       } catch {}
-    }, 200);
+    }, 70);
     this.timer = setTimeout(() => this.cut(), CHUNK_MS);
   }
 
