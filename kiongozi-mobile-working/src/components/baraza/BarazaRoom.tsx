@@ -521,6 +521,12 @@ function Live({ state }: { state: BarazaState }) {
           );
         })}
         {extra > 0 && <Text style={[styles.more, { top: 92, color: t.faint }]}>+{extra} more listening</Text>}
+        {seated.length === 0 ? (
+          <Animated.View entering={FadeIn.delay(400)} style={styles.emptyCrowd}>
+            <HandMark size={34} />
+            <Text style={[styles.emptyText, { color: t.sub }]}>Nobody else has pulled up a chair yet. People who join show up here.</Text>
+          </Animated.View>
+        ) : null}
       </View>
 
       {/* "Passed to" card */}
@@ -649,7 +655,7 @@ const styles = StyleSheet.create({
   turnLen: { fontSize: 13, fontWeight: '800' },
 
   speakerFrame: { borderRadius: 999, padding: 4, shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 6 },
-  stickSlot: { position: 'absolute', right: -44, bottom: -34 },
+  stickSlot: { position: 'absolute', right: -6, bottom: -40 },
   speakerName: { fontSize: 21, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 14, letterSpacing: -0.3, maxWidth: '80%' },
   speakerSub: { fontSize: 13.5, marginTop: 2, fontVariant: ['tabular-nums'] },
   captions: { minHeight: 74, marginTop: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingVertical: 12 },
@@ -661,6 +667,8 @@ const styles = StyleSheet.create({
   handPop: { position: 'absolute', right: -10, top: -12 },
   hostTag: { fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 2 },
   more: { position: 'absolute', alignSelf: 'center', fontSize: 12.5 },
+  emptyCrowd: { alignItems: 'center', gap: 8, paddingHorizontal: 48, marginTop: 6 },
+  emptyText: { fontSize: 13.5, lineHeight: 19, textAlign: 'center' },
 
   passCard: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 8, paddingRight: 16, height: 46, borderRadius: 23, borderWidth: StyleSheet.hairlineWidth, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8, maxWidth: '86%' },
   passText: { fontSize: 15, fontWeight: '700', flexShrink: 1 },

@@ -19,7 +19,7 @@ export function Stick({ size = 28 }: { size?: number; color?: string }) {
   const t = useBT();
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: t.dark ? 'rgba(255,255,255,0.10)' : t.soft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-      <PaintedStick height={size * 0.92} tilt={-32} />
+      <PaintedStick height={size * 1.25} tilt={-38} />
     </View>
   );
 }

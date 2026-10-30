@@ -130,21 +130,24 @@ export function TalkingStick({ height, level, holderKey, t, late }: {
     };
   });
 
+  const rest = t.dark ? 0.42 : 0.18; // on night rooms the dark wood needs a little light to read
   const glowStyle = useAnimatedStyle(() => ({
-    opacity: 0.18 + level.value * 0.75,
+    opacity: rest + level.value * (0.93 - rest),
     transform: [{ scale: 0.75 + level.value * 0.9 + (sway.value - 0.5) * 0.06 }],
   }));
 
+  // Light and embers ride with the stick, centred on the carved head near the top of the art
+  const G = height * 0.62;
+  const headY = height * 0.07;
   return (
-    <View pointerEvents="none" style={{ width: w * 3, height, alignItems: 'center' }}>
-      {/* light around the carved head, which sits near the top of the art */}
+    <Animated.View pointerEvents="none" style={[{ width: w, height }, stickStyle]}>
       <Animated.Image source={ART.glow} fadeDuration={0}
-        style={[{ position: 'absolute', top: -height * 0.18, width: height * 0.75, height: height * 0.75, tintColor: late ? t.danger : t.glow }, glowStyle]} />
-      <View style={{ position: 'absolute', top: height * 0.12, alignItems: 'center', justifyContent: 'center' }}>
+        style={[{ position: 'absolute', left: w / 2 - G / 2, top: headY - G / 2, width: G, height: G, tintColor: late ? t.danger : t.glow }, glowStyle]} />
+      <View style={{ position: 'absolute', left: w / 2, top: headY, width: 0, height: 0, alignItems: 'center', justifyContent: 'center' }}>
         {Array.from({ length: 8 }, (_, i) => <Ember key={i} i={i} level={level} t={t} />)}
       </View>
-      <Animated.Image source={ART.stick} fadeDuration={0} resizeMode="contain" style={[{ width: w, height }, stickStyle]} />
-    </View>
+      <Image source={ART.stick} fadeDuration={0} resizeMode="contain" style={{ width: w, height }} />
+    </Animated.View>
   );
 }
 
