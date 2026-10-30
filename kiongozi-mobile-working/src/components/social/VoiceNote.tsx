@@ -74,7 +74,8 @@ export function VoiceRecorder({ accent, textColor, subColor, barBg, onSend, onRe
   const rec = useRef(new Recording()).current;
   const [on, setOn] = useState(false);
   const [ms, setMs] = useState(0);
-  const [hint, setHint] = useState(false);
+  // false, or the line to show above the composer (the hold hint or why recording didn't start)
+  const [hint, setHint] = useState<string | false>(false);
   const dx = useSharedValue(0);
   const level = useSharedValue(0.2);
   const cancelled = useRef(false);
@@ -91,16 +92,32 @@ export function VoiceRecorder({ accent, textColor, subColor, barBg, onSend, onRe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [on]);
 
+  const say = (text: string) => {
+    setHint(text);
+    setTimeout(() => setHint(false), 2600);
+  };
+
   const begin = async () => {
     cancelled.current = false;
-    const ok = await askMic();
-    if (!ok) return;
+    // Show the recording bar the moment the hold lands (like WhatsApp), then wake the mic
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    starting.current = rec.start().catch(() => {});
-    await starting.current;
     setMs(0);
     setOn(true);
     onRecordingChange?.(true);
+    let failed = false;
+    starting.current = (async () => {
+      const ok = await askMic();
+      if (!ok) { failed = true; return; }
+      await rec.start();
+    })().catch(e => { failed = true; console.warn('[voice] could not start recording', e?.message || e); });
+    await starting.current;
+    if (failed) {
+      setOn(false);
+      onRecordingChange?.(false);
+      dx.value = withSpring(0);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      say('Allow the microphone for KChat, then hold the mic again');
+    }
   };
 
   const finish = async () => {
@@ -110,7 +127,7 @@ export function VoiceRecorder({ accent, textColor, subColor, barBg, onSend, onRe
     onRecordingChange?.(false);
     dx.value = withSpring(0);
     if (!out || cancelled.current) return;
-    if (out.ms < 700) { setHint(true); setTimeout(() => setHint(false), 1600); return; }
+    if (out.ms < 700) { say('Hold to record, let go to send'); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onSend({ uri: out.uri, durationMs: out.ms });
   };
@@ -124,8 +141,7 @@ export function VoiceRecorder({ accent, textColor, subColor, barBg, onSend, onRe
 
   const showHint = () => {
     Haptics.selectionAsync().catch(() => {});
-    setHint(true);
-    setTimeout(() => setHint(false), 1600);
+    say('Hold to record, let go to send');
   };
 
   const hold = Gesture.Pan()
@@ -167,7 +183,7 @@ export function VoiceRecorder({ accent, textColor, subColor, barBg, onSend, onRe
       )}
       {hint && !on && (
         <View style={[styles.hint, { backgroundColor: barBg }]} pointerEvents="none">
-          <Text style={[styles.hintText, { color: textColor }]}>Hold to record, let go to send</Text>
+          <Text style={[styles.hintText, { color: textColor }]}>{hint}</Text>
         </View>
       )}
       <GestureDetector gesture={gesture}>
