@@ -247,6 +247,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
     if (error || !room) throw error;
     await db.from('baraza_participants').insert({ room_id: room.id, user_id: userId, role: 'host', spoke: true });
     notifyBarazaMentions(room as any).catch(e => console.warn('Baraza mention notify failed:', e));
+    notifyBarazaLive(room as any).catch(e => console.warn('Baraza live notify failed:', e));
     res.status(201).json({ success: true, data: await stateFor(room as any, userId) });
   } catch (err) {
     console.error('Baraza create error:', err);
@@ -911,6 +912,44 @@ router.get('/user/:id', authenticateToken, async (req: Request, res: Response): 
     fail(res, 500, 'Failed to load barazas');
   }
 });
+
+/**
+ * "@joe is live in a baraza": everyone who follows the host hears about it the moment it starts
+ * (X Spaces and Clubhouse do this; it is what fills a room). One per host per 30 minutes, so a
+ * host restarting a room doesn't buzz people twice; people already mentioned in the title are skipped.
+ */
+const liveNotified = new Map<string, number>();
+async function notifyBarazaLive(room: { id: string; title: string; host_id: string }) {
+  const last = liveNotified.get(room.host_id) || 0;
+  if (Date.now() - last < 30 * 60_000) return;
+  liveNotified.set(room.host_id, Date.now());
+  const [{ data: fans }, { data: host }] = await Promise.all([
+    db.from('follows').select('follower_id').eq('following_id', room.host_id).limit(2000),
+    db.from('profiles').select('username, full_name, avatar_url').eq('id', room.host_id).maybeSingle(),
+  ]);
+  const who: any = host || {};
+  const tagged = new Set(Array.from(room.title.matchAll(/@([a-z0-9_.]{2,30})/gi)).map(m => m[1].toLowerCase()));
+  const name = who.username ? `@${who.username}` : who.full_name || 'Someone you follow';
+  for (const f of (fans || []) as any[]) {
+    const uid = f.follower_id;
+    if (!uid || uid === room.host_id) continue;
+    if (await blockedBetween(uid, room.host_id)) continue;
+    if (tagged.size) {
+      const { data: me } = await db.from('profiles').select('username').eq('id', uid).maybeSingle();
+      if (me && tagged.has(String((me as any).username || '').toLowerCase())) continue;
+    }
+    await NotificationService.notify({
+      userId: uid,
+      type: 'baraza_live',
+      title: `${name} is live`,
+      message: `${name} started a baraza: ${room.title}`,
+      data: {
+        kind: 'baraza', baraza_id: room.id, baraza_title: room.title,
+        from_user_id: room.host_id, from_username: who.username || null, from_avatar_url: who.avatar_url || null,
+      },
+    }).catch(() => {});
+  }
+}
 
 /**
  * "@amina mentioned you in a baraza": everyone tagged by @username in a new room's title gets a

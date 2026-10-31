@@ -82,7 +82,9 @@ export function setupNotificationHandlers(navigation: any): () => void {
     const fromUserId     = data?.from_user_id;
     const fromAvatar     = data?.from_avatar_url;
 
-    if (data?.type === 'recap') {
+    if (data?.baraza_id) {
+      try { require('../stores/barazaStore').useBarazaStore.getState().open(data.baraza_id); } catch {}
+    } else if (data?.type === 'recap') {
       navigation.navigate('Profile', { screen: 'ProfileMain', params: { openRecap: Date.now() } });
     } else if (conversationId) {
       // The chat screen reads participant*; it used to get recipient* and opened without a name or photo

@@ -20,6 +20,7 @@ import { supabase } from '../../utils/supabaseClient';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { BottomSheet } from '../../components/social/BottomSheet';
 import apiClient from '../../utils/apiClient';
+import { useBarazaStore } from '../../stores/barazaStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore } from '../../stores/themeStore';
@@ -67,6 +68,7 @@ const ACTION: Record<string, [string, string]> = {
   follow: ['started following you', 'started following you'],
   follow_request: ['wants to follow you', 'want to follow you'],
   dm: ['sent you a message', 'sent you messages'],
+  baraza_live: ['is live in a baraza', 'are live in barazas'],
 };
 
 // Title of the "who did this" sheet per kind
@@ -245,7 +247,8 @@ function NotificationRow({ row, onPress, onOthers, onRemove, T }: {
   const first = row.items[0];
   const others = row.items.length - 1;
   const action: [string, string] | undefined = row.type === 'mention' && first.data?.story_id
-    ? ['mentioned you in a story', 'mentioned you in a story'] : ACTION[row.type];
+    ? ['mentioned you in a story', 'mentioned you in a story']
+    : row.type === 'mention' && first.data?.baraza_id ? ['mentioned you in a baraza', 'mentioned you in a baraza'] : ACTION[row.type];
   const name = first.fromUsername || '';
   const hasPost = ['like', 'repost', 'comment', 'mention'].includes(row.type) && !!first.postId;
   const isDark = useThemeStore(s => s.isDark);
@@ -452,6 +455,9 @@ export default function NotificationsScreen() {
     const item = row.items[0];
     if (item.type === 'dm' && item.conversationId) {
       navigation.navigate('DMConversation', { conversationId: item.conversationId, participantName: item.fromUsername || 'Message', participantUsername: item.fromUsername, participantAvatar: item.fromAvatar });
+    } else if (item.data?.baraza_id) {
+      // Live: open the room. Over: the store shows the minutes instead.
+      useBarazaStore.getState().open(item.data.baraza_id);
     } else if (item.data?.story_id && item.fromUserId) {
       // Mentioned in a story: watch it (falls back to their profile once it has expired)
       useStoryStore.getState().openUser(item.fromUserId).then(ok => {
