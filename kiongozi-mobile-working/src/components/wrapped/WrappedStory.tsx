@@ -188,7 +188,10 @@ function StoryBody({ onClose, stats, status, onRetry, me, share, onOpenPost, onT
         {/* video backgrounds for this slide and the next (warmed up, still hidden) */}
         {mounted.map(id => {
           const v = VIDEO_SLIDES[id];
-          return v ? <VideoLayer key={`v-${id}`} src={v.src} poster={v.poster} active={id === cur} playing={id === cur && !paused} /> : null;
+          // the paper videos are 9:16: keep them whole (never zoomed) and let the slide colour fill the rest
+          const vh = W * 16 / 9;
+          const box = { position: 'absolute' as const, left: 0, width: W, height: vh, top: id === 'persona' ? 0 : Math.max(0, (H - vh) / 2) };
+          return v ? <VideoLayer key={`v-${id}`} src={v.src} poster={v.poster} active={id === cur} playing={id === cur && !paused} box={box} /> : null;
         })}
 
         <Grain />
@@ -243,12 +246,12 @@ function TearWipe({ color, dir, H, W, reduce, first }: { color: string; dir: num
   );
 }
 
-function VideoLayer({ src, poster, active, playing }: { src: any; poster: any; active: boolean; playing: boolean }) {
+function VideoLayer({ src, poster, active, playing, box }: { src: any; poster: any; active: boolean; playing: boolean; box: any }) {
   const o = useSharedValue(active ? 1 : 0);
   useEffect(() => { o.value = withTiming(active ? 1 : 0, { duration: 420, easing: Easing.out(Easing.quad) }); }, [active]);
   const st = useAnimatedStyle(() => ({ opacity: o.value }));
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, st]} pointerEvents="none" exiting={FadeOut.duration(220)}>
+    <Animated.View style={[box, st]} pointerEvents="none" exiting={FadeOut.duration(220)}>
       <LoopVideo source={src} poster={poster} playing={playing} />
     </Animated.View>
   );

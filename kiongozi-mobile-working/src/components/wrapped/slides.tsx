@@ -343,7 +343,7 @@ function Baraza({ s, L, reduce }: SlideProps) {
   const label = `${fmt(n)}×`;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Piece source={PAPER.stick} w={120 * k} h={120 * k * AR.stick} x={W - 150 * k} y={y(92)} rot={10} delay={d(0)} reduce={reduce} amp={1.4} />
+      <Piece source={PAPER.stick} w={112 * k} h={112 * k * AR.stick} x={W - 150 * k} y={y(150)} rot={10} delay={d(0)} reduce={reduce} amp={1.4} />
       <Piece source={PAPER.stool} w={130 * k} h={130 * k * AR.stool} x={30 * k} y={y(230)} rot={-6} delay={d(1)} reduce={reduce} seed={2} />
       <View style={{ position: 'absolute', left: 24, right: 24, top: y(430) }}>
         <Animated.Text entering={rise(d(2), reduce)} style={head(26 * k, INK)} maxFontSizeMultiplier={1.2}>You pulled up a stool</Animated.Text>
@@ -449,8 +449,8 @@ function Summary({ s, L, reduce, me, share }: SlideProps) {
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <PaperCard delay={120} reduce={reduce} rot={-2} tint={VIOLET} style={{ position: 'absolute', left: 24, right: 24, top, height: cardH }}>
         <View pointerEvents="none" style={{ height: cardH }}>
-          <View style={{ position: 'absolute', right: 6 * sk, top: 6 * sk }}>
-            <Piece source={PAPER.trophy} w={128 * sk} h={128 * sk * AR.trophy} x={0} y={0} rot={8} delay={460} reduce={reduce} amp={1.2} drift={2} />
+          <View style={{ position: 'absolute', right: 18 * sk, top: 18 * sk, width: 120 * sk, height: 120 * sk * AR.trophy }}>
+            <Piece source={PAPER.trophy} w={120 * sk} h={120 * sk * AR.trophy} x={0} y={0} rot={8} delay={460} reduce={reduce} amp={1.2} drift={2} />
           </View>
           <Text style={{ position: 'absolute', left: 26, top: 30 * sk, color: W_85, fontSize: 13, fontWeight: '800' }} maxFontSizeMultiplier={1.1}>
             {me?.username ? `@${me.username} · ` : ''}week of {weekOfLabel(s?.since)}
