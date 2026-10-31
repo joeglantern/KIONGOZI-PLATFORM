@@ -1,11 +1,12 @@
 // Chat bubble, iMessage / Telegram feel: solid green for you, a soft filled grey for them,
 // tight grouping (inner corners tuck in), and the time sits inside the last bubble of a group,
 // tucked into the corner of the last line (Telegram's trick) instead of on its own row.
+import { EASE_OUT, SETTLE } from '../../theme/motion';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, {
-  FadeIn, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withDelay, runOnJS,
+  FadeIn, useSharedValue, useAnimatedStyle, withSequence, withTiming, withDelay, runOnJS,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { DMMessage } from '../../stores/dmStore';
@@ -61,14 +62,14 @@ function chipColors(isDark: boolean, mine: boolean) {
 
 /** A white pill hanging off the bubble: springs in when it first appears, bumps when its count changes */
 function ReactionChip({ emoji, count, mine, animate, isDark }: { emoji: string; count: number; mine: boolean; animate: boolean; isDark: boolean }) {
-  const scale = useSharedValue(animate ? 0.4 : 1);
+  const scale = useSharedValue(animate ? 0.7 : 1);
   const first = useRef(true);
   useEffect(() => {
-    if (animate) scale.value = withSpring(1, { damping: 11, stiffness: 320, mass: 0.7 });
+    if (animate) scale.value = withTiming(1, SETTLE);
   }, []);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    scale.value = withSequence(withTiming(1.18, { duration: 90 }), withSpring(1, { damping: 10, stiffness: 300 }));
+    scale.value = withSequence(withTiming(1.12, { duration: 90 }), withTiming(1, { duration: 180, easing: EASE_OUT }));
   }, [count, mine]);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const c = chipColors(isDark, mine);
@@ -82,11 +83,11 @@ function ReactionChip({ emoji, count, mine, animate, isDark }: { emoji: string; 
 
 /** The double-tap heart: pops over the bubble, then floats up and fades */
 function HeartBurst({ onDone }: { onDone: () => void }) {
-  const scale = useSharedValue(0.3);
+  const scale = useSharedValue(0.6);
   const opacity = useSharedValue(0);
   const lift = useSharedValue(0);
   useEffect(() => {
-    scale.value = withSequence(withSpring(1.2, { damping: 7, stiffness: 340 }), withTiming(1, { duration: 120 }));
+    scale.value = withSequence(withTiming(1.12, { duration: 140, easing: EASE_OUT }), withTiming(1, { duration: 140, easing: EASE_OUT }));
     opacity.value = withSequence(withTiming(1, { duration: 80 }), withDelay(380, withTiming(0, { duration: 240 }, f => { if (f) runOnJS(onDone)(); })));
     lift.value = withDelay(380, withTiming(-18, { duration: 260 }));
   }, []);

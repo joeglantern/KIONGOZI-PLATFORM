@@ -1,11 +1,12 @@
 // Post a clip to Mitaa: record or pick a video, choose the cover frame, write a caption
 // (its #tags decide which streets it shows up on), and post.
+import { EASE_OUT, enterUp } from '../../theme/motion';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal, View, Text, StyleSheet, Pressable, TextInput, Image, ScrollView, ActivityIndicator,
   KeyboardAvoidingView, Platform, useWindowDimensions, Keyboard,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -258,7 +259,7 @@ function Preview({ uri, width, ratio }: { uri: string; width: number; ratio: num
   useEffect(() => { player.muted = muted; }, [muted, player]);
   const h = width / Math.max(0.5, Math.min(ratio, 1.2));
   return (
-    <Animated.View entering={FadeInDown.springify().damping(18)} style={[styles.preview, { width, height: Math.min(h, width * 1.9) }]}>
+    <Animated.View entering={enterUp(280)} style={[styles.preview, { width, height: Math.min(h, width * 1.9) }]}>
       <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} allowsFullscreen={false} />
       <Pressable onPress={() => setMuted(m => !m)} style={styles.mute} hitSlop={8} accessibilityLabel={muted ? 'Sound on' : 'Sound off'}>
         <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={15} color="#fff" />
@@ -267,14 +268,14 @@ function Preview({ uri, width, ratio }: { uri: string; width: number; ratio: num
   );
 }
 
-/** The chosen cover inside a hive cell, popping a little each time it changes. */
+/** The chosen cover inside a hive cell, easing in a little each time it changes. */
 function CoverCell({ uri }: { uri?: string }) {
   const s = useSharedValue(1);
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    s.value = 0.88;
-    s.value = withSpring(1, { damping: 9, stiffness: 260 });
+    s.value = 0.94;
+    s.value = withTiming(1, { duration: 240, easing: EASE_OUT });
   }, [uri, s]);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return (

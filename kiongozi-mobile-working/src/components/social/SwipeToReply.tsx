@@ -1,6 +1,7 @@
 // WhatsApp swipe-to-reply: drag a message right, a reply arrow grows in behind it, a tick of
 // haptics at the threshold, let go to reply. Rubber-bands past the limit, springs back.
 // Only horizontal-right drags activate, so scrolling the chat is never blocked.
+import { CALM_SPRING } from '../../theme/motion';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -39,7 +40,7 @@ export function SwipeToReply({ onReply, color, enabled = true, children }: {
     .onEnd(() => {
       if (armed.value) runOnJS(onReply)();
       armed.value = false;
-      x.value = withSpring(0, { damping: 18, stiffness: 260, mass: 0.6 });
+      x.value = withSpring(0, CALM_SPRING);
     });
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));

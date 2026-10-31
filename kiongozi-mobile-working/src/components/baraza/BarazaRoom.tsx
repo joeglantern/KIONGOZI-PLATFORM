@@ -86,7 +86,7 @@ function Consent({ state, onClose }: { state: BarazaState | null; onClose: () =>
         <Ionicons name="chevron-down" size={22} color={t.ink} />
       </Pressable>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28 }}>
-        <Animated.View entering={ZoomIn.springify().damping(14)}>
+        <Animated.View entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))}>
           <View style={{ width: 132, height: 132, alignItems: 'center', justifyContent: 'center' }}>
             <BeadRing size={132} progress={null} beads={34} />
             <UserAvatar avatarUrl={host?.avatar_url ?? undefined} name={host?.full_name || host?.username} size={84} />
@@ -337,7 +337,7 @@ function Live({ state }: { state: BarazaState }) {
 
   const swap = useSharedValue(1);
   useEffect(() => {
-    swap.value = withSequence(withTiming(0.86, { duration: 120 }), withSpring(1, { damping: 10, stiffness: 160 }));
+    swap.value = withSequence(withTiming(0.94, { duration: 110 }), withTiming(1, { duration: 200, easing: Easing.out(Easing.cubic) }));
   }, [room.holder_id, swap]);
   const swapStyle = useAnimatedStyle(() => ({ transform: [{ scale: swap.value }] }));
 
@@ -633,8 +633,8 @@ function Live({ state }: { state: BarazaState }) {
     .onEnd(() => { if (hotIdx.value >= 0) runOnJS(onDrop)(hotIdx.value); })
     .onFinalize(() => {
       if (hotIdx.value !== -1) { hotIdx.value = -1; runOnJS(onHover)(-1); }
-      dragX.value = withSpring(0, { damping: 14 });
-      dragY.value = withSpring(0, { damping: 14 });
+      dragX.value = withSpring(0, { damping: 30, stiffness: 220, overshootClamping: true });
+      dragY.value = withSpring(0, { damping: 30, stiffness: 220, overshootClamping: true });
       lift.value = withTiming(0, { duration: 180 });
     });
   const dragStyle = useAnimatedStyle(() => ({
@@ -720,7 +720,7 @@ function Live({ state }: { state: BarazaState }) {
 
       {lyricsFull ? (
         /* Transcript open: a compact speaker with the stick, and the words take the stage */
-        <Animated.View key="full" entering={FadeInDown.springify().damping(18)} exiting={FadeOut.duration(160)} style={{ flex: 1, paddingBottom: dockBottom + DOCK_H + 16 }}>
+        <Animated.View key="full" entering={FadeInDown.duration(260).easing(Easing.out(Easing.cubic))} exiting={FadeOut.duration(160)} style={{ flex: 1, paddingBottom: dockBottom + DOCK_H + 16 }}>
           <Pressable onPress={openWho} style={styles.compact} accessibilityRole="button" accessibilityLabel="See who's here">
             {holder ? (
               <View style={{ width: 104, height: 104 }}>
@@ -737,7 +737,7 @@ function Live({ state }: { state: BarazaState }) {
           {lyrics}
         </Animated.View>
       ) : (
-        <Animated.View key="room" entering={FadeInUp.springify().damping(18)} style={{ flex: 1 }} pointerEvents="box-none">
+        <Animated.View key="room" entering={FadeInUp.duration(260).easing(Easing.out(Easing.cubic))} style={{ flex: 1 }} pointerEvents="box-none">
           {/* The stage: a pool of light, the dais, and whoever holds the stick inside the bead hoop */}
           <View style={{ height: stageH, alignItems: 'center', overflow: 'visible', zIndex: 3 }} pointerEvents="box-none">
             {/* a warm pool of light lying on the dais top */}
@@ -768,7 +768,7 @@ function Live({ state }: { state: BarazaState }) {
             {moment ? <ConfettiBurst key={moment} ox={W / 2} oy={over + hoopCy + AV / 2} spread={W * 0.42} /> : null}
             <View style={{ position: 'absolute', top: over + DAIS_H + 2, left: 24, right: 24, alignItems: 'center' }} pointerEvents="none">
               {awaitStart ? (
-                <Animated.View key="moment" entering={ZoomIn.springify().damping(12)} exiting={FadeOut.duration(300)} style={{ alignItems: 'center' }}>
+                <Animated.View key="moment" entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))} exiting={FadeOut.duration(300)} style={{ alignItems: 'center' }}>
                   <Text style={[styles.momentTitle, { color: t.ink }]}>The stick is yours</Text>
                   <Text style={[styles.momentSub, { color: t.sub }]} numberOfLines={2}>
                     Everyone hears you about {DELAY_WORDS} later. {left === null ? 'There is no clock on your turn.' : `You have ${room.turn_seconds / 60} minute${room.turn_seconds === 60 ? '' : 's'}.`}
@@ -794,8 +794,8 @@ function Live({ state }: { state: BarazaState }) {
             {shown.map((p, i) => {
               const { x, y } = slotXY(i);
               return (
-                <Animated.View key={p.user_id} entering={ZoomIn.delay(i * 30).springify().damping(13)} exiting={FadeOut}
-                  layout={LinearTransition.springify().damping(16)} style={{ position: 'absolute', left: x - (SEAT_W + 16) / 2, top: y }}>
+                <Animated.View key={p.user_id} entering={FadeIn.delay(i * 30).duration(240).easing(Easing.out(Easing.cubic))} exiting={FadeOut}
+                  layout={LinearTransition.duration(260).easing(Easing.out(Easing.cubic))} style={{ position: 'absolute', left: x - (SEAT_W + 16) / 2, top: y }}>
                   <Seat p={p} i={i} pos={queuePos(p.user_id)} t={t} hot={hot === p.user_id}
                     onPress={() => tapSeat(p)} onLongPress={() => personMenu(p.user_id)} />
                 </Animated.View>
@@ -804,7 +804,7 @@ function Live({ state }: { state: BarazaState }) {
             {extra > 0 ? (() => {
               const { x, y } = slotXY(slots - 1);
               return (
-                <Animated.View key="more" entering={ZoomIn.springify().damping(13)} layout={LinearTransition.springify().damping(16)}
+                <Animated.View key="more" entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))} layout={LinearTransition.duration(260).easing(Easing.out(Easing.cubic))}
                   style={{ position: 'absolute', left: x - 22, top: y + (SEAT_BOX - 44) / 2 }}>
                   <Pressable onPress={openWho} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${extra} more. See who's here`}
                     style={({ pressed }) => [styles.moreSeat, { backgroundColor: t.soft }, pressed && { transform: [{ scale: 0.94 }] }]}>
@@ -836,14 +836,14 @@ function Live({ state }: { state: BarazaState }) {
         {sendFail && holding ? <Text style={[styles.err, { color: t.danger }]}>Your voice isn't getting through. Check your connection.</Text> : null}
         {error ? <Text style={[styles.err, { color: t.danger }]}>{error}</Text> : null}
         {passedTo && passedTo.id !== meId ? (
-          <Animated.View entering={ZoomIn.springify().damping(14)} exiting={FadeOut.duration(220)} pointerEvents="none"
+          <Animated.View entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))} exiting={FadeOut.duration(220)} pointerEvents="none"
             style={[styles.passPill, { backgroundColor: t.card, borderColor: t.line, shadowColor: t.dark ? '#000' : '#5A3E12' }]}>
             <Stick size={26} />
             <Text style={[styles.passText, { color: t.ink }]} numberOfLines={1}>Stick passed to @{passedTo.username}</Text>
           </Animated.View>
         ) : null}
         {reactOpen ? (
-          <Animated.View entering={FadeInDown.springify().damping(16)} exiting={FadeOut.duration(140)}
+          <Animated.View entering={FadeInDown.duration(260).easing(Easing.out(Easing.cubic))} exiting={FadeOut.duration(140)}
             style={[styles.strip, { backgroundColor: t.dark ? '#1B2140' : '#F6EEDC', shadowColor: t.dark ? '#000' : '#5A3E12' }]}>
             {t.dark ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: t.soft, borderRadius: 26 }]} /> : null}
             {REACTIONS.map(r => (
@@ -903,7 +903,7 @@ function Seat({ p, i, pos, t, hot, onPress, onLongPress }: {
     bob.value = withDelay((i % 5) * 190, withRepeat(withTiming(1, { duration: 1500 + (i % 3) * 160, easing: Easing.inOut(Easing.sin) }), -1, true));
   }, [bob, i]);
   // the stick being dragged over this seat
-  useEffect(() => { grow.value = withSpring(hot ? 1 : 0, { damping: 12, stiffness: 220 }); }, [hot, grow]);
+  useEffect(() => { grow.value = withTiming(hot ? 1 : 0, { duration: 200, easing: Easing.out(Easing.cubic) }); }, [hot, grow]);
   const st = useAnimatedStyle(() => ({ transform: [{ translateY: -bob.value * 3 - grow.value * 4 }, { scale: 1 + grow.value * 0.14 }] }));
   const host = p.role === 'host';
   const label = pos ? (pos === 1 ? 'next up' : `${ordinal(pos)} in line`) : host ? 'host' : p.from || '';
@@ -920,12 +920,12 @@ function Seat({ p, i, pos, t, hot, onPress, onLongPress }: {
             <UserAvatar avatarUrl={p.profile?.avatar_url ?? undefined} name={p.profile?.full_name || p.profile?.username} size={SEAT_AV} />
           </View>
           {pos ? (
-            <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.numBadge, { backgroundColor: t.accent, borderColor: badgeEdge }]}>
+            <Animated.View entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))} style={[styles.numBadge, { backgroundColor: t.accent, borderColor: badgeEdge }]}>
               <Text style={[styles.numText, { color: t.accentInk }]}>{pos}</Text>
             </Animated.View>
           ) : null}
           {p.hand_raised_at ? (
-            <Animated.View entering={ZoomIn.springify().damping(9)} style={styles.handBadge}>
+            <Animated.View entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))} style={styles.handBadge}>
               <HandMark size={16} loop />
             </Animated.View>
           ) : null}
@@ -953,14 +953,14 @@ function MainButton({ spec, t }: { spec: MainSpec; t: BarazaTheme }) {
   const bg = tone === 'ink' ? t.ink : tone === 'glass' ? 'rgba(255,255,255,0.1)' : t.accent;
   const fg = tone === 'ink' ? t.bg : tone === 'glass' ? t.accent : t.accentInk;
   const fill = useSharedValue(spec.fill ?? 0);
-  useEffect(() => { fill.value = withSpring(spec.fill ?? 0, { damping: 16, stiffness: 120 }); }, [spec.fill, fill]);
+  useEffect(() => { fill.value = withTiming(spec.fill ?? 0, { duration: 320, easing: Easing.out(Easing.cubic) }); }, [spec.fill, fill]);
   const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
   const press = useSharedValue(1);
   const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: press.value }] }));
   return (
     <Animated.View style={[{ flex: 1 }, pressStyle]}>
       <Pressable onPress={spec.onPress} disabled={spec.disabled} accessibilityRole="button" accessibilityLabel={spec.a11y || spec.label}
-        onPressIn={() => { press.value = withTiming(0.96, { duration: 80 }); }} onPressOut={() => { press.value = withSpring(1, { damping: 12 }); }}
+        onPressIn={() => { press.value = withTiming(0.96, { duration: 80 }); }} onPressOut={() => { press.value = withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) }); }}
         style={[styles.main, { backgroundColor: bg, opacity: spec.disabled ? 0.45 : 1, shadowColor: tone === 'ink' ? '#000' : t.accent },
           tone === 'glass' && { shadowOpacity: 0, elevation: 0 }, tone === 'ink' && { shadowOpacity: 0.18 }]}>
         <Animated.View pointerEvents="none" style={[styles.mainFill, tone === 'glass' && { backgroundColor: 'rgba(242,181,68,0.18)' }, fillStyle]} />
@@ -1010,7 +1010,7 @@ function DockSheet({ visible, onClose, rows, t, hands, onPass, onTakeBack, onEnd
           <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(160)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
           </Animated.View>
-          <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown.duration(180)}
+          <Animated.View entering={SlideInDown.duration(320).easing(Easing.bezier(0.2, 0.9, 0.3, 1))} exiting={SlideOutDown.duration(180)}
             style={[styles.sheet, { backgroundColor: t.dark ? '#1B2140' : '#FFFFFF', paddingBottom: insets.bottom + 14 }]}>
             <View style={[styles.grab, { backgroundColor: t.line }]} />
             <Text style={[styles.handsTitle, { color: t.ink }]}>Hands up</Text>
@@ -1087,7 +1087,7 @@ function Notice({ icon, title, text, onClose }: { icon: keyof typeof Ionicons.gl
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.center, { paddingHorizontal: 32, paddingBottom: insets.bottom + 20 }]}>
-      <Animated.View entering={ZoomIn.springify()} style={[styles.noticeIcon, { backgroundColor: t.soft }]}>
+      <Animated.View entering={FadeIn.duration(240).easing(Easing.out(Easing.cubic))} style={[styles.noticeIcon, { backgroundColor: t.soft }]}>
         <Ionicons name={icon} size={34} color={t.accent} />
       </Animated.View>
       <Text style={[styles.consentTitle, { color: t.ink }]}>{title}</Text>

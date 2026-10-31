@@ -1,9 +1,10 @@
 // Soft offline notice (WhatsApp / Instagram style): a small pill under the status bar, never a
 // blocking screen. It says what's happening, shrinks to a quiet "Offline" chip after a few
 // seconds, can be tapped to retry, and flashes "Back online" when the connection returns.
+import { SETTLE } from '../theme/motion';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -49,7 +50,7 @@ export function OfflineBanner() {
       return () => clearTimeout(t);
     }
     setMounted(true);
-    y.value = withSpring(0, { damping: 18, stiffness: 220 });
+    y.value = withTiming(0, SETTLE);
   }, [mode, y, offY]);
 
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));

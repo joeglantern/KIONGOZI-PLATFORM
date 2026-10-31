@@ -25,6 +25,7 @@ export default function TutorialTooltip({
         useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {
+        overshootClamping: true,
         toValue: 0,
         tension: 80,
         friction: 8,

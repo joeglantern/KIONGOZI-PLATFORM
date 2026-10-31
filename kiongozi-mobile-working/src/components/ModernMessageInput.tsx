@@ -59,6 +59,7 @@ export default function ModernMessageInput({
       return;
     }
     Animated.spring(focusAnim, {
+      overshootClamping: true,
       toValue: isFocused ? 1 : 0,
       useNativeDriver: false,
       tension: 100,
@@ -69,6 +70,7 @@ export default function ModernMessageInput({
   useEffect(() => {
     Animated.parallel([
       Animated.spring(sendButtonScale, {
+        overshootClamping: true,
         toValue: canSend ? 1 : 0.9,
         useNativeDriver: true,
         tension: 200,
@@ -99,7 +101,7 @@ export default function ModernMessageInput({
     // Add a satisfying send animation
     Animated.sequence([
       Animated.timing(sendButtonScale, {
-        toValue: 1.2,
+        toValue: 1.1,
         duration: 100,
         useNativeDriver: true,
       }),

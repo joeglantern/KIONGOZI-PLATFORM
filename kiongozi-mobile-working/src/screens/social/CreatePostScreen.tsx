@@ -1,3 +1,4 @@
+import { EASE_OUT } from '../../theme/motion';
 import { appAlert } from '../../utils/alert';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
@@ -187,14 +188,14 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   // warning counter is visible: 24 + 114 + 62 + 42 = 242.
   const narrow = winW < 360;
 
-  // Post button springs when it becomes enabled.
+  // Post button gives a small press when it becomes enabled.
   const postScale = useSharedValue(1);
   const prevCanPost = useRef(canPost);
   useEffect(() => {
     if (canPost && !prevCanPost.current) {
       postScale.value = withSequence(
         withTiming(0.9, { duration: 70 }),
-        withSpring(1, { damping: 9, stiffness: 320, mass: 0.7 }),
+        withTiming(1, { duration: 200, easing: EASE_OUT }),
       );
     }
     prevCanPost.current = canPost;
@@ -602,8 +603,8 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 function usePressSpring() {
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const onPressIn = () => { scale.value = withSpring(0.88, { damping: 15, stiffness: 400 }); };
-  const onPressOut = () => { scale.value = withSpring(1, { damping: 8, stiffness: 300, mass: 0.6 }); };
+  const onPressIn = () => { scale.value = withTiming(0.94, { duration: 90, easing: EASE_OUT }); };
+  const onPressOut = () => { scale.value = withTiming(1, { duration: 180, easing: EASE_OUT }); };
   return { style, onPressIn, onPressOut };
 }
 

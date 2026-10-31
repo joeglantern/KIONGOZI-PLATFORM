@@ -10,6 +10,7 @@ export function KiongoziChatFAB({ onPress }: KiongoziChatFABProps) {
 
   useEffect(() => {
     Animated.spring(scale, {
+      overshootClamping: true,
       toValue: 1,
       tension: 55,
       friction: 6,

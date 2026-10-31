@@ -32,6 +32,7 @@ export default function CustomToast({
       // Simple slide in
       Animated.parallel([
         Animated.spring(translateY, {
+          overshootClamping: true,
           toValue: 0,
           tension: 80,
           friction: 10,

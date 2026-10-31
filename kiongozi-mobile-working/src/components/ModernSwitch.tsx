@@ -19,6 +19,7 @@ export default function ModernSwitch({
 
   React.useEffect(() => {
     Animated.spring(animatedValue, {
+      overshootClamping: true,
       toValue: value ? 1 : 0,
       useNativeDriver: false,
       tension: 100,

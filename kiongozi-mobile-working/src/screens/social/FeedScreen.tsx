@@ -1,3 +1,4 @@
+import { RN_CALM_SPRING } from '../../theme/motion';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TAB_INSET, TAB_LIST_INSET } from '../../navigation/tabInset';
 import { noteFeedScroll } from '../../utils/breakReminder';
@@ -266,7 +267,7 @@ export default function FeedScreen() {
   const setFab = (shown: boolean) => {
     if (fabState.current.shown === shown) return;
     fabState.current.shown = shown;
-    Animated.spring(fabShown, { toValue: shown ? 1 : 0, useNativeDriver: true, damping: 18, stiffness: 220 }).start();
+    Animated.spring(fabShown, { toValue: shown ? 1 : 0, useNativeDriver: true, ...RN_CALM_SPRING }).start();
   };
   const syncFab = () => setFab(!fabState.current.kb && !fabState.current.scrollHidden);
   useEffect(() => {

@@ -1,7 +1,8 @@
 // Pull-to-refresh, KChat style: a little green chat bubble instead of a spinner.
 // Pull → it swings in and grows with your thumb, its dots filling in one by one (iOS follows the
-// finger; Android shows it the moment the refresh starts). Let go → a squash-and-bounce, then the
-// dots hop like someone typing while the feed loads. Done → a happy pop and it's gone.
+// finger; Android shows it the moment the refresh starts). Let go → it settles in, then the
+// dots hop like someone typing while the feed loads. Done → it fades away.
+import { RN_EASE_OUT } from '../../theme/motion';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, Platform, RefreshControl, LayoutChangeEvent } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -25,14 +26,9 @@ export function RefreshBubble({ pull, refreshing, color, top }: {
     if (refreshing && !wasRefreshing.current) {
       wasRefreshing.current = true;
       pullOn.setValue(0);
-      // Pop in with a squash, like a drop landing
-      Animated.parallel([
-        Animated.spring(appear, { toValue: 1, damping: 9, stiffness: 260, mass: 0.7, useNativeDriver: true }),
-        Animated.sequence([
-          Animated.timing(squash, { toValue: 0.78, duration: 90, useNativeDriver: true }),
-          Animated.spring(squash, { toValue: 1, damping: 6, stiffness: 300, useNativeDriver: true }),
-        ]),
-      ]).start();
+      // Glide in and settle
+      squash.setValue(1);
+      Animated.timing(appear, { toValue: 1, duration: 260, easing: RN_EASE_OUT, useNativeDriver: true }).start();
       // Typing dots + a slow breath
       loops.current = [
         Animated.loop(Animated.sequence([
@@ -42,7 +38,7 @@ export function RefreshBubble({ pull, refreshing, color, top }: {
         ...dots.map((d, i) => Animated.loop(Animated.sequence([
           Animated.delay(i * 140),
           Animated.timing(d, { toValue: 1, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(d, { toValue: 0, duration: 260, easing: Easing.bounce, useNativeDriver: true }),
+          Animated.timing(d, { toValue: 0, duration: 260, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
           Animated.delay((2 - i) * 140 + 220),
         ]))),
       ];
@@ -51,14 +47,8 @@ export function RefreshBubble({ pull, refreshing, color, top }: {
       wasRefreshing.current = false;
       loops.current.forEach(l => l.stop());
       dots.forEach(d => d.setValue(0));
-      // Done: a quick happy swell, then gone
-      Animated.sequence([
-        Animated.spring(squash, { toValue: 1.22, damping: 7, stiffness: 420, useNativeDriver: true }),
-        Animated.parallel([
-          Animated.timing(appear, { toValue: 0, duration: 200, easing: Easing.in(Easing.back(2)), useNativeDriver: true }),
-          Animated.timing(squash, { toValue: 1, duration: 200, useNativeDriver: true }),
-        ]),
-      ]).start(() => pullOn.setValue(1));
+      // Done: fade away
+      Animated.timing(appear, { toValue: 0, duration: 200, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(() => pullOn.setValue(1));
     }
   }, [refreshing, appear, pullOn, squash, breathe, dots]);
 

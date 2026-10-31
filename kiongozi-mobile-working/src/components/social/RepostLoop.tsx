@@ -1,6 +1,7 @@
 // The repost loop, drawn like the big apps draw it: two rounded arrows chasing each other.
 // Outline when idle, filled in the accent once you've reposted; it spins a half turn on tap.
 // A rolling count ticks the number up or down like a counter instead of just swapping it.
+import { RN_EASE_OUT } from '../../theme/motion';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Text, View, StyleSheet, TextStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +37,7 @@ export function RollingCount({ value, text, style }: { value: number; text: stri
       setShown(c => ({ text, key: c.key + 1 }));
       y.setValue(up ? H : -H);
       Animated.parallel([
-        Animated.spring(y, { toValue: 0, useNativeDriver: true, damping: 14, stiffness: 260 }),
+        Animated.timing(y, { toValue: 0, duration: 220, easing: RN_EASE_OUT, useNativeDriver: true }),
         Animated.timing(o, { toValue: 1, duration: 140, useNativeDriver: true }),
       ]).start();
     });

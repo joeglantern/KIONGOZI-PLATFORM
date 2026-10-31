@@ -1,12 +1,13 @@
 // Composer media previews: shows picked photos/videos at their real shape before posting.
 // 1 item  -> full-width preview at its own aspect ratio (clamped 4:5 … 1.91:1, never cropped).
 // 2+ items -> snapping carousel of equal-height tiles with a "1/3" counter.
+import { EASE_OUT } from '../../theme/motion';
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, Image, Pressable, StyleSheet, ScrollView, ActivityIndicator,
   NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions,
 } from 'react-native';
-import Animated, { ZoomIn, ZoomOut, FadeIn, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
@@ -173,8 +174,8 @@ function MediaTile({
 
   return (
     <Animated.View
-      entering={ZoomIn.duration(260)}
-      exiting={ZoomOut.duration(180)}
+      entering={FadeIn.duration(240).easing(EASE_OUT)}
+      exiting={FadeOut.duration(160)}
       layout={LinearTransition.duration(240)}
       style={[
         styles.tile,
@@ -230,12 +231,12 @@ function MediaTile({
         </Animated.View>
       ) : null}
       {status === 'done' ? (
-        <Animated.View entering={ZoomIn.duration(200)} style={styles.statusDot} pointerEvents="none">
+        <Animated.View entering={FadeIn.duration(180).easing(EASE_OUT)} style={styles.statusDot} pointerEvents="none">
           <Ionicons name="checkmark" size={14} color="#000" />
         </Animated.View>
       ) : null}
       {status === 'error' ? (
-        <Animated.View entering={ZoomIn.duration(200)} style={[styles.statusDot, { backgroundColor: T.error }]} pointerEvents="none">
+        <Animated.View entering={FadeIn.duration(180).easing(EASE_OUT)} style={[styles.statusDot, { backgroundColor: T.error }]} pointerEvents="none">
           <Ionicons name="alert" size={14} color="#fff" />
         </Animated.View>
       ) : null}

@@ -59,7 +59,7 @@ export interface MediaViewerModalProps {
 }
 
 const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n));
-const SPRING = { damping: 22, stiffness: 240, mass: 0.9 };
+const SPRING = { damping: 32, stiffness: 240, mass: 0.9, overshootClamping: true };
 const MAX_ZOOM = 5;
 
 // ---- Zoomable photo ------------------------------------------------------------

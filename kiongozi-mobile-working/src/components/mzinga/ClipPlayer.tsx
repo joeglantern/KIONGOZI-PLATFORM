@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useClipStore, clipVideo } from '../../stores/clipStore';
 import { useSocialStore, Post } from '../../stores/socialStore';
 import { toggleInteraction } from '../../stores/interactionSync';
+import { EASE_OUT, SHEET_IN, SHEET_OUT, QUICK, CALM_SPRING, RN_EASE_OUT } from '../../theme/motion';
 import apiClient from '../../utils/apiClient';
 import { storyNav } from '../stories/storyAssets';
 import { useVideoThumb } from '../social/media';
@@ -70,7 +71,7 @@ function PlayerBody() {
   // Open: a circle at the hive cell grows to fill the screen
   const open = useSharedValue(0);
   const pinch = useSharedValue(1);
-  useEffect(() => { open.value = withSpring(1, { damping: 22, stiffness: 190, mass: 0.9 }); }, [open]);
+  useEffect(() => { open.value = withTiming(1, { duration: 340, easing: EASE_OUT }); }, [open]);
 
   const close = useCallback(() => {
     const back = origin && active === startIndex;
@@ -102,7 +103,7 @@ function PlayerBody() {
   });
   // Comments open: the clip shrinks into the space above the sheet and keeps playing
   const cp = useSharedValue(0);
-  useEffect(() => { cp.value = withSpring(comments ? 1 : 0, { damping: 22, stiffness: 220 }); }, [comments, cp]);
+  useEffect(() => { cp.value = comments ? withTiming(1, SHEET_IN) : withTiming(0, SHEET_OUT); }, [comments, cp]);
   const shrink = useAnimatedStyle(() => {
     const s = Math.max(0.2, (H * 0.36 - insetsTop - 8) / H);
     return {
@@ -119,7 +120,7 @@ function PlayerBody() {
     .onUpdate(e => { pinch.value = Math.min(1, Math.max(0.55, e.scale)); })
     .onEnd(() => {
       if (pinch.value < 0.86) runOnJS(close)();
-      else pinch.value = withSpring(1, { damping: 18 });
+      else pinch.value = withSpring(1, CALM_SPRING);
     });
 
   const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -294,7 +295,7 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
     if (next) {
       RNAnimated.sequence([
         RNAnimated.timing(repostSpin, { toValue: 1, duration: 0, useNativeDriver: true }),
-        RNAnimated.spring(repostSpin, { toValue: 2, useNativeDriver: true, damping: 9, stiffness: 140 }),
+        RNAnimated.timing(repostSpin, { toValue: 2, duration: 460, easing: RN_EASE_OUT, useNativeDriver: true }),
       ]).start(() => repostSpin.setValue(0));
     }
     toggleInteraction(post.id, 'repost', next);
@@ -366,7 +367,7 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
   const pan = Gesture.Pan()
     .activeOffsetX([-6, 6]).failOffsetY([-14, 14])
     .onStart(e => {
-      scrub.value = withSpring(1, { damping: 18, stiffness: 320 });
+      scrub.value = withTiming(1, QUICK);
       progress.value = Math.max(0, Math.min(1, (e.x - 14) / trackW));
       runOnJS(scrubStart)();
     })
@@ -465,7 +466,7 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
     setBadge('check');
     tappedFollow.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    badgeScale.value = withSequence(withTiming(1.3, { duration: 110 }), withSpring(1, { damping: 9, stiffness: 260 }));
+    badgeScale.value = withSequence(withTiming(1.12, { duration: 110 }), withTiming(1, { duration: 180, easing: EASE_OUT }));
     badgeO.value = withDelay(900, withTiming(0, { duration: 260 }, (f?: boolean) => { if (f) runOnJS(setBadge)('gone'); }));
     const prof = useProfileStore.getState().profiles[username];
     toggleFollow(authorId, { isFollowing: false, is_private: !!(prof?.is_private ?? (post.profiles as any)?.is_private), username });
@@ -645,7 +646,7 @@ function Heart({ id, x, y, onDone }: { id: number; x: number; y: number; onDone:
     opacity: interpolate(v.value, [0, 0.15, 0.75, 1], [0, 1, 1, 0]),
     transform: [
       { translateY: interpolate(v.value, [0, 1], [0, -70]) },
-      { scale: interpolate(v.value, [0, 0.2, 0.32, 1], [0.3, 1.25, 1, 1.1]) },
+      { scale: interpolate(v.value, [0, 0.18, 0.32, 1], [0.6, 1.1, 1, 1]) },
       { rotate: `${tilt + interpolate(v.value, [0, 1], [-6, 6])}deg` },
     ],
   }));
@@ -662,7 +663,7 @@ function RailBtn({ icon, label, onPress, color = '#fff', a11y }: { icon: any; la
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return (
     <Pressable
-      onPress={() => { s.value = withSequence(withTiming(0.8, { duration: 80 }), withSpring(1, { damping: 8, stiffness: 300 })); onPress(); }}
+      onPress={() => { s.value = withSequence(withTiming(0.9, { duration: 80 }), withTiming(1, { duration: 180, easing: EASE_OUT })); onPress(); }}
       style={styles.railBtn}
       accessibilityRole="button"
       accessibilityLabel={a11y}

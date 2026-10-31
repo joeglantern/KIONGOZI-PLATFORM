@@ -1,10 +1,11 @@
 // The painted side of Baraza: the room's backdrop, the talking stick as a real object (it sways
 // when idle, glows and throws embers with the speaker's voice, and flies in when it is passed),
 // the raised hand, and the theme picker. Art comes from assets/baraza (painted, transparent PNGs).
+import { EASE_OUT } from '../../theme/motion';
 import React, { useEffect, useMemo } from 'react';
 import { View, Text, Image, StyleSheet, Pressable, Modal, useWindowDimensions } from 'react-native';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, withSpring, withDelay,
+  useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, withDelay,
   Easing, SharedValue, interpolate, useDerivedValue, Extrapolation, FadeIn, FadeOut, SlideInDown, SlideOutDown,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -200,7 +201,7 @@ export function TalkingStick({ height, level, holderKey, t, late }: {
   useEffect(() => {
     if (!holderKey) return;
     arrive.value = 0;
-    arrive.value = withSpring(1, { damping: 11, stiffness: 120, mass: 0.9 });
+    arrive.value = withTiming(1, { duration: 560, easing: EASE_OUT });
     const h = setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 380);
     return () => clearTimeout(h);
   }, [holderKey, arrive]);
@@ -408,7 +409,7 @@ export function HandMark({ size = 22, wave = false, loop = false }: { size?: num
       return;
     }
     r.value = wave
-      ? withSequence(withTiming(1, { duration: 140 }), withTiming(-1, { duration: 160 }), withTiming(0.6, { duration: 140 }), withSpring(0))
+      ? withSequence(withTiming(1, { duration: 140 }), withTiming(-1, { duration: 160 }), withTiming(0.6, { duration: 140 }), withTiming(0, { duration: 160, easing: EASE_OUT }))
       : 0;
   }, [wave, loop, r]);
   const st = useAnimatedStyle(() => ({ transform: [{ translateY: size * 0.4 }, { rotate: `${r.value * 18}deg` }, { translateY: -size * 0.4 }] }));
@@ -427,7 +428,7 @@ export function ThemeSheet({ visible, onClose }: { visible: boolean; onClose: ()
           <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(160)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
           </Animated.View>
-          <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown.duration(180)}
+          <Animated.View entering={SlideInDown.duration(320).easing(EASE_OUT)} exiting={SlideOutDown.duration(180)}
             style={[sheet.wrap, { backgroundColor: t.dark ? '#1B2140' : '#FFFFFF', paddingBottom: insets.bottom + 18 }]}>
             <View style={[sheet.grab, { backgroundColor: t.line }]} />
             <Text style={[sheet.title, { color: t.ink }]}>Room style</Text>

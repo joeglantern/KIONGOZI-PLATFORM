@@ -1,3 +1,4 @@
+import { RN_EASE_OUT } from '../../theme/motion';
 import { appAlert, toast } from '../../utils/alert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -53,7 +54,7 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
   useEffect(() => {
     if (visible) {
       sheetY.setValue(SCREEN_HEIGHT);
-      Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, damping: 24, stiffness: 240 }).start();
+      Animated.timing(sheetY, { toValue: 0, duration: 340, easing: RN_EASE_OUT, useNativeDriver: true }).start();
     }
   }, [visible]);
 

@@ -23,6 +23,9 @@ import { setFeedPaused } from '../social/videoPlayback';
 import { ClipPlayer } from './ClipPlayer';
 import { ClipComposer } from './ClipComposer';
 
+// Critically damped: the hive glides to the cell and stops, no wobble
+const HIVE_SPRING = { damping: 24, stiffness: 140, overshootClamping: true };
+
 export const HONEY = '#F2B544';
 const D = 92;           // cell size in the middle
 const STEP = D + 12;    // centre-to-centre distance
@@ -136,8 +139,8 @@ function MzingaHive() {
   // The list shrank under the focused cell (e.g. a refresh): go back to the centre
   useEffect(() => {
     if (focus < Math.max(1, items.length)) return;
-    tx.value = withSpring(0, { damping: 18, stiffness: 140 });
-    ty.value = withSpring(0, { damping: 18, stiffness: 140 });
+    tx.value = withSpring(0, HIVE_SPRING);
+    ty.value = withSpring(0, HIVE_SPRING);
     setFocus(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
@@ -170,8 +173,8 @@ function MzingaHive() {
       const d = dx * dx + dy * dy;
       if (d < bd) { bd = d; best = i; }
     }
-    tx.value = withSpring(-pts[best][0], { damping: 18, stiffness: 140 });
-    ty.value = withSpring(-pts[best][1], { damping: 18, stiffness: 140 });
+    tx.value = withSpring(-pts[best][0], HIVE_SPRING);
+    ty.value = withSpring(-pts[best][1], HIVE_SPRING);
   };
 
   const openAt = (i: number) => {

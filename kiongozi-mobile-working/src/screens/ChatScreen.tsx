@@ -23,7 +23,7 @@ import { OrbVideo, OrbStill } from '../components/ai/OrbVideo';
 import { ShareCardSheet } from '../components/ai/ShareCardSheet';
 import { ShineText, ReplyFx } from '../components/ai/StreamFx';
 
-const SPRING = { damping: 26, stiffness: 260, mass: 0.9 };
+const SPRING = { damping: 34, stiffness: 260, mass: 0.9, overshootClamping: true };
 
 // Flat topic art (one per area), shown on a soft cream tile so it reads in light and dark.
 const ART = {

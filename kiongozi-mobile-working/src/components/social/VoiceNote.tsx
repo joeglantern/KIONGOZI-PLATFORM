@@ -1,6 +1,7 @@
 // Voice notes in chats (WhatsApp feel): hold the mic to record, slide left to cancel, let go to
 // send. Playback uses the video player (works on every app build); recording needs expo-audio,
 // which only builds from 2.1.0 have, so the mic only shows when it is there.
+import { CALM_SPRING } from '../../theme/motion';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import Animated, {
@@ -119,7 +120,7 @@ export function VoiceRecorder({ accent, textColor, subColor, barBg, onSend, onRe
       rec.stop().catch(() => {}); // in case the mic came up after we gave up on it
       setOn(false);
       onRecordingChange?.(false);
-      dx.value = withSpring(0);
+      dx.value = withSpring(0, CALM_SPRING);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       say("Couldn't start the mic. Check KChat can use it, then try again");
     }
@@ -131,7 +132,7 @@ export function VoiceRecorder({ accent, textColor, subColor, barBg, onSend, onRe
     const out = await rec.stop();
     setOn(false);
     onRecordingChange?.(false);
-    dx.value = withSpring(0);
+    dx.value = withSpring(0, CALM_SPRING);
     if (!out || cancelled.current) return;
     if (out.ms < 700) { say('Hold to record, let go to send'); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});

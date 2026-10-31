@@ -1,5 +1,6 @@
 // Poll sticker: a question with two answers. Before voting you see two buttons;
 // after voting (or on your own story) bars fill to show the live percentages.
+import { RN_EASE_OUT } from '../../theme/motion';
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -23,7 +24,7 @@ export function PollCard({ question, options, counts, mine, showResults, onVote,
   useEffect(() => {
     if (!revealed) return;
     Animated.parallel(fills.map((f, i) =>
-      Animated.spring(f, { toValue: pct[i] / 100, useNativeDriver: false, damping: 18, stiffness: 120 }),
+      Animated.timing(f, { toValue: pct[i] / 100, duration: 420, easing: RN_EASE_OUT, useNativeDriver: false }),
     )).start();
   }, [revealed, pct[0], pct[1]]);
 

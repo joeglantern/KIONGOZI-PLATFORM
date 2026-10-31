@@ -22,7 +22,7 @@ export const MENTION_H = 44;
 export const QUESTION_COLORS = ['#D9366F', '#14653F', '#1D4E89', '#F5A33D', '#6A2C82', '#111111'];
 export const SLIDER_EMOJIS = ['😍', '😂', '🔥', '😮', '😢', '👏', '💯', '🇰🇪'];
 const MENTION_COLOR = '#D9366F';
-const SPRING = { damping: 16, stiffness: 220 };
+const SPRING = { damping: 30, stiffness: 220, overshootClamping: true };
 
 /** Approx. size (unscaled, unrotated) of an overlay, for hit boxes and placement. */
 export function stickerSize(o: StoryOverlay, k: number): { w: number; h: number } | null {

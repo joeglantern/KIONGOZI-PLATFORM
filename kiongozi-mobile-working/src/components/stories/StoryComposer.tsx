@@ -40,7 +40,7 @@ const FONT_PILL_W = TOOL + 14;    // "Aa" pill width (approx.)
 // Media framing limits + snapping
 const ZOOM_MIN = 0.5, ZOOM_MAX = 4;
 const SNAP_PX = 10, SNAP_ZOOM = 0.07, SNAP_DEG = 7;
-const SPRING = { damping: 20, stiffness: 220 };
+const SPRING = { damping: 30, stiffness: 220, overshootClamping: true };
 
 type Draft = StoryOverlay & { _id: number };
 let nextId = 1;

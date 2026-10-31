@@ -99,6 +99,7 @@ function SwipeableConversationItem({
           [
             { text: 'Cancel', style: 'cancel', onPress: () => {
               Animated.spring(translateX, {
+                overshootClamping: true,
                 toValue: 0,
                 useNativeDriver: true,
               }).start();
@@ -129,6 +130,7 @@ function SwipeableConversationItem({
       } else {
         // Snap back
         Animated.spring(translateX, {
+          overshootClamping: true,
           toValue: 0,
           useNativeDriver: true,
         }).start();

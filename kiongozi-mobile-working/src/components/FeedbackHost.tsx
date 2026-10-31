@@ -1,8 +1,9 @@
 // Shows the in-app toast and choice sheet (see utils/alert.ts). Mounted once in App.tsx.
 // On iPhone it draws in a full-window overlay so it also appears over open modals.
+import { SHEET_IN, SETTLE } from '../theme/motion';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Modal, useWindowDimensions, Image } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -53,7 +54,7 @@ function ToastView() {
     left.value = 1;
     if (toast.action) left.value = withTiming(0, { duration: toast.duration, easing: Easing.linear });
     y.value = 120;
-    y.value = withSpring(0, { damping: 17, stiffness: 230 });
+    y.value = withTiming(0, SETTLE);
     timer.current = setTimeout(() => {
       y.value = withTiming(120, { duration: 200 }, done => { if (done) runOnJS(next)(); });
     }, toast.duration);
@@ -177,7 +178,7 @@ function SheetView() {
     if (sheet) {
       setMounted(true);
       fade.value = withTiming(1, { duration: 180 });
-      y.value = withSpring(0, { damping: 22, stiffness: 240 });
+      y.value = withTiming(0, SHEET_IN);
     } else if (mounted) {
       fade.value = withTiming(0, { duration: 180 });
       y.value = withTiming(height, { duration: 200 }, done => { if (done) runOnJS(setMounted)(false); });

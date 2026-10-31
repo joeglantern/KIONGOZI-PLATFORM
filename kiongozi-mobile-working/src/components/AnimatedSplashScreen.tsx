@@ -2,12 +2,13 @@
 //  1. Nganya scene (first launch only, with music)  2. comic "freeze" panel + burst
 //  3. spray-paint mist forms the logo               4. logo eases forward and the app is revealed
 // Later launches play only the (silent) logo beat. Tap anywhere to skip. A watchdog guarantees it ends.
+import { EASE_OUT } from '../theme/motion';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Image, StyleSheet, Dimensions, Pressable } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated, {
-  useSharedValue, useAnimatedStyle, withTiming, withSpring, withSequence, withDelay, Easing, runOnJS,
+  useSharedValue, useAnimatedStyle, withTiming, withSequence, withDelay, Easing, runOnJS,
 } from 'react-native-reanimated';
 
 const WIN = Dimensions.get('window');
@@ -72,8 +73,8 @@ export function AnimatedSplashScreen({ ready, onFinish }: { ready: boolean; onFi
       // white flash → comic panel snaps in, burst pops behind the dancer
       flash.value = withSequence(withTiming(1, { duration: 70 }), withTiming(0, { duration: 220 }));
       comicO.value = withTiming(1, { duration: 90 });
-      comicS.value = withSpring(1, { damping: 12, stiffness: 180 });
-      burstS.value = withDelay(80, withSpring(1, { damping: 9, stiffness: 160 }));
+      comicS.value = withTiming(1, { duration: 280, easing: EASE_OUT });
+      burstS.value = withDelay(80, withTiming(1, { duration: 300, easing: EASE_OUT }));
       const t = setTimeout(() => setPhase('logo'), 1100);
       return () => clearTimeout(t);
     }

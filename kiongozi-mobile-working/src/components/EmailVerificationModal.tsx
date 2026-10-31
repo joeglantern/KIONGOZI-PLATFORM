@@ -39,6 +39,7 @@ export default function EmailVerificationModal({
       // Modal entrance animation
       Animated.parallel([
         Animated.spring(scaleAnim, {
+          overshootClamping: true,
           toValue: 1,
           tension: 100,
           friction: 10,

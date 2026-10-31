@@ -1,9 +1,10 @@
 // The feed's floating pill (X / Instagram): "New posts" with the authors' faces instead of
 // shoving content in while you read, plus short notes after a pull-to-refresh
 // ("3 new posts" / "You're up to date").
+import { SETTLE } from '../../theme/motion';
 import React, { useEffect } from 'react';
 import { Pressable, Text, StyleSheet, View } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from './UserAvatar';
 import { useTheme } from '../../hooks/useTheme';
@@ -22,7 +23,7 @@ export function FeedPill({ state, top, onPress }: { state: PillState; top: numbe
   useEffect(() => {
     if (state) {
       setShown(state);
-      y.value = withSpring(0, { damping: 16, stiffness: 240 });
+      y.value = withTiming(0, SETTLE);
       o.value = withTiming(1, { duration: 160 });
     } else {
       y.value = withTiming(-24, { duration: 180 });

@@ -1,10 +1,11 @@
 // Settings building blocks, iOS grouped style: borderless cards (radius 14) with full-width rows
 // and hairlines inset past the icon tile; every row says its current state in the subtitle
 // ("On · silent 11pm to 7am") so you don't have to open things to know how they're set.
+import { CALM_SPRING, enterUp } from '../../theme/motion';
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, interpolateColor, FadeInDown,
+  useSharedValue, useAnimatedStyle, withSpring, interpolateColor,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -41,7 +42,7 @@ export function useKitColors() {
 }
 
 /** Staggered entrance, gentle (skipped when the system asks for less motion) */
-export const rise = (order: number) => FadeInDown.delay(Math.min(order, 8) * 45).springify().damping(18).stiffness(180);
+export const rise = (order: number) => enterUp(260).delay(Math.min(order, 8) * 45);
 
 export function Section({ title, note, order = 0, children }: { title?: string; note?: string; order?: number; children: React.ReactNode }) {
   const C = useKitColors();
@@ -123,7 +124,7 @@ export function Row({
 export function Toggle({ value, onChange, disabled, label }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
   const C = useKitColors();
   const v = useSharedValue(value ? 1 : 0);
-  useEffect(() => { v.value = withSpring(value ? 1 : 0, { damping: 20, stiffness: 260 }); }, [value, v]);
+  useEffect(() => { v.value = withSpring(value ? 1 : 0, CALM_SPRING); }, [value, v]);
   const off = C.isDark ? '#2C2C2E' : '#E3E3E8';
   const track = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(v.value, [0, 1], [off, C.T.accent]) }));
   const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: v.value * 20 }] }));
@@ -151,7 +152,7 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
   const [w, setW] = useState(0);
   const idx = Math.max(0, options.findIndex(o => o.id === value));
   const x = useSharedValue(idx);
-  useEffect(() => { x.value = withSpring(idx, { damping: 20, stiffness: 260 }); }, [idx, x]);
+  useEffect(() => { x.value = withSpring(idx, CALM_SPRING); }, [idx, x]);
   const seg = w ? (w - 4) / options.length : 0;
   const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value * seg }] }));
   return (

@@ -1,3 +1,4 @@
+import { RN_EASE_OUT } from '../theme/motion';
 import { appAlert } from '../utils/alert';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Image, Animated, Platform, ScrollView, useWindowDimensions } from 'react-native';
@@ -156,11 +157,11 @@ function ProfileStackNavigator() {
 
 // ─── Tab Icon Components ─────────────────────────────────────────────────────
 
-/** Tab icon: outline → filled with a small springy pop. Slim, no pills, no glow. */
+/** Tab icon: outline → filled with a small quick swell that settles. Slim, no pills, no glow. */
 function TabIcon({ name, focused, color, children, size = 26 }: { name: string; focused: boolean; color: string; children?: React.ReactNode; size?: number }) {
   const v = React.useRef(new Animated.Value(focused ? 1 : 0)).current;
   React.useEffect(() => {
-    Animated.spring(v, { toValue: focused ? 1 : 0, useNativeDriver: true, damping: 14, stiffness: 300 }).start();
+    Animated.timing(v, { toValue: focused ? 1 : 0, duration: 240, easing: RN_EASE_OUT, useNativeDriver: true }).start();
   }, [focused]);
   const pop = v.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 1.14, 1] });
   return (

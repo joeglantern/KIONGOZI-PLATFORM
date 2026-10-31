@@ -26,6 +26,7 @@ export default function AnimatedPointer({
         Animated.sequence([
           Animated.parallel([
             Animated.spring(scaleAnim, {
+              overshootClamping: true,
               toValue: 1.3,
               tension: 80,
               friction: 6,
@@ -39,6 +40,7 @@ export default function AnimatedPointer({
           ]),
           Animated.parallel([
             Animated.spring(scaleAnim, {
+              overshootClamping: true,
               toValue: 1,
               tension: 80,
               friction: 6,

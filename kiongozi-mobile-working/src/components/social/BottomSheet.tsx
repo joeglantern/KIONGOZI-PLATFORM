@@ -1,3 +1,4 @@
+import { RN_EASE_OUT } from '../../theme/motion';
 import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, StyleSheet,
@@ -37,7 +38,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, actions, childr
       sheetY.setValue(300);
       backdropOpacity.setValue(0);
       Animated.parallel([
-        Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }),
+        Animated.timing(sheetY, { toValue: 0, duration: 320, easing: RN_EASE_OUT, useNativeDriver: true }),
         Animated.timing(backdropOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
     } else {

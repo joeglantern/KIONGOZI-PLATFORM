@@ -82,7 +82,7 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
         <Writing ended={justEnded} failed={status === 'failed'} title={m.room.title} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}>
-          <Animated.View entering={FadeInDown.springify().damping(16)} style={[styles.paper, !th.dark && styles.paperLift]}>
+          <Animated.View entering={FadeInDown.duration(260).easing(Easing.out(Easing.cubic))} style={[styles.paper, !th.dark && styles.paperLift]}>
             <NoiseOverlay opacity={0.05} />
             <Text style={styles.kicker}>BARAZA MINUTES</Text>
             <Text style={styles.title}>{m.room.title}</Text>

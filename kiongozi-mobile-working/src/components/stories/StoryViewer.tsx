@@ -1,6 +1,7 @@
 // Full-screen story viewer.
 // Tap right/left = next/previous, hold = pause, swipe down = close, swipe sideways = next/previous person.
 // Replies and reactions go to the author as DMs. Your own stories show who has seen them.
+import { CALM_SPRING, SHEET_IN, RN_EASE_OUT } from '../../theme/motion';
 import { appAlert, toast, withUndo } from '../../utils/alert';
 import { useDMStore } from '../../stores/dmStore';
 import { enqueue } from '../../utils/outbox';
@@ -137,7 +138,7 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
       if (e.translationY > 120 || e.velocityY > 800) {
         drag.value = withTiming(H, { duration: 200, easing: Easing.out(Easing.quad) }, done => { if (done) runOnJS(finish)(); });
       } else {
-        drag.value = withSpring(0, { damping: 22, stiffness: 240, velocity: e.velocityY });
+        drag.value = withSpring(0, { ...CALM_SPRING, velocity: e.velocityY });
       }
     });
 
@@ -693,7 +694,7 @@ function AnswerSheet({ storyId, prompt, color, to, onClose }: {
   const [kb, setKb] = useState(0);
   const pop = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.spring(pop, { toValue: 1, useNativeDriver: true, damping: 16, stiffness: 240 }).start();
+    Animated.timing(pop, { toValue: 1, duration: 280, easing: RN_EASE_OUT, useNativeDriver: true }).start();
     if (Platform.OS !== 'android') return;
     // Edge-to-edge modal: lift above the keyboard ourselves (as the reply bar does)
     const show = Keyboard.addListener('keyboardDidShow', e => setKb(e.endCoordinates?.height || 0));
@@ -833,7 +834,7 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
     setBurstEmoji(emoji);
     burst.setValue(0);
     Animated.sequence([
-      Animated.spring(burst, { toValue: 1, useNativeDriver: true, damping: 7, stiffness: 260 }),
+      Animated.timing(burst, { toValue: 1, duration: 260, easing: RN_EASE_OUT, useNativeDriver: true }),
       Animated.timing(burst, { toValue: 2, duration: 350, delay: 250, useNativeDriver: true }),
     ]).start();
     onReact(emoji);
@@ -947,7 +948,7 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
   const canMessage = !!storyNav.current;
 
   useEffect(() => {
-    progress.value = withSpring(1, { damping: 24, stiffness: 220 });
+    progress.value = withTiming(1, SHEET_IN);
     apiClient.getStoryViewers(story.id).then((r: any) => {
       if (r.success) {
         setRows(r.data.viewers || []); setCount(r.data.count ?? 0);

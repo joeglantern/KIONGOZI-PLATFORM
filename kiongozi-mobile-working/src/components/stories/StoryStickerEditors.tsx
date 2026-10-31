@@ -1,5 +1,6 @@
 // Composer entry screens for the interactive stickers (mention, question, slider, countdown),
 // the audience picker and the close friends list. All are overlays inside the composer modal.
+import { RN_EASE_OUT } from '../../theme/motion';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, TextInput, KeyboardAvoidingView, Platform, FlatList,
@@ -19,13 +20,13 @@ type Person = { id: string; username: string; full_name?: string | null; avatar_
 const GREEN = CLOSE_RING[0];
 const tap = () => { Haptics.selectionAsync().catch(() => {}); };
 
-/** Springs in from slightly small, like the other composer overlays settling. */
+/** Eases in from slightly small, like the other composer overlays settling. */
 function Pop({ children }: { children: React.ReactNode }) {
   const s = useRef(new Animated.Value(0.92)).current;
   const o = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(s, { toValue: 1, useNativeDriver: true, damping: 16, stiffness: 240 }),
+      Animated.timing(s, { toValue: 1, duration: 240, easing: RN_EASE_OUT, useNativeDriver: true }),
       Animated.timing(o, { toValue: 1, duration: 140, useNativeDriver: true }),
     ]).start();
   }, []);
@@ -268,7 +269,7 @@ export function AudienceSheet({ value, closeCount, onChange, onManage, onClose }
 }) {
   const insets = useSafeAreaInsets();
   const y = useRef(new Animated.Value(320)).current;
-  useEffect(() => { Animated.spring(y, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 240 }).start(); }, []);
+  useEffect(() => { Animated.timing(y, { toValue: 0, duration: 320, easing: RN_EASE_OUT, useNativeDriver: true }).start(); }, []);
   const opts: { id: StoryAudience; icon: any; title: string; sub: string }[] = [
     { id: 'everyone', icon: 'globe-outline', title: 'Everyone', sub: 'Anyone who can see your account' },
     { id: 'followers', icon: 'people-outline', title: 'Followers', sub: 'Only people who follow you' },

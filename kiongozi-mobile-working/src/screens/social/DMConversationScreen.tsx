@@ -181,6 +181,7 @@ export default function DMConversationScreen() {
   const hasContent = text.trim().length > 0 || mediaUri !== null;
   React.useEffect(() => {
     Animated.spring(sendScale, {
+      overshootClamping: true,
       toValue: hasContent ? 1 : 0,
       useNativeDriver: true,
       damping: 14,

@@ -3,7 +3,8 @@
 // left/right to walk further down the street you're on. Each street remembers where you were.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions } from 'react-native';
-import Animated, { FadeIn, FadeOut, FadeInDown, useSharedValue, useAnimatedStyle, withSpring, interpolate } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
+import { SHEET_IN, SHEET_OUT, enterUp } from '../../theme/motion';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,7 +87,7 @@ export default function MitaaScreen() {
 
   // Comments open: the clip shrinks into the space above the sheet and keeps playing (like the hive player)
   const cp = useSharedValue(0);
-  useEffect(() => { cp.value = withSpring(comments ? 1 : 0, { damping: 22, stiffness: 220 }); }, [comments, cp]);
+  useEffect(() => { cp.value = comments ? withTiming(1, SHEET_IN) : withTiming(0, SHEET_OUT); }, [comments, cp]);
   const sheetTall = Math.round(winH * 0.64) + Math.max(0, TAB_INSET - insets.bottom);
   const frameH = size?.H || winH;
   const shrink = useAnimatedStyle(() => {
@@ -180,7 +181,7 @@ export default function MitaaScreen() {
           {/* Centred plain title like the big apps, the street you're on and your place on it under it */}
           <View style={styles.titleWrap} pointerEvents="none">
             <Text style={styles.title} accessibilityRole="header">Mitaa</Text>
-            <Animated.View key={street.key} entering={FadeInDown.duration(220)} style={styles.titleSub}>
+            <Animated.View key={street.key} entering={enterUp(220)} style={styles.titleSub}>
               <Text style={styles.streetName} numberOfLines={1}>{street.title}</Text>
               <Dots count={street.clips.length} at={at} />
             </Animated.View>

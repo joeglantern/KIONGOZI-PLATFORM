@@ -1,12 +1,13 @@
 // Long-press on a message, iMessage style: the chat dims, the message lifts out where it was,
 // and a compact action list opens right under it (or above, near the bottom of the screen).
 // With reactions on, a white pill of six quick reactions springs in just above the message.
+import { SETTLE, QUICK, RN_CALM_SPRING } from '../../theme/motion';
 import React, { useEffect, useRef } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet, Animated, useWindowDimensions, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { useThemeStore } from '../../stores/themeStore';
 import type { BubbleRect } from './DMBubble';
 
@@ -29,8 +30,8 @@ export type MenuReactions = {
 };
 
 function PillButton({ index, children, onPress, label, style }: { index: number; children: React.ReactNode; onPress: () => void; label: string; style: any }) {
-  const s = useSharedValue(0.4);
-  useEffect(() => { s.value = withDelay(30 + index * 22, withSpring(1, { damping: 10, stiffness: 340, mass: 0.6 })); }, []);
+  const s = useSharedValue(0.7);
+  useEffect(() => { s.value = withDelay(30 + index * 22, withTiming(1, SETTLE)); }, []);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return (
     <Reanimated.View style={st}>
@@ -63,17 +64,17 @@ export function MessageMenu({ rect, isOwn, preview, actions, onClose, reactions 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fade, { toValue: 1, duration: 180, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.spring(pop, { toValue: 1, damping: 16, stiffness: 260, mass: 0.8, useNativeDriver: true }),
+      Animated.spring(pop, { toValue: 1, ...RN_CALM_SPRING, useNativeDriver: true }),
     ]).start();
   }, [fade, pop]);
 
-  // The reaction pill: scale .4 to 1 with a little overshoot (iMessage tapback)
-  const pill = useSharedValue(0.4);
+  // The reaction pill: grows from .7 to 1 and settles, no overshoot
+  const pill = useSharedValue(0.7);
   const pillFade = useSharedValue(0);
   useEffect(() => {
     if (!reactions) return;
-    pill.value = withSpring(1, { damping: 11, stiffness: 300, mass: 0.7 });
-    pillFade.value = withSpring(1, { damping: 20, stiffness: 300 });
+    pill.value = withTiming(1, SETTLE);
+    pillFade.value = withTiming(1, QUICK);
   }, []);
   const pillStyle = useAnimatedStyle(() => ({ opacity: pillFade.value, transform: [{ scale: pill.value }] }));
 
@@ -84,7 +85,7 @@ export function MessageMenu({ rect, isOwn, preview, actions, onClose, reactions 
       Animated.timing(fade, { toValue: 0, duration: 150, useNativeDriver: true }),
       Animated.timing(pop, { toValue: 0, duration: 150, useNativeDriver: true }),
     ]).start(() => { onClose(); then?.(); });
-    if (reactions) { pill.value = withSpring(0.6, { damping: 20, stiffness: 400 }); pillFade.value = withSpring(0, { damping: 20, stiffness: 400 }); }
+    if (reactions) { pill.value = withTiming(0.85, { duration: 150 }); pillFade.value = withTiming(0, { duration: 150 }); }
   };
 
   // Where things go: menu under the message, pushed up when it would run off the bottom

@@ -1,5 +1,6 @@
 // The stories rail at the top of the feed ("Your story" first, then people with stories),
 // and StoryStack: the mini avatar stack the rail folds into when you scroll down.
+import { RN_EASE_OUT } from '../../theme/motion';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, Animated } from 'react-native';
 import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
@@ -65,9 +66,9 @@ function Squish({ children, onPress, onLongPress, label }: {
   children: React.ReactNode; onPress: () => void; onLongPress?: () => void; label: string;
 }) {
   const s = useRef(new Animated.Value(1)).current;
-  const to = (v: number) => Animated.spring(s, { toValue: v, useNativeDriver: true, damping: 12, stiffness: 320 }).start();
+  const to = (v: number) => Animated.timing(s, { toValue: v, duration: v < 1 ? 90 : 180, easing: RN_EASE_OUT, useNativeDriver: true }).start();
   return (
-    <Pressable onPress={onPress} onLongPress={onLongPress} onPressIn={() => to(0.9)} onPressOut={() => to(1)}
+    <Pressable onPress={onPress} onLongPress={onLongPress} onPressIn={() => to(0.95)} onPressOut={() => to(1)}
       accessibilityRole="button" accessibilityLabel={label}>
       <Animated.View style={{ transform: [{ scale: s }] }}>{children}</Animated.View>
     </Pressable>

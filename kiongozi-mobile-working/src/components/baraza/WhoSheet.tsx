@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ScrollView, TextInput, Image, useWindowDimensions } from 'react-native';
 import Animated, {
-  FadeIn, FadeOut, FadeInDown, SlideInDown, SlideOutDown, SlideInRight, SlideOutRight, ZoomIn,
+  FadeIn, FadeOut, FadeInDown, SlideInDown, SlideOutDown, SlideInRight, SlideOutRight,
   LinearTransition, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,7 +73,7 @@ export function WhoSheet({ visible, onClose, state }: { visible: boolean; onClos
           <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(160)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,16,10,0.45)' }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
           </Animated.View>
-          <Animated.View entering={SlideInDown.springify().damping(19).stiffness(170)} exiting={SlideOutDown.duration(200)}
+          <Animated.View entering={SlideInDown.duration(320).easing(Easing.bezier(0.2, 0.9, 0.3, 1))} exiting={SlideOutDown.duration(200)}
             style={[s.sheet, { height: H * 0.88, backgroundColor: t.dark ? '#171D38' : '#FFFFFF' }]}>
             <View style={[s.grab, { backgroundColor: t.line }]} />
 
@@ -156,7 +156,7 @@ function Stat({ t, icon, pin, value, label }: { t: BarazaTheme; icon?: any; pin?
   return (
     <View style={[s.stat, { backgroundColor: t.soft }]}>
       <Image source={pin ? ART.pin : icon} style={{ width: 22, height: 22 }} />
-      <Animated.Text key={value} entering={ZoomIn.springify().damping(12)} style={[s.statValue, { color: t.ink }]}>{value}</Animated.Text>
+      <Animated.Text key={value} entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))} style={[s.statValue, { color: t.ink }]}>{value}</Animated.Text>
       <Text style={[s.statLabel, { color: t.sub }]} numberOfLines={1}>{label}</Text>
     </View>
   );
@@ -201,7 +201,7 @@ function MapPin({ x, y, size, n, i, dim, on, onPress, label }: {
   }, [pulse, i]);
   const ring = useAnimatedStyle(() => ({ opacity: (1 - pulse.value) * 0.55, transform: [{ scale: 1 + pulse.value * 1.6 }] }));
   return (
-    <Animated.View entering={ZoomIn.delay(200 + i * 70).springify().damping(10)}
+    <Animated.View entering={FadeIn.delay(200 + i * 70).duration(240).easing(Easing.out(Easing.cubic))}
       style={{ position: 'absolute', left: x - size / 2, top: y - size + 3, width: size, height: size, opacity: dim ? 0.35 : 1 }}>
       <Pressable onPress={onPress} hitSlop={10} accessibilityRole="button" accessibilityLabel={`${n} listening from ${label}`}>
         <Animated.View style={[{ position: 'absolute', left: 0, top: size * 0.35, width: size, height: size * 0.6, borderRadius: size, backgroundColor: '#FF8A4C' }, ring]} />
@@ -240,7 +240,7 @@ function Row({ p, t, me, holder, queuePos }: {
     toggleFollow(p.user_id, seed);
   };
   return (
-    <Animated.View entering={FadeInDown.springify().damping(18)} layout={LinearTransition.springify().damping(18)} style={s.row}>
+    <Animated.View entering={FadeInDown.duration(260).easing(Easing.out(Easing.cubic))} layout={LinearTransition.duration(260).easing(Easing.out(Easing.cubic))} style={s.row}>
       <View>
         <View style={[s.avatarRing, { borderColor: holder ? t.accent : queuePos ? t.accent : 'transparent' }]}>
           <UserAvatar avatarUrl={p.profile?.avatar_url ?? undefined} name={name} size={44} />
@@ -282,7 +282,7 @@ function CountyPicker({ t, current, onPick, onBack, bottom }: {
   const [q, setQ] = useState('');
   const list = KENYA_COUNTIES.filter(c => c.toLowerCase().includes(q.trim().toLowerCase()));
   return (
-    <Animated.View entering={SlideInRight.springify().damping(20)} exiting={SlideOutRight.duration(160)} style={{ flex: 1 }}>
+    <Animated.View entering={SlideInRight.duration(260).easing(Easing.out(Easing.cubic))} exiting={SlideOutRight.duration(160)} style={{ flex: 1 }}>
       <View style={s.head}>
         <Pressable onPress={onBack} style={[s.close, { backgroundColor: t.soft }]} hitSlop={8} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={20} color={t.ink} />

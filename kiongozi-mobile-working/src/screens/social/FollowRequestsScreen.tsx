@@ -1,5 +1,6 @@
 // Follow requests: everyone waiting for a yes, with Confirm / Delete on each row.
 // Both flip at once (the row leaves); the store puts it back with a toast if the server says no.
+import { EASE_OUT } from '../../theme/motion';
 import React, { useMemo } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,7 +57,7 @@ export default function FollowRequestsScreen() {
       <Animated.FlatList
         data={requests}
         keyExtractor={n => n.id}
-        itemLayoutAnimation={LinearTransition.springify().damping(20).stiffness(220)}
+        itemLayoutAnimation={LinearTransition.duration(240).easing(EASE_OUT)}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         ListHeaderComponent={requests.length ? (
           <Text style={styles.note} maxFontSizeMultiplier={1.3}>Confirm to let them follow you. They are not told when you delete a request.</Text>

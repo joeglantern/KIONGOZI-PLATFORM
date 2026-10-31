@@ -14,6 +14,7 @@ import { toast } from '../../utils/alert';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import type { Post } from '../../stores/socialStore';
+import { SHEET_IN, SHEET_OUT, CALM_SPRING } from '../../theme/motion';
 import { UserAvatar } from '../social/UserAvatar';
 
 const HONEY = '#F2B544';
@@ -47,7 +48,7 @@ export function ClipComments({ post, open, onClose, onCount, bottomInset = 0 }: 
   const user = useAuthStore(s => s.user);
 
   useEffect(() => {
-    y.value = open ? withSpring(0, { damping: 22, stiffness: 220 }) : withTiming(sheetH + extra + 40, { duration: 220 });
+    y.value = open ? withTiming(0, SHEET_IN) : withTiming(sheetH + extra + 40, SHEET_OUT);
     if (!open) Keyboard.dismiss();
   }, [open, sheetH, extra, y]);
 
@@ -117,7 +118,7 @@ export function ClipComments({ post, open, onClose, onCount, bottomInset = 0 }: 
     .onUpdate(e => { y.value = Math.max(0, e.translationY); })
     .onEnd(e => {
       if (e.translationY > 120 || e.velocityY > 900) runOnJS(onClose)();
-      else y.value = withSpring(0, { damping: 22, stiffness: 220 });
+      else y.value = withSpring(0, { ...CALM_SPRING, velocity: e.velocityY });
     });
 
   const sheet = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));

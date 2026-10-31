@@ -1,3 +1,4 @@
+import { RN_EASE_OUT } from '../../theme/motion';
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView, useWindowDimensions, InteractionManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,7 +63,7 @@ function ActionSheet({
       sheetY.setValue(300);
       backdropOpacity.setValue(0);
       Animated.parallel([
-        Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }),
+        Animated.timing(sheetY, { toValue: 0, duration: 320, easing: RN_EASE_OUT, useNativeDriver: true }),
         Animated.timing(backdropOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
       ]).start();
     }
@@ -331,8 +332,8 @@ export function PostCard({
   const bookmarkScale = useRef(new Animated.Value(1)).current;
   const pop = useCallback((v: Animated.Value) => {
     Animated.sequence([
-      Animated.spring(v, { toValue: 1.3, useNativeDriver: true, damping: 6, stiffness: 400 }),
-      Animated.spring(v, { toValue: 1, useNativeDriver: true, damping: 10, stiffness: 250 }),
+      Animated.timing(v, { toValue: 1.18, duration: 110, easing: RN_EASE_OUT, useNativeDriver: true }),
+      Animated.timing(v, { toValue: 1, duration: 180, easing: RN_EASE_OUT, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -345,10 +346,10 @@ export function PostCard({
   const showHeartBurst = useCallback((x: number, y: number) => {
     tapPosRef.current = { x, y };
     setHeartVisible(true);
-    heartScale.setValue(0);
+    heartScale.setValue(0.4);
     heartOpacity.setValue(1);
     Animated.parallel([
-      Animated.spring(heartScale, { toValue: 1.4, useNativeDriver: true, damping: 6, stiffness: 200 }),
+      Animated.timing(heartScale, { toValue: 1.25, duration: 260, easing: RN_EASE_OUT, useNativeDriver: true }),
       Animated.sequence([
         Animated.delay(350),
         Animated.timing(heartOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
@@ -374,7 +375,7 @@ export function PostCard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.sequence([
       Animated.timing(repostSpin, { toValue: 1, duration: 0, useNativeDriver: true }),
-      Animated.spring(repostSpin, { toValue: 2, useNativeDriver: true, damping: 9, stiffness: 140 }),
+      Animated.timing(repostSpin, { toValue: 2, duration: 460, easing: RN_EASE_OUT, useNativeDriver: true }),
     ]).start(() => repostSpin.setValue(0));
     toggleInteraction(activePost.id, 'repost', true);
     toast('Reposted to your profile', { kind: 'success', icon: 'repeat', action: { label: 'Undo', onPress: () => toggleInteraction(activePost.id, 'repost', false) } });
