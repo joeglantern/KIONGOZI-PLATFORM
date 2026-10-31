@@ -13,6 +13,8 @@ import { NoiseOverlay } from '../social/NoiseOverlay';
 import { HONEY, INK, Stick, PillButton } from './barazaUi';
 import { useBT } from './barazaTheme';
 import { useAuthStore } from '../../stores/authStore';
+import { CardImageSheet } from '../social/CardImageSheet';
+import apiClient from '../../utils/apiClient';
 
 export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: string; onClose: () => void; justEnded?: boolean }) {
   const th = useBT();
@@ -22,6 +24,7 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
   const meId = useAuthStore(s => s.user?.id);
   const [posting, setPosting] = useState(false);
   const [postErr, setPostErr] = useState<string | null>(null);
+  const [cardOpen, setCardOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -129,6 +132,10 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
             )}
             {!m.key_points.length && !m.ahadi.length && !m.summary ? <Text style={styles.muted}>Nothing was recorded.</Text> : null}
           </Animated.View>
+          {m.summary || m.key_points.length > 0 ? (
+            <PillButton label="Share card" icon="image-outline" onPress={() => { Haptics.selectionAsync().catch(() => {}); setCardOpen(true); }}
+              style={{ marginTop: 18 }} a11y="Share the minutes as a card" />
+          ) : null}
           {m.room.minutes_post_id ? (
             <Text style={[styles.foot, { color: th.faint }]}>Posted as a thread on @{m.host?.username}'s profile.</Text>
           ) : isHost && (m.summary || m.key_points.length > 0) ? (
@@ -141,6 +148,11 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
           ) : null}
         </ScrollView>
       )}
+      {m && status === 'ready' ? (
+        <CardImageSheet visible={cardOpen} title="Share the minutes" ratio={4 / 5} cacheKey={`minutes:${roomId}`}
+          load={preview => apiClient.getMinutesCard(roomId, preview)}
+          shareText={`Baraza minutes: ${m.room.title}`} onClose={() => setCardOpen(false)} />
+      ) : null}
       {status !== 'ready' && m ? (
         <View style={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 16 }}>
           <PillButton label="Close" onPress={onClose} />

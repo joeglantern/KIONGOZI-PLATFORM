@@ -21,16 +21,22 @@ import { usePrefs } from '../../stores/prefsStore';
 import { RecapSheet } from '../../components/social/RecapSheet';
 import { ProfileSkeleton, FeedSkeleton } from '../../components/social/Skeleton';
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
+import { QRCardSheet } from '../../components/social/QRCardSheet';
+import { useProfileExtraTabs, ExtraTabRow, isExtraTab, EXTRA_EMPTY } from '../../components/social/ProfileExtraTabs';
 
-type Tab = 'posts' | 'reposts' | 'saved';
+type Tab = 'posts' | 'replies' | 'mitaa' | 'barazas' | 'saved';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'posts', label: 'Posts' },
-  { key: 'reposts', label: 'Reposts' },
+  { key: 'replies', label: 'Replies' },
+  { key: 'mitaa', label: 'Mitaa' },
+  { key: 'barazas', label: 'Barazas' },
   { key: 'saved', label: 'Saved' },
 ];
 const EMPTY: Record<Tab, { icon: keyof typeof Ionicons.glyphMap; title: string; sub: string }> = {
   posts: { icon: 'create-outline', title: 'No posts yet', sub: 'When you post, it will show up here.' },
-  reposts: { icon: 'repeat', title: 'No reposts yet', sub: 'Posts you repost will appear here.' },
+  replies: { icon: EXTRA_EMPTY.replies.icon, title: EXTRA_EMPTY.replies.title, sub: EXTRA_EMPTY.replies.sub(null) },
+  mitaa: { icon: EXTRA_EMPTY.mitaa.icon, title: EXTRA_EMPTY.mitaa.title, sub: EXTRA_EMPTY.mitaa.sub(null) },
+  barazas: { icon: EXTRA_EMPTY.barazas.icon, title: EXTRA_EMPTY.barazas.title, sub: EXTRA_EMPTY.barazas.sub(null) },
   saved: { icon: 'bookmark-outline', title: 'Nothing saved', sub: 'Tap the bookmark on any post to keep it for later.' },
 };
 export default function ProfileTabScreen() {
@@ -57,6 +63,9 @@ export default function ProfileTabScreen() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [localBannerUri, setLocalBannerUri] = useState<string | null>(null);
   const [tabsY, setTabsY] = useState(0);
+  const [qrOpen, setQrOpen] = useState(false);
+  const extra = useProfileExtraTabs(currentUserProfile?.username, currentUserProfile?.id, activeTab);
+  const onExtraTab = isExtraTab(activeTab);
 
   const spinAnim = useRef(new Animated.Value(0)).current;
 
@@ -76,7 +85,9 @@ export default function ProfileTabScreen() {
 
   useEffect(() => {
     if (currentUserProfile?.username) {
-      if (activeTab === 'saved') {
+      if (isExtraTab(activeTab)) {
+        // loaded by useProfileExtraTabs
+      } else if (activeTab === 'saved') {
         fetchSaved();
       } else {
         fetchPosts(true);
@@ -124,8 +135,7 @@ export default function ProfileTabScreen() {
         reset ? undefined : cursor ?? undefined
       );
       if (res.success && res.data) {
-        let newPosts = res.data as any[];
-        if (activeTab === 'reposts') newPosts = newPosts.filter((p: any) => p.repost_of_id);
+        const newPosts = res.data as any[];
         if (reset) postsCache.current[activeTab] = newPosts;
         setPosts(prev => (reset ? newPosts : [...prev, ...newPosts]));
         const nc = (res as any).nextCursor ?? null;
@@ -147,19 +157,22 @@ export default function ProfileTabScreen() {
     postsCache.current = {};
     savedCache.current = [];
     fetchCurrentUserProfile();
+    extra.reset();
     if (activeTab === 'saved') fetchSaved(true);
-    else fetchPosts(true, true);
+    else if (!isExtraTab(activeTab)) fetchPosts(true, true);
+    else setRefreshing(false);
   };
   const bubbleRefresh = useBubbleRefresh(async () => {
     postsCache.current = {};
     savedCache.current = [];
     await Promise.all([
       fetchCurrentUserProfile(),
-      activeTab === 'saved' ? fetchSaved(true) : fetchPosts(true, true),
+      activeTab === 'saved' ? fetchSaved(true) : isExtraTab(activeTab) ? extra.refresh() : fetchPosts(true, true),
     ]);
   }, T.accent, T.surface);
 
   const handleLoadMore = () => {
+    if (isExtraTab(activeTab)) { extra.loadMore(); return; }
     if (!loadingMore && hasMore && !loading && activeTab !== 'saved') {
       setLoadingMore(true);
       fetchPosts(false);
@@ -252,7 +265,9 @@ export default function ProfileTabScreen() {
 
   const spinDeg = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] });
   const profile = currentUserProfile;
-  const displayPosts = (activeTab === 'saved' ? savedPosts : posts).filter(isShowable);
+  const displayPosts = onExtraTab
+    ? extra.data.filter((i: any) => i.__kind || isShowable(i))
+    : (activeTab === 'saved' ? savedPosts : posts).filter(isShowable);
 
   const openFollowList = (initialTab: 'followers' | 'following') => {
     if (!profile) return;
@@ -296,6 +311,7 @@ export default function ProfileTabScreen() {
       onChangeCover={handlePickBanner}
       coverUploading={uploadingBanner}
       onShare={handleShareProfile}
+      onQrCard={() => { Haptics.selectionAsync().catch(() => {}); setQrOpen(true); }}
       onEditProfile={() => navigation.navigate('EditProfile')}
       onOpenFollowList={openFollowList}
       extra={chips}
@@ -320,7 +336,9 @@ export default function ProfileTabScreen() {
         keyExtractor={(item: any) => item.id}
         onScroll={bubbleRefresh.onScroll}
         scrollEventThrottle={16}
-        renderItem={({ item }: { item: any }) => (
+        renderItem={({ item }: { item: any }) => item.__kind ? (
+          <ExtraTabRow item={item} onOpenPost={(postId) => navigation.navigate('PostDetail', { postId })} />
+        ) : (
           <PostCard
             post={item}
             currentUserId={user?.id}
@@ -337,7 +355,7 @@ export default function ProfileTabScreen() {
         )}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
-          loading ? (
+          (onExtraTab ? extra.loading : loading) ? (
             <FeedSkeleton count={3} />
           ) : (
             <View style={styles.emptyState}>
@@ -349,7 +367,7 @@ export default function ProfileTabScreen() {
             </View>
           )
         }
-        ListFooterComponent={loadingMore ? <View style={{ padding: 16 }}><ActivityIndicator color={T.accent} /></View> : null}
+        ListFooterComponent={(onExtraTab ? extra.loadingMore : loadingMore) ? <View style={{ padding: 16 }}><ActivityIndicator color={T.accent} /></View> : null}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         refreshControl={bubbleRefresh.refreshControl}
@@ -361,7 +379,10 @@ export default function ProfileTabScreen() {
         insetTop={insets.top}
         title={profile.full_name || profile.username}
         verified={profile.is_verified}
-        right={[{ key: 'settings', icon: 'settings-outline', label: 'Settings', onPress: handleGearPress, rotate: spinDeg }]}
+        right={[
+          { key: 'share', icon: 'share-outline', label: 'Share profile', onPress: handleShareProfile },
+          { key: 'settings', icon: 'settings-outline', label: 'Settings', onPress: handleGearPress, rotate: spinDeg },
+        ]}
         tabs={TABS}
         activeTab={activeTab}
         onTabPress={handleTabPress}
@@ -370,6 +391,7 @@ export default function ProfileTabScreen() {
       />
       {bubbleRefresh.bubble}
       <RecapSheet visible={recapOpen} onClose={() => setRecapOpen(false)} />
+      <QRCardSheet visible={qrOpen} username={profile.username} onClose={() => setQrOpen(false)} />
     </View>
   );
 }

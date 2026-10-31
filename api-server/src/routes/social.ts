@@ -9,6 +9,8 @@ import FeedService, { enrichWithUserState, getPrivateUserIds } from '../services
 import NotificationService from '../services/NotificationService';
 import OpenAI from 'openai';
 import ModerationService from '../services/ModerationService';
+import UploadService from '../services/UploadService';
+import { renderPostShareCard } from '../services/ShareCards2';
 
 /**
  * Returns true if the viewer can access posts from the given author.
@@ -981,6 +983,59 @@ router.post('/translate', optionalAuth, async (req: Request, res: Response): Pro
   } catch (err) {
     console.error('Translate error:', err);
     res.status(500).json({ success: false, error: 'Translation failed' });
+  }
+});
+
+// POST /api/v1/social/posts/:id/share-card { preview? }: a post as a dark 9:16 image for stories and other apps.
+// preview → small PNG as a data URI (nothing stored); otherwise full size, uploaded, ready to share.
+router.post('/posts/:id/share-card', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { data: post } = await supabaseServiceClient
+      .from('posts')
+      .select(`
+        id, content, visibility, user_id, repost_of_id,
+        profiles:user_id (username, full_name, avatar_url),
+        post_media (media_type, url, thumbnail_url, order_index),
+        repost_of:repost_of_id (
+          id, content, visibility, user_id,
+          profiles:user_id (username, full_name, avatar_url),
+          post_media (media_type, url, thumbnail_url, order_index)
+        )
+      `)
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (!post) { res.status(404).json({ success: false, error: 'Post not found' }); return; }
+
+    // A plain repost shares the original
+    const p: any = (post as any).repost_of && !String((post as any).content || '').trim() ? (post as any).repost_of : post;
+    if (!(await canViewProfile(p.user_id, userId)) || (p.visibility !== 'public' && p.user_id !== userId)) {
+      res.status(403).json({ success: false, error: 'This post can not be shared' });
+      return;
+    }
+    const media = [...(p.post_media || [])].sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))[0];
+    const isVideo = media?.media_type === 'video';
+    const card = await renderPostShareCard({
+      name: p.profiles?.full_name || p.profiles?.username || 'KChat',
+      username: p.profiles?.username || 'kchat',
+      avatarUrl: p.profiles?.avatar_url,
+      content: p.content || '',
+      mediaUrl: media ? (isVideo ? media.thumbnail_url : media.url) : null,
+      isVideo,
+    }, req.body?.preview ? 540 : undefined);
+
+    if (req.body?.preview) {
+      res.json({ success: true, data: { uri: `data:image/png;base64,${card.png.toString('base64')}`, width: card.width, height: card.height } });
+      return;
+    }
+    const up = await UploadService.uploadFile(card.png, 'image/png', `posts/${userId}/postcard_${p.id}_${Date.now()}.png`);
+    res.json({
+      success: true,
+      data: { url: up.url, storage_path: up.storagePath, width: card.width, height: card.height, share_url: `https://api.kiongozi.org/posts/${p.id}` },
+    });
+  } catch (err) {
+    console.error('Post share card error:', err);
+    res.status(500).json({ success: false, error: 'Could not make the card' });
   }
 });
 

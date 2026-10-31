@@ -4,6 +4,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth';
 import UploadService from '../services/UploadService';
 import multer from 'multer';
 import { optimizeUpload } from '../services/ImageOptimizer';
+import { renderQrCard } from '../services/ShareCards2';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -125,7 +126,7 @@ router.get('/users/:username', optionalAuth, async (req: Request, res: Response)
 });
 
 // GET /api/v1/social/users/:username/posts
-// ?type=posts (default, no replies) | replies (replies only) | media (posts with media)
+// ?type=posts (default, no replies) | replies (replies only) | media (posts with media) | videos (posts with a video, the Mitaa tab)
 router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { username } = req.params;
@@ -176,8 +177,8 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
       }
     }
 
-    // For media type, overfetch so client-side filtering still yields a full page
-    const fetchLimit = type === 'media' ? limit * 5 : limit;
+    // For media types, overfetch so client-side filtering still yields a full page
+    const fetchLimit = type === 'media' || type === 'videos' ? limit * 5 : limit;
 
     let query = supabaseServiceClient
       .from('posts')
@@ -198,7 +199,7 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
 
     if (type === 'replies') {
       query = query.not('parent_post_id', 'is', null);
-    } else if (type === 'media') {
+    } else if (type === 'media' || type === 'videos') {
       query = query.is('parent_post_id', null);
     } else {
       query = query.is('parent_post_id', null);
@@ -218,7 +219,9 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
     // Filter client-side for media posts; use the last raw post as the cursor anchor
     const filtered = type === 'media'
       ? (posts || []).filter((p: any) => p.post_media && p.post_media.length > 0).slice(0, limit)
-      : posts;
+      : type === 'videos'
+        ? (posts || []).filter((p: any) => (p.post_media || []).some((m: any) => m.media_type === 'video')).slice(0, limit)
+        : posts;
 
     const list = filtered || [];
     // nextCursor is null only when the raw fetch returned fewer rows than requested
@@ -299,5 +302,42 @@ router.patch(
     }
   }
 );
+
+// GET /api/v1/social/users/:username/qr-card: the profile's QR card (4:5 PNG, uploaded once per look)
+// → { url, width, height, profile_url }
+const qrCards = new Map<string, { url: string; at: number }>();
+router.get('/users/:username/qr-card', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { data: profile } = await supabaseServiceClient
+      .from('profiles')
+      .select('id, username, full_name, avatar_url')
+      .eq('username', req.params.username)
+      .maybeSingle();
+    if (!profile?.username) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+    if (req.user && req.user.id !== profile.id) {
+      const { data: blocked } = await supabaseServiceClient.from('blocks').select('id')
+        .or(`and(blocker_id.eq.${profile.id},blocked_id.eq.${req.user.id}),and(blocker_id.eq.${req.user.id},blocked_id.eq.${profile.id})`).limit(1);
+      if (blocked?.length) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+    }
+    const profileUrl = `https://api.kiongozi.org/u/${profile.username}`;
+    // A new name or photo makes a new file; the same look reuses the uploaded one
+    const key = `${profile.username}|${profile.full_name || ''}|${profile.avatar_url || ''}`;
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0;
+    const tag = (hash >>> 0).toString(36);
+    let hit = qrCards.get(key);
+    if (!hit || Date.now() - hit.at > 24 * 3600_000) {
+      const card = await renderQrCard({ name: profile.full_name || profile.username, username: profile.username, avatarUrl: profile.avatar_url, url: profileUrl });
+      const up = await UploadService.uploadFile(card.png, 'image/png', `posts/${profile.id}/qrcard_${tag}.png`);
+      hit = { url: up.url, at: Date.now() };
+      if (qrCards.size > 500) qrCards.delete(qrCards.keys().next().value as string);
+      qrCards.set(key, hit);
+    }
+    res.json({ success: true, data: { url: hit.url, width: 1080, height: 1350, profile_url: profileUrl } });
+  } catch (err) {
+    console.error('QR card error:', err);
+    res.status(500).json({ success: false, error: 'Could not make the QR card' });
+  }
+});
 
 export default router;

@@ -20,6 +20,7 @@ import { toggleInteraction, markInteraction } from '../../stores/interactionSync
 import { toast } from '../../utils/alert';
 import { RepostLoop, RollingCount } from './RepostLoop';
 import { useStoryStore } from '../../stores/storyStore';
+import { sharePostAsImage } from './CardImageSheet';
 
 const fmtCount = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
@@ -712,6 +713,7 @@ export function PostCard({
         onClose={() => setShareSheetOpen(false)}
         items={[
           { label: 'Add to story', icon: 'add-circle-outline', onPress: addToStory },
+          { label: 'Share as image', icon: 'image-outline', onPress: () => { sharePostAsImage(activePost.id); } },
           { label: 'Share via…', icon: 'share-outline', onPress: handleShare },
         ]}
       />

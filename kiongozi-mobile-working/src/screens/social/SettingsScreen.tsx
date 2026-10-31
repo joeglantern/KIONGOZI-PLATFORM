@@ -31,6 +31,7 @@ import apiClient from '../../utils/apiClient';
 import { usePrefs } from '../../stores/prefsStore';
 import { RecapSheet } from '../../components/social/RecapSheet';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { QRCardButton } from '../../components/social/QRCardSheet';
 import { useSocialStore } from '../../stores/socialStore';
 import { Section, Card, Row, Toggle, useKitColors, rise } from '../../components/settings/SettingsKit';
 import Animated from 'react-native-reanimated';
@@ -266,9 +267,10 @@ export default function SettingsScreen() {
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.meName} numberOfLines={1} maxFontSizeMultiplier={1.2}>{me?.full_name || 'Your profile'}</Text>
               <Text style={styles.meSub} numberOfLines={1} maxFontSizeMultiplier={1.3}>
-                {me?.username ? `@${me.username} · ` : ''}Edit profile
+                {me?.username ? `@${me.username} · ` : ''}Edit profile{me?.username ? ', QR card' : ''}
               </Text>
             </View>
+            <QRCardButton username={me?.username} />
             <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
           </Pressable>
         </Section>

@@ -1026,11 +1026,30 @@ class ApiClient {
     });
   }
 
-  /** Get posts for a user filtered by type: 'posts' | 'replies' | 'media' */
-  async getUserPostsByType(username: string, type: 'posts' | 'replies' | 'media', cursor?: string) {
+  /** Get posts for a user filtered by type: 'posts' | 'replies' | 'media' | 'videos' (the Mitaa tab) */
+  async getUserPostsByType(username: string, type: 'posts' | 'replies' | 'media' | 'videos', cursor?: string) {
     const params = new URLSearchParams({ type });
     if (cursor) params.set('cursor', cursor);
     return this.request(`/api/v1/social/users/${username}/posts?${params.toString()}`, { method: 'GET' });
+  }
+
+  // ── Server-drawn share cards ──
+  /** A post as a dark 9:16 image. preview → { uri } data URI; else uploaded { url, storage_path, width, height, share_url } */
+  async getPostShareCard(postId: string, preview = false) {
+    return this.request<any>(`/api/v1/social/posts/${postId}/share-card`, { method: 'POST', body: JSON.stringify({ preview }) });
+  }
+  /** Baraza minutes as a 4:5 image. preview → { uri }; else uploaded { url, storage_path, width, height, share_url } */
+  async getMinutesCard(roomId: string, preview = false) {
+    return this.request<any>(`/api/v1/baraza/${roomId}/minutes/card`, { method: 'POST', body: JSON.stringify({ preview }) });
+  }
+  /** Profile QR card PNG: { url, width, height, profile_url } */
+  async getQrCard(username: string) {
+    return this.request<{ url: string; width: number; height: number; profile_url: string }>(`/api/v1/social/users/${encodeURIComponent(username)}/qr-card`, { method: 'GET' });
+  }
+  /** Ended barazas a person hosted that have minutes (profile Barazas tab) */
+  async getUserBarazas(userId: string, cursor?: string) {
+    const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return this.request<any[]>(`/api/v1/baraza/user/${userId}${q}`, { method: 'GET' });
   }
 
   /** Translate text via OpenAI (Swahili ↔ English) */
@@ -1126,6 +1145,19 @@ class ApiClient {
   /** Get legal documents (privacy policy + ToS) */
   async getLegalDocs() {
     return this.request('/api/v1/legal', { method: 'GET' });
+  }
+
+  /** React to a DM message (sets or changes mine) */
+  async reactDMMessage(messageId: string, emoji: string) {
+    return this.request(`/api/v1/dm/messages/${messageId}/reaction`, {
+      method: 'PUT',
+      body: JSON.stringify({ emoji }),
+    });
+  }
+
+  /** Remove my reaction from a DM message */
+  async unreactDMMessage(messageId: string) {
+    return this.request(`/api/v1/dm/messages/${messageId}/reaction`, { method: 'DELETE' });
   }
 }
 

@@ -24,11 +24,15 @@ import ReportModal from './ReportModal';
 import { useTheme } from '../../hooks/useTheme';
 import { ProfileSkeleton } from '../../components/social/Skeleton';
 import { BottomSheet } from '../../components/social/BottomSheet';
+import { QRCardSheet } from '../../components/social/QRCardSheet';
+import { useProfileExtraTabs, ExtraTabRow, isExtraTab, EXTRA_EMPTY } from '../../components/social/ProfileExtraTabs';
 
-type Tab = 'posts' | 'reposts';
+type Tab = 'posts' | 'replies' | 'mitaa' | 'barazas';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'posts', label: 'Posts' },
-  { key: 'reposts', label: 'Reposts' },
+  { key: 'replies', label: 'Replies' },
+  { key: 'mitaa', label: 'Mitaa' },
+  { key: 'barazas', label: 'Barazas' },
 ];
 export default function PublicProfileScreen() {
   const navigation = useNavigation<any>();
@@ -63,6 +67,8 @@ export default function PublicProfileScreen() {
   const { deletePost: deleteFromStore } = useSocialStore();
   const [tabsY, setTabsY] = useState(0);
   const [mutuals, setMutuals] = useState<Mutuals | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
+  const extra = useProfileExtraTabs(username, profile?.id, activeTab);
   const scrollY = useRef(new Animated.Value(0)).current;
   const onScroll = useMemo(
     () => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
@@ -348,9 +354,10 @@ export default function PublicProfileScreen() {
   const isFollowingNow = followState.status === 'following';
   const isPending = followState.status === 'requested';
   const isLocked = !!(profile?.is_private && !isFollowingNow && !isOwnProfile);
-  const displayPosts = activeTab === 'reposts'
-    ? posts.filter(p => p.repost_of_id && p.repost_of)
-    : posts;
+  const onExtraTab = isExtraTab(activeTab);
+  const listData = isLocked ? [] : onExtraTab
+    ? extra.data.filter((i: any) => i.__kind || isShowable(i))
+    : posts.filter(isShowable);
   // What the header shows: the fetched profile with the live follow state and count laid over it
   const shownProfile = profile ? {
     ...profile,
@@ -384,6 +391,7 @@ export default function PublicProfileScreen() {
       profile={shownProfile}
       isOwn={isOwnProfile}
       onShare={handleShareProfile}
+      onQrCard={() => { Haptics.selectionAsync().catch(() => {}); setQrOpen(true); }}
       onEditProfile={() => navigation.navigate('EditProfile')}
       follow={isOwnProfile ? undefined : {
         label: getFollowLabel(),
@@ -417,15 +425,17 @@ export default function PublicProfileScreen() {
   return (
     <View style={styles.container}>
       <Animated.FlatList
-        data={isLocked ? [] : displayPosts.filter(isShowable)}
+        data={listData}
         keyExtractor={(item: any) => item.id}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        onEndReached={loadMorePosts}
+        onEndReached={onExtraTab ? extra.loadMore : loadMorePosts}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-        renderItem={({ item }: { item: any }) => (
+        renderItem={({ item }: { item: any }) => item.__kind ? (
+          <ExtraTabRow item={item} onOpenPost={(postId) => navigation.navigate('PostDetail', { postId })} />
+        ) : (
           <PostCard
             post={item}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
@@ -439,23 +449,25 @@ export default function PublicProfileScreen() {
           />
         )}
         ListFooterComponent={
-          postsLoadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color={T.accent} /> : null
+          (onExtraTab ? extra.loadingMore : postsLoadingMore) ? <ActivityIndicator style={{ marginVertical: 16 }} color={T.accent} /> : null
         }
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
-          !isLocked ? (
+          isLocked ? null : onExtraTab && extra.loading ? (
+            <ActivityIndicator style={{ marginVertical: 32 }} color={T.accent} />
+          ) : (
             <View style={styles.emptyState}>
               <View style={styles.wallIcon}>
-                <Ionicons name={activeTab === 'reposts' ? 'repeat' : 'document-text-outline'} size={26} color={T.textMuted} />
+                <Ionicons name={onExtraTab ? EXTRA_EMPTY[activeTab as 'replies'].icon : 'document-text-outline'} size={26} color={T.textMuted} />
               </View>
-              <Text style={styles.wallTitle}>{activeTab === 'reposts' ? 'No reposts yet' : 'No posts yet'}</Text>
+              <Text style={styles.wallTitle}>{onExtraTab ? EXTRA_EMPTY[activeTab as 'replies'].title : 'No posts yet'}</Text>
               <Text style={styles.wallSub}>
-                {activeTab === 'reposts'
-                  ? `When @${profile?.username} reposts, it will show up here.`
+                {onExtraTab
+                  ? EXTRA_EMPTY[activeTab as 'replies'].sub(isOwnProfile ? null : profile?.username)
                   : `When @${profile?.username} posts, it will show up here.`}
               </Text>
             </View>
-          ) : null
+          )
         }
       />
 
@@ -466,7 +478,10 @@ export default function PublicProfileScreen() {
         title={profile?.full_name || profile?.username}
         verified={profile?.is_verified}
         left={[{ key: 'back', icon: 'chevron-back', label: 'Go back', onPress: () => navigation.goBack() }]}
-        right={isOwnProfile ? [] : [{ key: 'more', icon: 'ellipsis-horizontal', label: 'More options', onPress: handleMoreOptions }]}
+        right={[
+          { key: 'share', icon: 'share-outline', label: 'Share profile', onPress: handleShareProfile },
+          ...(isOwnProfile ? [] : [{ key: 'more', icon: 'ellipsis-horizontal' as const, label: 'More options', onPress: handleMoreOptions }]),
+        ]}
         tabs={isLocked ? undefined : TABS}
         activeTab={activeTab}
         onTabPress={handleTabPress}
@@ -488,6 +503,8 @@ export default function PublicProfileScreen() {
         target={reportTarget}
         onClose={() => setReportTarget(null)}
       />
+
+      <QRCardSheet visible={qrOpen} username={profile?.username} onClose={() => setQrOpen(false)} />
 
       <BottomSheet
         visible={moreSheet}

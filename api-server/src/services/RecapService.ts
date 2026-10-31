@@ -12,8 +12,10 @@ const DAY = 24 * 3600 * 1000;
 export type WeekStats = {
   since: string; until: string;
   posts: number; likes: number; comments: number; followers: number; storyViews: number;
+  /** views on the posts you made this week */
+  postViews?: number;
   activeDays: number; streak: number;
-  topPost: { id: string; content: string; likes: number } | null;
+  topPost: { id: string; content: string; likes: number; view_count?: number; thumbnail_url?: string | null } | null;
   topTag: string | null;
   /** who liked and replied to you most this week (Wrapped's "your top fan") */
   topFan?: { id: string; username: string; full_name: string | null; avatar_url: string | null; count: number } | null;
@@ -47,7 +49,7 @@ export async function weekStats(userId: string): Promise<WeekStats> {
   const [{ data: mine }, { data: recent }, { count: followers }, { data: stories }, streakInfo] = await Promise.all([
     // all my top-level posts (to count likes/comments they received this week)
     db.from('posts').select('id').eq('user_id', userId).is('parent_post_id', null).order('created_at', { ascending: false }).limit(500),
-    db.from('posts').select('id, content, like_count, parent_post_id, created_at').eq('user_id', userId).gte('created_at', sinceIso).limit(500),
+    db.from('posts').select('id, content, like_count, view_count, parent_post_id, created_at').eq('user_id', userId).gte('created_at', sinceIso).limit(500),
     db.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', userId).gte('created_at', sinceIso),
     db.from('stories').select('view_count, created_at').eq('user_id', userId).gte('created_at', sinceIso),
     activityStreak(userId),
@@ -66,13 +68,21 @@ export async function weekStats(userId: string): Promise<WeekStats> {
   const topTag = [...tagCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
   const weekDays = [...streakInfo.days].filter(d => d >= dayKey(since)).length;
+  // the top post's first picture (a video's thumbnail), for the story card
+  let thumb: string | null = null;
+  if (top) {
+    const { data: pm } = await db.from('post_media').select('media_type, url, thumbnail_url').eq('post_id', top.id).order('order_index', { ascending: true }).limit(1);
+    const m: any = pm?.[0];
+    thumb = m ? (m.media_type === 'video' ? m.thumbnail_url || null : m.thumbnail_url || m.url || null) : null;
+  }
   return {
     since: sinceIso, until: until.toISOString(),
     posts: (recent || []).filter((r: any) => !r.parent_post_id).length,
     likes: likes || 0, comments: comments || 0, followers: followers || 0,
     storyViews: (stories || []).reduce((n: number, s: any) => n + (s.view_count || 0), 0),
+    postViews: (recent || []).filter((r: any) => !r.parent_post_id).reduce((n: number, r: any) => n + (r.view_count || 0), 0),
     activeDays: Math.min(7, weekDays), streak: streakInfo.streak,
-    topPost: top ? { id: top.id, content: top.content, likes: top.like_count || 0 } : null,
+    topPost: top ? { id: top.id, content: top.content, likes: top.like_count || 0, view_count: top.view_count || 0, thumbnail_url: thumb } : null,
     topTag,
     ...(await wrappedExtras(userId, ids, sinceIso)),
   };

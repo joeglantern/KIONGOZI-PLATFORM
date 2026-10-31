@@ -95,6 +95,8 @@ interface HeaderProps {
   onChangeCover?: () => void;
   coverUploading?: boolean;
   onShare: () => void;
+  /** The QR button left of Message / Edit profile (share then lives on the cover, in ProfileChrome) */
+  onQrCard?: () => void;
   onEditProfile?: () => void;
   follow?: { label: string; primary: boolean; pending: boolean; onPress: () => void; accessibilityLabel: string };
   onMessage?: () => void;
@@ -113,7 +115,7 @@ interface HeaderProps {
 export function ProfileHeader(props: HeaderProps) {
   const {
     scrollY, profile, isOwn, onChangeAvatar, avatarUploading, onChangeCover, coverUploading,
-    onShare, onEditProfile, follow, onMessage, messageLoading, onOpenFollowList, mutuals,
+    onShare, onQrCard, onEditProfile, follow, onMessage, messageLoading, onOpenFollowList, mutuals,
     extra, hasTabs, onTabsLayout, below,
   } = props;
   const T = useTheme();
@@ -219,12 +221,12 @@ export function ProfileHeader(props: HeaderProps) {
 
           <View style={s.actions}>
             <Pressable
-              onPress={onShare}
+              onPress={onQrCard ?? onShare}
               style={({ pressed }) => [s.circleBtn, pressed && s.pressed]}
               accessibilityRole="button"
-              accessibilityLabel="Share profile"
+              accessibilityLabel={onQrCard ? 'Profile QR card' : 'Share profile'}
             >
-              <Ionicons name="share-outline" size={18} color={T.text} />
+              <Ionicons name={onQrCard ? 'qr-code-outline' : 'share-outline'} size={onQrCard ? 17 : 18} color={T.text} />
             </Pressable>
             {isOwn ? (
               <Pressable

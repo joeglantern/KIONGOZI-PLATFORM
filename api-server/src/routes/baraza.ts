@@ -13,6 +13,9 @@ import { supabaseServiceClient as db } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
 import ModerationService from '../services/ModerationService';
 import { sendExpoPush } from '../services/PushService';
+import UploadService from '../services/UploadService';
+import NotificationService from '../services/NotificationService';
+import { renderMinutesCard } from '../services/ShareCards2';
 
 const router = Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -177,18 +180,31 @@ router.get('/live', authenticateToken, async (req: Request, res: Response): Prom
     if (!list.length) { res.json({ success: true, data: [] }); return; }
     const ids = list.map(r => r.id);
     const [{ data: here }, { data: blocks }] = await Promise.all([
-      db.from('baraza_participants').select('room_id, user_id, joined_at').in('room_id', ids)
+      db.from('baraza_participants').select('room_id, user_id, joined_at, hand_raised_at').in('room_id', ids)
         .eq('removed', false).is('left_at', null).gt('last_seen_at', cutoff()).order('joined_at', { ascending: true }),
       db.from('blocks').select('blocker_id, blocked_id').or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
     ]);
     const blocked = new Set((blocks || []).map((b: any) => (b.blocker_id === userId ? b.blocked_id : b.blocker_id)));
     const count = new Map<string, number>();
-    // up to six faces per room, for the stools on the Explore card
-    const faces = new Map<string, string[]>();
+    const hands = new Map<string, { user_id: string; at: string }[]>();
     for (const p of here || []) {
       count.set(p.room_id, (count.get(p.room_id) || 0) + 1);
-      const f = faces.get(p.room_id) || [];
-      if (f.length < 6 && !blocked.has(p.user_id)) { f.push(p.user_id); faces.set(p.room_id, f); }
+      if (p.hand_raised_at && !blocked.has(p.user_id)) {
+        const h = hands.get(p.room_id) || [];
+        h.push({ user_id: p.user_id, at: p.hand_raised_at });
+        hands.set(p.room_id, h);
+      }
+    }
+    // The stools on the Explore card (six at most): the host, whoever holds the stick, then the
+    // hands up in the order they were raised. Listeners without a hand up are not on a stool.
+    const faces = new Map<string, string[]>();
+    for (const r of list) {
+      const f: string[] = [];
+      const add = (id: string | null) => { if (id && f.length < 6 && !f.includes(id) && !blocked.has(id)) f.push(id); };
+      add(r.host_id);
+      add(r.holder_id);
+      for (const h of (hands.get(r.id) || []).sort((a, b) => a.at.localeCompare(b.at))) add(h.user_id);
+      faces.set(r.id, f);
     }
     const byId = await profiles(list.flatMap(r => [r.host_id, ...(r.holder_id ? [r.holder_id] : []), ...(faces.get(r.id) || [])]));
     const out = list
@@ -230,6 +246,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
       .select(ROOM).single();
     if (error || !room) throw error;
     await db.from('baraza_participants').insert({ room_id: room.id, user_id: userId, role: 'host', spoke: true });
+    notifyBarazaMentions(room as any).catch(e => console.warn('Baraza mention notify failed:', e));
     res.status(201).json({ success: true, data: await stateFor(room as any, userId) });
   } catch (err) {
     console.error('Baraza create error:', err);
@@ -749,9 +766,11 @@ router.get('/:id/share', async (req: Request, res: Response): Promise<void> => {
     const title = `Baraza: ${room.title}`;
     const desc = (m as any)?.summary ? String((m as any).summary).slice(0, 160) : room.status === 'live' ? 'Live now on KChat. Come and listen.' : 'A baraza on KChat.';
     const deep = room.minutes_post_id ? `kiongozi://posts/${room.minutes_post_id}` : 'kiongozi://';
+    const ogImage = room.minutes_post_id && room.minutes_status === 'ready' ? `${SHARE_BASE}/api/v1/baraza/${room.id}/minutes/card.png` : `${SHARE_BASE}/og/brand.png`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${esc(ogImage)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${esc(ogImage)}">
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0C0A07;color:#fff;font-family:-apple-system,system-ui,sans-serif}
 main{max-width:360px;padding:32px 24px;text-align:center}h1{font-size:22px;margin:0 0 8px}p{color:#bdb5a6;margin:0 0 24px;line-height:1.45}
 a{display:block;padding:14px;border-radius:26px;text-decoration:none;font-weight:700;margin-top:10px}.p{background:#F2B544;color:#1A1206}.s{border:1px solid #3a3226;color:#fff}</style></head>
@@ -760,6 +779,166 @@ a{display:block;padding:14px;border-radius:26px;text-decoration:none;font-weight
     res.redirect(store);
   }
 });
+
+// ── Share cards, the profile's Barazas tab, @mentions in titles ──
+
+// Who may see a room's minutes: the host, anyone who was in the room, or everyone once posted.
+async function canSeeMinutes(room: Room, userId: string) {
+  if (room.host_id === userId || room.minutes_post_id) return true;
+  const { data } = await db.from('baraza_participants').select('user_id').eq('room_id', room.id).eq('user_id', userId).eq('removed', false).maybeSingle();
+  return !!data;
+}
+
+async function minutesCardInput(room: Room) {
+  const [{ data: m }, { data: ah }, { count }, byHost] = await Promise.all([
+    db.from('baraza_minutes').select('summary, key_points').eq('room_id', room.id).maybeSingle(),
+    db.from('baraza_ahadi').select('user_id, who_name, text').eq('room_id', room.id).order('created_at').limit(1),
+    db.from('baraza_participants').select('user_id', { count: 'exact', head: true }).eq('room_id', room.id).eq('removed', false),
+    profiles([room.host_id]),
+  ]);
+  const kp: any[] = (m as any)?.key_points || [];
+  const first: any = ah?.[0];
+  const promiser = first?.user_id ? (await profiles([first.user_id])).get(first.user_id) : null;
+  const points = kp.map(k => String(k?.text || '')).filter(Boolean);
+  if (!points.length && (m as any)?.summary) points.push(String((m as any).summary));
+  return {
+    title: room.title,
+    keyPoints: points,
+    ahadi: first ? { who: promiser?.username || first.who_name || 'Someone', text: String(first.text) } : null,
+    host: byHost.get(room.host_id)?.username || 'kchat',
+    date: room.created_at,
+    people: Math.max(1, count || 0),
+  };
+}
+
+// POST /:id/minutes/card { preview? }: the minutes as a 4:5 image.
+// preview → small PNG as a data URI (nothing stored); otherwise full size, uploaded, ready to share or post.
+router.post('/:id/minutes/card', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const room = await getRoom(req.params.id);
+    if (!room) { fail(res, 404, 'Baraza not found'); return; }
+    if (!(await canSeeMinutes(room, userId))) { fail(res, 403, 'Only people who were there can share these minutes'); return; }
+    if (room.minutes_status !== 'ready') { fail(res, 409, 'The minutes are not ready yet'); return; }
+    const card = await renderMinutesCard(await minutesCardInput(room), req.body?.preview ? 540 : undefined);
+    if (req.body?.preview) {
+      res.json({ success: true, data: { uri: `data:image/png;base64,${card.png.toString('base64')}`, width: card.width, height: card.height } });
+      return;
+    }
+    const up = await UploadService.uploadFile(card.png, 'image/png', `posts/${userId}/minutes_${room.id}_${Date.now()}.png`);
+    res.json({
+      success: true,
+      data: { url: up.url, storage_path: up.storagePath, width: card.width, height: card.height, share_url: `${SHARE_BASE}/api/v1/baraza/${room.id}/share` },
+    });
+  } catch (err) {
+    console.error('Baraza minutes card error:', err);
+    fail(res, 500, 'Could not make the card');
+  }
+});
+
+// GET /:id/minutes/card.png: link-preview image for the /share page (only once the host posted the minutes)
+const ogCards = new Map<string, { png: Buffer; at: number }>();
+router.get('/:id/minutes/card.png', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const room = await getRoom(req.params.id);
+    if (!room || room.minutes_status !== 'ready' || !room.minutes_post_id) { res.redirect(`${SHARE_BASE}/og/brand.png`); return; }
+    let hit = ogCards.get(room.id);
+    if (!hit || Date.now() - hit.at > 30 * 60_000) {
+      hit = { png: (await renderMinutesCard(await minutesCardInput(room), 720)).png, at: Date.now() };
+      if (ogCards.size > 100) ogCards.delete(ogCards.keys().next().value as string);
+      ogCards.set(room.id, hit);
+    }
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=1800');
+    res.send(hit.png);
+  } catch {
+    res.redirect(`${SHARE_BASE}/og/brand.png`);
+  }
+});
+
+// GET /user/:id: ended barazas this person hosted that have minutes (the profile's Barazas tab).
+// Others only see the ones the host posted; you see all of yours.
+router.get('/user/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const viewer = req.user!.id;
+    const hostId = req.params.id;
+    if (!UUID.test(hostId)) { fail(res, 404, 'Not found'); return; }
+    const mine = viewer === hostId;
+    if (!mine) {
+      if (await blockedBetween(viewer, hostId)) { res.json({ success: true, data: [], nextCursor: null }); return; }
+      const { data: prof } = await db.from('profiles').select('is_private').eq('id', hostId).maybeSingle();
+      if ((prof as any)?.is_private) {
+        const { data: f } = await db.from('follows').select('id').eq('follower_id', viewer).eq('following_id', hostId).maybeSingle();
+        if (!f) { res.json({ success: true, data: [], nextCursor: null }); return; }
+      }
+    }
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
+    let q = db.from('baraza_rooms').select('id, title, status, minutes_status, minutes_post_id, created_at, ended_at')
+      .eq('host_id', hostId).eq('status', 'ended').eq('minutes_status', 'ready')
+      .order('created_at', { ascending: false }).limit(limit);
+    if (!mine) q = q.not('minutes_post_id', 'is', null);
+    if (typeof req.query.cursor === 'string') q = q.lt('created_at', req.query.cursor);
+    const { data: rooms } = await q;
+    const list = (rooms || []) as any[];
+    if (!list.length) { res.json({ success: true, data: [], nextCursor: null }); return; }
+    const ids = list.map(r => r.id);
+    const [{ data: mins }, { data: parts }, { data: ahadi }] = await Promise.all([
+      db.from('baraza_minutes').select('room_id, summary, key_points').in('room_id', ids),
+      db.from('baraza_participants').select('room_id').in('room_id', ids).eq('removed', false).limit(5000),
+      db.from('baraza_ahadi').select('room_id').in('room_id', ids).limit(2000),
+    ]);
+    const sum = new Map<string, any>((mins || []).map((m: any) => [m.room_id, m]));
+    const tally = (rows: any[] | null) => {
+      const out = new Map<string, number>();
+      for (const r of rows || []) out.set(r.room_id, (out.get(r.room_id) || 0) + 1);
+      return out;
+    };
+    const people = tally(parts), promises = tally(ahadi);
+    res.json({
+      success: true,
+      data: list.map(r => ({
+        id: r.id, title: r.title, created_at: r.created_at, ended_at: r.ended_at,
+        minutes_post_id: r.minutes_post_id, posted: !!r.minutes_post_id,
+        summary: sum.get(r.id)?.summary ? String(sum.get(r.id).summary).slice(0, 220) : null,
+        key_points: (sum.get(r.id)?.key_points || []).length,
+        ahadi: promises.get(r.id) || 0,
+        people: people.get(r.id) || 0,
+      })),
+      nextCursor: list.length < limit ? null : list[list.length - 1].created_at,
+    });
+  } catch (err) {
+    console.error('Baraza user list error:', err);
+    fail(res, 500, 'Failed to load barazas');
+  }
+});
+
+/**
+ * "@amina mentioned you in a baraza": everyone tagged by @username in a new room's title gets a
+ * `mention` notification (data.kind = 'baraza', data.baraza_id).
+ */
+async function notifyBarazaMentions(room: { id: string; title: string; host_id: string }) {
+  const names = [...new Set(Array.from(room.title.matchAll(/@([a-z0-9_.]{2,30})/gi)).map(m => m[1].toLowerCase().replace(/\.+$/, '')))].slice(0, 10);
+  if (!names.length) return;
+  const [{ data: users }, { data: host }] = await Promise.all([
+    db.from('profiles').select('id, username').in('username', names),
+    db.from('profiles').select('username, full_name, avatar_url').eq('id', room.host_id).maybeSingle(),
+  ]);
+  const who: any = host || {};
+  for (const u of (users || []) as any[]) {
+    if (u.id === room.host_id || u.username === 'kiongozi') continue;
+    if (await blockedBetween(u.id, room.host_id)) continue;
+    await NotificationService.notify({
+      userId: u.id,
+      type: 'mention',
+      title: 'You were mentioned',
+      message: `${who.username ? `@${who.username}` : who.full_name || 'Someone'} mentioned you in a baraza`,
+      data: {
+        kind: 'baraza', baraza_id: room.id, baraza_title: room.title,
+        from_user_id: room.host_id, from_username: who.username || null, from_avatar_url: who.avatar_url || null,
+      },
+    });
+  }
+}
 
 // ── Background: turn expiry, vanished hosts, Ahadi reminders ──
 
