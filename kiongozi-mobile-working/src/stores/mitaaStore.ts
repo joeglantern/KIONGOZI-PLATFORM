@@ -1,5 +1,5 @@
-// Mitaa: short clips arranged as streets. Swipe up/down to change street, left/right to walk
-// further down it. Remembers where you were on each street.
+// Mitaa: short clips arranged as streets, shown as tabs over one vertical feed. Remembers where
+// you were on each street.
 import { create } from 'zustand';
 import apiClient from '../utils/apiClient';
 import { saveSnap, readSnap } from '../utils/snapshot';

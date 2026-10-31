@@ -1,7 +1,7 @@
 // Full-screen clip player. Grows out of the hive cell you tapped (a circle opening into the
 // screen), swipes up/down between clips, and pinching in shrinks it back into the hive.
 // Tap = pause, double-tap = like (heart where your finger is; keep tapping for more hearts),
-// hold on the right edge = 2x speed, hold anywhere else = clip options (report, speed, copy link).
+// hold the left or right edge = 2x speed while held, hold the middle = clip options (report, speed, copy link).
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, FlatList, Image, Share, useWindowDimensions, Platform, ViewToken, AppState, Animated as RNAnimated } from 'react-native';
 import Animated, {
@@ -198,7 +198,7 @@ function PlayerBody() {
 
 const clock = (sec: number) => { const t = Math.max(0, Math.floor(sec)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
-export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onToggleSound, onClose, onComments, chrome, bottomInset, hideTop, onProfile, onNotInterested, followed }: {
+export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onToggleSound, onClose, onComments, chrome, bottomInset, hideTop, onProfile, onNotInterested, followed, onScrub }: {
   post: Post; W: number; H: number; state: 'play' | 'warm' | 'cold'; muted: boolean;
   onToggleSound: () => void; onClose: () => void; onComments: () => void; chrome: boolean;
   /** Mitaa tab: room for the tab bar instead of the home indicator */
@@ -211,6 +211,8 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
   onNotInterested?: (post: Post) => void;
   /** Already known to be followed (the Following street) */
   followed?: boolean;
+  /** Scrubbing started / ended, so a pager around it can hold still meanwhile */
+  onScrub?: (on: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const v = clipVideo(post)!;
@@ -320,7 +322,8 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
     pauseGlyph.value = withSequence(withTiming(1, { duration: 120 }), withDelay(next ? 500 : 120, withTiming(next ? 0.85 : 0, { duration: 200 })));
   };
   const onLongStart = (x: number) => {
-    if (x > W * 0.75) {
+    // Either edge (a fifth of the width) holds 2x like TikTok and Shorts; the middle opens options
+    if (x < W * 0.2 || x > W * 0.8) {
       setFast(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
     } else {
@@ -355,11 +358,13 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
   };
   const scrubStart = () => {
     scrubbing.current = true;
+    onScrub?.(true);
     Haptics.selectionAsync().catch(() => {});
   };
   const scrubEnd = (frac: number) => {
     seekTo(frac, true);
     scrubbing.current = false;
+    onScrub?.(false);
     setScrubTime(null);
     if (paused) { setPaused(false); pauseGlyph.value = withTiming(0, { duration: 120 }); }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
