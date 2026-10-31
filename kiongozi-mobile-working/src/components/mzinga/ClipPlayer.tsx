@@ -23,12 +23,14 @@ import { storyNav } from '../stories/storyAssets';
 import { useVideoThumb } from '../social/media';
 import { setFeedPaused } from '../social/videoPlayback';
 import { UserAvatar } from '../social/UserAvatar';
+import { RepostLoop } from '../social/RepostLoop';
 import { ClipComments } from './ClipComments';
 import { useSafeAreaInsets as useInsets } from 'react-native-safe-area-context';
 import { BottomSheet, SheetAction } from '../social/BottomSheet';
 import ReportModal from '../../screens/social/ReportModal';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
+import { useFollowState, toggleFollow } from '../../stores/followSync';
 import { useMitaaStore } from '../../stores/mitaaStore';
 import { appAlert } from '../../utils/alert';
 
@@ -426,26 +428,27 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
   const badgeScale = useSharedValue(1);
   const badgeO = useSharedValue(1);
   const badgeStyle = useAnimatedStyle(() => ({ opacity: badgeO.value, transform: [{ scale: badgeScale.value }] }));
-  const follow = async () => {
-    if (badge !== 'idle' || !authorId || !username) return;
-    setBadge('check');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    badgeScale.value = withSequence(withTiming(1.3, { duration: 110 }), withSpring(1, { damping: 9, stiffness: 260 }));
-    badgeO.value = withDelay(900, withTiming(0, { duration: 260 }, (f?: boolean) => { if (f) runOnJS(setBadge)('gone'); }));
-    const r: any = await apiClient.followUser(authorId).catch(() => null);
-    if (r?.success) {
-      if (r.status === 'requested') {
-        useProfileStore.setState(s => {
-          const p = s.profiles[username];
-          return p ? { profiles: { ...s.profiles, [username]: { ...p, followRequestStatus: 'pending' } } } : s;
-        });
-      } else useProfileStore.getState().updateFollowState(username, true);
-    } else {
+  // Follow goes through followSync: the badge ticks and fades at once, the store settles it with the
+  // server (Requested for a private account) and shows the badge again with a toast if it is refused
+  const followStatus = useFollowState(authorId || undefined).status;
+  const tappedFollow = useRef(false);
+  useEffect(() => {
+    if (tappedFollow.current && followStatus === 'none') {
+      tappedFollow.current = false;
       cancelAnimation(badgeO);
       badgeO.value = 1;
       setBadge('idle');
-      appAlert("Couldn't follow", r?.error || 'Try again.');
     }
+  }, [followStatus]);
+  const follow = () => {
+    if (badge !== 'idle' || !authorId || !username) return;
+    setBadge('check');
+    tappedFollow.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    badgeScale.value = withSequence(withTiming(1.3, { duration: 110 }), withSpring(1, { damping: 9, stiffness: 260 }));
+    badgeO.value = withDelay(900, withTiming(0, { duration: 260 }, (f?: boolean) => { if (f) runOnJS(setBadge)('gone'); }));
+    const prof = useProfileStore.getState().profiles[username];
+    toggleFollow(authorId, { isFollowing: false, is_private: !!(prof?.is_private ?? (post.profiles as any)?.is_private), username });
   };
   const showBadge = !!myId && !own && !followed && ((knownFollow === false && badge === 'idle') || badge === 'check');
 
@@ -464,6 +467,8 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
 
   const bar = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
   const caption = post.content?.trim();
+  // Someone you follow reposted this clip (the feed sends recent reposters)
+  const reposter = ((post as any).recentReposters || []).find((u: any) => u?.id && u.id !== post.user_id);
 
   return (
     <View style={{ width: W, height: H, backgroundColor: '#000' }}>
@@ -523,6 +528,11 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
             <View style={styles.railAvatar}>
               <UserAvatar avatarUrl={post.profiles?.avatar_url} name={post.profiles?.full_name || post.profiles?.username} size={44} />
             </View>
+            {reposter && !showBadge ? (
+              <View style={styles.repostDot} accessibilityLabel={`Reposted by ${reposter.username}`}>
+                <RepostLoop size={11} on color="#fff" onColor="#fff" />
+              </View>
+            ) : null}
           </Pressable>
           {showBadge && (
             <Animated.View style={[styles.followBadge, badgeStyle]}>
@@ -540,6 +550,12 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
 
       {/* Who and what */}
       <Animated.View style={[styles.info, { bottom: (bottomInset ?? insets.bottom) + 30, right: 84 }, chromeFade]} pointerEvents="box-none">
+        {reposter ? (
+          <View style={styles.repostPill}>
+            <RepostLoop size={13} on color="#86BD2E" onColor="#86BD2E" />
+            <Text style={styles.repostPillText} numberOfLines={1}>Reposted by <Text style={{ fontWeight: '800' }}>@{reposter.username}</Text></Text>
+          </View>
+        ) : null}
         <Pressable onPress={openProfile}>
           <Text style={styles.name}>@{username}</Text>
         </Pressable>
@@ -712,6 +728,9 @@ const styles = StyleSheet.create({
   railAvatar: { borderWidth: 2, borderColor: '#fff', borderRadius: 26, padding: 2, marginBottom: 4 },
   // 20px honey circle centred on the avatar's bottom edge (avatar is 52 wide with 4 of margin under it)
   followBadge: { position: 'absolute', left: 16, bottom: -6 },
+  repostDot: { position: 'absolute', left: 16, bottom: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: '#3FA845', borderWidth: 2, borderColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  repostPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingLeft: 7, paddingRight: 10, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.16)', marginBottom: 8 },
+  repostPillText: { color: '#fff', fontSize: 12.5, fontWeight: '600' },
   followBadgeIn: { width: 20, height: 20, borderRadius: 10, backgroundColor: HONEY, alignItems: 'center', justifyContent: 'center' },
   railBtn: { alignItems: 'center', minWidth: 52 },
   railLabel: { color: '#fff', fontSize: 12.5, fontWeight: '600', marginTop: 3, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },

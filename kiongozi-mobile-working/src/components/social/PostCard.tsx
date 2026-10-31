@@ -16,6 +16,8 @@ import { VerifiedBadge } from './VerifiedBadge';
 import { FeedVideo } from './FeedVideo';
 import { FitImage, VideoTile, useImageRatio } from './media';
 import { toggleInteraction, markInteraction } from '../../stores/interactionSync';
+import { toast } from '../../utils/alert';
+import { RepostLoop, RollingCount } from './RepostLoop';
 import { useStoryStore } from '../../stores/storyStore';
 
 const LIKE_RED = '#FF3040';
@@ -235,7 +237,7 @@ export function PostCard({
   const isDark = useThemeStore(s => s.isDark);
   const styles = useMemo(() => makeStyles(T, isDark), [T, isDark]);
   const { width: winW, fontScale } = useWindowDimensions();
-  const repostScale = useRef(new Animated.Value(1)).current;
+  const repostSpin = useRef(new Animated.Value(0)).current;
   const [repostSheetOpen, setRepostSheetOpen] = useState(false);
   const [optionsSheetOpen, setOptionsSheetOpen] = useState(false);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
@@ -334,14 +336,16 @@ export function PostCard({
     } finally { setTranslating(false); }
   }, [activePost.content, showTranslation, translatedText]);
 
+  // The loop spins half a turn and fills green; the count rolls up; a toast offers Undo (like X)
   const doRepost = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.sequence([
-      Animated.spring(repostScale, { toValue: 1.5, useNativeDriver: true, damping: 6, stiffness: 300 }),
-      Animated.spring(repostScale, { toValue: 1, useNativeDriver: true, damping: 10, stiffness: 200 }),
-    ]).start();
+      Animated.timing(repostSpin, { toValue: 1, duration: 0, useNativeDriver: true }),
+      Animated.spring(repostSpin, { toValue: 2, useNativeDriver: true, damping: 9, stiffness: 140 }),
+    ]).start(() => repostSpin.setValue(0));
     toggleInteraction(activePost.id, 'repost', true);
-  }, [activePost.id, repostScale]);
+    toast('Reposted to your profile', { kind: 'success', action: { label: 'Undo', onPress: () => toggleInteraction(activePost.id, 'repost', false) } });
+  }, [activePost.id, repostSpin]);
 
   const doUnrepost = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -484,7 +488,7 @@ export function PostCard({
               style={styles.repostBanner}
               onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}
             >
-              <Ionicons name="repeat-outline" size={13} color={T.textMuted} />
+              <RepostLoop size={13} on={false} color={T.textMuted} onColor={T.textMuted} />
               <Text style={styles.repostBannerText} numberOfLines={1}>{(() => {
                 // "Amina and 2 others reposted" (one card, all the reposters)
                 const others = ((activePost as any).recentReposters || []).filter((u: any) => u?.id && u.id !== post.user_id).length;
@@ -621,10 +625,8 @@ export function PostCard({
               accessibilityRole="button"
               accessibilityLabel={isReposted ? 'Undo repost' : 'Repost'}
             >
-              <Animated.View style={{ transform: [{ scale: repostScale }] }}>
-                <Ionicons name="repeat" size={M.big} color={isReposted ? T.accent : T.text} />
-              </Animated.View>
-              <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[styles.actionCount, countBox, isReposted && { color: T.accent }]}>{repostCount > 0 ? fmtCount(repostCount) : ''}</Text>
+              <RepostLoop size={M.big} on={isReposted} spin={repostSpin} color={T.text} onColor={T.accent} />
+              <RollingCount value={repostCount} text={repostCount > 0 ? fmtCount(repostCount) : ''} style={[styles.actionCount, countBox, isReposted && { color: T.accent }]} />
             </Pressable>
 
             <Pressable

@@ -420,7 +420,7 @@ router.get('/:id/segments', authenticateToken, async (req: Request, res: Respons
     if (!m || m.removed) { fail(res, 403, 'Join the baraza first'); return; }
     const after = Math.max(0, Math.floor(Number(req.query.after) || 0));
     const { data } = await db.from('baraza_segments')
-      .select('id, seq, speaker_id, url, duration_ms, transcript, transcribed, created_at')
+      .select('id, seq, speaker_id, url, duration_ms, transcript, words, transcribed, created_at')
       .eq('room_id', req.params.id).gt('seq', after).order('seq', { ascending: true }).limit(40);
     res.json({ success: true, data: data || [] });
   } catch (err) {
@@ -449,7 +449,7 @@ router.post('/:id/segments', authenticateToken, async (req: Request, res: Respon
     const url = db.storage.from('social-media').getPublicUrl(path).data.publicUrl;
     const { data: seg, error } = await db.from('baraza_segments')
       .insert({ room_id: room.id, speaker_id: userId, storage_path: path, url, duration_ms: duration })
-      .select('id, seq, speaker_id, url, duration_ms, transcript, transcribed, created_at').single();
+      .select('id, seq, speaker_id, url, duration_ms, transcript, words, transcribed, created_at').single();
     if (error || !seg) throw error;
     setImmediate(() => { transcribe(seg.id).catch(() => {}); });
     res.status(201).json({ success: true, data: seg });
@@ -464,22 +464,30 @@ async function transcribe(segmentId: string) {
   const { data: seg } = await db.from('baraza_segments').select('id, storage_path, transcribed').eq('id', segmentId).maybeSingle();
   if (!seg || seg.transcribed) return;
   let text: string | null = null;
+  let words: [number, number, string][] | null = null;
   try {
     if (process.env.OPENAI_API_KEY) {
       const { data: blob, error } = await db.storage.from('social-media').download(seg.storage_path);
       if (error || !blob) throw error || new Error('missing audio');
       const file = await toFile(Buffer.from(await blob.arrayBuffer()), 'turn.m4a', { type: 'audio/mp4' });
+      // whisper-1 is the model that returns word timings, which light the words up like lyrics
       const out: any = await openai.audio.transcriptions.create({
         file,
-        model: 'gpt-4o-mini-transcribe',
+        model: 'whisper-1',
+        response_format: 'verbose_json',
+        timestamp_granularities: ['word'],
         prompt: 'A Kenyan community meeting. Speakers may use English, Swahili or Sheng.',
       });
       text = String(out?.text || '').trim().slice(0, 2000) || null;
+      if (Array.isArray(out?.words) && out.words.length) {
+        // compact: [[startMs, endMs, 'word'], ...]
+        words = out.words.slice(0, 400).map((w: any) => [Math.round((w.start || 0) * 1000), Math.round((w.end || 0) * 1000), String(w.word || '').trim()]);
+      }
     }
   } catch (e) {
     console.error('Baraza transcribe error:', (e as any)?.message || e);
   }
-  await db.from('baraza_segments').update({ transcript: text, transcribed: true }).eq('id', segmentId);
+  await db.from('baraza_segments').update({ transcript: text, words, transcribed: true }).eq('id', segmentId);
 }
 
 // POST /:id/end — host ends it; minutes are built in the background
