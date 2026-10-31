@@ -30,7 +30,20 @@ export const ART = {
   cloud: require('../../../assets/baraza/cloud.png'),
   stool: require('../../../assets/baraza/stool.png'),
   pin: require('../../../assets/baraza/pin.png'),
+  /** the carved dais the speaker stands on (900 x 692) */
+  dais: require('../../../assets/baraza/stage.webp'),
+  /** ring of Maasai beads, the turn clock (700 x 700) */
+  hoop: require('../../../assets/baraza/hoop.webp'),
+  /** a stool from above-front for the listeners (200 x 193) */
+  seat: require('../../../assets/baraza/stool_seat.png'),
+  handBtn: require('../../../assets/baraza/hand_btn.png'),
+  soundArc: require('../../../assets/baraza/sound_arc.png'),
+  /** 8 x 3 sheet of 56px confetti pieces */
+  confetti: require('../../../assets/baraza/confetti_sheet.png'),
 };
+
+export const DAIS_RATIO = 692 / 900;
+export const SEAT_RATIO = 193 / 200;
 
 // The stick's shake, painted then animated (Higgsfield, Kling 3.0), cut out frame by frame.
 // 61 frames at 12fps in a 10-column sheet; frames 0-13 are the stick at rest.
@@ -274,6 +287,108 @@ export const ISLAND = {
   stools: [[0.357, 0.435], [0.589, 0.435], [0.279, 0.498], [0.703, 0.498], [0.394, 0.559], [0.603, 0.559]] as [number, number][],
   restCx: SPRITE.restCx, restTop: SPRITE.restTop, restBottom: SPRITE.restBottom, frameRatio: SPRITE.fw / SPRITE.fh,
 };
+
+/**
+ * The bead hoop as the turn clock. `progress` is how much of the turn has gone (0..1): a veil in
+ * the room colour sweeps clockwise from twelve o'clock so the beads fade as the turn runs. Done
+ * with two rotating half-rings behind half-width clips (no SVG). null = untimed: the whole hoop
+ * breathes.
+ */
+export function BeadHoop({ size, progress, t, late }: { size: number; progress: number | null; t: BarazaTheme; late?: boolean }) {
+  const R = size / 2;
+  const th = Math.round(size * 0.09);
+  const timed = progress !== null;
+  const p = useSharedValue(progress ?? 0);
+  const breathe = useSharedValue(0);
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    p.value = timed ? withTiming(progress!, { duration: 520, easing: Easing.linear }) : withTiming(0, { duration: 200 });
+  }, [progress, timed, p]);
+  useEffect(() => {
+    breathe.value = timed
+      ? withTiming(0, { duration: 240 })
+      : withRepeat(withTiming(1, { duration: 1700, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [timed, breathe]);
+  useEffect(() => {
+    pulse.value = late
+      ? withRepeat(withTiming(1, { duration: 480, easing: Easing.inOut(Easing.sin) }), -1, true)
+      : withTiming(0, { duration: 200 });
+  }, [late, pulse]);
+  const wrap = useAnimatedStyle(() => ({ transform: [{ scale: 1 + breathe.value * 0.015 }] }));
+  const rightRot = useAnimatedStyle(() => ({ transform: [{ rotate: `${interpolate(p.value, [0, 0.5], [-180, 0], Extrapolation.CLAMP)}deg` }] }));
+  const leftRot = useAnimatedStyle(() => ({ transform: [{ rotate: `${interpolate(p.value, [0.5, 1], [0, 180], Extrapolation.CLAMP)}deg` }] }));
+  const lateRing = useAnimatedStyle(() => ({ opacity: pulse.value * 0.7 }));
+
+  const half = (side: 'left' | 'right', rot: any) => (
+    <View key={side} pointerEvents="none" style={{ position: 'absolute', top: 0, left: side === 'right' ? R : 0, width: R, height: size, overflow: 'hidden' }}>
+      <Animated.View style={[{ position: 'absolute', top: 0, left: side === 'right' ? -R : 0, width: size, height: size }, rot]}>
+        <View style={{ position: 'absolute', left: R, top: 0, width: R, height: size, overflow: 'hidden' }}>
+          <View style={{ position: 'absolute', left: -R, top: 0, width: size, height: size, borderRadius: R, borderWidth: th, borderColor: t.bg, opacity: 0.72 }} />
+        </View>
+      </Animated.View>
+    </View>
+  );
+
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: size, height: size }, wrap]}>
+      <Animated.View style={[{ position: 'absolute', left: -3, top: -3, width: size + 6, height: size + 6, borderRadius: R + 3, borderWidth: 3, borderColor: t.danger }, lateRing]} />
+      <Image source={ART.hoop} fadeDuration={0} style={{ width: size, height: size }} resizeMode="contain" />
+      {timed ? [half('right', rightRot), half('left', leftRot)] : null}
+    </Animated.View>
+  );
+}
+
+// confetti_sheet.png: 8 columns x 3 rows of 56px pieces
+const CONF = { cols: 8, rows: 3, cell: 56 };
+
+function ConfettiPiece({ idx, ox, oy, vx, vy, rot, spin, s, delay }: {
+  idx: number; ox: number; oy: number; vx: number; vy: number; rot: number; spin: number; s: number; delay: number;
+}) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withDelay(delay, withTiming(1, { duration: 1600, easing: Easing.linear }));
+  }, [p, delay]);
+  const st = useAnimatedStyle(() => {
+    const k = p.value;
+    return {
+      opacity: interpolate(k, [0, 0.04, 0.78, 1], [0, 1, 1, 0]),
+      transform: [
+        { translateX: vx * k },
+        { translateY: vy * k + 945 * k * k },
+        { rotate: `${rot + spin * k}deg` },
+        { scale: 1 - k * 0.25 },
+      ],
+    };
+  });
+  const cell = CONF.cell * s;
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: ox - cell / 2, top: oy - cell / 2, width: cell, height: cell, overflow: 'hidden' }, st]}>
+      <Image source={ART.confetti} fadeDuration={0}
+        style={{ width: CONF.cols * cell, height: CONF.rows * cell, transform: [{ translateX: -(idx % CONF.cols) * cell }, { translateY: -Math.floor(idx / CONF.cols) * cell }] }} />
+    </Animated.View>
+  );
+}
+
+/** Confetti bursting up from (ox, oy) and falling back over about 1.6 s. Mount it to play once. */
+export function ConfettiBurst({ n = 18, ox, oy, spread }: { n?: number; ox: number; oy: number; spread: number }) {
+  const seeds = useMemo(() => Array.from({ length: n }, (_, i) => {
+    const side = (i / (n - 1)) * 2 - 1; // spread evenly across, then jitter
+    return {
+      idx: Math.floor(Math.random() * CONF.cols * CONF.rows),
+      vx: side * spread * (0.6 + Math.random() * 0.5),
+      vy: -(700 + Math.random() * 220),
+      rot: Math.random() * 360,
+      spin: (Math.random() - 0.5) * 800,
+      s: 0.42 + Math.random() * 0.2,
+      delay: Math.random() * 140,
+    };
+  }), [n, spread]);
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {seeds.map((sd, i) => <ConfettiPiece key={i} ox={ox} oy={oy} {...sd} />)}
+    </View>
+  );
+}
 
 /** A painted raised hand, used on the button and in the queue. */
 export function HandMark({ size = 22, wave = false }: { size?: number; wave?: boolean }) {
