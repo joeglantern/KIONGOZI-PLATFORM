@@ -146,12 +146,16 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
           scrollEventThrottle={16}
           onMomentumScrollEnd={e => setPage(Math.round(e.nativeEvent.contentOffset.x / W))}
           renderItem={({ item, index }) => {
-            // Neighbouring people sit slightly smaller and darker while you swipe
-            const range = [(index - 1) * W, index * W, (index + 1) * W];
-            const s = scrollX.interpolate({ inputRange: range, outputRange: [0.9, 1, 0.9], extrapolate: 'clamp' });
-            const o = scrollX.interpolate({ inputRange: range, outputRange: [0.5, 1, 0.5], extrapolate: 'clamp' });
+            // Swiping between people turns a cube (Instagram): each person is a face that folds
+            // around the edge it shares with the next one, and darkens as it turns away.
+            const e = 0.5;
+            const range = [(index - 1) * W, index * W - e, index * W + e, (index + 1) * W];
+            const pivot = scrollX.interpolate({ inputRange: range, outputRange: [-W / 2, -W / 2, W / 2, W / 2], extrapolate: 'clamp' });
+            const unpivot = scrollX.interpolate({ inputRange: range, outputRange: [W / 2, W / 2, -W / 2, -W / 2], extrapolate: 'clamp' });
+            const turn = scrollX.interpolate({ inputRange: [(index - 1) * W, index * W, (index + 1) * W], outputRange: ['90deg', '0deg', '-90deg'], extrapolate: 'clamp' });
+            const o = scrollX.interpolate({ inputRange: [(index - 1) * W, index * W, (index + 1) * W], outputRange: [0.55, 1, 0.55], extrapolate: 'clamp' });
             return (
-              <Animated.View style={{ width: W, height: H, transform: [{ scale: s }], opacity: o }}>
+              <Animated.View style={{ width: W, height: H, opacity: o, transform: [{ perspective: W * 2.2 }, { translateX: pivot }, { rotateY: turn }, { translateX: unpivot }] }}>
                 <GroupPage
                   group={item}
                   active={index === page}
@@ -265,7 +269,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
       return;
     }
     const remaining = Math.max(0, total - done.current);
-    anim.current = Animated.timing(progress, { toValue: 1, duration: remaining, useNativeDriver: false, easing: t => t });
+    anim.current = Animated.timing(progress, { toValue: 1, duration: remaining, useNativeDriver: true, easing: t => t });
     anim.current.start(({ finished }) => { if (finished) { done.current = 0; next(); } });
     return () => anim.current?.stop();
   }, [paused, story?.id, total]);
@@ -525,7 +529,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
             <View key={s.id} style={styles.barTrack}>
               {i < idx && <View style={[styles.barFill, { width: '100%' }]} />}
               {i === idx && (
-                <Animated.View style={[styles.barFill, { width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
+                // a transform on the native thread, so it never stutters while a video decodes
+                <Animated.View style={[styles.barFill, { width: '100%', transformOrigin: 'left', transform: [{ scaleX: progress }] }]} />
               )}
             </View>
           ))}

@@ -19,6 +19,7 @@ import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 import { RowsSkeleton } from '../../components/social/Skeleton';
 import { BottomSheet } from '../../components/social/BottomSheet';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 const KIONGOZI_AI_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -199,7 +200,25 @@ export default function DMListScreen() {
       : last?.media_type === 'image' ? 'Sent a photo'
       : last?.media_type === 'audio' ? 'Voice note'
       : 'Say hello';
+    // Swipe left: Archive (and Read when unread), like WhatsApp and Mail
+    const actions = () => (
+      <View style={{ flexDirection: 'row' }}>
+        {unread && (
+          <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); useDMStore.getState().markRead(item.id); }}
+            style={[styles.swipeBtn, { backgroundColor: '#007AFF' }]} accessibilityRole="button" accessibilityLabel="Mark as read">
+            <Ionicons name="chatbubble-ellipses" size={20} color="#fff" />
+            <Text style={styles.swipeText}>Read</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); isArchived ? unarchiveConversation(item.id) : archiveConversation(item.id); }}
+          style={[styles.swipeBtn, { backgroundColor: '#8E8E93' }]} accessibilityRole="button" accessibilityLabel={isArchived ? 'Unarchive' : 'Archive'}>
+          <Ionicons name="archive" size={20} color="#fff" />
+          <Text style={styles.swipeText}>{isArchived ? 'Unarchive' : 'Archive'}</Text>
+        </Pressable>
+      </View>
+    );
     return (
+      <ReanimatedSwipeable renderRightActions={actions} friction={1.6} rightThreshold={40} overshootRight={false}>
       <Pressable
         style={({ pressed }) => [styles.convRow, pressed && { backgroundColor: T.surface }]}
         // Load the saved messages the moment a finger lands, so the chat opens already filled
@@ -229,16 +248,29 @@ export default function DMListScreen() {
               <Text style={styles.draftLabel}>Draft: </Text>{draft.replace(/\s+/g, ' ')}
             </Text>
           ) : (
-            <Text style={[styles.convLastMsg, unread && styles.unreadMsg]} numberOfLines={1}>
-              {mine ? 'You: ' : ''}{body}
-              <Text style={styles.convTime}>{` · ${active && !unread ? 'Active now' : timeAgo(item.last_message_at)}`}</Text>
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              {mine ? (
+                <Ionicons name={last?.is_read ? 'checkmark-done' : 'checkmark'} size={16}
+                  color={last?.is_read ? '#34B7F1' : T.textMuted} accessibilityLabel={last?.is_read ? 'Read' : 'Sent'} />
+              ) : null}
+              <Text style={[styles.convLastMsg, { flex: 1 }, unread && styles.unreadMsg]} numberOfLines={1}>
+                {active && !unread && !mine ? <Text style={{ color: T.accent }}>Active now · </Text> : null}{body}
+              </Text>
+            </View>
           )}
         </View>
-        {unread && <View style={styles.unreadDot} accessibilityLabel="Unread" />}
+        <View style={styles.rightCol}>
+          <Text style={[styles.rowTime, unread && { color: T.accent, fontWeight: '600' }]}>{timeAgo(item.last_message_at)}</Text>
+          {unread ? (
+            <View style={[styles.badge, { backgroundColor: T.accent }]} accessibilityLabel={`${item.unread_count} unread`}>
+              <Text style={styles.badgeText}>{item.unread_count > 99 ? '99+' : item.unread_count}</Text>
+            </View>
+          ) : <View style={{ height: 20 }} />}
+        </View>
       </Pressable>
+      </ReanimatedSwipeable>
     );
-  }, [navigation, archivedIds, handleLongPress, user?.id, styles, T, drafts, online]);
+  }, [navigation, archivedIds, handleLongPress, user?.id, styles, T, drafts, online, archiveConversation, unarchiveConversation]);
 
   return (
     <View style={styles.container}>
@@ -478,6 +510,12 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     chipText: { fontSize: 14, fontWeight: '600' },
     convRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12, backgroundColor: T.bg },
     convInfo: { flex: 1, minWidth: 0, gap: 3 },
+    rightCol: { alignItems: 'flex-end', gap: 6, minWidth: 44 },
+    rowTime: { fontSize: 13, color: T.textMuted },
+    badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+    badgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
+    swipeBtn: { width: 84, alignItems: 'center', justifyContent: 'center', gap: 4 },
+    swipeText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
     convName: { fontSize: 16, color: T.text, fontWeight: '500', flexShrink: 1 },
     convNameUnread: { fontWeight: '700' },
     convTime: { color: T.textMuted, fontWeight: '400' },

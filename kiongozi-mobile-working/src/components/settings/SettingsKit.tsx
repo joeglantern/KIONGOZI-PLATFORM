@@ -13,6 +13,16 @@ import { useThemeStore } from '../../stores/themeStore';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
+// iOS-style coloured tiles so the eye can scan by colour: one hue per kind of setting
+const TILE: Record<string, string> = {
+  'notifications-outline': '#FF3B30', 'volume-mute-outline': '#FF453A', 'radio-button-on-outline': '#FF9500',
+  'lock-closed-outline': '#007AFF', 'key-outline': '#5E5CE6', 'person-add-outline': '#0A84FF', 'ban-outline': '#8E8E93',
+  'cellular-outline': '#34C759', 'download-outline': '#30B0C7', 'phone-portrait-outline': '#64D2FF',
+  'sparkles-outline': '#AF52DE', 'cafe-outline': '#A2845E', 'reader-outline': '#FF9F0A', 'document-text-outline': '#8E8E93',
+  'trash-outline': '#FF3B30',
+};
+const solid = (name: string) => (name.endsWith('-outline') ? name.slice(0, -8) : name) as IconName;
+
 export function useKitColors() {
   const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
@@ -47,18 +57,22 @@ export function Card({ children }: { children: React.ReactNode }) {
 }
 
 export function Row({
-  icon, title, sub, onPress, right, chevron, external, danger, a11y,
+  icon, title, sub, onPress, right, chevron, external, danger, a11y, color,
 }: {
   icon?: IconName; title: string; sub?: string; onPress?: () => void; right?: React.ReactNode;
   chevron?: boolean; external?: boolean; danger?: boolean; a11y?: string;
+  /** tile colour; defaults to the colour for this icon */
+  color?: string;
 }) {
   const C = useKitColors();
   const tint = danger ? C.T.error : C.T.text;
+  const tileColor = color || (icon && TILE[icon]) || (danger ? '#FF3B30' : '#8E8E93');
   const body = (
     <>
       {icon ? (
-        <View style={[s.tile, { backgroundColor: C.tile }]}>
-          <Ionicons name={icon} size={19} color={tint} />
+        <View style={[s.tile, { backgroundColor: tileColor }]}>
+          <View style={s.tileShine} />
+          <Ionicons name={Ionicons.glyphMap[solid(icon)] ? solid(icon) : icon} size={17} color="#FFFFFF" />
         </View>
       ) : null}
       <View style={{ flex: 1 }}>
@@ -108,12 +122,16 @@ export function Toggle({ value, onChange, disabled, label }: { value: boolean; o
 }
 
 const s = StyleSheet.create({
-  section: { fontFamily: 'SpaceGrotesk_600SemiBold', fontSize: 17, marginLeft: 4, marginBottom: 10 },
+  section: { fontSize: 13, fontWeight: '600', letterSpacing: -0.08, textTransform: 'uppercase', opacity: 0.6, marginLeft: 16, marginBottom: 7 },
   note: { fontSize: 12.5, lineHeight: 17, marginTop: 8, marginHorizontal: 6 },
   card: { borderRadius: 20, borderWidth: 1, padding: 5, gap: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 10, borderRadius: 15, minHeight: 58 },
-  tile: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 15.5, fontWeight: '600' },
+  tile: {
+    width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1,
+  },
+  tileShine: { position: 'absolute', left: 0, right: 0, top: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
+  title: { fontSize: 17, fontWeight: '400', letterSpacing: -0.41 },
   sub: { fontSize: 13, marginTop: 2, lineHeight: 17 },
   track: { width: 52, height: 32, borderRadius: 16, padding: 3, justifyContent: 'center' },
   thumb: { width: 26, height: 26, borderRadius: 13, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
