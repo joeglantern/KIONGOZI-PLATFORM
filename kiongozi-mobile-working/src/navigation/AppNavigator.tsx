@@ -32,6 +32,7 @@ import MutedUsersScreen from '../screens/social/MutedUsersScreen';
 import FindFriendsScreen from '../screens/social/FindFriendsScreen';
 import InviteScreen from '../screens/social/InviteScreen';
 import DevicesScreen from '../screens/social/DevicesScreen';
+import MutedWordsScreen from '../screens/social/MutedWordsScreen';
 import FirstFeedScreen from '../screens/FirstFeedScreen';
 import { FIRST_FEED_PENDING_KEY } from '../screens/LoginScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -149,6 +150,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="FollowList" component={FollowListScreen} />
       <ProfileStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
       <ProfileStack.Screen name="Devices" component={DevicesScreen} />
+      <ProfileStack.Screen name="MutedWords" component={MutedWordsScreen} />
       <ProfileStack.Screen name="MutedUsers" component={MutedUsersScreen} />
       <ProfileStack.Screen name="FindFriends" component={FindFriendsScreen} />
       <ProfileStack.Screen name="Invite" component={InviteScreen} />

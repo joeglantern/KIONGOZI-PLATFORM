@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { mediaAlt } from '../config/mediaColumns';
+import { mediaAlt, postEdited, hasPostEditedAt } from '../config/mediaColumns';
 import { describePostImages } from './assist';
 import { optimizePostMedia } from '../services/ImageOptimizer';
 import { supabaseServiceClient } from '../config/supabase';
@@ -287,6 +287,10 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
 });
 
 // PATCH /api/v1/social/posts/:id — Edit post (content + visibility)
+// The text can be changed for 1 hour after posting (like X); who can see it can be changed any time.
+// A text change keeps the old version in post_edits and stamps posts.edited_at (both once the
+// post_edits migration has run; before that the edit still saves, just without history).
+const EDIT_WINDOW_MS = 60 * 60 * 1000;
 router.patch('/posts/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -298,20 +302,39 @@ router.patch('/posts/:id', authenticateToken, async (req: Request, res: Response
       return;
     }
 
+    const { data: current } = await supabaseServiceClient
+      .from('posts')
+      .select('id, user_id, content, created_at')
+      .eq('id', id)
+      .maybeSingle();
+    if (!current || current.user_id !== userId) {
+      res.status(404).json({ success: false, error: 'Post not found or not authorized' });
+      return;
+    }
+
+    const text = content.trim();
+    const textChanged = text !== (current.content ?? '').trim();
+    const now = new Date();
+    if (textChanged && now.getTime() - new Date(current.created_at).getTime() > EDIT_WINDOW_MS) {
+      res.status(403).json({ success: false, error: 'Posts can be edited for 1 hour after posting.', code: 'EDIT_WINDOW_CLOSED' });
+      return;
+    }
+
     const updates: Record<string, any> = {
-      content: content.trim(),
-      updated_at: new Date().toISOString(),
+      content: text,
+      updated_at: now.toISOString(),
     };
     if (visibility === 'public' || visibility === 'followers') {
       updates.visibility = visibility;
     }
+    if (textChanged && hasPostEditedAt()) updates.edited_at = now.toISOString();
 
     const { data, error } = await supabaseServiceClient
       .from('posts')
       .update(updates)
       .eq('id', id)
       .eq('user_id', userId)
-      .select('id, content, visibility, updated_at')
+      .select(`id, content, visibility, updated_at${postEdited()}` as '*')
       .single();
 
     if (error || !data) {
@@ -319,9 +342,61 @@ router.patch('/posts/:id', authenticateToken, async (req: Request, res: Response
       return;
     }
 
-    res.json({ success: true, data });
+    if (textChanged) {
+      // Keep the version that was just replaced; no table yet (migration not run) is fine
+      const { error: histErr } = await supabaseServiceClient
+        .from('post_edits')
+        .insert({ post_id: id, content: current.content ?? '', edited_at: now.toISOString() });
+      if (histErr && histErr.code !== '42P01' && histErr.code !== 'PGRST205') console.error('Post edit history error:', histErr.message);
+    }
+
+    res.json({ success: true, data: { ...data, edited_at: (data as any).edited_at ?? (textChanged ? now.toISOString() : null) } });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to update post' });
+  }
+});
+
+// GET /api/v1/social/posts/:id/edits — Edit history, newest first: the current text, then each
+// earlier version with the time it was written. Anyone who can see the post can read it.
+router.get('/posts/:id/edits', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const viewerId = req.user?.id;
+    const { data: post } = await supabaseServiceClient
+      .from('posts')
+      .select(`id, user_id, content, visibility, created_at${postEdited()}` as '*')
+      .eq('id', id)
+      .maybeSingle();
+    if (!post) { res.status(404).json({ success: false, error: 'Post not found' }); return; }
+    if (!(await canViewProfile(post.user_id, viewerId))) {
+      res.status(403).json({ success: false, error: 'This account is private' });
+      return;
+    }
+
+    const { data: rows, error } = await supabaseServiceClient
+      .from('post_edits')
+      .select('content, edited_at')
+      .eq('post_id', id)
+      .order('edited_at', { ascending: true })
+      .limit(50);
+    const edits = error ? [] : (rows || []);
+
+    // Version i was written when the one before it was replaced (the first one when the post went up)
+    const versions = edits.map((e: any, i: number) => ({
+      content: e.content,
+      written_at: i === 0 ? post.created_at : edits[i - 1].edited_at,
+      original: i === 0,
+    }));
+    const lastEdit = edits.length ? edits[edits.length - 1].edited_at : null;
+    const current = {
+      content: post.content,
+      written_at: (post as any).edited_at || lastEdit || post.created_at,
+      original: edits.length === 0,
+    };
+
+    res.json({ success: true, data: { versions: [current, ...versions.reverse()], edited_at: (post as any).edited_at || lastEdit } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to load edit history' });
   }
 });
 

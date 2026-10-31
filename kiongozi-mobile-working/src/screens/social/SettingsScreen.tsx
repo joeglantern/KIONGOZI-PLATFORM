@@ -34,10 +34,23 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { QRCardButton } from '../../components/social/QRCardSheet';
 import { useSocialStore } from '../../stores/socialStore';
 import { Section, Card, Row, Toggle, Segmented, useKitColors, rise } from '../../components/settings/SettingsKit';
+import { useMutedWords } from '../../stores/mutedWordsStore';
 import Animated from 'react-native-reanimated';
 
 const PUSH_ENABLED_KEY = 'push_notifications_enabled';
 const PUSH_TOKEN_KEY = 'push_token';
+
+/** "Yesterday 9:42 PM", "Today 8:10 AM", "Tue 9:42 PM", "12 Oct" */
+function whenSignedIn(iso: string) {
+  const d = new Date(iso);
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const days = Math.floor((start.getTime() - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
+  if (days <= 0) return `Today ${time}`;
+  if (days === 1) return `Yesterday ${time}`;
+  if (days < 7) return `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${time}`;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
 
 const PRIVACY_POLICY_URL = 'https://chat.kiongozi.org/privacy-policy';
 const TERMS_URL = 'https://chat.kiongozi.org/terms';
@@ -266,6 +279,13 @@ export default function SettingsScreen() {
   const blockedCount = useSocialStore(s => s.blockedUserIds.length);
   const mutedCount = useSocialStore(s => s.mutedUserIds.length);
   const [recapOpen, setRecapOpen] = useState(false);
+  const mutedWordCount = useMutedWords(s => s.words.length);
+  // Security: "Last sign-in: Yesterday 9:42 PM on iPhone"
+  const [lastSignIn, setLastSignIn] = useState<{ at: string; device: string; current: boolean } | null>(null);
+  useEffect(() => {
+    useMutedWords.getState().load().catch(() => {});
+    apiClient.getSessions().then((r: any) => { if (r?.success && r.last_sign_in?.at) setLastSignIn(r.last_sign_in); }).catch(() => {});
+  }, []);
   const K = useKitColors();
   const me = currentUserProfile;
 
@@ -369,6 +389,29 @@ export default function SettingsScreen() {
               chevron
               onPress={() => setBlockedSheet(true)}
             />
+            <Row
+              icon="text-outline"
+              color="#FF2D55"
+              title="Muted words"
+              sub={mutedWordCount ? `${mutedWordCount} muted · hidden from feed, replies and alerts` : 'Hide posts with words you don’t want to see'}
+              chevron
+              onPress={() => navigation.navigate('MutedWords')}
+            />
+          </Card>
+        </Section>
+
+        <Section title="Security" order={3}>
+          <Card>
+            <Row icon="key-outline" title="Change password" chevron onPress={() => setPasswordModalVisible(true)} />
+            <Row
+              icon="phone-portrait-outline"
+              title="Where you’re logged in"
+              sub={lastSignIn
+                ? `Last sign-in: ${whenSignedIn(lastSignIn.at)} on ${lastSignIn.current ? 'this phone' : lastSignIn.device}`
+                : 'See your devices, log out a lost phone'}
+              chevron
+              onPress={() => navigation.navigate('Devices')}
+            />
           </Card>
         </Section>
 
@@ -445,8 +488,6 @@ export default function SettingsScreen() {
 
         <Section title="Account" order={6}>
           <Card>
-            <Row icon="key-outline" title="Change password" chevron onPress={() => setPasswordModalVisible(true)} />
-            <Row icon="phone-portrait-outline" title="Where you’re logged in" sub="See your devices, sign out a lost phone" chevron onPress={() => navigation.navigate('Devices')} />
             <Row
               icon="download-outline"
               title="Download your data"

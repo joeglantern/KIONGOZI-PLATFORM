@@ -10,6 +10,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { PostCard } from '../../components/social/PostCard';
+import { MutedGate } from '../../components/social/MutedGate';
 import { EditPostModal } from '../../components/social/EditPostModal';
 import { HashtagHighlight } from '../../components/social/HashtagHighlight';
 import { UserAvatar } from '../../components/social/UserAvatar';
@@ -335,6 +336,7 @@ export default function PostDetailScreen() {
       const failed = !!item._failed;
       const pending = !failed && (!!item._pending || String(item.id).startsWith('temp_'));
       return (
+        <MutedGate post={item} me={user?.id}>
         <Pressable
           onPress={failed ? () => retryReply(item) : pending ? undefined : () => navigation.push('PostDetail', { postId: item.id })}
           onLongPress={pending || failed ? undefined : () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); setReplyMenu(item); }}
@@ -365,6 +367,7 @@ export default function PostDetailScreen() {
             )}
           </View>
         </Pressable>
+        </MutedGate>
       );
     }
 

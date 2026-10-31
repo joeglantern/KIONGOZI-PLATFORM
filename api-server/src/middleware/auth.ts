@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { supabaseUserClient, supabaseServiceClient } from '../config/supabase';
 import { prisma } from '../config/prisma';
+import { isRevoked } from '../services/DeviceService';
 
 // ─── Activity tracking ────────────────────────────────────────────────────────
 // Every authenticated request marks the user active, throttled to one DB write
@@ -109,6 +110,11 @@ export const authenticateToken = async (
     res.status(401).json({ success: false, error: 'Invalid token' });
     return;
   }
+  // This phone was logged out from another device ("Where you're logged in")
+  if (await isRevoked(req, user.id).catch(() => false)) {
+    res.status(401).json({ success: false, error: 'This device was logged out', code: 'device_revoked' });
+    return;
+  }
   req.user = user;
   trackActivity(user.id);
   next();
@@ -124,7 +130,7 @@ export const optionalAuth = async (
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
   if (token) {
     const user = await verifySupabaseToken(token);
-    if (user) {
+    if (user && !(await isRevoked(req, user.id).catch(() => false))) {
       req.user = user;
       trackActivity(user.id);
     }

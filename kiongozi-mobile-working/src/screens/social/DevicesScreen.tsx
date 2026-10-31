@@ -1,5 +1,6 @@
-// Where you're logged in: every phone and browser signed in to your account, with "Sign out"
-// for a lost or old one, and "Sign out everywhere else".
+// Where you're logged in: every phone and browser signed in to your account (model, rough place,
+// app version, last active), with "Log out" for a lost or old one and "Log out of all other devices".
+// A logged-out phone is refused by the server on its next request and signs itself out.
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +14,14 @@ import { Section, Card, Row, useKitColors } from '../../components/settings/Sett
 type Device = {
   id: string; device: string; kind: 'phone' | 'computer' | 'unknown';
   current: boolean; signed_in_at: string; last_active_at: string; ip?: string | null;
+  place?: string | null; os?: string | null; app_version?: string | null;
 };
+
+/** "Kisumu · Active 3 h ago · iOS 18.1" */
+const otherLine = (d: Device) => [d.place, ago(d.last_active_at), d.os || (d.ip ? `Network ${d.ip}` : null)].filter(Boolean).join(' · ');
+/** "Nairobi · Android 14 · KChat 2.1.0" */
+const thisLine = (d: Device) =>
+  [d.place, d.os, d.app_version ? `KChat ${d.app_version}` : null].filter(Boolean).join(' · ') || `Signed in since ${since(d.signed_in_at)}`;
 
 function ago(iso: string) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -44,14 +52,15 @@ export default function DevicesScreen() {
   useEffect(() => { load(); }, [load]);
 
   const signOut = (d: Device) => {
-    appAlert(`Sign out ${d.device}?`, `${ago(d.last_active_at)}. It will need your password to get back in.`, [
+    appAlert(`Log out of ${d.device}?`, `${[d.place, ago(d.last_active_at)].filter(Boolean).join(' · ')}. It will need your password to get back in.`, [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sign out', style: 'destructive', onPress: async () => {
+        text: 'Log out', style: 'destructive', onPress: async () => {
+          const before = devices;
           setDevices(prev => prev?.filter(x => x.id !== d.id) ?? prev);
           const r: any = await apiClient.signOutSession(d.id);
-          if (r?.success) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); toast(`${d.device} signed out`, { kind: 'success' }); }
-          else { toast('Couldn’t sign that device out', { kind: 'error', message: r?.error }); load(); }
+          if (r?.success) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); toast(`Logged out of ${d.device}`, { kind: 'success' }); }
+          else { setDevices(before); toast('Couldn’t log that device out', { kind: 'error', message: 'Check your connection and try again.' }); }
         },
       },
     ]);
@@ -59,13 +68,15 @@ export default function DevicesScreen() {
 
   const others = (devices || []).filter(d => !d.current);
   const signOutOthers = () => {
-    appAlert('Sign out everywhere else?', `${others.length} other ${others.length === 1 ? 'device' : 'devices'} will be signed out. This phone stays signed in.`, [
+    appAlert('Log out of all other devices?', `${others.length} other ${others.length === 1 ? 'device' : 'devices'} will be logged out. This phone stays logged in.`, [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sign out others', style: 'destructive', onPress: async () => {
+        text: 'Log out others', style: 'destructive', onPress: async () => {
+          const before = devices;
+          setDevices(prev => prev?.filter(x => x.current) ?? prev);
           const r: any = await apiClient.signOutOtherSessions();
-          if (r?.success) { toast('Signed out everywhere else', { kind: 'success' }); setDevices(prev => prev?.filter(x => x.current) ?? prev); }
-          else toast('Couldn’t sign the others out', { kind: 'error' });
+          if (r?.success) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); toast('Logged out of all other devices', { kind: 'success' }); }
+          else { setDevices(before); toast('Couldn’t log the others out', { kind: 'error', message: 'Check your connection and try again.' }); }
         },
       },
     ]);
@@ -102,8 +113,8 @@ export default function DevicesScreen() {
                   <Row
                     icon={icon(current)}
                     title={current.device}
-                    sub={`Signed in since ${since(current.signed_in_at)}`}
-                    right={<View style={[styles.chip, { backgroundColor: 'rgba(92,184,92,0.14)' }]}><Text style={[styles.chipText, { color: C.T.accent }]}>This device</Text></View>}
+                    sub={thisLine(current)}
+                    right={<View style={[styles.chip, { backgroundColor: 'rgba(92,184,92,0.14)' }]}><Text style={[styles.chipText, { color: C.T.accent }]}>This phone</Text></View>}
                   />
                 </Card>
               </Section>
@@ -112,7 +123,7 @@ export default function DevicesScreen() {
             <Section
               title="Other devices"
               order={1}
-              note={others.length ? 'Don’t recognise one? Sign it out, then change your password in Settings. Places are rough, based on the network.' : undefined}
+              note={others.length ? 'Don’t recognise one? Log it out, then change your password in Settings. Places are rough, based on the network.' : undefined}
             >
               <Card>
                 {others.length ? others.map(d => (
@@ -120,21 +131,21 @@ export default function DevicesScreen() {
                     key={d.id}
                     icon={icon(d)}
                     title={d.device}
-                    sub={`${ago(d.last_active_at)} · since ${since(d.signed_in_at)}${d.ip ? ` · ${d.ip}` : ''}`}
-                    right={<Text style={[styles.signOut, { color: C.T.error }]}>Sign out</Text>}
+                    sub={otherLine(d)}
+                    right={<Text style={[styles.signOut, { color: C.T.error }]}>Log out</Text>}
                     onPress={() => signOut(d)}
-                    a11y={`${d.device}, ${ago(d.last_active_at)}. Sign out`}
+                    a11y={`${d.device}, ${otherLine(d)}. Log out`}
                   />
                 )) : (
-                  <Row icon="checkmark-circle-outline" title="Only this phone" sub="You’re not signed in anywhere else" />
+                  <Row icon="checkmark-circle-outline" title="Only this phone" sub="You’re not logged in anywhere else" />
                 )}
               </Card>
             </Section>
 
-            {others.length > 1 ? (
+            {others.length > 0 ? (
               <Section order={2}>
                 <Card>
-                  <Row icon="log-out-outline" title="Sign out everywhere else" danger onPress={signOutOthers} />
+                  <Row icon="log-out-outline" title="Log out of all other devices" danger onPress={signOutOthers} />
                 </Card>
               </Section>
             ) : null}

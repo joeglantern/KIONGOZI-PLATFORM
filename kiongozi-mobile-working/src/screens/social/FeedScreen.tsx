@@ -12,6 +12,7 @@ import CreatePostScreen from './CreatePostScreen';
 import { useSocialStore, Post } from '../../stores/socialStore';
 import { useDMStore } from '../../stores/dmStore';
 import { PostCard } from '../../components/social/PostCard';
+import { MutedGate } from '../../components/social/MutedGate';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -224,6 +225,7 @@ export default function FeedScreen() {
       onReport={a => { dropAd(a, 'report'); showNoteRef.current?.('Thanks. We’ll review this ad.'); }}
     />
   ) : (
+    <MutedGate post={item} me={user?.id}>
     <PostCard
       post={item}
       onPress={() => handlePostPress(item)}
@@ -236,6 +238,7 @@ export default function FeedScreen() {
       onEditPress={handleEditPress}
       onReportPress={(postId) => setReportTarget({ type: 'post', id: postId, displayName: 'this post' })}
     />
+    </MutedGate>
   ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost, seenAds, openAd, dropAd]);
 
   const [activeTab, setActiveTab] = useState(0);

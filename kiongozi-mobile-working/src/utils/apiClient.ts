@@ -4,6 +4,7 @@
  */
 import { supabase } from './supabaseClient';
 import { useNet } from '../stores/netStore';
+import { getDeviceId, startDeviceCheckIns, handleDeviceRevoked } from './device';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://kiongozi-api.onrender.com';
 
@@ -115,6 +116,9 @@ class ApiClient {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
+    // Lets "Where you're logged in" tell this phone apart and log it out
+    const deviceId = await getDeviceId();
+    if (deviceId) headers['X-Device-Id'] = deviceId;
 
     try {
       const response = await fetch(url, {
@@ -124,6 +128,12 @@ class ApiClient {
       useNet.getState().reportOk();
 
       const responseText = await response.text();
+
+      // Logged out from another device: no refresh, sign out and say why
+      if (response.status === 401 && token && responseText.includes('"device_revoked"')) {
+        handleDeviceRevoked();
+        return { success: false, error: 'This device was logged out' };
+      }
 
       // Expired/invalid token: refresh once and retry, otherwise sign out locally
       if (response.status === 401 && token && !isRetry) {
@@ -785,6 +795,21 @@ class ApiClient {
   async signOutOtherSessions() {
     return this.request('/api/v1/user/sessions', { method: 'DELETE' });
   }
+  /** Check in this phone (model, OS, app version) so it shows up right in the devices list */
+  async pingDevice(info: { model: string; os: string; app_version: string }) {
+    return this.request('/api/v1/user/devices/ping', { method: 'POST', body: JSON.stringify(info) });
+  }
+
+  // ── Muted words ──
+  async getMutedWords() {
+    return this.request<{ id: string; phrase: string; expires_at: string | null; created_at: string }[]>('/api/v1/user/muted-words', { method: 'GET' });
+  }
+  async addMutedWord(phrase: string, duration: '24h' | '7d' | 'forever') {
+    return this.request<{ id: string; phrase: string; expires_at: string | null; created_at: string }>('/api/v1/user/muted-words', { method: 'POST', body: JSON.stringify({ phrase, duration }) });
+  }
+  async removeMutedWord(id: string) {
+    return this.request(`/api/v1/user/muted-words/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
 
   async followUserNow(userId: string) {
     return this.request(`/api/v1/social/follow/${userId}`, { method: 'POST' });
@@ -1219,5 +1244,6 @@ class ApiClient {
 
 // Create singleton instance
 const apiClient = new ApiClient();
+startDeviceCheckIns();
 
 export default apiClient;

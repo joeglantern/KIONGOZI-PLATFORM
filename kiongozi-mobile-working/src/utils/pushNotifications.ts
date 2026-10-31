@@ -93,6 +93,12 @@ function routeNotification(navigation: any, data: any) {
   // A push can carry a KChat link (https://api.kiongozi.org/p/<id> etc.): it opens like a shared link
   if (typeof data?.url === 'string' && openInApp(data.url)) return;
 
+  // New sign-in alert: straight to "Where you're logged in"
+  if (data?.kind === 'new_login') {
+    navigation.navigate('Profile', { screen: 'Devices', initial: false });
+    return;
+  }
+
   if (data?.baraza_id) {
     try { require('../stores/barazaStore').useBarazaStore.getState().open(data.baraza_id); } catch {}
   } else if (data?.type === 'recap') {

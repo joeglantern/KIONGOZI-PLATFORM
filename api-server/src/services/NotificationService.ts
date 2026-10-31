@@ -1,5 +1,6 @@
 import { supabaseServiceClient } from '../config/supabase';
 import { sendExpoPush, isQuietHours } from './PushService';
+import { hitsMutedWord } from './MutedWords';
 
 const GROUP_WINDOW_MS = 20 * 60 * 1000;
 // Types whose pushes are grouped, with the text after the person's name
@@ -108,6 +109,8 @@ class NotificationService {
                 .maybeSingle();
               if (muteRow) return; // sender is muted — skip push, in-app notification already written
             }
+            // Muted words: no push for a reply or mention that has one
+            if (type !== 'dm' && await hitsMutedWord(userId, message, data?.reply_text, data?.text)) return;
 
             await this.push(userId, type, title, message, { ...data, type }, !!silent);
           } catch (pushErr) {

@@ -453,7 +453,10 @@ export default function NotificationsScreen() {
   const open = (row: Row) => {
     row.items.forEach(n => { if (!n.read) markRead(n.id); });
     const item = row.items[0];
-    if (item.type === 'dm' && item.conversationId) {
+    if (item.data?.kind === 'new_login') {
+      // New sign-in alert: see the devices and log the stranger out
+      navigation.navigate('Profile', { screen: 'Devices', initial: false });
+    } else if (item.type === 'dm' && item.conversationId) {
       navigation.navigate('DMConversation', { conversationId: item.conversationId, participantName: item.fromUsername || 'Message', participantUsername: item.fromUsername, participantAvatar: item.fromAvatar });
     } else if (item.data?.baraza_id) {
       // Live: open the room. Over: the store shows the minutes instead.

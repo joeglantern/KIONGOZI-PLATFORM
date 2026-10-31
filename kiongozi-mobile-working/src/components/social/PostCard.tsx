@@ -26,6 +26,8 @@ import { sharePostAsImage } from './CardImageSheet';
 import { shareLink, kchatLink } from '../../utils/links';
 import { canPin, usePinnedId, togglePin } from '../../stores/pinSync';
 import { PollBlock } from './PollBlock';
+import { EditedLabel } from './EditedLabel';
+import { haptic } from '../../utils/haptics';
 
 const fmtCount = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
@@ -344,7 +346,7 @@ export function PostCard({
   }, []);
 
   const handleLike = useCallback((forceOn?: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.like();
     pop(likeScale);
     toggleInteraction(activePost.id, 'like', forceOn);
   }, [activePost.id, pop, likeScale]);
@@ -378,7 +380,7 @@ export function PostCard({
 
   // The loop spins half a turn and fills green; the count rolls up; a toast offers Undo (like X)
   const doRepost = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.like();
     Animated.sequence([
       Animated.timing(repostSpin, { toValue: 1, duration: 0, useNativeDriver: true }),
       Animated.timing(repostSpin, { toValue: 2, duration: 460, easing: RN_EASE_OUT, useNativeDriver: true }),
@@ -388,14 +390,14 @@ export function PostCard({
   }, [activePost.id, repostSpin]);
 
   const doUnrepost = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.like();
     toggleInteraction(activePost.id, 'repost', false);
     // Drop my own repost card from the feed (never someone else's)
     if (isRepost && currentUserId && post.user_id === currentUserId) deletePost(post.id);
   }, [activePost.id, isRepost, post.id, post.user_id, currentUserId, deletePost]);
 
   const handleRepost = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.tap();
     setRepostSheetOpen(true);
   }, []);
 
@@ -418,7 +420,7 @@ export function PostCard({
 
   // Share button: add the post to your story (IG style) or share it outside the app
   const openShareSheet = useCallback(() => {
-    Haptics.selectionAsync();
+    haptic.tap();
     setShareSheetOpen(true);
   }, []);
   const addToStory = useCallback(() => {
@@ -443,7 +445,7 @@ export function PostCard({
   const canStory = (activePost.visibility ?? 'public') === 'public';
 
   const handleBookmark = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.like();
     pop(bookmarkScale);
     toggleInteraction(activePost.id, 'bookmark');
   }, [activePost.id, pop, bookmarkScale]);
@@ -595,6 +597,7 @@ export function PostCard({
                   ? (activePost.profiles?.username ? `@${activePost.profiles.username}` : '')
                   : <>{activePost.profiles?.username ? `@${activePost.profiles.username} · ` : ''}{timeAgo(activePost.created_at)}</>}
               </Text>
+              {variant !== 'detail' && <EditedLabel post={activePost} style={styles.edited} />}
               {(isOwnPost ? (onDeletePress || onEditPress || pinnable) : onReportPress) && (
                 <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Post options">
                   <Ionicons name="ellipsis-horizontal" size={18} color={T.textMuted} />
@@ -908,6 +911,11 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     },
     meta: {
       flexShrink: 2,
+      fontSize: 15.5,
+      color: T.textSub,
+    },
+    edited: {
+      flexShrink: 0,
       fontSize: 15.5,
       color: T.textSub,
     },

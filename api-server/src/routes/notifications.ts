@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { authenticateToken } from '../middleware/auth';
 import { adminRateLimit } from '../middleware/rateLimiter';
 import { sendExpoPush } from '../services/PushService';
+import { listMutedWords, textMatches } from '../services/MutedWords';
 
 const router = express.Router();
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -35,9 +36,15 @@ router.get('/', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
+    // Muted words: a reply or mention with one of them doesn't show up here
+    const muted = await listMutedWords(userId);
+    const visible = muted?.length
+      ? (notifications || []).filter((n: any) => !textMatches(muted, n.message, n.data?.reply_text, n.data?.text))
+      : notifications;
+
     res.json({
       success: true,
-      data: notifications,
+      data: visible,
       pagination: {
         offset: Number(offset),
         limit: Number(limit)
