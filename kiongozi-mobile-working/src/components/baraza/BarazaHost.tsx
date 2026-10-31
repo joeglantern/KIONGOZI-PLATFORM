@@ -105,7 +105,7 @@ function StartSheet() {
 
               <View style={[styles.consent, { backgroundColor: t.soft }]}>
                 <View style={[styles.recDot, { backgroundColor: t.danger }]} />
-                <Text style={[styles.consentText, { color: t.sub }]}>Barazas are recorded for minutes. Everyone sees this before joining. When you end it, the minutes are posted from your account.</Text>
+                <Text style={[styles.consentText, { color: t.sub }]}>Barazas are recorded for minutes. Everyone sees this before joining. When you end it, you get the minutes and choose whether to post them.</Text>
               </View>
 
               {error ? <Text style={[styles.err, { color: t.danger }]}>{error}</Text> : null}

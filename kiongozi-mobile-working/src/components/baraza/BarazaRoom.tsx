@@ -89,7 +89,7 @@ function Consent({ state, onClose }: { state: BarazaState | null; onClose: () =>
           <View style={{ flex: 1 }}>
             <Text style={[styles.noticeTitle, { color: t.ink }]}>This baraza is recorded for minutes</Text>
             <Text style={[styles.noticeText, { color: t.sub }]}>
-              Whoever holds the stick is recorded. Their words become captions, and when it ends the minutes (summary, key points and promises made) are posted for everyone to read.
+              Whoever holds the stick is recorded. Their words become captions, and when it ends everyone who was here gets the minutes (summary, key points and promises made). The host decides whether to post them.
             </Text>
           </View>
         </Animated.View>
