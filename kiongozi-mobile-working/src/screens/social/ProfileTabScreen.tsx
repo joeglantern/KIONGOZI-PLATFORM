@@ -23,6 +23,7 @@ import { ProfileSkeleton, FeedSkeleton } from '../../components/social/Skeleton'
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
 import { QRCardSheet } from '../../components/social/QRCardSheet';
 import { useProfileExtraTabs, ExtraTabRow, isExtraTab, EXTRA_EMPTY } from '../../components/social/ProfileExtraTabs';
+import { shareLink, kchatLink } from '../../utils/links';
 
 type Tab = 'posts' | 'replies' | 'mitaa' | 'barazas' | 'saved';
 const TABS: { key: Tab; label: string }[] = [
@@ -189,10 +190,7 @@ export default function ProfileTabScreen() {
     const profile = currentUserProfile;
     if (!profile) return;
     try {
-      await Share.share({
-        message: `Follow ${profile.full_name ?? profile.username} on KChat\nhttps://api.kiongozi.org/u/${profile.username}`,
-        url: `https://api.kiongozi.org/u/${profile.username}`,
-      });
+      await shareLink(kchatLink.profile(profile.username), `Follow ${profile.full_name ?? profile.username} on KChat`);
     } catch {}
   }, [currentUserProfile]);
 

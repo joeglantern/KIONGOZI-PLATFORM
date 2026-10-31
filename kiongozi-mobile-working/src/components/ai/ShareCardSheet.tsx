@@ -11,6 +11,8 @@ import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 import { useStoryStore } from '../../stores/storyStore';
 import { useSocialStore } from '../../stores/socialStore';
+import { LINK_BASE } from '../../utils/links';
+import { shareImageFile } from '../../utils/shareImage';
 
 const SKINS = [
   { id: 'mchanga', label: 'Mchanga', thumb: require('../../../assets/ai/skin_mchanga.jpg') },
@@ -103,7 +105,8 @@ export function ShareCardSheet({ visible, question, answer, onClose }: {
     try {
       const c = await makeFull(format);
       setBusy(null);
-      await Share.share({ url: c.url, message: `${question}\n\nAsked on KChat · Kiongozi AI\n${c.url}` });
+      // The card as a photo (it used to send the raw storage URL); the get-the-app link goes on the clipboard
+      await shareImageFile(c.url, `${question}\n\nAsked on KChat · Kiongozi AI\n${LINK_BASE}/get?src=ai_card`);
     } catch { setBusy(null); }
   };
 

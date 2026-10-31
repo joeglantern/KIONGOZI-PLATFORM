@@ -662,7 +662,7 @@ async function postMinutes(room: Room): Promise<string | null> {
   const ahadi: any[] = ah || [];
   const byId = await profiles([room.host_id, ...keyPoints.map(k => k.by_user_id).filter(Boolean) as string[], ...ahadi.map(a => a.user_id).filter(Boolean)]);
 
-  const link = `${SHARE_BASE}/api/v1/baraza/${room.id}/share`;
+  const link = `${SHARE_BASE}/b/${room.id}`;
   const head = `Baraza minutes: ${room.title}`;
   const room4summary = 280 - head.length - link.length - 4;
   const sum = summary.length > room4summary ? `${summary.slice(0, Math.max(0, room4summary - 1))}…` : summary;
@@ -756,29 +756,9 @@ router.patch('/ahadi/:id', authenticateToken, async (req: Request, res: Response
   }
 });
 
-// GET /:id/share — public page for the link in the minutes post (opens the app, else the store)
-const esc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-router.get('/:id/share', async (req: Request, res: Response): Promise<void> => {
-  const store = 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile';
-  try {
-    const room = await getRoom(req.params.id);
-    if (!room) { res.redirect(store); return; }
-    const { data: m } = await db.from('baraza_minutes').select('summary').eq('room_id', room.id).maybeSingle();
-    const title = `Baraza: ${room.title}`;
-    const desc = (m as any)?.summary ? String((m as any).summary).slice(0, 160) : room.status === 'live' ? 'Live now on KChat. Come and listen.' : 'A baraza on KChat.';
-    const deep = room.minutes_post_id ? `kiongozi://posts/${room.minutes_post_id}` : 'kiongozi://';
-    const ogImage = room.minutes_post_id && room.minutes_status === 'ready' ? `${SHARE_BASE}/api/v1/baraza/${room.id}/minutes/card.png` : `${SHARE_BASE}/og/brand.png`;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
-<meta property="og:image" content="${esc(ogImage)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${esc(ogImage)}">
-<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0C0A07;color:#fff;font-family:-apple-system,system-ui,sans-serif}
-main{max-width:360px;padding:32px 24px;text-align:center}h1{font-size:22px;margin:0 0 8px}p{color:#bdb5a6;margin:0 0 24px;line-height:1.45}
-a{display:block;padding:14px;border-radius:26px;text-decoration:none;font-weight:700;margin-top:10px}.p{background:#F2B544;color:#1A1206}.s{border:1px solid #3a3226;color:#fff}</style></head>
-<body><main><h1>${esc(title)}</h1><p>${esc(desc)}</p><a class="p" href="${deep}">Open in KChat</a><a class="s" href="${store}">Get KChat on Google Play</a></main></body></html>`);
-  } catch {
-    res.redirect(store);
-  }
+// GET /:id/share: the old link in minutes posts. The page now lives at /b/:id (routes/share.ts).
+router.get('/:id/share', (req: Request, res: Response): void => {
+  res.redirect(301, `${SHARE_BASE}/b/${encodeURIComponent(req.params.id)}`);
 });
 
 // ── Share cards, the profile's Barazas tab, @mentions in titles ──
@@ -829,7 +809,7 @@ router.post('/:id/minutes/card', authenticateToken, async (req: Request, res: Re
     const up = await UploadService.uploadFile(card.png, 'image/png', `posts/${userId}/minutes_${room.id}_${Date.now()}.png`);
     res.json({
       success: true,
-      data: { url: up.url, storage_path: up.storagePath, width: card.width, height: card.height, share_url: `${SHARE_BASE}/api/v1/baraza/${room.id}/share` },
+      data: { url: up.url, storage_path: up.storagePath, width: card.width, height: card.height, share_url: `${SHARE_BASE}/b/${room.id}` },
     });
   } catch (err) {
     console.error('Baraza minutes card error:', err);

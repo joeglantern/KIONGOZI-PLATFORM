@@ -29,6 +29,7 @@ import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePrefs } from './src/stores/prefsStore';
 import { watchInviteLinks, claimPendingInvite } from './src/utils/invites';
+import { watchIncomingLinks } from './src/utils/links';
 import * as Notifications from 'expo-notifications';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { ScreenErrorBoundary } from './src/components/ScreenError';
@@ -79,10 +80,13 @@ export default function App() {
     initializeApp();
   }, [initialize]);
 
-  // Low-data mode + server feature switches; remember invite links (?ref=) that open the app
+  // Low-data mode + server feature switches; remember invite links (?ref=) that open the app;
+  // shared links (posts, profiles, stories, barazas) open where they point, after sign-in if signed out
   useEffect(() => {
     usePrefs.getState().load().catch(() => {});
-    return watchInviteLinks();
+    const stopInvites = watchInviteLinks();
+    const stopLinks = watchIncomingLinks();
+    return () => { stopInvites(); stopLinks(); };
   }, []);
 
   // The animated splash plays over the app while it loads, then reveals it (it calls onFinish).
@@ -127,13 +131,9 @@ export default function App() {
     return () => { a(); b(); if (t) clearTimeout(t); };
   }, [user]);
 
-  // Set up notification tap handlers once nav is ready
-  useEffect(() => {
-    if (navRef.current) {
-      const cleanup = setupNotificationHandlers(navRef.current);
-      return cleanup;
-    }
-  }, []);
+  // Foreground banners + notification taps. Taps wait for the navigator (it isn't mounted yet on a
+  // cold start or while signed out); this used to need navRef.current here, which was always null.
+  useEffect(() => setupNotificationHandlers(), []);
 
   // Listen for PASSWORD_RECOVERY event from deep link
   useEffect(() => {

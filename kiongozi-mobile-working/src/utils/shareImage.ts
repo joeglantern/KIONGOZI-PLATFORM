@@ -4,6 +4,8 @@
 import { Share } from 'react-native';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import * as Sharing from 'expo-sharing';
+import * as Clipboard from 'expo-clipboard';
+import { toast } from './alert';
 
 const FS: any = requireOptionalNativeModule('ExponentFileSystem');
 
@@ -14,6 +16,13 @@ export async function shareImageFile(url: string, fallbackMessage?: string) {
       const ext = /\.png(\?|$)/i.test(url) ? 'png' : 'jpg';
       const res = await FS.downloadAsync(url, `${dir}kchat_${Date.now()}.${ext}`, { sessionType: 0 });
       if (res?.uri && (!res.status || res.status < 400)) {
+        // A photo share can't carry text, so the KChat link in the message used to vanish.
+        // Put it on the clipboard so it can be pasted next to the photo (Instagram does the same).
+        const link = fallbackMessage?.match(/https:\/\/(?:api\.)?kiongozi\.org\/\S+/)?.[0];
+        if (link) {
+          await Clipboard.setStringAsync(link).catch(() => {});
+          toast('Link copied', { message: 'Paste it with the photo', icon: 'link' });
+        }
         await Sharing.shareAsync(res.uri, {
           mimeType: ext === 'png' ? 'image/png' : 'image/jpeg',
           UTI: ext === 'png' ? 'public.png' : 'public.jpeg',

@@ -23,6 +23,7 @@ import { toast } from '../../utils/alert';
 import { RepostLoop, RollingCount } from './RepostLoop';
 import { useStoryStore } from '../../stores/storyStore';
 import { sharePostAsImage } from './CardImageSheet';
+import { shareLink, kchatLink } from '../../utils/links';
 
 const fmtCount = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
@@ -403,10 +404,10 @@ export function PostCard({
 
   const handleShare = useCallback(async () => {
     try {
-      await Share.share({
-        message: `${activePost.profiles?.full_name ?? ''}: ${activePost.content}`,
-        url: `https://api.kiongozi.org/posts/${activePost.id}`,
-      });
+      // shareLink: Android ignores `url`, so the link used to be missing from every Android share
+      const who = activePost.profiles?.full_name || activePost.profiles?.username;
+      const text = Array.from(String(activePost.content || '').replace(/\s+/g, ' ').trim()).slice(0, 140).join('');
+      await shareLink(kchatLink.post(activePost.id), [who, text].filter(Boolean).join(': ') || 'On KChat');
     } catch {}
   }, [activePost.id, activePost.content, activePost.profiles?.full_name]);
 

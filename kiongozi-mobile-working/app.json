@@ -20,7 +20,9 @@
       "buildNumber": "16",
       "usesAppleSignIn": true,
       "associatedDomains": [
-        "applinks:api.kiongozi.org"
+        "applinks:api.kiongozi.org",
+        "applinks:kiongozi.org",
+        "applinks:www.kiongozi.org"
       ],
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Kiongozi opens your photo library when you choose a photo or video to attach to a post or message, or to set your profile picture, for example a photo from a community clean-up you are posting about.",
@@ -43,7 +45,57 @@
             {
               "scheme": "https",
               "host": "api.kiongozi.org",
-              "pathPrefix": "/posts"
+              "pathPrefix": "/p/"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPrefix": "/posts/"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPrefix": "/@"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPrefix": "/u/"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPrefix": "/i/"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPrefix": "/s/"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPrefix": "/b/"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPrefix": "/t/"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "path": "/week"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPattern": "/api/v1/social/stories/.*/share"
+            },
+            {
+              "scheme": "https",
+              "host": "api.kiongozi.org",
+              "pathPattern": "/api/v1/baraza/.*/share"
             }
           ],
           "category": [

@@ -10,6 +10,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
 import { useTheme, AppTheme } from '../../hooks/useTheme';
+import { shareLink } from '../../utils/links';
 
 type Invites = { link: string; count: number; recent: { id: string; username: string; full_name?: string; avatar_url?: string }[] };
 
@@ -37,7 +38,7 @@ export default function InviteScreen() {
   const share = () => {
     if (!data) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    Share.share({ message: `Join me on KChat, the app for young Kenyans who lead 🇰🇪\n${data.link}`, url: data.link }).catch(() => {});
+    shareLink(data.link, 'Join me on KChat, the app for young Kenyans who lead 🇰🇪').catch(() => {});
   };
 
   const shown = (data?.recent || []).slice(0, 4);

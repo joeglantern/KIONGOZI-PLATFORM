@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore } from '../../stores/themeStore';
 import * as WebBrowser from 'expo-web-browser';
-import { useBarazaStore } from '../../stores/barazaStore';
+import { openInApp } from '../../utils/links';
 
 interface HashtagHighlightProps {
   content: string;
@@ -20,13 +20,14 @@ interface HashtagHighlightProps {
 
 // Links, @mentions and #hashtags, in that order of priority
 const TOKEN = /(https?:\/\/[^\s]+|www\.[^\s]+|[@#]\w+)/g;
-const BARAZA_LINK = /\/baraza\/([0-9a-f-]{36})\/share/i;
+// Baraza links: /b/<id> (current) and /api/v1/baraza/<id>/share (older minutes posts)
+const BARAZA_LINK = /api\.kiongozi\.org\/(?:b\/[0-9a-f-]{36}|api\/v1\/baraza\/[0-9a-f-]{36}\/share)/i;
 
-/** Our own Baraza links open the minutes in the app; anything else opens in the in-app browser. */
+/** Our own links open inside the app (posts, profiles, stories, barazas: live room or minutes, hashtags);
+ *  anything else opens in the in-app browser. Before, a KChat post link in a post opened its web page. */
 function openLink(raw: string) {
   const url = raw.replace(/[.,;:!?)\]]+$/, '');
-  const baraza = url.match(BARAZA_LINK);
-  if (baraza) { useBarazaStore.getState().openMinutes(baraza[1]); return; }
+  if (openInApp(url)) return;
   const full = url.startsWith('http') ? url : `https://${url}`;
   WebBrowser.openBrowserAsync(full).catch(() => Linking.openURL(full).catch(() => {}));
 }

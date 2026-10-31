@@ -174,15 +174,27 @@ app.get('/', (req, res) => {
 
 // ─── Deep link support ───────────────────────────────────────────────────────
 
-// Apple Universal Links verification file
+// Apple Universal Links verification file. iOS fetches this (through Apple's CDN, refreshed within a day or so),
+// so new paths start opening the app after a deploy with no new build: the app already has applinks:api.kiongozi.org.
+// Every path here must be routed by the app (src/utils/links.ts). Invite links (/i/*) are left out on purpose:
+// the 2.1.0 store build's built-in JS can't read them, so they go through the page, whose button opens
+// kiongozi://u/<name>?ref=<name>, which every build credits. Add '/i/*' once a store build with links.ts is out.
 app.get('/.well-known/apple-app-site-association', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
   res.json({
     applinks: {
       details: [
         {
           appIDs: ['365BL78M2N.com.kiongozi.chat'],
-          components: [{ '/': '/posts/*' }, { '/': '/u/*' }],
+          components: [
+            { '/': '/p/*' }, { '/': '/posts/*' },
+            { '/': '/@*' }, { '/': '/u/*' },
+            { '/': '/s/*' }, { '/': '/api/v1/social/stories/*/share' },
+            { '/': '/b/*' }, { '/': '/api/v1/baraza/*/share' },
+            { '/': '/t/*' },
+            { '/': '/week' },
+          ],
         },
       ],
     },
@@ -209,7 +221,7 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
   ]);
 });
 
-// Shared links: post/profile landing pages + link-preview images (routes/share.ts)
+// Shared links: landing pages for /@user, /p/, /s/, /b/, /i/, /t/, /week + link-preview images (routes/share.ts)
 app.use('/', shareRoutes);
 
 // Error handling middleware

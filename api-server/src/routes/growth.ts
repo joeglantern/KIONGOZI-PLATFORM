@@ -57,7 +57,7 @@ router.get('/invites', authenticateToken, async (req: Request, res: Response) =>
       db.from('profiles').select('id', { count: 'exact', head: true }).eq('invited_by', userId),
       db.from('profiles').select('id, username, full_name, avatar_url').eq('invited_by', userId).order('created_at', { ascending: false }).limit(12),
     ]);
-    res.json({ success: true, data: { link: `https://api.kiongozi.org/u/${username}?ref=${encodeURIComponent(username)}`, count: count || 0, recent: recent || [] } });
+    res.json({ success: true, data: { link: `https://api.kiongozi.org/i/${encodeURIComponent(username)}`, count: count || 0, recent: recent || [] } });
   } catch (e) { console.error('invites', e); res.status(500).json({ success: false, error: 'Could not load invites' }); }
 });
 

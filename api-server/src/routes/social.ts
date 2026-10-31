@@ -1031,7 +1031,7 @@ router.post('/posts/:id/share-card', authenticateToken, async (req: Request, res
     const up = await UploadService.uploadFile(card.png, 'image/png', `posts/${userId}/postcard_${p.id}_${Date.now()}.png`);
     res.json({
       success: true,
-      data: { url: up.url, storage_path: up.storagePath, width: card.width, height: card.height, share_url: `https://api.kiongozi.org/posts/${p.id}` },
+      data: { url: up.url, storage_path: up.storagePath, width: card.width, height: card.height, share_url: `https://api.kiongozi.org/p/${p.id}` },
     });
   } catch (err) {
     console.error('Post share card error:', err);

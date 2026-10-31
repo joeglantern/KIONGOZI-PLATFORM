@@ -606,33 +606,28 @@ router.delete('/stories/:id', authenticateToken, async (req: Request, res: Respo
   }
 });
 
-// GET /stories/:id/share — public link preview page (opens the app, else the store)
-const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-router.get('/stories/:id/share', async (req: Request, res: Response): Promise<void> => {
-  const store = 'https://play.google.com/store/apps/details?id=com.kiongozi.mobile';
+// GET /stories/:id/share: the old share link. The page now lives at /s/:id (routes/share.ts).
+router.get('/stories/:id/share', (req: Request, res: Response): void => {
+  res.redirect(301, `https://api.kiongozi.org/s/${encodeURIComponent(req.params.id)}`);
+});
+
+// GET /stories/:id/link: who posted a story, so a shared /s/<id> link can open their stories in the app.
+// Only the owner is returned (no media); the app then loads stories through the normal visibility rules.
+router.get('/stories/:id/link', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { data: s } = await db.from('stories')
-      .select('id, media_type, media_url, thumbnail_url, text_content, audience, expires_at, profiles:user_id(username, full_name, is_private)')
-      .eq('id', id).maybeSingle();
-    const p: any = (s as any)?.profiles;
-    const live = s && new Date((s as any).expires_at).getTime() > Date.now() && (s as any).audience === 'everyone' && !p?.is_private;
-    const name = live ? (p?.full_name || p?.username || 'Someone') : 'KChat';
-    const title = live ? `${name}'s story on KChat` : 'KChat — Kiongozi Chat';
-    const desc = live && (s as any).text_content ? String((s as any).text_content).slice(0, 140) : 'Stories, posts and conversations from young Kenyans. Open in KChat.';
-    const img = live ? ((s as any).media_type === 'image' ? (s as any).media_url : (s as any).thumbnail_url) : null;
-    const deep = `kiongozi://stories/${encodeURIComponent(id)}`;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
-${img ? `<meta property="og:image" content="${esc(img)}"><meta name="twitter:card" content="summary_large_image">` : ''}
-<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:-apple-system,system-ui,sans-serif}
-main{max-width:360px;padding:32px 24px;text-align:center}h1{font-size:22px;margin:0 0 8px}p{color:#a1a1a6;margin:0 0 24px;line-height:1.4}
-a{display:block;padding:14px;border-radius:26px;text-decoration:none;font-weight:700;margin-top:10px}.p{background:#5CB85C;color:#000}.s{border:1px solid #333;color:#fff}</style></head>
-<body><main><h1>${esc(title)}</h1><p>${esc(desc)}</p><a class="p" href="${deep}">Open in KChat</a><a class="s" href="${store}">Get KChat on Google Play</a></main>
-<script>setTimeout(function(){location.href=${JSON.stringify(deep)}},300)</script></body></html>`);
-  } catch {
-    res.redirect(store);
+    if (!/^[0-9a-f-]{36}$/i.test(id)) { res.status(404).json({ success: false, error: 'Story not found' }); return; }
+    const { data: s } = await db.from('stories').select('user_id, expires_at, profiles:user_id(username)').eq('id', id).maybeSingle();
+    if (!s) { res.status(404).json({ success: false, error: 'Story not found' }); return; }
+    if ((await blockedIds(req.user!.id)).has((s as any).user_id)) { res.status(404).json({ success: false, error: 'Story not found' }); return; }
+    res.json({ success: true, data: {
+      user_id: (s as any).user_id,
+      username: (s as any).profiles?.username || null,
+      active: new Date((s as any).expires_at).getTime() > Date.now(),
+    } });
+  } catch (err) {
+    console.error('Story link error:', err);
+    res.status(500).json({ success: false, error: 'Failed to open the story' });
   }
 });
 

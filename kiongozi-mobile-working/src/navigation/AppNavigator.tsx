@@ -54,6 +54,7 @@ import { useProfileStore } from '../stores/profileStore';
 import { ConfettiHost } from '../components/Confetti';
 import { onAppEvent } from '../utils/appEvents';
 import { ScreenErrorBoundary } from '../components/ScreenError';
+import { attachLinkRouter, detachLinkRouter } from '../utils/links';
 
 // Every screen gets its own crash card ("Try again" / "Go back") instead of taking the app down
 const screenLayout = ({ children, route, navigation }: any) => (
@@ -322,32 +323,19 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
-  const linking = {
-    prefixes: ['https://api.kiongozi.org', 'kiongozi://'],
-    config: {
-      screens: {
-        Feed: {
-          screens: {
-            PostDetail: {
-              path: 'posts/:postId',
-            },
-            PublicProfile: {
-              path: 'u/:username',
-            },
-          },
-        },
-      },
-    },
-  };
+  // Links don't use React Navigation's `linking`: stories and barazas are overlays, not screens, links that
+  // arrive signed out have to wait for sign-in, and a pushed screen keeps Home under it for Back.
+  // utils/links.ts reads every URL (https://api.kiongozi.org, kiongozi.org, kiongozi://, kchat://) and routes it.
+  useEffect(() => () => detachLinkRouter(), []);
 
   return (
     <View style={styles.root}>
       <NavigationContainer
         ref={navRef}
         theme={navTheme}
-        linking={linking}
         onReady={() => {
           storyNav.current = navRef.current as any;
+          if (navRef.current) attachLinkRouter(navRef.current as any);
           // onStateChange skips the first state, so a cold-start link (posts/:id) needs this
           if (NATIVE_TABS) setTabBarHidden(hidesTabBar(navRef.current?.getRootState()));
         }}

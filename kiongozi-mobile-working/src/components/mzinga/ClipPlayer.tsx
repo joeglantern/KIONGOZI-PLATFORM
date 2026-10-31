@@ -34,6 +34,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useFollowState, toggleFollow } from '../../stores/followSync';
 import { useMitaaStore } from '../../stores/mitaaStore';
 import { toast as appToast } from '../../utils/alert';
+import { shareLink, kchatLink } from '../../utils/links';
 
 const HONEY = '#F2B544';
 const REPOST_GREEN = '#86BD2E';
@@ -43,7 +44,7 @@ const fmt = (n: number) => { const s = (v: number, u: string) => `${v.toFixed(1)
 let soundOn = true; // remembered while the app is open
 let heartSeq = 0;
 const SPEEDS = [0.5, 1, 1.5, 2];
-export const postLink = (id: string) => `https://api.kiongozi.org/posts/${id}`;
+export const postLink = (id: string) => kchatLink.post(id);
 
 export function ClipPlayer({ standalone }: { standalone?: boolean }) {
   const body = <PlayerBody />;
@@ -418,7 +419,7 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
   };
   const share = async () => {
     try {
-      await Share.share({ message: `${post.profiles?.full_name || post.profiles?.username} on KChat`, url: postLink(post.id) });
+      await shareLink(postLink(post.id), `${post.profiles?.full_name || post.profiles?.username} on KChat`);
     } catch {}
   };
 

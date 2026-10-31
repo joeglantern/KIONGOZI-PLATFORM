@@ -31,9 +31,10 @@ import { StoryBackground, StoryText, StoryOverlays, POLL_H, FramedMedia, mediaFr
 import { MentionPill, QuestionCard, SliderCard, CountdownCard, PostSticker, stickerSize, isInteractive, QUESTION_COLORS } from './StoryStickers';
 import { PollCard, POLL_W } from './PollCard';
 import { REACTIONS, storyAge, storyNav } from './storyAssets';
+import { shareLink, kchatLink, parseLink, openInApp } from '../../utils/links';
 
-// Public preview page: opens the story in the app, or the store if it isn't installed
-const STORY_SHARE = (id: string) => `https://api.kiongozi.org/api/v1/social/stories/${id}/share`;
+// Public preview page (api.kiongozi.org/s/<id>): opens the story in the app, or the store if it isn't installed
+const STORY_SHARE = (id: string) => kchatLink.story(id);
 
 const { width: W, height: H } = Dimensions.get('window'); // first guess only (module-level sizes below)
 // The real page size, measured from the modal itself. On Android (edge-to-edge) the full-screen modal
@@ -502,7 +503,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
           <View key={`link${i}`} pointerEvents={hidden ? 'none' : 'box-none'}
             style={{ position: 'absolute', left: 0, width: W, top: cy - (LINK_H * k) / 2, alignItems: 'center', opacity: hidden ? 0 : 1, transform: [{ translateX: (o.x - 0.5) * W }, { rotate: `${o.rotation || 0}deg` }, { scale: o.scale || 1 }] }}>
             <Pressable
-              onPress={() => { if (isWeekLink(o.url)) { Haptics.selectionAsync().catch(() => {}); onClose(); setTimeout(() => emitAppEvent('openRecap'), 280); return; } setHolding(true); Linking.openURL(o.url!).catch(() => {}).finally(() => setHolding(false)); }}
+              onPress={() => { if (isWeekLink(o.url)) { Haptics.selectionAsync().catch(() => {}); onClose(); setTimeout(() => emitAppEvent('openRecap'), 280); return; } if (parseLink(o.url)) { Haptics.selectionAsync().catch(() => {}); onClose(); setTimeout(() => openInApp(o.url), 280); return; } setHolding(true); Linking.openURL(o.url!).catch(() => {}).finally(() => setHolding(false)); }}
               accessibilityRole="link" accessibilityLabel={isWeekLink(o.url) ? 'See your week' : `Open ${linkLabel(o.url!)}`}
             >
               <LinkPill url={o.url!} k={k} />
@@ -855,7 +856,7 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
   const share = async () => {
     onFocusChange(true);
     try {
-      await Share.share({ message: `Check out @${group.user.username}'s story on KChat\n${STORY_SHARE(story.id)}` });
+      await shareLink(STORY_SHARE(story.id), `Check out @${group.user.username}'s story on KChat`);
     } catch {}
     onFocusChange(focused);
   };

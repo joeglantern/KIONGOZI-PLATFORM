@@ -13,6 +13,8 @@ import { useDMStore } from '../../stores/dmStore';
 import { storyNav } from '../stories/storyAssets';
 import { WrappedStory } from '../wrapped/WrappedStory';
 import type { WeekStats } from '../wrapped/wrappedData';
+import { kchatLink } from '../../utils/links';
+import { shareImageFile } from '../../utils/shareImage';
 
 let cachedStats: { at: number; stats: WeekStats } | null = null; // the week changes slowly; reuse for 10 min
 
@@ -63,7 +65,7 @@ export function RecapSheet({ visible, onClose }: { visible: boolean; onClose: ()
       const res: any = await apiClient.createStory({
         media_type: 'image', media_url: c.url, storage_path: c.storage_path, width: c.width, height: c.height, audience: 'everyone',
         // "See your week": anyone watching taps it and their own Your Week opens (Spotify Wrapped's loop)
-        overlays: [{ type: 'link', url: 'https://api.kiongozi.org/week', x: 0.5, y: 0.885, scale: 1, rotation: -2 }],
+        overlays: [{ type: 'link', url: kchatLink.week, x: 0.5, y: 0.885, scale: 1, rotation: -2 }],
       });
       if (!res?.success) throw new Error(res?.error || 'Could not post');
       useStoryStore.getState().fetchFeed().catch(() => {});
@@ -87,7 +89,8 @@ export function RecapSheet({ visible, onClose }: { visible: boolean; onClose: ()
     try {
       const c = await makeFull();
       setBusy(null);
-      await Share.share({ url: c.url, message: `My week on KChat\n${c.url}` });
+      // The card itself as a photo (it used to send the raw storage URL); the /week link goes on the clipboard
+      await shareImageFile(c.url, `My week on KChat\n${kchatLink.week}`);
     } catch { setBusy(null); }
   };
 
