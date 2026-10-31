@@ -5,6 +5,7 @@ import { CALM_SPRING, SHEET_IN, RN_EASE_OUT } from '../../theme/motion';
 import { appAlert, toast, withUndo } from '../../utils/alert';
 import { useDMStore } from '../../stores/dmStore';
 import { enqueue } from '../../utils/outbox';
+import { emitAppEvent } from '../../utils/appEvents';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, Animated, Dimensions, TextInput,
@@ -26,7 +27,7 @@ import { setFeedPaused } from '../social/videoPlayback';
 import { prefs } from '../../stores/prefsStore';
 import { UserAvatar } from '../social/UserAvatar';
 import { VerifiedBadge } from '../social/VerifiedBadge';
-import { StoryBackground, StoryText, StoryOverlays, POLL_H, FramedMedia, mediaFrameOf, LinkPill, LINK_H, linkLabel, CLOSE_RING } from './StoryParts';
+import { StoryBackground, StoryText, StoryOverlays, POLL_H, FramedMedia, mediaFrameOf, LinkPill, LINK_H, linkLabel, CLOSE_RING, isWeekLink } from './StoryParts';
 import { MentionPill, QuestionCard, SliderCard, CountdownCard, PostSticker, stickerSize, isInteractive, QUESTION_COLORS } from './StoryStickers';
 import { PollCard, POLL_W } from './PollCard';
 import { REACTIONS, storyAge, storyNav } from './storyAssets';
@@ -501,8 +502,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
           <View key={`link${i}`} pointerEvents={hidden ? 'none' : 'box-none'}
             style={{ position: 'absolute', left: 0, width: W, top: cy - (LINK_H * k) / 2, alignItems: 'center', opacity: hidden ? 0 : 1, transform: [{ translateX: (o.x - 0.5) * W }, { rotate: `${o.rotation || 0}deg` }, { scale: o.scale || 1 }] }}>
             <Pressable
-              onPress={() => { setHolding(true); Linking.openURL(o.url!).catch(() => {}).finally(() => setHolding(false)); }}
-              accessibilityRole="link" accessibilityLabel={`Open ${linkLabel(o.url!)}`}
+              onPress={() => { if (isWeekLink(o.url)) { Haptics.selectionAsync().catch(() => {}); onClose(); setTimeout(() => emitAppEvent('openRecap'), 280); return; } setHolding(true); Linking.openURL(o.url!).catch(() => {}).finally(() => setHolding(false)); }}
+              accessibilityRole="link" accessibilityLabel={isWeekLink(o.url) ? 'See your week' : `Open ${linkLabel(o.url!)}`}
             >
               <LinkPill url={o.url!} k={k} />
             </Pressable>

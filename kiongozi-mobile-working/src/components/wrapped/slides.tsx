@@ -509,9 +509,7 @@ function Summary({ s, L, reduce, me, share }: SlideProps) {
                 {share.busy === 'more' ? <ActivityIndicator color={INK} /> : <Ionicons name="share-outline" size={22} color={INK} />}
               </Pressable>
             </View>
-            <Pressable onPress={share.toPost} disabled={!!share.busy || !s} style={{ alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 12 }} hitSlop={6} accessibilityRole="button">
-              <Text style={{ color: INK_70, fontSize: 13, fontWeight: '700' }}>{share.busy === 'post' ? 'Posting' : 'Post it to your feed instead'}</Text>
-            </Pressable>
+            <Text style={{ alignSelf: 'center', paddingVertical: 12, color: INK_70, fontSize: 13, fontWeight: '600' }} maxFontSizeMultiplier={1.2}>Friends can tap it to see their own week</Text>
           </Animated.View>
         )}
       </View>

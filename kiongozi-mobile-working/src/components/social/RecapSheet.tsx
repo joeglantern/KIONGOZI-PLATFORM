@@ -61,7 +61,9 @@ export function RecapSheet({ visible, onClose }: { visible: boolean; onClose: ()
     try {
       const c = await makeFull();
       const res: any = await apiClient.createStory({
-        media_type: 'image', media_url: c.url, storage_path: c.storage_path, width: c.width, height: c.height, overlays: [], audience: 'everyone',
+        media_type: 'image', media_url: c.url, storage_path: c.storage_path, width: c.width, height: c.height, audience: 'everyone',
+        // "See your week": anyone watching taps it and their own Your Week opens (Spotify Wrapped's loop)
+        overlays: [{ type: 'link', url: 'https://api.kiongozi.org/week', x: 0.5, y: 0.885, scale: 1, rotation: -2 }],
       });
       if (!res?.success) throw new Error(res?.error || 'Could not post');
       useStoryStore.getState().fetchFeed().catch(() => {});

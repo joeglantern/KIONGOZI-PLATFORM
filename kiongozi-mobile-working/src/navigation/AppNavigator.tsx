@@ -247,6 +247,8 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
   const [firstFeed, setFirstFeed] = useState(false);
   // Ads and links can open Kiongozi AI (kchat://ai)
   useEffect(() => onAppEvent('openAI', () => setChatVisible(true)), []);
+  // A "See your week" sticker on someone's story opens your own Your Week
+  useEffect(() => onAppEvent('openRecap', () => { try { navRef.current?.navigate('Profile', { screen: 'ProfileMain', params: { openRecap: Date.now() } }); } catch {} }), []);
   const forceUpdate = useForceUpdate();
   const internalNavRef = useRef<NavigationContainerRef<any>>(null);
   const navRef = externalNavRef ?? internalNavRef;

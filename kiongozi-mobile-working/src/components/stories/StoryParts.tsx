@@ -155,7 +155,20 @@ export function linkLabel(url: string) {
 }
 
 /** Link sticker: white pill with a link icon and the site name (same look in composer and viewer). */
+/** The link a Your Week story carries: shown as a paper "See your week" label, opens the viewer's own week */
+export const WEEK_LINK = 'https://api.kiongozi.org/week';
+export const isWeekLink = (url?: string) => !!url && url.replace(/\/+$/, '') === WEEK_LINK;
+
 export function LinkPill({ url, k }: { url: string; k: number }) {
+  if (isWeekLink(url)) {
+    return (
+      <View style={{ height: 44 * k, paddingHorizontal: 18 * k, borderRadius: 3, backgroundColor: '#1B1712', flexDirection: 'row', alignItems: 'center', gap: 8 * k,
+        shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 0, shadowOffset: { width: 3, height: 4 }, elevation: 4 }}>
+        <Text style={{ color: '#F3E9D2', fontSize: 16 * k, fontWeight: '900' }} numberOfLines={1}>See your week</Text>
+        <Ionicons name="arrow-forward" size={17 * k} color="#B5DC5C" />
+      </View>
+    );
+  }
   return (
     <View style={[styles.link, { height: 40 * k, paddingHorizontal: 14 * k, borderRadius: 20 * k, gap: 6 * k }]}>
       <Ionicons name="link" size={18 * k} color="#2F7BF6" />
