@@ -9,6 +9,7 @@ import {
 import { ExploreSkeleton, RowsSkeleton, FeedSkeleton } from '../../components/social/Skeleton';
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
 import { BarazaStrip } from '../../components/baraza/BarazaStrip';
+import { TrendCard, WatchCard } from '../../components/social/TodayCards';
 import { saveSnap, readSnap } from '../../utils/snapshot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,34 +72,6 @@ const tileStyles = StyleSheet.create({
   viewsText: { color: '#fff', fontSize: 12, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3 },
   multi: { position: 'absolute', right: 7, top: 7, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 },
 });
-
-function Mosaic({ posts, onOpen, T }: { posts: Post[]; onOpen: (p: Post) => void; T: Theme }) {
-  const { width } = useWindowDimensions();
-  const gap = 3;
-  // Row = big column + gap + right block (flex: 1). 3 columns + 2 gaps fill width − 32.
-  // The right block is laid out as two explicit 2-tile rows with flex: 1 tiles instead of
-  // a flexWrap of fixed-width tiles: 2·col + gap must equal the leftover exactly, and
-  // sub-pixel rounding (e.g. 320 → col 94, 360 → col 107.33) could push the 2nd tile onto
-  // a new line and the 4-tile grid would collapse into a clipped column.
-  const col = Math.floor((width - 32 - gap * 2) / 3);
-  const h = 112;
-  const [big, ...rest] = posts;
-  const tiles = rest.slice(0, 4);
-  const rows = [tiles.slice(0, 2), tiles.slice(2, 4)];
-  return (
-    <View style={{ flexDirection: 'row', gap, height: h * 2 + gap, marginHorizontal: 16, borderRadius: 16, overflow: 'hidden' }}>
-      <Tile post={big} T={T} onPress={() => onOpen(big)} style={{ width: col, height: h * 2 + gap }} />
-      <View style={{ flex: 1, gap }}>
-        {rows.map((row, ri) => (
-          <View key={ri} style={{ flexDirection: 'row', gap, height: h }}>
-            {row.map(p => <Tile key={p.id} post={p} T={T} onPress={() => onOpen(p)} style={{ flex: 1, height: h }} />)}
-            {row.length === 1 && <View style={{ flex: 1 }} />}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
 
 function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () => void }) {
   // Optimistic: flips to Following at once, rolls back if the server says no
@@ -250,7 +223,7 @@ export default function ExploreScreen() {
   const mosaic = useMemo(() => {
     const withMedia = explorePosts.filter(p => !p.repost_of_id && p.post_media?.length);
     const text = explorePosts.filter(p => !p.repost_of_id && !p.post_media?.length && (p.content?.length ?? 0) > 20);
-    const picked = [...withMedia, ...text].slice(0, 5);
+    const picked = [...withMedia, ...text].slice(0, 6);
     return picked.length >= 3 ? picked : [];
   }, [explorePosts]);
   const mosaicIds = useMemo(() => new Set(mosaic.map(p => p.id)), [mosaic]);
@@ -274,15 +247,26 @@ export default function ExploreScreen() {
   const openPost = (p: Post) => navigation.navigate('PostDetail', { postId: p.id });
   const openProfile = (username: string) => navigation.navigate('PublicProfile', { username });
 
-  const trends = (trending?.hashtags || []).slice(0, showAllTrends ? 10 : 3);
+  const topTrend: any = trending?.hashtags?.[0] || null;
+  const trends = (trending?.hashtags || []).slice(1, showAllTrends ? 10 : 4);
+  const topTrendPosts = useMemo(() => {
+    if (!topTrend) return [];
+    const all: any[] = [...(trending?.posts || []), ...explorePosts];
+    const tag = `#${String(topTrend.tag).toLowerCase()}`;
+    const seen = new Set<string>();
+    return all.filter(p => p?.id && !seen.has(p.id) && (seen.add(p.id), (p.content || '').toLowerCase().includes(tag))).slice(0, 3);
+  }, [topTrend, trending, explorePosts]);
 
   const DefaultHeader = (
     <View>
       <BarazaStrip />
+      {topTrend && (
+        <TrendCard tag={topTrend.tag} uses={topTrend.use_count || 0} posts={topTrendPosts} onOpen={() => runSearch(`#${topTrend.tag}`)} />
+      )}
       {trends.length > 0 && (
-        <View style={styles.block}>
-          <Text style={[styles.blockTitle, { marginBottom: 6 }]}>Trending in Kenya</Text>
-          {trends.map((h: any, i: number) => (
+        <View style={[styles.block, { marginTop: 14 }]}>
+          <Text style={[styles.blockTitle, { marginBottom: 6 }]}>More trends</Text>
+          {trends.map((h: any, i0: number) => { const i = i0 + 1; return (
             <Pressable key={h.id} onPress={() => runSearch(`#${h.tag}`)} style={({ pressed }) => [styles.trendRow, pressed && { opacity: 0.6 }]}
               accessibilityRole="button" accessibilityLabel={`Trending ${i + 1}: #${h.tag}`}>
               <Text style={styles.trendRank}>{i + 1}</Text>
@@ -292,8 +276,8 @@ export default function ExploreScreen() {
               </View>
               <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
             </Pressable>
-          ))}
-          {(trending?.hashtags?.length ?? 0) > 3 && (
+          ); })}
+          {(trending?.hashtags?.length ?? 0) > 4 && (
             <Pressable onPress={() => setShowAllTrends(v => !v)} style={styles.moreBtn} accessibilityRole="button">
               <Text style={styles.moreText}>{showAllTrends ? 'Show less' : 'Show more'}</Text>
             </Pressable>
@@ -302,10 +286,8 @@ export default function ExploreScreen() {
       )}
 
       {mosaic.length > 0 && (
-        <View style={{ marginTop: 14 }}>
-          <Text style={[styles.blockTitle, { marginHorizontal: 16 }]}>Watch & see</Text>
-          <Mosaic posts={mosaic} onOpen={openPost} T={T} />
-        </View>
+        <WatchCard count={mosaic.length} onWatch={() => navigation.navigate('Mitaa')}
+          renderTile={(i, style) => <Tile key={mosaic[i].id} post={mosaic[i]} T={T} onPress={() => openPost(mosaic[i])} style={style} />} />
       )}
 
       {people.length > 0 && (

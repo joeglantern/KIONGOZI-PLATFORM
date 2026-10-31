@@ -177,14 +177,20 @@ router.get('/live', authenticateToken, async (req: Request, res: Response): Prom
     if (!list.length) { res.json({ success: true, data: [] }); return; }
     const ids = list.map(r => r.id);
     const [{ data: here }, { data: blocks }] = await Promise.all([
-      db.from('baraza_participants').select('room_id').in('room_id', ids)
-        .eq('removed', false).is('left_at', null).gt('last_seen_at', cutoff()),
+      db.from('baraza_participants').select('room_id, user_id, joined_at').in('room_id', ids)
+        .eq('removed', false).is('left_at', null).gt('last_seen_at', cutoff()).order('joined_at', { ascending: true }),
       db.from('blocks').select('blocker_id, blocked_id').or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
     ]);
     const blocked = new Set((blocks || []).map((b: any) => (b.blocker_id === userId ? b.blocked_id : b.blocker_id)));
     const count = new Map<string, number>();
-    for (const p of here || []) count.set(p.room_id, (count.get(p.room_id) || 0) + 1);
-    const byId = await profiles(list.flatMap(r => [r.host_id, ...(r.holder_id ? [r.holder_id] : [])]));
+    // up to six faces per room, for the stools on the Explore card
+    const faces = new Map<string, string[]>();
+    for (const p of here || []) {
+      count.set(p.room_id, (count.get(p.room_id) || 0) + 1);
+      const f = faces.get(p.room_id) || [];
+      if (f.length < 6 && !blocked.has(p.user_id)) { f.push(p.user_id); faces.set(p.room_id, f); }
+    }
+    const byId = await profiles(list.flatMap(r => [r.host_id, ...(r.holder_id ? [r.holder_id] : []), ...(faces.get(r.id) || [])]));
     const out = list
       .filter(r => !blocked.has(r.host_id))
       // a room nobody is in (host vanished, sweep not run yet) is not shown
@@ -194,6 +200,7 @@ router.get('/live', authenticateToken, async (req: Request, res: Response): Prom
         host: byId.get(r.host_id) || null,
         speaker: r.holder_id ? byId.get(r.holder_id) || null : null,
         count: count.get(r.id) || 0,
+        faces: (faces.get(r.id) || []).map(id => byId.get(id)).filter(Boolean),
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 12);

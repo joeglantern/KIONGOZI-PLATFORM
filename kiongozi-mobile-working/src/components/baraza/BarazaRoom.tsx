@@ -17,6 +17,7 @@ import { Stick, BeadRing, TreeShade, PillButton, mmss } from './barazaUi';
 import { TalkingStick, HandMark, ThemeSheet, ART, PaintedStick } from './barazaArt';
 import { useBT, BarazaTheme } from './barazaTheme';
 import { BarazaMinutesView } from './BarazaMinutes';
+import { WhoSheet, applyRememberedCounty } from './WhoSheet';
 
 const SPEAKER = 132;
 const RING = 204;
@@ -408,6 +409,15 @@ function Live({ state }: { state: BarazaState }) {
   }, [room.holder_id]);
 
   const [themeOpen, setThemeOpen] = useState(false);
+  const [whoOpen, setWhoOpen] = useState(false);
+  const openWho = () => { Haptics.selectionAsync().catch(() => {}); setWhoOpen(true); };
+  // If you chose a county before, show it in this room too (once per room)
+  const sharedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!state.me?.joined || state.me.from || sharedRef.current === room.id) return;
+    sharedRef.current = room.id;
+    applyRememberedCounty(room.id).then(() => useBarazaStore.getState().refresh());
+  }, [room.id, state.me?.joined, state.me?.from]);
 
   // ── layout ──
   const top = insets.top + 70;
@@ -432,10 +442,12 @@ function Live({ state }: { state: BarazaState }) {
               <LiveIcon />
               <Text style={[styles.metaText, { color: t.danger }]}>Live</Text>
             </View>
-            <View style={[styles.metaChip, { backgroundColor: t.soft }]} accessibilityLabel={`${state.count} listening`}>
+            <Pressable onPress={openWho} hitSlop={8} style={({ pressed }) => [styles.metaChip, { backgroundColor: t.soft }, pressed && { transform: [{ scale: 0.95 }] }]}
+              accessibilityRole="button" accessibilityLabel={`${state.count} listening. See who's here`}>
               <Image source={ART.iconListen} style={styles.metaIcon} fadeDuration={0} />
               <Text style={[styles.metaText, { color: t.ink }]}>{state.count}</Text>
-            </View>
+              <Ionicons name="chevron-down" size={12} color={t.faint} />
+            </Pressable>
             <View style={[styles.metaChip, { backgroundColor: t.soft }]} accessibilityLabel="Recorded for minutes">
               <Image source={ART.iconRecorded} style={styles.metaIcon} fadeDuration={0} />
               <Text style={[styles.metaText, { color: t.sub }]}>Minutes</Text>
@@ -526,7 +538,11 @@ function Live({ state }: { state: BarazaState }) {
             </Animated.View>
           );
         })}
-        {extra > 0 && <Text style={[styles.more, { top: 92, color: t.faint }]}>+{extra} more listening</Text>}
+        {seated.length > 0 && (
+          <Pressable onPress={openWho} hitSlop={10} style={[styles.more, { top: 92 }]} accessibilityRole="button" accessibilityLabel="See who's here">
+            <Text style={{ color: t.sub, fontSize: 13, fontWeight: '700' }}>{extra > 0 ? `+${extra} more · ` : ''}See who's here</Text>
+          </Pressable>
+        )}
         {seated.length === 0 ? (
           <Animated.View entering={FadeIn.delay(400)} style={styles.emptyCrowd}>
             <HandMark size={34} />
@@ -612,6 +628,7 @@ function Live({ state }: { state: BarazaState }) {
       </View>
 
       <ThemeSheet visible={themeOpen} onClose={() => setThemeOpen(false)} />
+      <WhoSheet visible={whoOpen} onClose={() => setWhoOpen(false)} state={state} />
     </View>
   );
 }

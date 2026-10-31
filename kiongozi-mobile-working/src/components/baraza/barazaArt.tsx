@@ -26,7 +26,10 @@ export const ART = {
   iconLive: require('../../../assets/baraza/icon_live.png'),
   iconListen: require('../../../assets/baraza/icon_listen.png'),
   iconRecorded: require('../../../assets/baraza/icon_recorded.png'),
-  cover: require('../../../assets/baraza/cover.jpg'),
+  island: require('../../../assets/baraza/island.webp'),
+  cloud: require('../../../assets/baraza/cloud.png'),
+  stool: require('../../../assets/baraza/stool.png'),
+  pin: require('../../../assets/baraza/pin.png'),
 };
 
 // The stick's shake, painted then animated (Higgsfield, Kling 3.0), cut out frame by frame.
@@ -241,6 +244,36 @@ export function TalkingStick({ height, level, holderKey, t, late }: {
     </Pressable>
   );
 }
+
+/** The stick's shake loop on its own (no glow or embers), for cards and small places. */
+export function MiniStick({ height }: { height: number }) {
+  const FH = height / (SPRITE.restBottom - SPRITE.restTop);
+  const FW = FH * (SPRITE.fw / SPRITE.fh);
+  const prog = useSharedValue(0);
+  useEffect(() => {
+    prog.value = withRepeat(withSequence(
+      withTiming(0, { duration: 0 }),
+      withTiming(SPRITE.n, { duration: SPRITE.ms, easing: Easing.linear }),
+    ), -1, false);
+  }, [prog]);
+  const st = useAnimatedStyle(() => {
+    const i = Math.min(SPRITE.n - 1, Math.floor(prog.value));
+    return { transform: [{ translateX: -(i % SPRITE.cols) * FW }, { translateY: -Math.floor(i / SPRITE.cols) * FH }] };
+  });
+  return (
+    <View style={{ width: FW, height: FH, overflow: 'hidden' }} pointerEvents="none">
+      <Animated.Image source={ART.stickAnim} fadeDuration={0} style={[{ width: FW * SPRITE.cols, height: FH * SPRITE.rows }, st]} />
+    </View>
+  );
+}
+
+/** Where things sit on island.webp (fractions of its width / height): six stools and the hearth. */
+export const ISLAND = {
+  ratio: 886 / 900,
+  hearth: [0.479, 0.537] as [number, number],
+  stools: [[0.357, 0.435], [0.589, 0.435], [0.279, 0.498], [0.703, 0.498], [0.394, 0.559], [0.603, 0.559]] as [number, number][],
+  restCx: SPRITE.restCx, restTop: SPRITE.restTop, restBottom: SPRITE.restBottom, frameRatio: SPRITE.fw / SPRITE.fh,
+};
 
 /** A painted raised hand, used on the button and in the queue. */
 export function HandMark({ size = 22, wave = false }: { size?: number; wave?: boolean }) {

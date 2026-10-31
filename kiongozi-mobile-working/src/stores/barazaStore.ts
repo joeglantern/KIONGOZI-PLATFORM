@@ -19,6 +19,8 @@ export interface LiveBaraza {
   host: BarazaPerson | null;
   speaker: BarazaPerson | null;
   count: number;
+  /** up to six people in the room, for the stools on the Explore card */
+  faces?: BarazaPerson[];
 }
 
 export interface BarazaRoomRow {
@@ -40,10 +42,16 @@ export interface BarazaState {
   room: BarazaRoomRow;
   host: BarazaPerson | null;
   holder: BarazaPerson | null;
-  people: { user_id: string; role: 'host' | 'listener'; hand_raised_at: string | null; spoke: boolean; profile: BarazaPerson | null }[];
+  people: {
+    user_id: string; role: 'host' | 'listener'; hand_raised_at: string | null; spoke: boolean; profile: BarazaPerson | null;
+    /** county they chose to show, or null */
+    from?: string | null; joined_at?: string; following?: boolean;
+  }[];
+  /** counties people are listening from (only those who chose to share), biggest first */
+  places?: { county: string; n: number }[];
   queue: string[];
   count: number;
-  me: { role: 'host' | 'listener'; hand_raised_at: string | null; removed: boolean; joined: boolean } | null;
+  me: { role: 'host' | 'listener'; hand_raised_at: string | null; removed: boolean; joined: boolean; from?: string | null } | null;
   latest_seq: number;
   server_now: string;
 }

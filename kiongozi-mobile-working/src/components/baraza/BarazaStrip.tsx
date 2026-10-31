@@ -1,20 +1,22 @@
-// The way into Baraza from Explore: a living painting of a baraza under the acacia (painted, then
-// animated in Higgsfield as a seamless loop), barazas happening now, and "Start a baraza".
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Image } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+// The way into Baraza from Explore, as an App Store "Today" card: a floating 3D island with six
+// stools around the talking stick. When barazas are live, the people in the biggest one sit on the
+// stools and the frosted strip at the bottom becomes Join; the other live ones list underneath.
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, Image, useWindowDimensions } from 'react-native';
+import Animated, {
+  FadeIn, ZoomIn, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withDelay, Easing,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { VideoView, useVideoPlayer } from 'expo-video';
-import { useIsFocused } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useBarazaStore, LiveBaraza } from '../../stores/barazaStore';
+import { useBarazaStore, LiveBaraza, BarazaPerson } from '../../stores/barazaStore';
 import { UserAvatar } from '../social/UserAvatar';
-import { ART } from './barazaArt';
+import { useTheme } from '../../hooks/useTheme';
+import { ART, ISLAND, MiniStick } from './barazaArt';
 
-const LOOP = require('../../../assets/baraza/cover.mp4');
+const SEATS = 6;
 
 export function BarazaStrip() {
+  const T = useTheme();
   const live = useBarazaStore(s => s.live);
   useEffect(() => {
     const { fetchLive } = useBarazaStore.getState();
@@ -23,136 +25,209 @@ export function BarazaStrip() {
     return () => clearInterval(t);
   }, []);
 
+  const top = live[0] || null;
+  const rest = live.slice(1, 4);
+
   const start = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     useBarazaStore.getState().openStart();
   };
+  const open = (b: LiveBaraza) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    useBarazaStore.getState().open(b.id, b);
+  };
 
   return (
-    <View style={styles.card}>
-      <Pressable onPress={start} accessibilityRole="button" accessibilityLabel="Start a baraza">
-        <Cover />
-        {/* soft shade so the words read on the bright sky */}
-        <LinearGradient colors={['rgba(28,14,4,0.55)', 'rgba(28,14,4,0.15)', 'rgba(28,14,4,0)']}
-          start={{ x: 0, y: 0.2 }} end={{ x: 0.75, y: 0.7 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
-        <View style={styles.copy} pointerEvents="box-none">
-          <View style={styles.kickerRow}>
-            {live.length > 0 ? <LiveDot /> : null}
-            <Text style={styles.kicker}>{live.length ? `${live.length} GATHERING${live.length === 1 ? '' : 'S'} NOW` : 'BARAZA'}</Text>
+    <View style={{ marginBottom: 6 }}>
+      <TodayCard top={top} onPress={top ? () => open(top) : start} />
+      {rest.length > 0 && (
+        <View style={styles.more}>
+          <View style={styles.moreHead}>
+            <Text style={[styles.moreTitle, { color: T.text }]}>More barazas</Text>
+            <Pressable onPress={start} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.moreLink}>Start one</Text>
+            </Pressable>
           </View>
-          <Text style={styles.title}>Pull up a chair</Text>
-          <Text style={styles.sub}>One voice at a time. The stick decides who speaks.</Text>
-          <View style={styles.startBtn}>
-            <Ionicons name="add" size={17} color="#1A1206" />
-            <Text style={styles.startText}>Start a baraza</Text>
-          </View>
+          {rest.map((b, i) => (
+            <Pressable key={b.id} onPress={() => open(b)} accessibilityRole="button"
+              accessibilityLabel={`Join ${b.title}, ${b.count} listening`}
+              style={({ pressed }) => [styles.row, i < rest.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border }, pressed && { opacity: 0.6 }]}>
+              <View style={styles.rowArt}>
+                <Image source={ART.stool} style={{ width: 28, height: 29 }} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: T.text }]} numberOfLines={1}>{b.title}</Text>
+                <Text style={[styles.rowSub, { color: T.textSub }]} numberOfLines={1}>@{b.host?.username} · {b.count} listening</Text>
+              </View>
+              <View style={[styles.pill, { backgroundColor: T.surface2 }]}><Text style={styles.pillText}>JOIN</Text></View>
+            </Pressable>
+          ))}
         </View>
-      </Pressable>
-
-      {live.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          {live.map(b => <LiveCard key={b.id} b={b} />)}
-        </ScrollView>
       )}
     </View>
   );
 }
 
-/** The painting, alive: the still shows first, the loop fades in once it plays. */
-function Cover() {
-  const focused = useIsFocused();
-  const [ready, setReady] = useState(false);
-  const player = useVideoPlayer(LOOP, p => { p.loop = true; p.muted = true; p.play(); });
+function TodayCard({ top, onPress }: { top: LiveBaraza | null; onPress: () => void }) {
+  const { width } = useWindowDimensions();
+  const W = width - 40;
+  const H = Math.round(Math.min(452, W * 1.2));
+  const IW = Math.min(W * 0.84, 300);       // island width
+  const IH = IW * ISLAND.ratio;
+  const left = (W - IW) / 2;
+  const topY = H * 0.25;
+
+  // the island floats, clouds drift
+  const f = useSharedValue(0);
+  const c = useSharedValue(0);
   useEffect(() => {
-    const sub = player.addListener('playingChange', ({ isPlaying }) => { if (isPlaying) setReady(true); });
-    return () => sub.remove();
-  }, [player]);
-  useEffect(() => { try { if (focused) player.play(); else player.pause(); } catch {} }, [focused, player]);
+    f.value = withRepeat(withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.sin) }), -1, true);
+    c.value = withRepeat(withTiming(1, { duration: 10000, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [f, c]);
+  const float = useAnimatedStyle(() => ({ transform: [{ translateY: -4 + f.value * 8 }] }));
+  const cloudA = useAnimatedStyle(() => ({ transform: [{ translateX: c.value * 26 }] }));
+  const cloudB = useAnimatedStyle(() => ({ transform: [{ translateX: -c.value * 20 }] }));
 
-  // a slow drift so the still is alive too, before (or without) the video
-  const d = useSharedValue(0);
-  useEffect(() => { d.value = withRepeat(withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }), -1, true); }, [d]);
-  const drift = useAnimatedStyle(() => ({ transform: [{ scale: 1.06 }, { translateX: -8 + d.value * 16 }] }));
+  // the stick stands in the hearth
+  const stickH = IW * 0.27;
+  const frameH = stickH / (ISLAND.restBottom - ISLAND.restTop);
+  const frameW = frameH * ISLAND.frameRatio;
+  const hx = ISLAND.hearth[0] * IW;
+  const hy = ISLAND.hearth[1] * IH;
+  const stickLeft = hx - frameW * ISLAND.restCx;
+  const stickTop = hy - frameH * ISLAND.restBottom + 4;
+  const glow = IW * 0.22;
+
+  const faces: BarazaPerson[] = top?.faces?.length ? top.faces : top ? [top.speaker, top.host].filter(Boolean) as BarazaPerson[] : [];
+  const taken = top ? Math.min(SEATS, Math.max(faces.length, top.count)) : 0;
+  const AV = Math.max(26, IW * 0.105);
 
   return (
-    <View style={styles.cover}>
-      <Animated.Image source={ART.cover} style={[StyleSheet.absoluteFill, drift]} resizeMode="cover" fadeDuration={0} />
-      <VideoView player={player} style={[StyleSheet.absoluteFill, { opacity: ready ? 1 : 0 }]} contentFit="cover"
-        nativeControls={false} allowsFullscreen={false} allowsPictureInPicture={false} />
-    </View>
-  );
-}
+    <Pressable onPress={onPress} accessibilityRole="button"
+      accessibilityLabel={top ? `Live baraza: ${top.title}. ${top.count} listening. Join` : 'Baraza. Start a baraza'}
+      style={({ pressed }) => [styles.card, { width: W, height: H }, pressed && { transform: [{ scale: 0.98 }] }]}>
+      <LinearGradient
+        colors={top ? ['#8F86E0', '#C7A9E4', '#F9C49B', '#FFD8AE'] : ['#B9B4F0', '#DCC7EC', '#FBD3B0', '#FFE2BF']}
+        locations={[0, 0.42, 0.8, 1]} style={StyleSheet.absoluteFill} />
+      <Animated.Image source={ART.cloud} style={[{ position: 'absolute', left: -12, top: H * 0.3, width: 92, height: 53, opacity: 0.92 }, cloudA]} />
+      <Animated.Image source={ART.cloud} style={[{ position: 'absolute', right: -8, top: H * 0.22, width: 70, height: 40, opacity: 0.82 }, cloudB]} />
 
-function LiveCard({ b }: { b: LiveBaraza }) {
-  const open = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    useBarazaStore.getState().open(b.id, b);
-  };
-  const who = b.speaker || b.host;
-  return (
-    <Pressable onPress={open} style={({ pressed }) => [styles.live, pressed && { transform: [{ scale: 0.98 }] }]}
-      accessibilityRole="button" accessibilityLabel={`Join ${b.title}, hosted by ${b.host?.username}, ${b.count} listening`}>
-      <View style={styles.liveTop}>
-        <Image source={ART.iconLive} style={styles.icon} />
-        <Text style={styles.liveTag}>LIVE</Text>
-        <Image source={ART.iconListen} style={[styles.icon, { marginLeft: 'auto' }]} />
-        <Text style={styles.count}>{b.count}</Text>
-      </View>
-      <Text style={styles.liveTitle} numberOfLines={2}>{b.title}</Text>
-      <View style={styles.liveHost}>
-        <UserAvatar avatarUrl={who?.avatar_url ?? undefined} name={who?.full_name || who?.username} size={22} />
-        <Text style={styles.hostName} numberOfLines={1}>
-          {b.speaker && b.speaker.id !== b.host?.id ? `@${b.speaker.username} has the stick` : `@${b.host?.username || ''}`}
+      <Animated.View style={[{ position: 'absolute', left, top: topY, width: IW, height: IH }, float]}>
+        <View style={[styles.islandGlow, { left: IW * 0.2, right: IW * 0.2, bottom: 0, height: IH * 0.18, borderRadius: IW }]} />
+        <Image source={ART.island} style={{ width: IW, height: IH }} fadeDuration={0} />
+        <Glow size={glow} x={hx} y={stickTop + frameH * 0.06} live={!!top} />
+        <View style={{ position: 'absolute', left: stickLeft, top: stickTop }}>
+          <MiniStick height={stickH} />
+        </View>
+        {faces.slice(0, SEATS).map((p, i) => {
+          const [sx, sy] = ISLAND.stools[i];
+          return (
+            <Seat key={p.id} i={i} size={AV} x={sx * IW - AV / 2} y={sy * IH - AV * 0.95}>
+              <UserAvatar avatarUrl={p.avatar_url ?? undefined} name={p.full_name || p.username} size={AV - 5} />
+            </Seat>
+          );
+        })}
+      </Animated.View>
+
+      <View style={styles.copy} pointerEvents="none">
+        <Text style={[styles.eyebrow, { color: top ? 'rgba(255,255,255,0.88)' : 'rgba(40,24,70,0.6)' }]}>
+          {top ? 'HAPPENING NOW' : 'NEW ON KCHAT'}
+        </Text>
+        <Text style={[styles.title, { color: top ? '#FFFFFF' : '#1E1236' }, top && styles.titleShadow]} numberOfLines={2}>
+          {top ? top.title : 'Pull up a stool.\nSay your piece.'}
         </Text>
       </View>
-      <Text style={styles.join}>Join</Text>
+
+      <View style={styles.strip}>
+        {top ? (
+          <View style={{ width: 44, height: 44 }}>
+            <UserAvatar avatarUrl={(top.speaker || top.host)?.avatar_url ?? undefined} name={(top.speaker || top.host)?.full_name || (top.speaker || top.host)?.username} size={44} />
+            <View style={styles.liveBadge}><Image source={ART.iconLive} style={{ width: 14, height: 14 }} /></View>
+          </View>
+        ) : (
+          <LinearGradient colors={['#FFE1A8', '#F2A81D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.appIcon}>
+            <Image source={ART.stick} style={{ width: 12, height: 72 * 0.5, transform: [{ rotate: '-24deg' }] }} resizeMode="contain" />
+          </LinearGradient>
+        )}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.stripTitle} numberOfLines={1}>
+            {top ? `@${(top.speaker || top.host)?.username || ''} has the stick` : 'Baraza'}
+          </Text>
+          <Text style={styles.stripSub} numberOfLines={1}>
+            {top ? `${top.count} listening · ${taken} of ${SEATS} stools taken` : 'One voice at a time'}
+          </Text>
+        </View>
+        <View style={[styles.cta, top && { backgroundColor: '#007AFF' }]}>
+          <Text style={[styles.ctaText, top && { color: '#FFFFFF' }]}>{top ? 'JOIN' : 'START'}</Text>
+        </View>
+      </View>
     </Pressable>
   );
 }
 
-function LiveDot() {
-  const o = useSharedValue(1);
+function Glow({ size, x, y, live }: { size: number; x: number; y: number; live: boolean }) {
+  const g = useSharedValue(0);
   useEffect(() => {
-    o.value = withRepeat(withTiming(0.3, { duration: 900, easing: Easing.inOut(Easing.quad) }), -1, true);
-  }, [o]);
-  const st = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[styles.dot, st]} />;
+    g.value = withRepeat(withTiming(1, { duration: live ? 1600 : 2400, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [g, live]);
+  const st = useAnimatedStyle(() => ({ opacity: 0.5 + g.value * 0.5, transform: [{ scale: 0.9 + g.value * (live ? 0.4 : 0.25) }] }));
+  return (
+    <Animated.Image source={ART.glow}
+      style={[{ position: 'absolute', left: x - size / 2, top: y - size / 2, width: size, height: size, tintColor: '#FFD27A' }, st]} />
+  );
+}
+
+/** Someone sitting on a stool: pops in, then bobs gently. */
+function Seat({ i, size, x, y, children }: { i: number; size: number; x: number; y: number; children: React.ReactNode }) {
+  const b = useSharedValue(0);
+  useEffect(() => {
+    b.value = withDelay(i * 380, withRepeat(withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.sin) }), -1, true));
+  }, [b, i]);
+  const st = useAnimatedStyle(() => ({ transform: [{ translateY: -b.value * 3 }] }));
+  return (
+    <Animated.View entering={ZoomIn.delay(200 + i * 90).springify().damping(11)}
+      style={[{ position: 'absolute', left: x, top: y, width: size, height: size, borderRadius: size / 2 }, styles.seat, st]}>
+      {children}
+    </Animated.View>
+  );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 16, marginBottom: 12, borderRadius: 24, overflow: 'hidden', backgroundColor: '#FFF7EA',
-    shadowColor: '#8A4A12', shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4,
+    alignSelf: 'center', borderRadius: 22, overflow: 'hidden', marginTop: 4,
+    shadowColor: '#3A2470', shadowOpacity: 0.16, shadowRadius: 22, shadowOffset: { width: 0, height: 10 }, elevation: 5,
   },
-  cover: { height: 196, overflow: 'hidden', backgroundColor: '#F4B860' },
-  copy: { ...StyleSheet.absoluteFillObject, padding: 16, justifyContent: 'flex-end' },
-  kickerRow: { flexDirection: 'row', alignItems: 'center' },
-  kicker: { color: 'rgba(255,255,255,0.92)', fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1 },
-  title: {
-    color: '#fff', fontSize: 25, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.6, marginTop: 2,
-    textShadowColor: 'rgba(40,18,0,0.35)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 },
+  islandGlow: { position: 'absolute', backgroundColor: 'rgba(255,160,80,0.28)' },
+  copy: { position: 'absolute', left: 20, right: 20, top: 18 },
+  eyebrow: { fontSize: 13, fontWeight: '600', letterSpacing: -0.08 },
+  title: { fontSize: 28, lineHeight: 32, fontWeight: '800', letterSpacing: 0.36, marginTop: 2 },
+  titleShadow: { textShadowColor: 'rgba(60,30,110,0.28)', textShadowRadius: 12, textShadowOffset: { width: 0, height: 1 } },
+  strip: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: 76, paddingHorizontal: 16, gap: 12,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.76)', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.95)',
   },
-  sub: {
-    color: 'rgba(255,255,255,0.92)', fontSize: 13.5, marginTop: 2, maxWidth: '62%',
-    textShadowColor: 'rgba(40,18,0,0.35)', textShadowRadius: 6,
+  appIcon: { width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  liveBadge: {
+    position: 'absolute', right: -3, bottom: -3, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF',
+    alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2,
   },
-  startBtn: {
-    alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12,
-    backgroundColor: '#FFFFFF', borderRadius: 19, height: 38, paddingHorizontal: 14,
+  stripTitle: { fontSize: 15, fontWeight: '600', letterSpacing: -0.24, color: '#000000' },
+  stripSub: { fontSize: 13, letterSpacing: -0.08, color: 'rgba(60,60,67,0.7)', marginTop: 1 },
+  cta: { height: 30, borderRadius: 15, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(118,118,128,0.14)' },
+  ctaText: { fontSize: 15, fontWeight: '700', color: '#007AFF' },
+  seat: {
+    borderWidth: 2.5, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF',
+    shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, elevation: 3,
   },
-  startText: { color: '#1A1206', fontSize: 14.5, fontWeight: '800' },
-  row: { paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-  live: {
-    width: 204, borderRadius: 18, padding: 12, backgroundColor: '#FFFFFF',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(120,70,20,0.14)',
-  },
-  liveTop: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  icon: { width: 18, height: 18 },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#FF6B4A', marginRight: 6 },
-  liveTag: { color: '#E2492F', fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
-  count: { color: '#5E574F', fontSize: 12.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  liveTitle: { color: '#16130F', fontSize: 15, fontWeight: '700', marginTop: 8, lineHeight: 19, minHeight: 38 },
-  liveHost: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingRight: 34 },
-  hostName: { color: '#5E574F', fontSize: 12.5, flex: 1 },
-  join: { position: 'absolute', right: 12, bottom: 12, color: '#3FA845', fontSize: 13, fontWeight: '800' },
+  more: { marginHorizontal: 20, marginTop: 18 },
+  moreHead: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 },
+  moreTitle: { flex: 1, fontSize: 22, fontWeight: '700', letterSpacing: 0.35 },
+  moreLink: { fontSize: 17, color: '#007AFF' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  rowArt: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#E9DDF3', alignItems: 'center', justifyContent: 'center' },
+  rowTitle: { fontSize: 15, fontWeight: '600', letterSpacing: -0.24 },
+  rowSub: { fontSize: 13, marginTop: 1 },
+  pill: { height: 30, borderRadius: 15, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
+  pillText: { fontSize: 15, fontWeight: '700', color: '#007AFF' },
 });
