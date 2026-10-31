@@ -159,74 +159,88 @@ const range = (a: string, b: string) => {
   return m(da) === m(dbb) ? `${day(da)}–${day(dbb)} ${m(dbb)}` : `${day(da)} ${m(da)} – ${day(dbb)} ${m(dbb)}`;
 };
 
+/** Same persona the app shows on the "This week you were" slide (keep in sync with wrappedData.ts personaFor) */
+function personaFor(st: WeekStats) {
+  const likes = st.likes || 0, comments = st.comments || 0, stories = st.storyViews || 0;
+  if ((st.barazas ?? 0) >= 2) return { name: 'The Voice', line: 'When the stools came out, you spoke up. People pulled up to hear what you had to say.' };
+  if (comments > likes * 0.4 && comments >= 5) return { name: 'The Connector', line: 'You start conversations. People did not just like your posts, they replied, and that is rarer.' };
+  if (likes >= 20) return { name: 'The Crowd Favourite', line: 'People kept coming back to tap the heart on what you shared. You gave them something worth it.' };
+  if (stories >= likes && stories >= 10) return { name: 'The Storyteller', line: 'Your stories pulled people in. They kept watching to see what you would share next.' };
+  if ((st.activeDays || 0) >= 5) return { name: 'The Regular', line: 'You showed up day after day. That is how a place starts to feel like home.' };
+  return { name: 'The Newcomer', line: 'A quiet week, and that is fine. Pull up a stool and say your piece this week.' };
+}
+
+// Cut-paper look, matching the app's "Your week" summary card: cream table, a torn violet sheet,
+// cut-paper trophy, coloured paper tiles, one coral brush stroke. Pieces live in assets/recap as pp_*.
+const P_INK = '#1B1712', P_CREAM = '#F3E9D2', P_CORAL = '#F2643D', P_LIME = '#B5DC5C', P_AMBER = '#EFA51E', P_PINK = '#F4A3B4';
+
 export async function renderRecap(s: WeekStats, user: { username: string; name: string }, previewWidth?: number) {
   const { orb } = cardAssets();
   const A = arts();
-  // Hero number: the most flattering of likes / views / comments
-  const hero = s.likes >= s.storyViews && s.likes >= s.comments
-    ? { n: s.likes, label: 'likes on your posts' }
-    : s.storyViews >= s.comments ? { n: s.storyViews, label: 'views on your stories' } : { n: s.comments, label: 'replies to your posts' };
-
+  const p = personaFor(s);
   const abs = (x: number, y: number, extra: Record<string, any> = {}) => ({ position: 'absolute', left: x, top: y, display: 'flex', ...extra });
+  const pl = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  const tiles = [
+    { v: s.likes, n: fmt(s.likes), l: pl(s.likes, 'like', 'likes') },
+    { v: s.followers, n: `+${fmt(s.followers)}`, l: pl(s.followers, 'follower', 'followers') },
+    { v: s.postViews || 0, n: fmt(s.postViews || 0), l: pl(s.postViews || 0, 'view', 'views') },
+    { v: s.comments, n: fmt(s.comments), l: pl(s.comments, 'reply', 'replies') },
+    { v: s.barazas || 0, n: fmt(s.barazas || 0), l: pl(s.barazas || 0, 'baraza', 'barazas') },
+    { v: s.activeDays, n: `${s.activeDays}/7`, l: 'days active' },
+    { v: s.storyViews, n: fmt(s.storyViews), l: pl(s.storyViews, 'story view', 'story views') },
+  ].filter(t => t.v > 0).slice(0, 4);
+  const TILE = [P_CORAL, P_LIME, P_AMBER, P_PINK];
+  const cardX = 70, cardY = 540, cardW = 940, cardH = 1170;
+  const tileW = (cardW - 120 - 28) / 2, tileH = 190;
+  const words = p.name.split(' ');
+  const nameLines = words.length > 1 ? [words[0], words.slice(1).join(' ')] : [p.name];
+  const tilesTop = 420;
+  const lineTop = tilesTop + (tiles.length > 2 ? 2 : tiles.length ? 1 : 0) * (tileH + 28) + 36;
+  const weekOf = new Date(s.since).toLocaleString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Africa/Nairobi' });
 
-  // Torn-paper sticker with a painted number and a marker label
-  const SW = 440, SH = 250;
-  const sticker = (paper: string, x: number, y: number, rot: number, value: string, label: string, icon?: string) =>
-    h('div', abs(x, y, { width: SW, height: SH, transform: `rotate(${rot}deg)` }),
-      img(A[`paper_${paper}`], SW, SH, { position: 'absolute', left: 0, top: 0 }),
-      h('div', { position: 'absolute', left: 0, top: 0, width: SW, height: SH, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '20px 40px 26px' },
-        h('div', { display: 'flex', alignItems: 'center' },
-          painted(value, 104, INK),
-          ...(icon ? [img(A[icon], 74, Math.round(74 * A[icon].h / A[icon].w), { marginLeft: 10 })] : []),
-        ),
-        h('div', { fontFamily: 'Marker', fontSize: 34, color: INK, marginTop: 6 }, label),
-      ),
-    );
-
-  const top = s.topPost ? excerpt(s.topPost.content, 110) : null;
-  const titleW = 780, titleH = Math.round(titleW * A.title.h / A.title.w);
-  const heroH = 220;
-  const titleTop = 150;
-  const heroTop = titleTop + titleH + 78;
-
-  const tree = h('div', { width: W, height: H, display: 'flex', position: 'relative', backgroundColor: '#15181F', fontFamily: 'Grotesk' },
-    img(A.wall, W, H, { position: 'absolute', left: 0, top: 0, objectFit: 'cover' }),
+  const tree = h('div', { width: W, height: H, display: 'flex', position: 'relative', backgroundColor: P_CREAM, fontFamily: 'Grotesk' },
+    img(A.pp_grain, W, H, { position: 'absolute', left: 0, top: 0, objectFit: 'cover', opacity: 0.9 }),
     // brand + dates
     h('div', abs(80, 92, { width: W - 160, alignItems: 'center' }),
-      { type: 'img', props: { src: orb, width: 52, height: 52, style: { width: 52, height: 52, borderRadius: 26 } } },
-      h('div', { fontSize: 32, fontWeight: 700, color: CREAM, marginLeft: 14 }, 'KChat'),
-      h('div', { fontFamily: 'Marker', fontSize: 34, color: CREAM, marginLeft: 'auto' }, range(s.since, s.until)),
+      { type: 'img', props: { src: orb, width: 56, height: 56, style: { width: 56, height: 56, borderRadius: 28 } } },
+      h('div', { fontSize: 34, fontWeight: 700, color: P_INK, marginLeft: 16 }, 'KChat'),
+      h('div', { fontSize: 32, fontWeight: 700, color: P_INK, marginLeft: 'auto', opacity: 0.7 }, range(s.since, s.until)),
     ),
-    // sprayed title + whose week
-    h('div', abs((W - titleW) / 2, titleTop, { transform: 'rotate(-3deg)' }), img(A.title, titleW, titleH)),
-    h('div', abs(0, titleTop + titleH + 4, { width: W, justifyContent: 'center' }),
-      h('div', { fontFamily: 'Marker', fontSize: 42, color: CREAM }, `@${user.username}’s week`),
+    // title with one brush stroke under "week"
+    h('div', abs(80, 190, { flexDirection: 'column' }),
+      h('div', { fontSize: 150, fontWeight: 700, color: P_INK, letterSpacing: -6, lineHeight: 1 }, 'Your week'),
+      h('div', { fontSize: 40, fontWeight: 700, color: P_INK, opacity: 0.72, marginTop: 64 }, `@${user.username} · week of ${weekOf}`),
     ),
-    // hero number
-    h('div', abs(0, heroTop, { width: W, justifyContent: 'center' }), painted(fmt(hero.n), heroH)),
-    h('div', abs(0, heroTop + heroH + 6, { width: W, flexDirection: 'column', alignItems: 'center', transform: 'rotate(-2deg)' }),
-      h('div', { fontFamily: 'Marker', fontSize: 50, color: GOLD }, hero.label),
-      img(A.swoosh, 300, Math.round(300 * A.swoosh.h / A.swoosh.w), { marginTop: -24 }),
-    ),
-    // stickers
-    sticker('cream', 74, 990, -3, fmt(s.posts), s.posts === 1 ? 'post' : 'posts'),
-    sticker('yellow', 566, 980, 2.5, `+${fmt(s.followers)}`, 'new followers'),
-    sticker('green', 82, 1255, 2, `${s.activeDays}/7`, 'days active'),
-    s.streak > 1
-      ? sticker('cream', 560, 1250, -2, String(s.streak), 'day streak', 'flame')
-      : sticker('cream', 560, 1250, -2, fmt(s.comments), s.comments === 1 ? 'reply' : 'replies', 'heart'),
-    // top post on paper
-    ...(top ? [h('div', abs(90, 1540, { width: W - 180, height: 230, transform: 'rotate(-1deg)' }),
-      img(A.paper_cream, W - 180, 230, { position: 'absolute', left: 0, top: 0 }),
-      h('div', { position: 'absolute', left: 0, top: 0, width: W - 180, height: 230, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px 48px' },
-        h('div', { fontFamily: 'Marker', fontSize: 28, color: '#D9483B' }, `Top post · ${fmt(s.topPost!.likes)} likes`),
-        h('div', { fontSize: 32, fontWeight: 500, color: INK, lineHeight: 1.3, marginTop: 8 }, top),
+    img(A.pp_underline, 400, 52, { position: 'absolute', left: 476, top: 338, transform: 'rotate(-2deg)' }),
+    // the torn violet sheet: its shadow, then the sheet
+    img(A.pp_patch_shadow, cardW, cardH, { position: 'absolute', left: cardX + 16, top: cardY + 22, transform: 'rotate(-2deg)' }),
+    h('div', abs(cardX, cardY, { width: cardW, height: cardH, transform: 'rotate(-2deg)' }),
+      img(A.pp_patch_violet, cardW, cardH, { position: 'absolute', left: 0, top: 0 }),
+      img(A.pp_trophy, 290, Math.round(290 * A.pp_trophy.h / A.pp_trophy.w), { position: 'absolute', right: 34, top: 36, transform: 'rotate(8deg)' }),
+      h('div', abs(70, 86, { flexDirection: 'column' }),
+        h('div', { fontSize: 30, fontWeight: 700, color: '#FFFFFF', opacity: 0.86, letterSpacing: 2 }, 'THIS WEEK YOU WERE'),
+        ...nameLines.map(t => h('div', { fontSize: 112, fontWeight: 700, color: '#FFFFFF', letterSpacing: -4, lineHeight: 1.02 }, t)),
       ),
-    )] : []),
+      h('div', abs(60, tilesTop, { width: cardW - 120, flexWrap: 'wrap', gap: 28 }),
+        ...tiles.map((t, i) => h('div', { display: 'flex', position: 'relative', width: tileW, height: tileH, transform: `rotate(${i % 2 ? 2 : -2}deg)` },
+          h('div', { position: 'absolute', left: 8, top: 10, width: tileW, height: tileH, backgroundColor: 'rgba(27,23,18,0.25)', borderRadius: 6 }),
+          h('div', { position: 'absolute', left: 0, top: 0, width: tileW, height: tileH, backgroundColor: TILE[i], borderRadius: 6, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 34px' },
+            h('div', { fontSize: 92, fontWeight: 700, color: P_INK, letterSpacing: -3, lineHeight: 1 }, t.n),
+            h('div', { fontSize: 32, fontWeight: 700, color: P_INK, marginTop: 6 }, t.l),
+          ),
+        )),
+      ),
+      h('div', abs(70, lineTop, { width: cardW - 140, fontSize: 36, fontWeight: 700, color: '#FFFFFF', lineHeight: 1.3 }), p.line),
+      ...(s.topTag || s.bestDay ? [h('div', abs(70, cardH - 104, { width: cardW - 140, fontSize: 32, fontWeight: 500, color: '#FFFFFF' }),
+        ...(s.topTag ? [h('div', { display: 'flex' }, 'Top topic', h('div', { color: P_LIME, fontWeight: 700, marginLeft: 10 }, `#${s.topTag.replace(/^#/, '')}`))] : []),
+        ...(s.topTag && s.bestDay ? [h('div', { marginLeft: 18, marginRight: 18 }, '·')] : []),
+        ...(s.bestDay ? [h('div', { display: 'flex' }, 'Best day', h('div', { color: P_AMBER, fontWeight: 700, marginLeft: 10 }, s.bestDay))] : []),
+      )] : []),
+    ),
     // footer
-    h('div', abs(0, H - 112, { width: W, justifyContent: 'center', alignItems: 'center' }),
-      h('div', { fontFamily: 'Marker', fontSize: 36, color: CREAM }, 'Get your recap on KChat'),
-      img(A.arrow, 86, Math.round(86 * A.arrow.h / A.arrow.w), { marginLeft: 14 }),
+    h('div', abs(0, H - 150, { width: W, justifyContent: 'center', alignItems: 'center' }),
+      h('div', { fontSize: 40, fontWeight: 700, color: P_INK }, 'Get your week on KChat'),
+      img(A.pp_arrow, 90, Math.round(90 * A.pp_arrow.h / A.pp_arrow.w), { marginLeft: 18 }),
     ),
   );
   return renderTree(tree, W, H, previewWidth);
