@@ -29,8 +29,8 @@ export const PEACH = '#FFD9A8';
 export type SlideId = 'intro' | 'likes' | 'top' | 'followers' | 'fan' | 'streak' | 'baraza' | 'thing' | 'persona' | 'summary';
 
 export const SLIDE_BG: Record<SlideId, string> = {
-  intro: INK, likes: CORAL, top: VIOLET, followers: LIME, fan: TEAL,
-  streak: AMBER, baraza: CREAM, thing: PINK, persona: VIOLET, summary: CREAM,
+  intro: '#16110E', likes: CORAL, top: VIOLET, followers: LIME, fan: TEAL,
+  streak: AMBER, baraza: CREAM, thing: PINK, persona: '#5336A4', summary: CREAM,
 };
 
 /** Slides with light backgrounds take ink text and ink progress bars */

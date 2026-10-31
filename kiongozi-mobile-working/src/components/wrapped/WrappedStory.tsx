@@ -188,9 +188,8 @@ function StoryBody({ onClose, stats, status, onRetry, me, share, onOpenPost, onT
         {/* video backgrounds for this slide and the next (warmed up, still hidden) */}
         {mounted.map(id => {
           const v = VIDEO_SLIDES[id];
-          // the paper videos are 9:16: keep them whole (never zoomed) and let the slide colour fill the rest
-          const vh = W * 16 / 9;
-          const box = { position: 'absolute' as const, left: 0, width: W, height: vh, top: id === 'persona' ? 0 : Math.max(0, (H - vh) / 2) };
+          // the paper videos are made at 9:19.5 with plain paper padding, so "cover" never crops the art
+          const box = StyleSheet.absoluteFill;
           return v ? <VideoLayer key={`v-${id}`} src={v.src} poster={v.poster} active={id === cur} playing={id === cur && !paused} box={box} /> : null;
         })}
 
