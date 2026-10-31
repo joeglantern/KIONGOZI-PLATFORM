@@ -11,7 +11,7 @@ const GROUPABLE: Partial<Record<string, string>> = {
 
 interface NotifyParams {
   userId: string;   // recipient
-  type: 'like' | 'repost' | 'comment' | 'follow' | 'follow_request' | 'mention' | 'dm';
+  type: 'like' | 'repost' | 'comment' | 'follow' | 'follow_request' | 'mention' | 'dm' | 'baraza_live';
   title: string;
   message: string;
   data?: Record<string, any>;
