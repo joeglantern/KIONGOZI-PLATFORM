@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBarazaStore } from '../../stores/barazaStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 import apiClient from '../../utils/apiClient';
 import { audioAvailable } from './barazaAudio';
 import { ART, MiniStick, PaintedStick } from './barazaArt';
@@ -138,7 +139,7 @@ export function StartFlow() {
             <ScrollView contentContainerStyle={styles.body}>
               <Text style={[styles.h1, { color: t.ink }]}>Here's how people will see it</Text>
               <PreviewCard title={clean} />
-              <View style={{ gap: 14, marginTop: 22 }}>
+              <View style={{ gap: 12, marginTop: 20, marginBottom: 12 }}>
                 <Fact n="1" t={t} bold="You hold the stick first." rest="Pass it when you're done." />
                 <Fact n="2" t={t} bold="Turns are 2 minutes." rest="Change it any time from the room." />
                 <Fact n="rec" t={t} bold="It's recorded for minutes." rest="Everyone sees this before joining, and you choose whether to post them." />
@@ -178,7 +179,9 @@ function Fact({ n, bold, rest, t }: { n: string; bold: string; rest: string; t: 
 /** The Explore "Happening now" card with their own title, so they know exactly what they're putting out */
 function PreviewCard({ title }: { title: string }) {
   const { width } = useWindowDimensions();
-  const me = useAuthStore(s => s.user) as any;
+  const user = useAuthStore(s => s.user) as any;
+  const prof = useProfileStore(s => s.currentUserProfile) as any;
+  const me = { avatar_url: prof?.avatar_url || user?.avatar_url, full_name: prof?.full_name || user?.full_name, username: prof?.username || user?.username };
   const W = width - 48;
   return (
     <View style={[styles.card, { width: W }]}>
@@ -187,7 +190,7 @@ function PreviewCard({ title }: { title: string }) {
         <Text style={styles.cardKicker}>HAPPENING NOW</Text>
         <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
       </View>
-      <Image source={ART.island} style={{ width: W, height: W * 0.62, marginTop: -6 }} resizeMode="cover" fadeDuration={0} />
+      <Image source={ART.island} style={{ width: W, height: W * 0.5, marginTop: 8 }} resizeMode="contain" fadeDuration={0} />
       <View style={styles.cardStrip}>
         <UserAvatar avatarUrl={me?.avatar_url || me?.user_metadata?.avatar_url} size={34} name={me?.full_name || me?.username} />
         <View style={{ flex: 1 }}>
@@ -250,7 +253,7 @@ function Countdown({ title, busy, onCancel }: { title: string; busy: boolean; on
     <Animated.View entering={FadeIn.duration(220)} style={[StyleSheet.absoluteFill, { alignItems: 'center' }]}>
       <Text style={[styles.countLead, { color: t.sub, marginTop: insets.top + 90 }]}>{handed ? 'The stick is yours' : "Get comfortable. You're first."}</Text>
       <View style={styles.countStage}>
-        <Image source={ART.empty} style={{ position: 'absolute', width: 300, height: 300 * 512 / 720, top: 150, opacity: 0.9 }} resizeMode="contain" fadeDuration={0} />
+        <Image source={ART.empty} style={{ position: 'absolute', width: 230, height: 230 * 512 / 720, top: 232, opacity: 0.9 }} resizeMode="contain" fadeDuration={0} />
         {!handed ? (
           <>
             {/* a ring of beads that go out one by one, clockwise from the top */}
@@ -312,7 +315,7 @@ const styles = StyleSheet.create({
   cardStrip: { backgroundColor: '#FFF8EE', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
   join: { backgroundColor: '#0A84FF', borderRadius: 15, paddingHorizontal: 14, height: 30, justifyContent: 'center' },
   countLead: { fontSize: 15, fontWeight: '700' },
-  countStage: { width: 300, height: 330, alignItems: 'center', marginTop: 40 },
+  countStage: { width: 300, height: 410, alignItems: 'center', marginTop: 34 },
   countNum: { position: 'absolute', top: 18, fontSize: 140, lineHeight: 160, fontWeight: '900', letterSpacing: -6, includeFontPadding: false },
   countTitle: { fontSize: 20, lineHeight: 26, fontWeight: '800', textAlign: 'center', paddingHorizontal: 32, marginTop: 6 },
 });
