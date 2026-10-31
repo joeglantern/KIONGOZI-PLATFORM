@@ -14,12 +14,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useProfileStore } from '../../stores/profileStore';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+import { normaliseLink, LINK_MAX } from '../../utils/profileLink';
 
 const COVER_HEIGHT = 150;
 const AVATAR_SIZE = 84;
@@ -36,6 +37,17 @@ export default function EditProfileScreen() {
   const [bio, setBio] = useState('');
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
+  const [link, setLink] = useState('');
+  const [linkTouched, setLinkTouched] = useState(false);
+  // Opened from "Finish your profile": straight into that field
+  const focus = (useRoute<any>().params as any)?.focus as 'bio' | 'link' | undefined;
+  const bioRef = useRef<TextInput>(null);
+  const linkRef = useRef<TextInput>(null);
+  useEffect(() => {
+    if (!focus) return;
+    const t = setTimeout(() => (focus === 'link' ? linkRef : bioRef).current?.focus(), 350);
+    return () => clearTimeout(t);
+  }, [focus]);
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [bannerUri, setBannerUri] = useState<string | null>(null);
@@ -53,6 +65,7 @@ export default function EditProfileScreen() {
       setUsername(currentUserProfile.username || '');
       originalUsername.current = currentUserProfile.username || '';
       setBio(currentUserProfile.bio || '');
+      setLink(currentUserProfile.website || '');
     }
   }, [currentUserProfile]);
 
@@ -109,6 +122,14 @@ export default function EditProfileScreen() {
       return;
     }
 
+    const website = normaliseLink(link);
+    if (website === null) {
+      setLinkTouched(true);
+      linkRef.current?.focus();
+      return;
+    }
+    const linkChanged = (website || null) !== (currentUserProfile?.website || null);
+
     if (saving) return;
     setSaving(true);
 
@@ -117,11 +138,13 @@ export default function EditProfileScreen() {
     const before = currentUserProfile ? {
       full_name: currentUserProfile.full_name, username: currentUserProfile.username, bio: currentUserProfile.bio,
       avatar_url: currentUserProfile.avatar_url, banner_url: currentUserProfile.banner_url,
+      website: currentUserProfile.website ?? null,
     } : null;
     updateCurrentUserProfile({
       full_name: fullName,
       username,
       bio,
+      website: website || null,
       ...(avatarUri ? { avatar_url: avatarUri } : {}),
       ...(bannerUri ? { banner_url: bannerUri } : {}),
     });
@@ -131,6 +154,7 @@ export default function EditProfileScreen() {
     if (bio !== undefined) formData.append('bio', bio);
     if (username) formData.append('username', username);
     if (fullName) formData.append('full_name', fullName);
+    if (linkChanged) formData.append('website', website || '');
     if (avatarUri) {
       formData.append('avatar', { uri: avatarUri, type: 'image/jpeg', name: 'avatar.jpg' } as any);
     }
@@ -144,6 +168,7 @@ export default function EditProfileScreen() {
         updateCurrentUserProfile({
           ...(res.data?.avatar_url ? { avatar_url: res.data.avatar_url } : {}),
           ...(res.data?.banner_url ? { banner_url: res.data.banner_url } : {}),
+          ...(res.data && 'website' in res.data ? { website: res.data.website } : {}),
         });
         return;
       }
@@ -160,6 +185,7 @@ export default function EditProfileScreen() {
 
   const avatarUrl = avatarUri ?? currentUserProfile?.avatar_url;
   const usernameBad = usernameStatus === 'taken' || usernameStatus === 'reserved';
+  const linkBad = linkTouched && normaliseLink(link) === null;
 
   return (
     <View style={styles.container}>
@@ -282,6 +308,7 @@ export default function EditProfileScreen() {
 
             <Field label="Bio" counter={`${bio.length}/${BIO_MAX}`}>
               <TextInput
+                ref={bioRef}
                 style={[styles.input, styles.bioInput]}
                 value={bio}
                 onChangeText={setBio}
@@ -291,6 +318,33 @@ export default function EditProfileScreen() {
                 placeholderTextColor={T.placeholder}
                 selectionColor={T.accent}
               />
+            </Field>
+
+            <Field
+              label="Link"
+              counter={`${link.length}/${LINK_MAX}`}
+              error={linkBad ? "That doesn't look like a link. Try something like kiongozi.org" : undefined}
+              hint="Your shop, YouTube or anything you want people to see."
+            >
+              <View style={styles.usernameRow}>
+                <Ionicons name="link" size={16} color={T.textMuted} style={styles.linkIcon} />
+                <TextInput
+                  ref={linkRef}
+                  style={[styles.input, { flex: 1 }]}
+                  value={link}
+                  onChangeText={t => { setLink(t.replace(/\s/g, '')); if (linkTouched && normaliseLink(t) !== null) setLinkTouched(false); }}
+                  onBlur={() => setLinkTouched(true)}
+                  placeholder="yourshop.co.ke"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  textContentType="URL"
+                  maxLength={LINK_MAX}
+                  returnKeyType="done"
+                  placeholderTextColor={T.placeholder}
+                  selectionColor={T.accent}
+                />
+              </View>
             </Field>
           </View>
         </ScrollView>
@@ -415,5 +469,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     usernameRow: { flexDirection: 'row', alignItems: 'center' },
     at: { fontSize: 16, color: T.textMuted, marginRight: 1, paddingTop: 6, paddingBottom: 10 },
     usernameIcon: { width: 24, alignItems: 'flex-end' },
+    linkIcon: { marginRight: 8, paddingTop: 2 },
   });
 }

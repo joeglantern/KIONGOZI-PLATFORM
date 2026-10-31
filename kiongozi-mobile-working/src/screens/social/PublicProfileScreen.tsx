@@ -27,6 +27,7 @@ import { BottomSheet } from '../../components/social/BottomSheet';
 import { QRCardSheet } from '../../components/social/QRCardSheet';
 import { useProfileExtraTabs, ExtraTabRow, isExtraTab, EXTRA_EMPTY } from '../../components/social/ProfileExtraTabs';
 import { shareLink, kchatLink } from '../../utils/links';
+import { usePinnedPost, hidePinned } from '../../stores/pinSync';
 
 type Tab = 'posts' | 'replies' | 'mitaa' | 'barazas';
 const TABS: { key: Tab; label: string }[] = [
@@ -145,8 +146,17 @@ export default function PublicProfileScreen() {
   }, [username, postsCursor, postsLoadingMore]);
 
   const handleDeletePost = useCallback((postId: string) => {
-    deletePostWithUndo(postId, { hide: () => hideFromList(setPosts as any, postId) });
-  }, []);
+    deletePostWithUndo(postId, {
+      hide: () => {
+        const back = hideFromList(setPosts as any, postId);
+        const unpin = hidePinned(user?.id, postId);
+        return () => { back(); unpin(); };
+      },
+    });
+  }, [user?.id]);
+
+  // Their pinned post leads the Posts tab (what you pin yourself shows here at once too)
+  const pinnedPost = usePinnedPost(profile?.id, profile ? { id: profile.pinned_post_id, post: profile.pinned_post } : null, posts);
 
   const handleEditPress = useCallback((postId: string, content: string, visibility: 'public' | 'followers') => {
     setEditTarget({ id: postId, content, visibility });
@@ -353,9 +363,12 @@ export default function PublicProfileScreen() {
   const isPending = followState.status === 'requested';
   const isLocked = !!(profile?.is_private && !isFollowingNow && !isOwnProfile);
   const onExtraTab = isExtraTab(activeTab);
+  const pinnedShown = !isLocked && !onExtraTab && pinnedPost && isShowable(pinnedPost) ? pinnedPost : null;
   const listData = isLocked ? [] : onExtraTab
     ? extra.data.filter((i: any) => i.__kind || isShowable(i))
-    : posts.filter(isShowable);
+    : pinnedShown
+      ? [pinnedShown, ...posts.filter((p: any) => p.id !== pinnedShown.id && isShowable(p))]
+      : posts.filter(isShowable);
   // What the header shows: the fetched profile with the live follow state and count laid over it
   const shownProfile = profile ? {
     ...profile,
@@ -436,6 +449,7 @@ export default function PublicProfileScreen() {
         ) : (
           <PostCard
             post={item}
+            pinned={!!pinnedShown && item.id === pinnedShown.id}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
             onProfilePress={(u) => navigation.navigate('PublicProfile', { username: u })}
             currentUserId={user?.id}
@@ -492,7 +506,10 @@ export default function PublicProfileScreen() {
           postId={editTarget.id}
           initialContent={editTarget.content}
           initialVisibility={editTarget.visibility}
-          onSaved={(content, visibility) => setPosts(prev => prev.map(p => (p.id === editTarget.id ? { ...p, content, visibility } : p)))}
+          onSaved={(content, visibility) => {
+            setPosts(prev => prev.map(p => (p.id === editTarget.id ? { ...p, content, visibility } : p)));
+            setProfile((prev: any) => (prev?.pinned_post?.id === editTarget.id ? { ...prev, pinned_post: { ...prev.pinned_post, content, visibility } } : prev));
+          }}
           onClose={() => setEditTarget(null)}
         />
       )}

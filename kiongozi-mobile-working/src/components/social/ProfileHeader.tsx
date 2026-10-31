@@ -20,6 +20,7 @@ import { ProfileStoryAvatar } from '../stories/ProfileStoryAvatar';
 import { UserAvatar } from './UserAvatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { useTheme, AppTheme } from '../../hooks/useTheme';
+import { displayLink, openProfileLink } from '../../utils/profileLink';
 
 export const COVER_HEIGHT = 210;
 const RING = 4;
@@ -72,6 +73,8 @@ export interface ProfileHeaderProfile {
   created_at?: string;
   county?: string | null;
   location?: string | null;
+  /** Link in bio */
+  website?: string | null;
 }
 
 export interface Mutuals {
@@ -286,6 +289,18 @@ export function ProfileHeader(props: HeaderProps) {
           {profile.is_private && <Ionicons name="lock-closed" size={13} color={T.textSub} />}
         </View>
         {!!profile.bio && <Text style={s.bio}>{profile.bio}</Text>}
+        {!!profile.website && (
+          <Pressable
+            onPress={() => openProfileLink(profile.website!)}
+            hitSlop={6}
+            style={({ pressed }) => [s.linkRow, { marginTop: profile.bio ? 8 : 12 }, pressed && s.pressed]}
+            accessibilityRole="link"
+            accessibilityLabel={`Link: ${displayLink(profile.website, 100)}`}
+          >
+            <Ionicons name="link" size={16} color={T.textSub} />
+            <Text style={s.linkText} numberOfLines={1} maxFontSizeMultiplier={1.3}>{displayLink(profile.website)}</Text>
+          </Pressable>
+        )}
 
         {(!!place || !!joined) && (
           <View style={s.metaRow}>
@@ -553,6 +568,8 @@ function makeStyles(T: AppTheme) {
     handleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
     handle: { fontSize: 15, color: T.textSub, flexShrink: 1 },
     bio: { fontSize: 15, lineHeight: 21, color: T.text, marginTop: 12 },
+    linkRow: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', maxWidth: '100%' },
+    linkText: { fontSize: 15, fontWeight: '500', color: '#1D9BF0', flexShrink: 1 },
 
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4, marginTop: 10 },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },

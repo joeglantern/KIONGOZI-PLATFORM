@@ -24,6 +24,7 @@ import { RepostLoop, RollingCount } from './RepostLoop';
 import { useStoryStore } from '../../stores/storyStore';
 import { sharePostAsImage } from './CardImageSheet';
 import { shareLink, kchatLink } from '../../utils/links';
+import { canPin, usePinnedId, togglePin } from '../../stores/pinSync';
 import { PollBlock } from './PollBlock';
 
 const fmtCount = (n: number) =>
@@ -151,6 +152,8 @@ interface PostCardProps {
   onReportPress?: (postId: string) => void;
   /** 'detail' = the focused post on the thread screen: the screen's own meta line shows time and views. */
   variant?: 'default' | 'detail';
+  /** Shown first on a profile: a small grey "Pinned" row above it */
+  pinned?: boolean;
 }
 
 function SmartImage({ url, onPress, w, h, placeholder, alt }: { url: string; onPress: () => void; w?: number; h?: number; placeholder?: string | null; alt?: string | null }) {
@@ -265,6 +268,7 @@ export function PostCard({
   onEditPress,
   onReportPress,
   variant = 'default',
+  pinned = false,
 }: PostCardProps) {
   const { seedInteraction, postInteractions, deletePost } = useSocialStore();
   const T = useTheme();
@@ -445,6 +449,8 @@ export function PostCard({
   }, [activePost.id, pop, bookmarkScale]);
 
   const isOwnPost = !!(currentUserId && currentUserId === activePost.user_id);
+  const pinnable = isOwnPost && canPin(activePost, currentUserId);
+  const isPinnedNow = usePinnedId(currentUserId) === activePost.id;
 
   const handleOptions = useCallback(() => {
     setOptionsSheetOpen(true);
@@ -537,6 +543,13 @@ export function PostCard({
 
         {/* Right column */}
         <View style={styles.right}>
+          {pinned && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }} accessibilityLabel="Pinned post">
+              <Ionicons name="pin" size={13} color={T.textMuted} />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: T.textMuted }} maxFontSizeMultiplier={1.3}>Pinned</Text>
+            </View>
+          )}
+
           {/* "X reposted" banner */}
           {isRepost && (
             <TouchableOpacity
@@ -582,7 +595,7 @@ export function PostCard({
                   ? (activePost.profiles?.username ? `@${activePost.profiles.username}` : '')
                   : <>{activePost.profiles?.username ? `@${activePost.profiles.username} · ` : ''}{timeAgo(activePost.created_at)}</>}
               </Text>
-              {(isOwnPost ? (onDeletePress || onEditPress) : onReportPress) && (
+              {(isOwnPost ? (onDeletePress || onEditPress || pinnable) : onReportPress) && (
                 <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Post options">
                   <Ionicons name="ellipsis-horizontal" size={18} color={T.textMuted} />
                 </TouchableOpacity>
@@ -783,6 +796,7 @@ export function PostCard({
         visible={optionsSheetOpen}
         onClose={() => setOptionsSheetOpen(false)}
         items={isOwnPost ? [
+          ...(pinnable && currentUserId ? [{ label: isPinnedNow ? 'Unpin from profile' : 'Pin to your profile', icon: 'pin-outline', onPress: () => { Haptics.selectionAsync().catch(() => {}); togglePin(activePost, currentUserId); } }] : []),
           ...(onEditPress ? [{ label: 'Edit post',   icon: 'pencil-outline', onPress: () => onEditPress(activePost.id, activePost.content, activePost.visibility ?? 'public') }] : []),
           ...(onDeletePress ? [{ label: 'Delete post', icon: 'trash-outline',  color: T.error, onPress: onDeletePress }] : []),
         ] : [

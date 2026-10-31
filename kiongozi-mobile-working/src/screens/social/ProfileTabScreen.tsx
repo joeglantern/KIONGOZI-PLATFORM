@@ -24,6 +24,10 @@ import { useBubbleRefresh } from '../../components/social/RefreshBubble';
 import { QRCardSheet } from '../../components/social/QRCardSheet';
 import { useProfileExtraTabs, ExtraTabRow, isExtraTab, EXTRA_EMPTY } from '../../components/social/ProfileExtraTabs';
 import { shareLink, kchatLink } from '../../utils/links';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Reanimated from 'react-native-reanimated';
+import { enterFade } from '../../theme/motion';
+import { usePinnedPost, hidePinned, settlePin } from '../../stores/pinSync';
 
 type Tab = 'posts' | 'replies' | 'mitaa' | 'barazas' | 'saved';
 const TABS: { key: Tab; label: string }[] = [
@@ -71,6 +75,19 @@ export default function ProfileTabScreen() {
   const spinAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => { fetchCurrentUserProfile(); }, []);
+
+  // "Finish your profile" card: hidden for good once dismissed (per account)
+  const nudgeKey = currentUserProfile?.id ? `kchat.profileNudge.${currentUserProfile.id}` : null;
+  const [nudgeHidden, setNudgeHidden] = useState(true);
+  useEffect(() => {
+    if (!nudgeKey) return;
+    AsyncStorage.getItem(nudgeKey).then(v => setNudgeHidden(v === '1')).catch(() => setNudgeHidden(false));
+  }, [nudgeKey]);
+  const dismissNudge = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setNudgeHidden(true);
+    if (nudgeKey) AsyncStorage.setItem(nudgeKey, '1').catch(() => {});
+  };
 
   // Streak (Duolingo idea) + weekly recap entry
   const features = usePrefs(s => s.features);
@@ -167,7 +184,7 @@ export default function ProfileTabScreen() {
     postsCache.current = {};
     savedCache.current = [];
     await Promise.all([
-      fetchCurrentUserProfile(),
+      fetchCurrentUserProfile().then(() => settlePin(useProfileStore.getState().currentUserProfile?.id)),
       activeTab === 'saved' ? fetchSaved(true) : isExtraTab(activeTab) ? extra.refresh() : fetchPosts(true, true),
     ]);
   }, T.accent, T.surface);
@@ -263,9 +280,16 @@ export default function ProfileTabScreen() {
 
   const spinDeg = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] });
   const profile = currentUserProfile;
+  // The pinned post leads the Posts tab and is not repeated lower down
+  const pinnedPost = usePinnedPost(profile?.id, profile ? { id: profile.pinned_post_id, post: profile.pinned_post } : null, posts);
+  const pinnedShown = activeTab === 'posts' && pinnedPost && isShowable(pinnedPost) ? pinnedPost : null;
   const displayPosts = onExtraTab
     ? extra.data.filter((i: any) => i.__kind || isShowable(i))
-    : (activeTab === 'saved' ? savedPosts : posts).filter(isShowable);
+    : activeTab === 'saved'
+      ? savedPosts.filter(isShowable)
+      : pinnedShown
+        ? [pinnedShown, ...posts.filter((p: any) => p.id !== pinnedShown.id && isShowable(p))]
+        : posts.filter(isShowable);
 
   const openFollowList = (initialTab: 'followers' | 'following') => {
     if (!profile) return;
@@ -297,6 +321,41 @@ export default function ProfileTabScreen() {
     </View>
   ) : null;
 
+  const steps: { key: string; todo: string; done: string; icon: keyof typeof Ionicons.glyphMap; isDone: boolean; onPress: () => void }[] = [
+    { key: 'photo', todo: 'Add a photo', done: 'Photo', icon: 'camera-outline', isDone: !!(localAvatarUri || profile.avatar_url), onPress: handlePickAvatar },
+    { key: 'bio', todo: 'Add a bio', done: 'Bio', icon: 'create-outline', isDone: !!profile.bio?.trim(), onPress: () => navigation.navigate('EditProfile', { focus: 'bio' }) },
+    { key: 'link', todo: 'Add a link', done: 'Link', icon: 'link-outline', isDone: !!profile.website, onPress: () => navigation.navigate('EditProfile', { focus: 'link' }) },
+  ];
+  const nudge = !nudgeHidden && steps.some(st => !st.isDone) ? (
+    <Reanimated.View entering={enterFade()} style={styles.nudge}>
+      <View style={styles.nudgeHead}>
+        <Text style={styles.nudgeTitle} maxFontSizeMultiplier={1.3}>Finish your profile</Text>
+        <Pressable onPress={dismissNudge} hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.6 }} accessibilityRole="button" accessibilityLabel="Hide this card">
+          <Ionicons name="close" size={18} color={T.textMuted} />
+        </Pressable>
+      </View>
+      <Text style={styles.nudgeSub} maxFontSizeMultiplier={1.3}>Add a photo, a bio and a link so people know it is you.</Text>
+      <View style={styles.nudgeSteps}>
+        {steps.map(st => (
+          <Pressable
+            key={st.key}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); st.onPress(); }}
+            disabled={st.isDone}
+            style={({ pressed }) => [styles.nudgeStep, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: st.isDone }}
+            accessibilityLabel={st.isDone ? `${st.done}, done` : st.todo}
+          >
+            <Ionicons name={st.isDone ? 'checkmark-circle' : st.icon} size={18} color={st.isDone ? T.accent : T.text} />
+            <Text style={[styles.nudgeStepText, st.isDone && { color: T.textMuted }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+              {st.isDone ? st.done : st.todo}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </Reanimated.View>
+  ) : null;
+
   const ListHeader = (
     <ProfileHeader
       scrollY={bubbleRefresh.scrollY}
@@ -312,7 +371,7 @@ export default function ProfileTabScreen() {
       onQrCard={() => { Haptics.selectionAsync().catch(() => {}); setQrOpen(true); }}
       onEditProfile={() => navigation.navigate('EditProfile')}
       onOpenFollowList={openFollowList}
-      extra={chips}
+      extra={nudge || chips ? <>{nudge}{chips}</> : null}
       hasTabs
       onTabsLayout={setTabsY}
       below={activeTab === 'saved' ? (
@@ -340,13 +399,20 @@ export default function ProfileTabScreen() {
           <PostCard
             post={item}
             currentUserId={user?.id}
+            pinned={!!pinnedShown && item.id === pinnedShown.id}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
             onProfilePress={(username: string) => navigation.navigate('PublicProfile', { username: username || item.profiles?.username })}
             onDeletePress={() => {
               if (activeTab === 'saved') {
                 setSavedPosts(prev => prev.filter((p: any) => p.id !== item.id));
               } else {
-                deletePostWithUndo(item.id, { hide: () => hideFromList(setPosts as any, item.id) });
+                deletePostWithUndo(item.id, {
+                  hide: () => {
+                    const back = hideFromList(setPosts as any, item.id);
+                    const unpin = hidePinned(profile.id, item.id);
+                    return () => { back(); unpin(); };
+                  },
+                });
               }
             }}
           />
@@ -402,6 +468,17 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: T.surface2 },
     chipHot: { backgroundColor: 'rgba(245,184,61,0.16)' },
     chipText: { fontSize: 13, fontWeight: '600', color: T.text },
+
+    nudge: { marginTop: 14, borderRadius: 16, backgroundColor: T.surface, padding: 14 },
+    nudgeHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+    nudgeTitle: { fontSize: 15, fontWeight: '700', color: T.text, flexShrink: 1 },
+    nudgeSub: { fontSize: 13, lineHeight: 18, color: T.textSub, marginTop: 2 },
+    nudgeSteps: { flexDirection: 'row', gap: 8, marginTop: 12 },
+    nudgeStep: {
+      flex: 1, alignItems: 'flex-start', gap: 6, paddingHorizontal: 10, paddingVertical: 10,
+      borderRadius: 12, backgroundColor: T.bg,
+    },
+    nudgeStepText: { fontSize: 13, fontWeight: '600', color: T.text },
 
     savedNote: {
       flexDirection: 'row', alignItems: 'center', gap: 6,

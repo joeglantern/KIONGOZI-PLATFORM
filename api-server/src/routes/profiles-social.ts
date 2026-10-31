@@ -6,25 +6,95 @@ import UploadService from '../services/UploadService';
 import multer from 'multer';
 import { optimizeUpload } from '../services/ImageOptimizer';
 import { renderQrCardArt, qrMatrix, profileQrUrl, isQrTheme, isQrStyle } from '../services/QrCardService';
+import { enrichWithUserState } from '../services/FeedService';
+import { mediaAlt } from '../config/mediaColumns';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+// ─── Pinned post + link in bio ───────────────────────────────────────────────
+// profiles.website and profiles.pinned_post_id come with migration 20261031000800_pinned_and_link.
+// Until it has run, profiles load without them (one failed select turns them off, retried every 10 min).
+const PROFILE_COLS = 'id, full_name, username, bio, avatar_url, banner_url, is_bot, is_verified, is_private, follower_count, following_count, post_count, created_at';
+const PROFILE_NEW_COLS = ', website, pinned_post_id';
+let hasNewCols = true;
+let newColsOffAt = 0;
+
+const isMissingColumn = (e: any) => !!e && (
+  e.code === '42703' || e.code === 'PGRST204' ||
+  /column .* does not exist|could not find the .* column/i.test(String(e.message || ''))
+);
+
+async function selectProfile(col: 'id' | 'username', value: string): Promise<{ data: any; error: any }> {
+  if (!hasNewCols && Date.now() - newColsOffAt > 10 * 60_000) hasNewCols = true;
+  if (hasNewCols) {
+    const r = await supabaseServiceClient.from('profiles').select(PROFILE_COLS + PROFILE_NEW_COLS).eq(col, value).maybeSingle();
+    if (!isMissingColumn(r.error)) return r;
+    hasNewCols = false;
+    newColsOffAt = Date.now();
+  }
+  return supabaseServiceClient.from('profiles').select(PROFILE_COLS).eq(col, value).maybeSingle();
+}
+
+const postSelect = () => `
+  *,
+  profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
+  post_media (*),
+  repost_of:repost_of_id (
+    id, content, visibility, like_count, comment_count, repost_count, view_count,
+    is_bot_reply, created_at, updated_at, user_id,
+    profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
+    post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder${mediaAlt()})
+  )
+`;
+
+/** The pinned post, joined like the posts list, or null (gone, not theirs, a reply) */
+async function loadPinnedPost(postId: string | null | undefined, ownerId: string, viewerId?: string) {
+  if (!postId) return null;
+  try {
+    const { data } = await supabaseServiceClient.from('posts').select(postSelect()).eq('id', postId).maybeSingle();
+    const post: any = data;
+    if (!post || post.user_id !== ownerId || post.parent_post_id) return null;
+    try {
+      const [enriched] = await enrichWithUserState([post], viewerId);
+      return enriched ?? post;
+    } catch {
+      return post;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** "kiongozi.org" becomes "https://kiongozi.org"; '' clears it (null); false when it isn't a usable http(s) link */
+function normaliseWebsite(raw: unknown): string | null | false {
+  if (raw === null) return null;
+  if (typeof raw !== 'string') return false;
+  let v = raw.trim();
+  if (!v) return null;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) v = `https://${v}`;
+  if (!/^https?:\/\//i.test(v) || /\s/.test(v) || v.length > 100) return false;
+  try {
+    const u = new URL(v);
+    if (!/^https?:$/.test(u.protocol) || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(u.hostname) || u.username || u.password) return false;
+  } catch {
+    return false;
+  }
+  return v;
+}
+
 // GET /api/v1/social/profile/me — Own profile (by auth token, no username needed)
 router.get('/profile/me', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { data: profile, error } = await supabaseServiceClient
-      .from('profiles')
-      .select('id, full_name, username, bio, avatar_url, banner_url, is_bot, is_verified, is_private, follower_count, following_count, post_count, created_at')
-      .eq('id', req.user!.id)
-      .single();
+    const { data: profile, error } = await selectProfile('id', req.user!.id);
 
     if (error || !profile) {
       res.status(404).json({ success: false, error: 'Profile not found' });
       return;
     }
 
-    res.json({ success: true, data: profile });
+    const pinned_post = await loadPinnedPost(profile.pinned_post_id, profile.id, req.user!.id);
+    res.json({ success: true, data: { ...profile, website: profile.website ?? null, pinned_post_id: pinned_post ? profile.pinned_post_id : null, pinned_post } });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch profile' });
   }
@@ -65,11 +135,7 @@ router.get('/users/:username', optionalAuth, async (req: Request, res: Response)
   try {
     const { username } = req.params;
 
-    const { data: profile, error } = await supabaseServiceClient
-      .from('profiles')
-      .select('id, full_name, username, bio, avatar_url, banner_url, is_bot, is_verified, is_private, follower_count, following_count, post_count, created_at')
-      .eq('username', username)
-      .single();
+    const { data: profile, error } = await selectProfile('username', username);
 
     if (error || !profile) {
       res.status(404).json({ success: false, error: 'User not found' });
@@ -120,7 +186,17 @@ router.get('/users/:username', optionalAuth, async (req: Request, res: Response)
       return;
     }
 
-    res.json({ success: true, data: { ...profile, isFollowing, followRequestStatus } });
+    // The pinned post only for people who can see their posts (private accounts: followers and the owner)
+    const canSeePosts = !profile.is_private || isFollowing || req.user?.id === profile.id;
+    const pinned_post = canSeePosts ? await loadPinnedPost(profile.pinned_post_id, profile.id, req.user?.id) : null;
+    res.json({
+      success: true,
+      data: {
+        ...profile, website: profile.website ?? null,
+        pinned_post_id: pinned_post ? profile.pinned_post_id : null, pinned_post,
+        isFollowing, followRequestStatus,
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch profile' });
   }
@@ -253,6 +329,15 @@ router.patch(
         updates.is_private = req.body.is_private === 'true' || req.body.is_private === true;
       }
 
+      if (req.body.website !== undefined) {
+        const website = normaliseWebsite(req.body.website);
+        if (website === false) {
+          res.status(400).json({ success: false, error: "That doesn't look like a link. Try something like kiongozi.org" });
+          return;
+        }
+        updates.website = website;
+      }
+
       if (username !== undefined) {
         // Validate username
         if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
@@ -281,12 +366,28 @@ router.patch(
         return;
       }
 
-      const { data, error } = await supabaseServiceClient
+      const UPDATED_COLS = 'id, full_name, username, bio, avatar_url, banner_url, is_verified, is_private';
+      let { data, error } = await supabaseServiceClient
         .from('profiles')
         .update(updates)
         .eq('id', userId)
-        .select('id, full_name, username, bio, avatar_url, banner_url, is_verified, is_private')
+        .select(UPDATED_COLS + ', website')
         .single();
+
+      // Before the migration: save everything else, and say so if the link was all there was
+      if (isMissingColumn(error)) {
+        delete updates.website;
+        if (Object.keys(updates).length === 0) {
+          res.status(503).json({ success: false, error: 'Links are not ready yet. Try again a bit later.' });
+          return;
+        }
+        ({ data, error } = await supabaseServiceClient
+          .from('profiles')
+          .update(updates)
+          .eq('id', userId)
+          .select(UPDATED_COLS)
+          .single());
+      }
 
       if (error) {
         if (error.code === '23505') {
@@ -304,6 +405,46 @@ router.patch(
     }
   }
 );
+
+// POST /api/v1/social/posts/:id/pin: pin your own post to your profile (one at a time, replaces the last)
+router.post('/posts/:id/pin', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { data: post } = await supabaseServiceClient
+      .from('posts').select('id, user_id, parent_post_id').eq('id', req.params.id).maybeSingle();
+    if (!post) { res.status(404).json({ success: false, error: 'Post not found' }); return; }
+    if (post.user_id !== userId) { res.status(403).json({ success: false, error: 'You can only pin your own posts' }); return; }
+    if (post.parent_post_id) { res.status(400).json({ success: false, error: 'Replies cannot be pinned' }); return; }
+
+    const { error } = await supabaseServiceClient.from('profiles').update({ pinned_post_id: post.id }).eq('id', userId);
+    if (error) {
+      if (isMissingColumn(error)) { res.status(503).json({ success: false, error: 'Pinning is not ready yet. Try again a bit later.' }); return; }
+      res.status(500).json({ success: false, error: 'Could not pin the post' });
+      return;
+    }
+    res.json({ success: true, data: { pinned_post_id: post.id } });
+  } catch (err) {
+    console.error('Pin post error:', err);
+    res.status(500).json({ success: false, error: 'Could not pin the post' });
+  }
+});
+
+// DELETE /api/v1/social/posts/:id/pin: unpin it (only if it is still the pinned one)
+router.delete('/posts/:id/pin', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { error } = await supabaseServiceClient
+      .from('profiles').update({ pinned_post_id: null }).eq('id', req.user!.id).eq('pinned_post_id', req.params.id);
+    if (error) {
+      if (isMissingColumn(error)) { res.status(503).json({ success: false, error: 'Pinning is not ready yet. Try again a bit later.' }); return; }
+      res.status(500).json({ success: false, error: 'Could not unpin the post' });
+      return;
+    }
+    res.json({ success: true, data: { pinned_post_id: null } });
+  } catch (err) {
+    console.error('Unpin post error:', err);
+    res.status(500).json({ success: false, error: 'Could not unpin the post' });
+  }
+});
 
 // GET /api/v1/social/users/:username/qr-card?theme=coral&style=paper[&render=0]: the profile's cut-paper QR card
 // (4:5 PNG, uploaded once per look). The app draws the card live from `qr` (the module matrix) and the same

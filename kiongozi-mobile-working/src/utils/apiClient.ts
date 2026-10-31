@@ -646,6 +646,16 @@ class ApiClient {
     return this.request(`/api/v1/social/posts/${postId}`, { method: 'DELETE' });
   }
 
+  /** Pin your own post to the top of your profile (replaces the one pinned before) */
+  async pinPost(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}/pin`, { method: 'POST' });
+  }
+
+  /** Unpin it */
+  async unpinPost(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}/pin`, { method: 'DELETE' });
+  }
+
   /** New post with a poll (like X): text is the question, 2 to 4 choices, no media */
   async createPollPost(content: string, options: string[], durationHours: number, visibility: 'public' | 'followers' = 'public') {
     return this.request('/api/v1/social/posts', {

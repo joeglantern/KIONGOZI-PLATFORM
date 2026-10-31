@@ -19,6 +19,10 @@ export interface PublicProfile {
   isFollowing?: boolean;
   followRequestStatus?: string | null;
   isBlockedBy?: boolean;
+  /** Link in bio (http/https) */
+  website?: string | null;
+  pinned_post_id?: string | null;
+  pinned_post?: any | null;
 }
 
 interface ProfileState {
