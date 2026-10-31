@@ -7,6 +7,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth';
 import MentionService from '../services/MentionService';
 import FeedService, { enrichWithUserState, getPrivateUserIds } from '../services/FeedService';
 import NotificationService from '../services/NotificationService';
+import { Milestones } from '../services/MilestoneService';
 import OpenAI from 'openai';
 import ModerationService from '../services/ModerationService';
 import UploadService from '../services/UploadService';
@@ -268,6 +269,7 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
       try {
         await MentionService.processMentions(post.id, content, userId);
         await MentionService.processHashtags(post.id, content);
+        if (!parent_post_id) Milestones.posted(userId, post.id);
       } catch (e) {
         console.error('Post post-processing error:', e);
       }
@@ -490,6 +492,7 @@ router.post('/posts/:id/like', authenticateToken, async (req: Request, res: Resp
     } else {
       await supabaseServiceClient.from('post_likes').insert({ post_id: postId, user_id: userId });
       liked = true;
+      Milestones.postLiked(postId);
 
       // Notify post owner
       const io = (req as any).io;
@@ -552,9 +555,12 @@ router.post('/posts/:id/view', optionalAuth, async (req: Request, res: Response)
     if (recentViews.size > 50000) {
       for (const [k, t] of recentViews) if (t < now - 6 * 3600e3) recentViews.delete(k);
     }
-    const { data: post } = await supabaseServiceClient.from('posts').select('view_count').eq('id', id).maybeSingle();
+    const { data: post } = await supabaseServiceClient.from('posts').select('view_count, user_id').eq('id', id).maybeSingle();
     if (!post) { res.status(404).json({ success: false, error: 'Post not found' }); return; }
     await supabaseServiceClient.from('posts').update({ view_count: (post.view_count ?? 0) + 1 }).eq('id', id);
+    // Insights: views per day (no-op until the hooks migration); milestones: 100 / 1K / 10K views
+    supabaseServiceClient.rpc('bump_post_stat', { p_post: id, p_kind: 'view' }).then(() => {}, () => {});
+    if (post.user_id && post.user_id !== req.user?.id) Milestones.postViewed(id, post.user_id, (post.view_count ?? 0) + 1);
     res.json({ success: true, counted: true });
   } catch {
     res.status(500).json({ success: false, error: 'Failed to record view' });
@@ -632,6 +638,20 @@ router.post('/posts/:id/repost', authenticateToken, async (req: Request, res: Re
             .select('full_name, username, avatar_url')
             .eq('id', userId)
             .single();
+          // A repost with words is a quote: its own notification with what they said, opening the quote
+          const quoteText = String(content || '').trim();
+          if (quoteText) {
+            await NotificationService.notify({
+              userId: original.user_id,
+              type: 'quote',
+              fallbackType: 'repost',
+              title: 'New quote',
+              message: `${reposter?.full_name || 'Someone'} quoted your post`,
+              data: { post_id: post.id, quoted_post_id: repostOfId, quote_text: quoteText.slice(0, 200), from_user_id: userId, from_username: reposter?.username, from_avatar_url: reposter?.avatar_url },
+              io,
+            });
+            return;
+          }
           await NotificationService.notify({
             userId: original.user_id,
             type: 'repost',

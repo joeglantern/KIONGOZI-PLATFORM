@@ -12,12 +12,14 @@ const GROUPABLE: Partial<Record<string, string>> = {
 
 interface NotifyParams {
   userId: string;   // recipient
-  type: 'like' | 'repost' | 'comment' | 'follow' | 'follow_request' | 'mention' | 'dm' | 'baraza_live';
+  type: 'like' | 'repost' | 'comment' | 'follow' | 'follow_request' | 'mention' | 'dm' | 'baraza_live' | 'quote' | 'invite_joined' | 'milestone' | 'info';
   title: string;
   message: string;
   data?: Record<string, any>;
   /** Push without sound (a message request) */
   silent?: boolean;
+  /** Stored as this type instead if the database doesn't allow `type` yet (a migration still to run) */
+  fallbackType?: NotifyParams['type'];
   /** @deprecated Pass io via setIo() at startup instead */
   io?: any;
 }
@@ -73,10 +75,11 @@ class NotificationService {
     this.io = io;
   }
 
-  async notify({ userId, type, title, message, data = {}, io, silent }: NotifyParams): Promise<void> {
+  async notify({ userId, type: wanted, title, message, data = {}, io, silent, fallbackType }: NotifyParams): Promise<void> {
     // Accept io from param (legacy) or fall back to the singleton set at startup
     const ioInstance = io ?? this.io;
     let lastError: unknown;
+    let type = wanted;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
@@ -88,6 +91,8 @@ class NotificationService {
 
         if (error) {
           lastError = error;
+          // 23514: the type check constraint doesn't know this type yet
+          if ((error as any).code === '23514' && fallbackType && type !== fallbackType) { type = fallbackType; attempt--; continue; }
           console.error(`NotificationService DB error (attempt ${attempt + 1}):`, error.message);
           continue;
         }

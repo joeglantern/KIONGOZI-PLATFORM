@@ -86,7 +86,7 @@ function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () =
   };
   const done = state !== 'none';
   return (
-    <Pressable onPress={onOpen} style={[cardStyles.card, { backgroundColor: T.surface, borderColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA' }]} accessibilityLabel={`${person.full_name || person.username}'s profile`}>
+    <Pressable onPress={onOpen} style={[cardStyles.card, { backgroundColor: T.surface, borderColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA' }]} accessibilityRole="button" accessibilityLabel={`${person.full_name || person.username}'s profile`}>
       <UserAvatar avatarUrl={person.avatar_url} size={60} name={person.full_name || person.username} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, maxWidth: 112 /* card 132 − 2×10 padding */ }}>
         <Text style={[cardStyles.name, { color: T.text }]} numberOfLines={1}>{person.full_name || person.username}</Text>
@@ -305,7 +305,7 @@ export default function ExploreScreen() {
             </Pressable>
           ); })}
           {(trending?.hashtags?.length ?? 0) > 4 && (
-            <Pressable onPress={() => setShowAllTrends(v => !v)} style={styles.moreBtn} accessibilityRole="button">
+            <Pressable onPress={() => setShowAllTrends(v => !v)} style={styles.moreBtn} accessibilityRole="button" accessibilityLabel={showAllTrends ? 'Show fewer trends' : 'Show more trends'}>
               <Text style={styles.moreText}>{showAllTrends ? 'Show less' : 'Show more'}</Text>
             </Pressable>
           )}
@@ -325,7 +325,7 @@ export default function ExploreScreen() {
     </View>
   );
 
-  const { onScroll, refreshControl, bubble, refreshing, onHeaderLayout } = useBubbleRefresh(
+  const { onScroll, refreshControl, bubble, refreshing, onHeaderLayout, listRef } = useBubbleRefresh(
     () => Promise.all([fetchExploreFeed(true), loadTrending()]),
     T.accent, T.surface,
   );
@@ -391,13 +391,13 @@ export default function ExploreScreen() {
               autoCapitalize="none"
             />
             {query.length > 0 && (
-              <Pressable onPress={clearSearch} hitSlop={10} accessibilityLabel="Clear search">
+              <Pressable onPress={clearSearch} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
                 <Ionicons name="close-circle" size={18} color={T.placeholder} />
               </Pressable>
             )}
           </View>
           {(focused || isSearching) && (
-            <Pressable onPress={() => { clearSearch(); inputRef.current?.blur(); }} hitSlop={8} accessibilityRole="button">
+            <Pressable onPress={() => { clearSearch(); inputRef.current?.blur(); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel search">
               <Text style={styles.cancel} numberOfLines={1} maxFontSizeMultiplier={1.3}>Cancel</Text>
             </Pressable>
           )}
@@ -410,15 +410,15 @@ export default function ExploreScreen() {
             <>
               <View style={styles.recentHead}>
                 <Text style={styles.blockTitle}>Recent</Text>
-                <Pressable onPress={() => { setRecents([]); AsyncStorage.removeItem(RECENTS_KEY).catch(() => {}); }} hitSlop={8}>
+                <Pressable onPress={() => { setRecents([]); AsyncStorage.removeItem(RECENTS_KEY).catch(() => {}); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear all recent searches">
                   <Text style={styles.moreText}>Clear all</Text>
                 </Pressable>
               </View>
               {recents.map(r => (
-                <Pressable key={r} onPress={() => runSearch(r)} style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]}>
+                <Pressable key={r} onPress={() => runSearch(r)} style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]} accessibilityRole="button" accessibilityLabel={`Search ${r}`}>
                   <View style={styles.suggIconWrap}><Ionicons name={r.startsWith('#') ? 'pricetag-outline' : 'time-outline'} size={16} color={T.textSub} /></View>
                   <Text style={[styles.suggName, { flex: 1 }]} numberOfLines={1}>{r}</Text>
-                  <Pressable hitSlop={10} accessibilityLabel={`Remove ${r}`} onPress={() => setRecents(prev => {
+                  <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${r} from recent searches`} onPress={() => setRecents(prev => {
                     const next = prev.filter(x => x !== r);
                     AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(next)).catch(() => {});
                     return next;
@@ -435,7 +435,7 @@ export default function ExploreScreen() {
       ) : isSuggesting ? (
         <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} {...TAB_LIST_INSET}>
           {suggestedTags.map((h: any) => (
-            <Pressable key={h.id} style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]} onPress={() => runSearch(`#${h.tag}`)}>
+            <Pressable key={h.id} style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]} onPress={() => runSearch(`#${h.tag}`)} accessibilityRole="button" accessibilityLabel={`Search #${h.tag}`}>
               <View style={styles.suggIconWrap}><Ionicons name="pricetag-outline" size={16} color={T.textSub} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.suggName} numberOfLines={1}>#{h.tag}</Text>
@@ -443,7 +443,7 @@ export default function ExploreScreen() {
               </View>
             </Pressable>
           ))}
-          <Pressable style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]} onPress={() => runSearch(query)}>
+          <Pressable style={({ pressed }) => [styles.suggRow, pressed && { backgroundColor: T.surface }]} onPress={() => runSearch(query)} accessibilityRole="button" accessibilityLabel={`Search for ${query}`}>
             <View style={styles.suggIconWrap}><Ionicons name="search" size={16} color={T.textSub} /></View>
             <Text style={[styles.searchAllText, { flex: 1 }]} numberOfLines={2}>Search for <Text style={{ color: T.text, fontWeight: '700' }}>"{query}"</Text></Text>
           </Pressable>
@@ -457,7 +457,7 @@ export default function ExploreScreen() {
         <View style={styles.errorState}>
           <Ionicons name="cloud-offline-outline" size={40} color={T.textMuted} />
           <Text style={styles.errorText}>{searchError}</Text>
-          <Pressable style={styles.retryBtn} onPress={() => doSearch(query)}>
+          <Pressable style={styles.retryBtn} onPress={() => doSearch(query)} accessibilityRole="button" accessibilityLabel="Try the search again">
             <Text style={styles.retryText}>Try again</Text>
           </Pressable>
         </View>
@@ -471,7 +471,7 @@ export default function ExploreScreen() {
             if (item._type === 'section') return <Text style={styles.resultsSection}>{item._label}</Text>;
             if (item._type === 'user') {
               return (
-                <Pressable style={({ pressed }) => [styles.userRow, pressed && { backgroundColor: T.surface }]} onPress={() => openProfile(item.username)}>
+                <Pressable style={({ pressed }) => [styles.userRow, pressed && { backgroundColor: T.surface }]} onPress={() => openProfile(item.username)} accessibilityRole="button" accessibilityLabel={`${item.full_name || item.username}, @${item.username}${item.is_verified ? ', verified' : ''}`}>
                   <UserAvatar avatarUrl={item.avatar_url} size={46} isVerified={item.is_verified} isBot={item.is_bot} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
@@ -505,6 +505,7 @@ export default function ExploreScreen() {
         />
       ) : (
         <Animated.FlatList
+          ref={listRef}
           {...TAB_LIST_INSET}
           data={listPosts}
           keyExtractor={(item: Post) => item.id}

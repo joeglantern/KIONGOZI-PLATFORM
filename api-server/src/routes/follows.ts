@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
 import NotificationService from '../services/NotificationService';
+import { Milestones } from '../services/MilestoneService';
 
 const router = Router();
 
@@ -86,6 +87,7 @@ router.post('/follow/:userId', authenticateToken, async (req: Request, res: Resp
       return;
     }
 
+    Milestones.followed(followingId);
     // Notify the followed user
     const io = (req as any).io;
     if (io) {
@@ -245,6 +247,7 @@ router.post('/follow-requests/:requestId/accept', authenticateToken, async (req:
         .insert({ follower_id: request.requester_id, following_id: userId }),
     ]);
 
+    Milestones.followed(userId);
     // Notify requester
     const io = (req as any).io;
     setImmediate(async () => {

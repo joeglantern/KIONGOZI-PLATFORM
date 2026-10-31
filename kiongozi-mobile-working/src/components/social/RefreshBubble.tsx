@@ -6,6 +6,7 @@ import { RN_EASE_OUT } from '../../theme/motion';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, Platform, RefreshControl, LayoutChangeEvent } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useTabRetap } from '../../hooks/useTabRetap';
 
 export function RefreshBubble({ pull, refreshing, color, top }: {
   /** 0..1 pull progress (iOS overscroll); null when the platform can't report it */
@@ -145,9 +146,12 @@ export function useBubbleRefresh(run: () => Promise<unknown> | unknown, color: s
     setTop(y + height);
   }, []);
 
+  // Tapping this screen's tab again: to the top, then refresh (give listRef to the list)
+  const listRef = useTabRetap(scrollY, onRefresh);
+
   const refreshControl = (
     <RefreshControl refreshing={hold} onRefresh={onRefresh} tintColor="transparent" colors={[color]} progressBackgroundColor={surface} />
   );
   const bubble = <RefreshBubble pull={pull} refreshing={refreshing} color={color} top={top + 10} />;
-  return { onScroll, refreshControl, bubble, refreshing, onHeaderLayout, scrollY };
+  return { onScroll, refreshControl, bubble, refreshing, onHeaderLayout, scrollY, listRef };
 }

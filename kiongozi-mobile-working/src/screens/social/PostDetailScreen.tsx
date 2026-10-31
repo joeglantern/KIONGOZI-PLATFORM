@@ -17,6 +17,7 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { BottomSheet } from '../../components/social/BottomSheet';
 import ReportModal from './ReportModal';
+import { PostInsightsSheet } from '../../components/social/PostInsightsSheet';
 import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -81,6 +82,7 @@ export default function PostDetailScreen() {
   const [replyText, setReplyText]  = useState('');
   const [keyboardShown, setKeyboardShown] = useState(false);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
   const [replyMenu, setReplyMenu] = useState<any>(null);
   const replyInputRef = useRef<TextInput>(null);
@@ -315,6 +317,11 @@ export default function PostDetailScreen() {
       return (
         <View>
           {!!metaLine && <Text style={styles.metaLine}>{metaLine}</Text>}
+          {!!post?.id && !!user?.id && post.user_id === user.id && (
+            <Text onPress={() => { Haptics.selectionAsync().catch(() => {}); setInsightsOpen(true); }} style={[styles.metaLine, { color: T.accentDeep, fontWeight: '600', paddingTop: 6 }]} accessibilityRole="button" suppressHighlighting>
+              {views > 0 ? `${fmtCount(views)} ${views === 1 ? 'view' : 'views'} · insights` : 'View insights'}
+            </Text>
+          )}
           <View style={styles.divider} />
           <View style={styles.repliesRow}>
             <Text style={styles.repliesLabel}>Replies</Text>
@@ -482,6 +489,7 @@ export default function PostDetailScreen() {
         />
       )}
       <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
+      {insightsOpen && !!post?.id && <PostInsightsSheet postId={post.id} visible onClose={() => setInsightsOpen(false)} />}
       <BottomSheet
         visible={!!replyMenu}
         onClose={() => setReplyMenu(null)}

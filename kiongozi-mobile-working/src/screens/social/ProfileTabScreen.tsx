@@ -388,6 +388,7 @@ export default function ProfileTabScreen() {
   return (
     <View style={styles.container}>
       <Animated.FlatList
+        ref={bubbleRefresh.listRef}
         {...TAB_LIST_INSET}
         data={displayPosts}
         keyExtractor={(item: any) => item.id}

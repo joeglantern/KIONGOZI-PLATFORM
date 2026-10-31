@@ -103,6 +103,15 @@ function routeNotification(navigation: any, data: any) {
     try { require('../stores/barazaStore').useBarazaStore.getState().open(data.baraza_id); } catch {}
   } else if (data?.type === 'recap') {
     navigation.navigate('Profile', { screen: 'ProfileMain', params: { openRecap: Date.now() } });
+  } else if (data?.type === 'milestone' && data?.milestone) {
+    // "Your post passed 100 likes": open the moment card on Activity
+    navigation.navigate('Notifications', {
+      screen: 'NotificationsMain',
+      params: { milestone: { milestone: data.milestone, value: Number(data.value) || 0, post_id: postId, snippet: data.snippet } },
+    });
+  } else if (data?.type === 'reengage' && data?.screen === 'home') {
+    // "Wanjiru and 3 others you follow posted while you were away": the feed
+    navigation.navigate('Feed');
   } else if (conversationId) {
     // The chat screen reads participant*; it used to get recipient* and opened without a name or photo
     navigation.navigate('Notifications', {

@@ -1,7 +1,7 @@
 // The painted side of Baraza: the room's backdrop, the talking stick as a real object (it sways
 // when idle, glows and throws embers with the speaker's voice, and flies in when it is passed),
 // the raised hand, and the theme picker. Art comes from assets/baraza (painted, transparent PNGs).
-import { EASE_OUT } from '../../theme/motion';
+import { EASE_OUT, useReduceMotion } from '../../theme/motion';
 import React, { useEffect, useMemo } from 'react';
 import { View, Text, Image, StyleSheet, Pressable, Modal, useWindowDimensions } from 'react-native';
 import Animated, {
@@ -175,10 +175,13 @@ export function TalkingStick({ height, level, holderKey, t, late }: {
     withTiming(SPRITE.n, { duration: SPRITE.ms, easing: Easing.linear }),
   ), -1, false);
 
+  const reduce = useReduceMotion();
   useEffect(() => {
+    // Reduce Motion: the stick rests on its first painted frame, no sway
+    if (reduce) { prog.value = 0; sway.value = 0.5; return; }
     prog.value = loop();
     sway.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, []);
+  }, [reduce]);
 
   // Tap it: jump straight to the shake, with a flare of sparkles
   const tap = () => {
@@ -400,7 +403,9 @@ export function ConfettiBurst({ n = 18, ox, oy, spread }: { n?: number; ox: numb
 /** A painted raised hand, used on the button and in the queue. `wave` waves once; `loop` keeps waving. */
 export function HandMark({ size = 22, wave = false, loop = false }: { size?: number; wave?: boolean; loop?: boolean }) {
   const r = useSharedValue(0);
+  const reduce = useReduceMotion();
   useEffect(() => {
+    if (reduce) { r.value = 0; return; }   // Reduce Motion: the hand stays up, still
     if (loop) {
       // a slow, steady wave from -8 to 10 degrees while the hand stays up
       r.value = withRepeat(withSequence(
@@ -412,7 +417,7 @@ export function HandMark({ size = 22, wave = false, loop = false }: { size?: num
     r.value = wave
       ? withSequence(withTiming(1, { duration: 140 }), withTiming(-1, { duration: 160 }), withTiming(0.6, { duration: 140 }), withTiming(0, { duration: 160, easing: EASE_OUT }))
       : 0;
-  }, [wave, loop, r]);
+  }, [wave, loop, r, reduce]);
   const st = useAnimatedStyle(() => ({ transform: [{ translateY: size * 0.4 }, { rotate: `${r.value * 18}deg` }, { translateY: -size * 0.4 }] }));
   return <Animated.Image source={ART.hand} fadeDuration={0} style={[{ width: size, height: size }, st]} resizeMode="contain" />;
 }
@@ -434,13 +439,16 @@ export function WavingHand({ height = 44, color = '#E9A23B' }: { height?: number
   const rr = useSharedValue(1);
   // Playful and hard to miss: a quick burst (the filmed wave at 3x, ~1.7 s, four swings), then a short
   // rest on the open palm, again and again
+  const reduce = useReduceMotion();
   useEffect(() => {
+    // Reduce Motion: the open palm, still, no ripples
+    if (reduce) { f.value = 0; return; }
     f.value = withRepeat(withSequence(
       withTiming(0, { duration: 0 }),
       withTiming(WAVE.n, { duration: WAVE_BURST_MS, easing: Easing.linear }),
       withTiming(WAVE.n, { duration: WAVE_REST_MS }),
     ), -1, false);
-  }, [f]);
+  }, [f, reduce]);
   // fire a ripple the moment the frame reaches a swing peak
   useAnimatedReaction(() => Math.floor(f.value) % WAVE.n, (cur, prev) => {
     if (cur === prev) return;

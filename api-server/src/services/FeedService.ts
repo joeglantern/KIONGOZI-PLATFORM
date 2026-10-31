@@ -1,10 +1,10 @@
 import { supabaseServiceClient } from '../config/supabase';
-import { mediaAlt } from '../config/mediaColumns';
+import { mediaAlt, postEdited } from '../config/mediaColumns';
 import { attachPolls } from './PollService';
 
 const postSelect = () => `
   id, content, visibility, like_count, comment_count, repost_count, view_count,
-  is_bot_reply, created_at, updated_at,
+  is_bot_reply, created_at, updated_at${postEdited()},
   user_id, parent_post_id, repost_of_id,
   profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
   post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder${mediaAlt()}),

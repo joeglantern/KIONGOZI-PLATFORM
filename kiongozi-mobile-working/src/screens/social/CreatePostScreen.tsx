@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import * as Haptics from 'expo-haptics';
+import { haptic } from '../../utils/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { ComposerMedia, ComposerMediaItem, UploadStatus } from '../../components/social/ComposerMedia';
@@ -373,7 +374,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 
   const handlePost = async () => {
     if (!canPost) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    haptic.tap();
     setPosting(true);
 
     try {
@@ -382,7 +383,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         const { uploaded, lastError } = await uploadMedia();
         // Block posting if any uploads failed
         if (uploaded.length < media.length) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+          haptic.error();
           appAlert('Upload failed', lastError || `${media.length - uploaded.length} file(s) could not be uploaded. Please try again.`);
           setPosting(false);
           return;
@@ -395,7 +396,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         ? await apiClient.createPollPost(content.trim(), choices, poll.hours, visibility)
         : await apiClient.createPost(content.trim(), uploadedMedia, parentPostId, visibility);
       if (res.success && res.data) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        haptic.success();
         posted.current = true;
         AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
         if (!parentPostId) {

@@ -37,6 +37,8 @@ import reportsRoutes from './routes/reports';
 import blocksRoutes from './routes/blocks';
 import storiesRoutes from './routes/stories';
 import growthRoutes from './routes/growth';
+import hooksRoutes from './routes/hooks';
+import { startReengageJob } from './jobs/reengagePush';
 import adsRoutes, { adsAdminRoutes } from './routes/ads';
 import assistRoutes from './routes/assist';
 import barazaRoutes from './routes/baraza';
@@ -142,6 +144,7 @@ app.use('/api/v1/social', reportsRoutes);
 app.use('/api/v1/social', blocksRoutes);
 app.use('/api/v1/social', storiesRoutes);
 app.use('/api/v1/social', growthRoutes);
+app.use('/api/v1/social', hooksRoutes);
 app.use('/api/v1/ads', adsRoutes);
 app.use('/api/v1/assist', assistRoutes);
 app.use('/api/v1/baraza', barazaRoutes);
@@ -233,6 +236,7 @@ app.use(errorHandler);
 // Start server
 startWeeklyRecapJob();
 startStoryCountdownJob();
+startReengageJob();
 
 server.listen(PORT, () => {
   console.log(`🚀 Kiongozi API Server running on port ${PORT}`);

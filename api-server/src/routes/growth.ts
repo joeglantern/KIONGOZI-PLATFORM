@@ -7,6 +7,8 @@ import { authenticateToken } from '../middleware/auth';
 import UploadService from '../services/UploadService';
 import { weekStats, renderRecap, activityStreak } from '../services/RecapService';
 import { h, renderTree, cardAssets } from '../services/ShareCardService';
+import NotificationService from '../services/NotificationService';
+import { Milestones } from '../services/MilestoneService';
 
 const router = Router();
 
@@ -74,9 +76,29 @@ router.post('/invites/claim', authenticateToken, async (req: Request, res: Respo
     const s: any = self, inv: any = inviter;
     const fresh = s && Date.now() - new Date(s.created_at).getTime() < 7 * 24 * 3600 * 1000;
     if (!s || !inv || s.invited_by || inv.id === userId || !fresh) { res.json({ success: true, data: { credited: false } }); return; }
-    await db.from('profiles').update({ invited_by: inv.id }).eq('id', userId).is('invited_by', null);
+    const { data: credited } = await db.from('profiles').update({ invited_by: inv.id }).eq('id', userId).is('invited_by', null).select('id');
     // New people follow whoever invited them (public accounts only; private ones keep approving requests)
-    if (!inv.is_private) await db.from('follows').upsert({ follower_id: userId, following_id: inv.id }, { onConflict: 'follower_id,following_id', ignoreDuplicates: true });
+    if (!inv.is_private) {
+      await db.from('follows').upsert({ follower_id: userId, following_id: inv.id }, { onConflict: 'follower_id,following_id', ignoreDuplicates: true });
+      Milestones.followed(inv.id);
+    }
+    // Tell the inviter their link worked ("@wanjiru joined KChat from your link"), once
+    if (credited?.length) {
+      setImmediate(async () => {
+        try {
+          const { data: joined } = await db.from('profiles').select('full_name, username, avatar_url').eq('id', userId).maybeSingle();
+          const j: any = joined;
+          await NotificationService.notify({
+            userId: inv.id,
+            type: 'invite_joined',
+            fallbackType: 'info',
+            title: 'Your invite worked',
+            message: `@${j?.username || 'someone'} joined KChat from your link`,
+            data: { from_user_id: userId, from_username: j?.username, from_avatar_url: j?.avatar_url, from_full_name: j?.full_name },
+          });
+        } catch (e) { console.error('invite joined notification', e); }
+      });
+    }
     res.json({ success: true, data: { credited: true } });
   } catch (e) { console.error('invite claim', e); res.json({ success: true, data: { credited: false } }); }
 });

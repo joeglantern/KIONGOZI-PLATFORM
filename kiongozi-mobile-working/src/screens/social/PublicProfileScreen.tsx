@@ -9,6 +9,7 @@ import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { haptic } from '../../utils/haptics';
 import { ProfileHeader, ProfileChrome, Mutuals } from '../../components/social/ProfileHeader';
 import { PostCard, isShowable } from '../../components/social/PostCard';
 import { useProfileStore } from '../../stores/profileStore';
@@ -186,7 +187,7 @@ export default function PublicProfileScreen() {
   // Follow / Requested / Following flips at once; followSync settles it with the server
   const handleFollowToggle = useCallback(() => {
     if (!profile) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    haptic.like();
     toggleFollow(profile.id, {
       isFollowing: profile.isFollowing, followRequestStatus: profile.followRequestStatus,
       is_private: profile.is_private, follower_count: profile.follower_count, username: profile.username,
@@ -247,7 +248,7 @@ export default function PublicProfileScreen() {
 
   const handleTabPress = (tab: Tab) => {
     if (tab === activeTab) return;
-    Haptics.selectionAsync();
+    haptic.tap();
     setActiveTab(tab);
   };
 

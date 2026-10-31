@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../../utils/haptics';
 import { create } from 'zustand';
 import { RN_EASE_OUT } from '../../theme/motion';
 import { useTheme } from '../../hooks/useTheme';
@@ -95,7 +95,7 @@ export function PollBlock({ post }: { post: { id: string; user_id?: string; poll
   const castVote = async (i: number) => {
     if (busy.current || showResults) return;
     busy.current = true;
-    Haptics.selectionAsync().catch(() => {});
+    haptic.like();
     const before = local ?? null;
     const optimistic: PostPoll = {
       ...poll,

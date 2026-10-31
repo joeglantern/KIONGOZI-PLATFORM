@@ -9,7 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useNotificationStore, SocialNotification } from '../../stores/notificationStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -27,6 +27,8 @@ import { useThemeStore } from '../../stores/themeStore';
 import { RowsSkeleton } from '../../components/social/Skeleton';
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
 import { selectFollowRequests } from './FollowRequestsScreen';
+import { MilestoneMoment, MilestoneData, milestoneArt } from '../../components/social/MilestoneMoment';
+import { Cutout } from '../../components/wrapped/paper';
 
 type Theme = ReturnType<typeof useTheme>;
 
@@ -57,6 +59,8 @@ const BADGE: Record<string, { icon: keyof typeof Ionicons.glyphMap; bg: string; 
   follow: { icon: 'add', bg: '#7C5CFF', fg: '#fff' },
   follow_request: { icon: 'add', bg: '#7C5CFF', fg: '#fff' },
   dm: { icon: 'paper-plane', bg: '#3B82F6', fg: '#fff' },
+  quote: { icon: 'create', bg: '#5CB85C', fg: '#000' },
+  invite_joined: { icon: 'person-add', bg: '#F5B83D', fg: '#000' },
 };
 
 // What each type says after the person's name (single / grouped)
@@ -69,6 +73,8 @@ const ACTION: Record<string, [string, string]> = {
   follow_request: ['wants to follow you', 'want to follow you'],
   dm: ['sent you a message', 'sent you messages'],
   baraza_live: ['is live in a baraza', 'are live in barazas'],
+  quote: ['quoted your post', 'quoted your post'],
+  invite_joined: ['joined KChat from your link', 'joined KChat from your link'],
 };
 
 // Title of the "who did this" sheet per kind
@@ -78,7 +84,7 @@ const SHEET_TITLE: Record<string, string> = {
 
 const FILTERS: { id: string; label: string; types: string[] | null }[] = [
   { id: 'all', label: 'All', types: null },
-  { id: 'mentions', label: 'Mentions', types: ['mention'] },
+  { id: 'mentions', label: 'Mentions', types: ['mention', 'quote'] },
   { id: 'replies', label: 'Replies', types: ['comment'] },
   { id: 'likes', label: 'Likes', types: ['like'] },
   { id: 'follows', label: 'Follows', types: ['follow'] },
@@ -184,7 +190,12 @@ function ActorAvatars({ row, T, ringColor }: { row: Row; T: Theme; ringColor?: s
   const badge = BADGE[row.type];
   return (
     <View style={rowStyles.avatarBox}>
-      {b ? (
+      {row.type === 'milestone' ? (
+        // A milestone: the same cut-paper piece as its moment, on cream
+        <View style={[rowStyles.system, { backgroundColor: '#F3EBDD' }]}>
+          <Cutout source={milestoneArt(a.data?.milestone).src} w={26} h={26 * milestoneArt(a.data?.milestone).ar} off={2} />
+        </View>
+      ) : b ? (
         // Two people: a 34px overlap stack instead of one avatar
         <>
           <View style={[rowStyles.stackTop, { borderColor: ring }]}><UserAvatar avatarUrl={a.fromAvatar} size={34} name={a.fromUsername} /></View>
@@ -250,7 +261,9 @@ function NotificationRow({ row, onPress, onOthers, onRemove, T }: {
     ? ['mentioned you in a story', 'mentioned you in a story']
     : row.type === 'mention' && first.data?.baraza_id ? ['mentioned you in a baraza', 'mentioned you in a baraza'] : ACTION[row.type];
   const name = first.fromUsername || '';
-  const hasPost = ['like', 'repost', 'comment', 'mention'].includes(row.type) && !!first.postId;
+  const hasPost = ['like', 'repost', 'comment', 'mention', 'quote', 'milestone'].includes(row.type) && !!first.postId;
+  // A quote's own post is the quote; the thumbnail shows yours, the one they quoted
+  const thumbId = row.type === 'quote' ? (first.data?.quoted_post_id as string | undefined) || first.postId : first.postId;
   const isDark = useThemeStore(s => s.isDark);
   const rest = row.unread ? (isDark ? UNREAD_DARK : UNREAD_LIGHT) : T.bg;
 
@@ -291,6 +304,9 @@ function NotificationRow({ row, onPress, onOthers, onRemove, T }: {
           )}
           <Text style={{ color: T.textMuted }}>{` · ${timeAgo(row.latest)}`}</Text>
         </Text>
+        {row.type === 'quote' && !!first.data?.quote_text && (
+          <Text style={[rowStyles.replyText, { color: T.text }]} numberOfLines={2}>{String(first.data.quote_text)}</Text>
+        )}
         {row.type === 'comment' && others === 0 && !!first.data?.reply_text && (
           <>
             <Text style={[rowStyles.replyText, { color: T.text }]} numberOfLines={2}>{String(first.data.reply_text)}</Text>
@@ -298,8 +314,9 @@ function NotificationRow({ row, onPress, onOthers, onRemove, T }: {
           </>
         )}
       </View>
+      {row.type === 'invite_joined' && <FollowPill userId={first.fromUserId} username={first.fromUsername} backLabel="Follow back" T={T} />}
       {row.type === 'follow' && others === 0 && <FollowPill userId={first.fromUserId} username={first.fromUsername} backLabel="Follow back" T={T} />}
-      {hasPost && <PostThumb postId={first.postId} T={T} />}
+      {hasPost && <PostThumb postId={thumbId} T={T} />}
     </Pressable>
     </ReanimatedSwipeable>
   );
@@ -418,6 +435,14 @@ export default function NotificationsScreen() {
   } = useNotificationStore();
   const [filter, setFilter] = useState('all');
   const [actorsRow, setActorsRow] = useState<Row | null>(null);
+  const [moment, setMoment] = useState<MilestoneData | null>(null);
+  const route = useRoute<any>();
+
+  // A milestone push opens its moment here
+  useEffect(() => {
+    const m = route.params?.milestone;
+    if (m?.milestone) { setMoment(m); navigation.setParams({ milestone: undefined }); }
+  }, [route.params?.milestone]);
 
   useEffect(() => { fetchNotifications(true); }, []);
 
@@ -453,7 +478,9 @@ export default function NotificationsScreen() {
   const open = (row: Row) => {
     row.items.forEach(n => { if (!n.read) markRead(n.id); });
     const item = row.items[0];
-    if (item.data?.kind === 'new_login') {
+    if (item.type === 'milestone' && item.data?.milestone) {
+      setMoment(item.data as MilestoneData);
+    } else if (item.data?.kind === 'new_login') {
       // New sign-in alert: see the devices and log the stranger out
       navigation.navigate('Profile', { screen: 'Devices', initial: false });
     } else if (item.type === 'dm' && item.conversationId) {
@@ -559,6 +586,7 @@ export default function NotificationsScreen() {
       {bubble}
 
       <ActorsSheet row={actorsRow} onClose={() => setActorsRow(null)} T={T} />
+      <MilestoneMoment data={moment} onClose={() => setMoment(null)} onSeePost={postId => navigation.navigate('PostDetail', { postId })} />
     </View>
   );
 }

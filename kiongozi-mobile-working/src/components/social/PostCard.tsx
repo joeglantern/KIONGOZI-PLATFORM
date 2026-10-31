@@ -26,6 +26,7 @@ import { sharePostAsImage } from './CardImageSheet';
 import { shareLink, kchatLink } from '../../utils/links';
 import { canPin, usePinnedId, togglePin } from '../../stores/pinSync';
 import { PollBlock } from './PollBlock';
+import { PostInsightsSheet } from './PostInsightsSheet';
 import { EditedLabel } from './EditedLabel';
 import { haptic } from '../../utils/haptics';
 
@@ -279,6 +280,7 @@ export function PostCard({
   const repostSpin = useRef(new Animated.Value(0)).current;
   const [repostSheetOpen, setRepostSheetOpen] = useState(false);
   const [optionsSheetOpen, setOptionsSheetOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -598,7 +600,7 @@ export function PostCard({
                   : <>{activePost.profiles?.username ? `@${activePost.profiles.username} · ` : ''}{timeAgo(activePost.created_at)}</>}
               </Text>
               {variant !== 'detail' && <EditedLabel post={activePost} style={styles.edited} />}
-              {(isOwnPost ? (onDeletePress || onEditPress || pinnable) : onReportPress) && (
+              {(isOwnPost || onReportPress) && (
                 <TouchableOpacity style={styles.optionsBtn} onPress={handleOptions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Post options">
                   <Ionicons name="ellipsis-horizontal" size={18} color={T.textMuted} />
                 </TouchableOpacity>
@@ -788,9 +790,9 @@ export function PostCard({
         visible={shareSheetOpen}
         onClose={() => setShareSheetOpen(false)}
         items={[
-          { label: 'Add to story', icon: 'add-circle-outline', onPress: addToStory },
-          { label: 'Share as image', icon: 'image-outline', onPress: () => { sharePostAsImage(activePost.id); } },
-          { label: 'Share via…', icon: 'share-outline', onPress: handleShare },
+          { label: 'Add to story', icon: 'add-circle-outline', onPress: () => { apiClient.trackPostShare(activePost.id).catch(() => {}); addToStory(); } },
+          { label: 'Share as image', icon: 'image-outline', onPress: () => { apiClient.trackPostShare(activePost.id).catch(() => {}); sharePostAsImage(activePost.id); } },
+          { label: 'Share via…', icon: 'share-outline', onPress: () => { apiClient.trackPostShare(activePost.id).catch(() => {}); handleShare(); } },
         ]}
       />
 
@@ -800,12 +802,15 @@ export function PostCard({
         onClose={() => setOptionsSheetOpen(false)}
         items={isOwnPost ? [
           ...(pinnable && currentUserId ? [{ label: isPinnedNow ? 'Unpin from profile' : 'Pin to your profile', icon: 'pin-outline', onPress: () => { Haptics.selectionAsync().catch(() => {}); togglePin(activePost, currentUserId); } }] : []),
+          { label: 'View insights', icon: 'stats-chart-outline', onPress: () => setInsightsOpen(true) },
           ...(onEditPress ? [{ label: 'Edit post',   icon: 'pencil-outline', onPress: () => onEditPress(activePost.id, activePost.content, activePost.visibility ?? 'public') }] : []),
           ...(onDeletePress ? [{ label: 'Delete post', icon: 'trash-outline',  color: T.error, onPress: onDeletePress }] : []),
         ] : [
           ...(onReportPress ? [{ label: 'Report post', icon: 'flag-outline', color: T.error, onPress: () => onReportPress!(activePost.id) }] : []),
         ]}
       />
+
+      {insightsOpen && <PostInsightsSheet postId={activePost.id} visible onClose={() => setInsightsOpen(false)} />}
 
       {/* Delete confirmation sheet */}
       <ActionSheet

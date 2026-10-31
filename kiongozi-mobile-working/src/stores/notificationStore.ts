@@ -6,7 +6,7 @@ import { toast } from '../utils/alert';
 
 export interface SocialNotification {
   id: string;
-  type: 'like' | 'comment' | 'repost' | 'mention' | 'follow' | 'follow_request' | 'dm' | 'info' | 'warning' | 'error';
+  type: 'like' | 'comment' | 'repost' | 'mention' | 'follow' | 'follow_request' | 'dm' | 'info' | 'warning' | 'error' | 'baraza_live' | 'quote' | 'invite_joined' | 'milestone';
   postId?: string;
   conversationId?: string;
   fromUserId?: string;

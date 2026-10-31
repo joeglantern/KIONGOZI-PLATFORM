@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, Dimensions, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../hooks/useTheme';
+import { reduceMotionNow } from '../../theme/motion';
 
 const W = Dimensions.get('window').width;
 
@@ -10,6 +11,8 @@ const W = Dimensions.get('window').width;
 function useSweep() {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    // Reduce Motion: the blocks stay as calm grey shapes, no sweep
+    if (reduceMotionNow()) { v.setValue(-1); return; }
     const loop = Animated.loop(Animated.timing(v, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }));
     loop.start();
     return () => loop.stop();

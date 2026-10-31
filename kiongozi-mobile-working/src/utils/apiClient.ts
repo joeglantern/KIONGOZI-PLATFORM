@@ -1110,6 +1110,19 @@ class ApiClient {
   async getPostShareCard(postId: string, preview = false) {
     return this.request<any>(`/api/v1/social/posts/${postId}/share-card`, { method: 'POST', body: JSON.stringify({ preview }) });
   }
+  // ── Real hooks: post insights, share taps, milestone cards ──
+  /** The author's numbers for one post: views (videos only, else null), likes, replies, reposts, quotes, shares (null before the migration), days (7 day views or null) */
+  async getPostInsights(postId: string) {
+    return this.request<any>(`/api/v1/social/posts/${postId}/insights`, { method: 'GET' });
+  }
+  /** Count a share tap on a post (fire and forget) */
+  async trackPostShare(postId: string) {
+    return this.request<any>(`/api/v1/social/posts/${postId}/event`, { method: 'POST', body: JSON.stringify({ kind: 'share' }) });
+  }
+  /** A 9:16 card for a milestone you reached. preview → { uri }; else uploaded { url, storage_path, width, height, share_url } */
+  async getMilestoneCard(m: { kind: string; value: number; post_id?: string }, preview = false) {
+    return this.request<any>('/api/v1/social/milestones/card', { method: 'POST', body: JSON.stringify({ ...m, preview }) });
+  }
   /** Baraza minutes as a 4:5 image. preview → { uri }; else uploaded { url, storage_path, width, height, share_url } */
   async getMinutesCard(roomId: string, preview = false) {
     return this.request<any>(`/api/v1/baraza/${roomId}/minutes/card`, { method: 'POST', body: JSON.stringify({ preview }) });
