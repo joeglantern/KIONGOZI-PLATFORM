@@ -1,4 +1,4 @@
-import { appAlert } from '../../utils/alert';
+import { appAlert, toast } from '../../utils/alert';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, Image, ActivityIndicator,
@@ -14,7 +14,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { DMBubble } from '../../components/social/DMBubble';
+import { DMBubble, formatTime } from '../../components/social/DMBubble';
+import { BottomSheet } from '../../components/social/BottomSheet';
+import ReportModal from './ReportModal';
+import { useSocialStore } from '../../stores/socialStore';
 import { MediaViewerModal } from '../../components/social/MediaViewerModal';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
@@ -38,14 +41,19 @@ function dayKey(dateStr: string): string {
   return new Date(dateStr).toDateString();
 }
 
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "TODAY 9:40", "YESTERDAY 21:05", "TUESDAY 8:12", "OCT 3 10:20": the day plus when the first message landed */
 function dayLabel(dateStr: string): string {
   const d = new Date(dateStr);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const t = d.getTime(), day = 86400000;
+  const name = t >= startOfToday.getTime() ? 'Today'
+    : t >= startOfToday.getTime() - day ? 'Yesterday'
+    : t >= startOfToday.getTime() - 6 * day ? WEEKDAYS[d.getDay()]
+    : `${MONTHS[d.getMonth()]} ${d.getDate()}${d.getFullYear() !== new Date().getFullYear() ? `, ${d.getFullYear()}` : ''}`;
+  return `${name.toUpperCase()} ${formatTime(dateStr).replace(/^0/, '')}`;
 }
 
 // ─── List item types ──────────────────────────────────────────────────────────
@@ -125,6 +133,22 @@ export default function DMConversationScreen() {
   const [menu, setMenu] = useState<{ message: DMMessage; isOwn: boolean; rect: BubbleRect } | null>(null);
   const [selectText, setSelectText] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<DMMessage | null>(null);
+  // Header ⋯: View profile / Mute / Block / Report
+  const [moreSheet, setMoreSheet] = useState(false);
+  const [blockSheet, setBlockSheet] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: 'user'; id: string; displayName: string } | null>(null);
+  const chatMuted = useDMStore(s => s.mutedIds.includes(conversationId));
+  const handleLabel = participantUsername ? `@${participantUsername}` : (participantName || 'them');
+  const doBlock = useCallback(() => {
+    if (!participantId) return;
+    const id = participantId;
+    // Leave at once; the block goes through in the background (same as the profile screen)
+    navigation.goBack();
+    const fail = () => toast(`Couldn't block ${handleLabel}`, { kind: 'error', message: 'Check your connection and try again.', duration: 5000 });
+    useSocialStore.getState().blockUser(id).then(() => {
+      if (!useSocialStore.getState().blockedUserIds.includes(id)) fail();
+    }).catch(fail);
+  }, [participantId, navigation, handleLabel]);
   const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
   const sendScale = useRef(new Animated.Value(0)).current;
@@ -486,7 +510,7 @@ export default function DMConversationScreen() {
                 {peerTyping ? (
                   <Text style={[styles.headerHandle, { color: T.accent }]} numberOfLines={1}>typing…</Text>
                 ) : isOnline ? (
-                  <Text style={styles.headerHandle} numberOfLines={1}>Active now</Text>
+                  <Text style={[styles.headerHandle, { color: T.accent }]} numberOfLines={1}>Active now</Text>
                 ) : participantUsername ? (
                   <Text style={styles.headerHandle} numberOfLines={1}>@{participantUsername}</Text>
                 ) : null}
@@ -497,8 +521,9 @@ export default function DMConversationScreen() {
           {!isBot && participantUsername ? (
             <TouchableOpacity
               style={styles.headerIconBtn}
-              onPress={() => navigation.navigate('PublicProfile', { username: participantUsername })}
-              accessibilityLabel="View profile"
+              onPress={() => { Haptics.selectionAsync().catch(() => {}); Keyboard.dismiss(); setMoreSheet(true); }}
+              accessibilityLabel="More options"
+              accessibilityRole="button"
             >
               <Ionicons name="ellipsis-horizontal" size={22} color={T.text} />
             </TouchableOpacity>
@@ -606,7 +631,7 @@ export default function DMConversationScreen() {
                   style={styles.input}
                   value={text}
                   onChangeText={handleChangeText}
-                  placeholder="Message"
+                  placeholder="Message…"
                   placeholderTextColor={T.placeholder}
                   multiline
                   maxLength={1000}
@@ -701,6 +726,40 @@ export default function DMConversationScreen() {
       )}
 
       <SelectTextSheet text={selectText} onClose={() => setSelectText(null)} />
+
+      <BottomSheet
+        visible={moreSheet}
+        onClose={() => setMoreSheet(false)}
+        title={participantName || handleLabel}
+        actions={[
+          ...(participantUsername ? [{
+            icon: 'person-circle-outline' as const, label: 'View profile',
+            onPress: () => navigation.navigate('PublicProfile', { username: participantUsername }),
+          }] : []),
+          {
+            icon: chatMuted ? 'volume-high-outline' as const : 'volume-mute-outline' as const,
+            label: chatMuted ? 'Unmute' : 'Mute',
+            onPress: () => {
+              useDMStore.getState().toggleMute(conversationId);
+              toast(chatMuted ? 'Chat unmuted' : 'Chat muted', { icon: chatMuted ? 'volume-high' : 'volume-mute' });
+            },
+          },
+          ...(participantId ? [
+            { icon: 'ban-outline' as const, label: `Block ${handleLabel}`, onPress: () => setBlockSheet(true), destructive: true },
+            { icon: 'flag-outline' as const, label: `Report ${handleLabel}`, onPress: () => setReportTarget({ type: 'user', id: participantId, displayName: handleLabel }), destructive: true },
+          ] : []),
+        ]}
+      />
+
+      <BottomSheet
+        visible={blockSheet}
+        onClose={() => setBlockSheet(false)}
+        title={`Block ${handleLabel}?`}
+        subtitle="They will no longer be able to see your posts or contact you."
+        actions={[{ icon: 'ban-outline', label: 'Block', onPress: doBlock, destructive: true }]}
+      />
+
+      <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
     </SafeAreaView>
   );
 }
@@ -735,11 +794,11 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
 
     messageList: { paddingVertical: 12, paddingBottom: 4 },
 
-    dateSep: { alignItems: 'center', marginTop: 14, marginBottom: 6 },
-    dateLabel: { fontSize: 11.5, color: T.textSub, fontWeight: '600', backgroundColor: T.surface, overflow: 'hidden', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
+    dateSep: { alignItems: 'center', marginTop: 16, marginBottom: 6 },
+    dateLabel: { fontSize: 12, color: T.textMuted, fontWeight: '600' },
 
     empty: { alignItems: 'center', marginTop: 90, gap: 6 },
-    emptyName: { color: T.text, fontSize: 20, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 8 },
+    emptyName: { color: T.text, fontSize: 20, fontWeight: '700', marginTop: 8 },
     emptyText: { color: T.textMuted, fontSize: 15 },
     waveBtn: { marginTop: 14, height: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: T.surface2, justifyContent: 'center' },
     waveText: { color: T.text, fontSize: 15, fontWeight: '600' },
@@ -748,7 +807,9 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
 
     inputBar: {
       paddingHorizontal: 10,
-      paddingTop: 6,
+      paddingTop: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: T.border,
       // SafeAreaView adds the home-indicator / nav-bar inset below this; when Android
       // reports 0 there, give the pill a little more room off the screen edge.
       backgroundColor: T.bg,

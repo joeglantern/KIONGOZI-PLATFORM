@@ -9,15 +9,22 @@ import { UserAvatar } from './UserAvatar';
 const commas = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 /** #1 trending hashtag: the tag itself is the art. */
-export function TrendCard({ tag, uses, posts, onOpen }: {
+export function TrendCard({ tag, uses, posts, faces, friendsJoined = 0, onOpen }: {
   tag: string; uses: number;
   posts: { id: string; content?: string | null; profiles?: any }[];
+  /** Avatars for the strip, people you follow first (defaults to the quoted posts' authors) */
+  faces?: any[];
+  /** How many people you follow posted on this tag */
+  friendsJoined?: number;
   onOpen: () => void;
 }) {
   const { width } = useWindowDimensions();
   const W = width - 40;
   const quotes = posts.filter(p => (p.content || '').trim()).slice(0, 2);
-  const authors = posts.map(p => p.profiles).filter(Boolean).slice(0, 3);
+  const authors = (faces?.length ? faces : posts.map(p => p.profiles).filter(Boolean)).slice(0, 3);
+  const sub = friendsJoined > 0
+    ? `${friendsJoined} ${friendsJoined === 1 ? 'person' : 'people'} you follow joined in`
+    : 'See what people are saying';
   return (
     <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onOpen(); }}
       accessibilityRole="button" accessibilityLabel={`Trending number one in Kenya: #${tag}, ${uses} posts`}
@@ -41,13 +48,13 @@ export function TrendCard({ tag, uses, posts, onOpen }: {
         <View style={{ flexDirection: 'row' }}>
           {authors.length ? authors.map((a: any, i: number) => (
             <View key={a.id || i} style={[s.stackAv, { marginLeft: i ? -10 : 0, borderColor: '#0E3B2C' }]}>
-              <UserAvatar avatarUrl={a.avatar_url ?? undefined} name={a.full_name || a.username} size={26} />
+              <UserAvatar avatarUrl={a.avatar_url ?? undefined} name={a.full_name || a.username} size={30} />
             </View>
           )) : <Ionicons name="trending-up" size={22} color="#B6E36A" />}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[s.stripTitle, { color: '#FFFFFF' }]} numberOfLines={1}>{commas(uses)} {uses === 1 ? 'post' : 'posts'}</Text>
-          <Text style={[s.stripSub, { color: 'rgba(255,255,255,0.62)' }]} numberOfLines={1}>See what people are saying</Text>
+          <Text style={[s.stripSub, { color: 'rgba(255,255,255,0.62)' }]} numberOfLines={1}>{sub}</Text>
         </View>
         <View style={[s.cta, { backgroundColor: '#FFFFFF' }]}><Text style={[s.ctaText, { color: '#0E3B2C' }]}>VIEW</Text></View>
       </View>
@@ -71,7 +78,7 @@ export function WatchCard({ count, renderTile, onWatch }: {
   return (
     <View style={[s.card, { width: W, height: H, backgroundColor: '#111114' }]}>
       <View style={s.top}>
-        <Text style={[s.eyebrow, { color: 'rgba(255,255,255,0.62)' }]}>WATCH & SEE</Text>
+        <Text style={[s.eyebrow, { color: 'rgba(255,255,255,0.62)' }]}>MITAA</Text>
         <Text style={[s.title, { color: '#FFFFFF' }]} numberOfLines={2}>What Kenya is{'\n'}watching today</Text>
       </View>
       <View style={{ position: 'absolute', left: 20, right: 20, top: 112, flexDirection: 'row', flexWrap: 'wrap', gap }}>
@@ -108,7 +115,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
   },
   darkStrip: { backgroundColor: 'rgba(255,255,255,0.08)', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.12)' },
-  stackAv: { borderWidth: 2, borderRadius: 16, overflow: 'hidden' },
+  stackAv: { borderWidth: 2, borderRadius: 17, overflow: 'hidden' },
   appIcon: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   stripTitle: { fontSize: 15, fontWeight: '600', letterSpacing: -0.24 },
   stripSub: { fontSize: 13, letterSpacing: -0.08, marginTop: 1 },

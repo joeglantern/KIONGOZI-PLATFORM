@@ -25,6 +25,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import apiClient from '../../utils/apiClient';
 import { useFollowState, toggleFollow } from '../../stores/followSync';
 import { useTheme } from '../../hooks/useTheme';
+import { useThemeStore } from '../../stores/themeStore';
 
 type Theme = ReturnType<typeof useTheme>;
 const RECENTS_KEY = 'explore_recent_searches';
@@ -69,7 +70,7 @@ function Tile({ post, style, onPress, T }: { post: Post; style: any; onPress: ()
   );
 }
 const tileStyles = StyleSheet.create({
-  text: { color: '#fff', fontFamily: 'SpaceGrotesk_700Bold', fontSize: 13, lineHeight: 16 },
+  text: { color: '#fff', fontWeight: '700', fontSize: 13, lineHeight: 16 },
   views: { position: 'absolute', left: 8, bottom: 7, flexDirection: 'row', alignItems: 'center', gap: 3 },
   viewsText: { color: '#fff', fontSize: 12, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 3 },
   multi: { position: 'absolute', right: 7, top: 7, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 },
@@ -119,7 +120,10 @@ export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const { initialQuery } = (route.params || {}) as any;
   const T = useTheme();
-  const styles = useMemo(() => makeStyles(T), [T]);
+  const isDark = useThemeStore(s => s.isDark);
+  // Light mode sits on iOS grouped grey so the white cards lift off it; dark stays black
+  const page = isDark ? T.bg : '#F2F2F7';
+  const styles = useMemo(() => makeStyles(T, page), [T, page]);
   const { user } = useAuthStore();
 
   const { explorePosts, exploreLoading, exploreCursor, fetchExploreFeed } = useSocialStore();
@@ -183,7 +187,7 @@ export default function ExploreScreen() {
       if (res.success) { setSearchResults(res.data as any); remember(text); }
       else setSearchError('Search failed. Please try again.');
     } catch {
-      setSearchError('Network error — check your connection.');
+      setSearchError('No connection. Check it and try again.');
     }
     setSearchLoading(false);
   }, []);
@@ -248,23 +252,47 @@ export default function ExploreScreen() {
 
   const topTrend: any = trending?.hashtags?.[0] || null;
   const trends = (trending?.hashtags || []).slice(1, showAllTrends ? 10 : 4);
-  const topTrendPosts = useMemo(() => {
+  const topTagPosts = useMemo(() => {
     if (!topTrend) return [];
     const all: any[] = [...(trending?.posts || []), ...explorePosts];
     const tag = `#${String(topTrend.tag).toLowerCase()}`;
     const seen = new Set<string>();
-    return all.filter(p => p?.id && !seen.has(p.id) && (seen.add(p.id), (p.content || '').toLowerCase().includes(tag))).slice(0, 3);
+    return all.filter(p => p?.id && !seen.has(p.id) && (seen.add(p.id), (p.content || '').toLowerCase().includes(tag)));
   }, [topTrend, trending, explorePosts]);
+  const topTrendPosts = useMemo(() => topTagPosts.slice(0, 3), [topTagPosts]);
+  // Who posted on the #1 tag: people you follow first in the avatar stack, and counted in the subtitle
+  const trendFaces = useMemo(() => {
+    const friends: any[] = [], rest: any[] = [];
+    const seen = new Set<string>();
+    for (const p of topTagPosts) {
+      const a: any = p.profiles;
+      const id = a?.id || p.user_id;
+      if (!a || !id || seen.has(id)) continue;
+      seen.add(id);
+      (following?.has(id) && id !== user?.id ? friends : rest).push(a);
+    }
+    return { faces: [...friends, ...rest].slice(0, 3), friends: friends.length };
+  }, [topTagPosts, following, user?.id]);
 
   const DefaultHeader = (
     <View>
       <BarazaStrip />
       {topTrend && (
-        <TrendCard tag={topTrend.tag} uses={topTrend.use_count || 0} posts={topTrendPosts} onOpen={() => runSearch(`#${topTrend.tag}`)} />
+        <TrendCard
+          tag={topTrend.tag} uses={topTrend.use_count || 0} posts={topTrendPosts}
+          faces={trendFaces.faces} friendsJoined={trendFaces.friends}
+          onOpen={() => runSearch(`#${topTrend.tag}`)}
+        />
       )}
+
+      {mosaic.length > 0 && (
+        <WatchCard count={mosaic.length} onWatch={() => navigation.navigate('Mitaa')}
+          renderTile={(i, style) => <Tile key={mosaic[i].id} post={mosaic[i]} T={T} onPress={() => openPost(mosaic[i])} style={style} />} />
+      )}
+
       {trends.length > 0 && (
-        <View style={[styles.block, { marginTop: 14 }]}>
-          <Text style={[styles.blockTitle, { marginBottom: 6 }]}>More trends</Text>
+        <View style={[styles.block, { marginTop: 26, paddingHorizontal: 20 }]}>
+          <Text style={[styles.blockTitle, { marginBottom: 4 }]} accessibilityRole="header">Trending in Kenya</Text>
           {trends.map((h: any, i0: number) => { const i = i0 + 1; return (
             <Pressable key={h.id} onPress={() => runSearch(`#${h.tag}`)} style={({ pressed }) => [styles.trendRow, pressed && { opacity: 0.6 }]}
               accessibilityRole="button" accessibilityLabel={`Trending ${i + 1}: #${h.tag}`}>
@@ -282,11 +310,6 @@ export default function ExploreScreen() {
             </Pressable>
           )}
         </View>
-      )}
-
-      {mosaic.length > 0 && (
-        <WatchCard count={mosaic.length} onWatch={() => navigation.navigate('Mitaa')}
-          renderTile={(i, style) => <Tile key={mosaic[i].id} post={mosaic[i]} T={T} onPress={() => openPost(mosaic[i])} style={style} />} />
       )}
 
       {people.length > 0 && (
@@ -322,24 +345,33 @@ export default function ExploreScreen() {
     return items;
   }, [searchResults]);
 
+  const canGoBack = navigation.canGoBack();
+  const findFriends = (
+    <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('FindFriends')} accessibilityRole="button" accessibilityLabel="Find friends">
+      <Ionicons name="person-add-outline" size={18} color={T.text} />
+    </Pressable>
+  );
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top }]} onLayout={onHeaderLayout}>
-        {/* iOS pattern: a 44pt nav row (back + action), then the large title flush left under it */}
-        <View style={styles.navRow}>
-          {navigation.canGoBack() ? (
+        {/* iOS pattern: a 44pt nav row (back + action), then the large title flush left under it.
+            As a tab root there is nothing to go back to, so the row goes and the action sits by the title. */}
+        {canGoBack ? (
+          <View style={styles.navRow}>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]} accessibilityRole="button" accessibilityLabel="Back">
               <Ionicons name="chevron-back" size={28} color={T.accentDeep || T.accent} style={{ marginLeft: -8 }} />
               <Text style={[styles.backLabel, { color: T.accentDeep || T.accent }]} maxFontSizeMultiplier={1.2}>Home</Text>
             </Pressable>
-          ) : <View />}
-          <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('FindFriends')} accessibilityRole="button" accessibilityLabel="Find friends">
-            <Ionicons name="person-add-outline" size={18} color={T.text} />
-          </Pressable>
-        </View>
-        <View>
-          <Text style={styles.dateLine} maxFontSizeMultiplier={1.3}>{todayLabel()}</Text>
-          <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
+            {findFriends}
+          </View>
+        ) : null}
+        <View style={[styles.titleRow, !canGoBack && { paddingTop: 12 }]}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.dateLine} maxFontSizeMultiplier={1.3}>{todayLabel()}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3} accessibilityRole="header">Explore</Text>
+          </View>
+          {canGoBack ? null : <View style={{ marginBottom: 4 }}>{findFriends}</View>}
         </View>
         <View style={styles.searchRow}>
           <View style={styles.searchBar}>
@@ -507,11 +539,12 @@ export default function ExploreScreen() {
   );
 }
 
-function makeStyles(T: Theme) {
+function makeStyles(T: Theme, page: string) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: T.bg },
-    header: { paddingHorizontal: 20, paddingBottom: 10, backgroundColor: T.bg, gap: 6 },
+    container: { flex: 1, backgroundColor: page },
+    header: { paddingHorizontal: 20, paddingBottom: 10, backgroundColor: page, gap: 6 },
     navRow: { height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    titleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
     backBtn: { flexDirection: 'row', alignItems: 'center', height: 44, paddingRight: 8 },
     backLabel: { fontSize: 17, letterSpacing: -0.41, marginLeft: -2 },
     headerTitle: { fontSize: 34, lineHeight: 41, color: T.text, letterSpacing: 0.37, fontWeight: '800' },
@@ -523,11 +556,11 @@ function makeStyles(T: Theme) {
     cancel: { color: T.text, fontSize: 15, fontWeight: '600' },
 
     block: { paddingHorizontal: 16, paddingTop: 10 },
-    blockTitle: { fontSize: 18, color: T.text, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 10 },
-    trendRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 9, minHeight: 44 },
-    trendRank: { width: 18, fontFamily: 'SpaceGrotesk_700Bold', fontSize: 17, color: T.textMuted },
-    trendTag: { fontSize: 15, fontWeight: '700', color: T.text },
-    trendMeta: { fontSize: 13, color: T.textSub, marginTop: 2 },
+    blockTitle: { fontSize: 22, lineHeight: 28, color: T.text, fontWeight: '700', letterSpacing: 0.35, marginBottom: 10 },
+    trendRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8, minHeight: 44 },
+    trendRank: { width: 18, fontWeight: '600', fontSize: 15, color: T.textMuted, fontVariant: ['tabular-nums'] },
+    trendTag: { fontSize: 17, fontWeight: '600', letterSpacing: -0.4, color: T.text },
+    trendMeta: { fontSize: 13, color: T.textMuted, marginTop: 1 },
     moreBtn: { paddingVertical: 10 },
     moreText: { color: T.accent, fontSize: 14, fontWeight: '600' },
 
@@ -539,7 +572,7 @@ function makeStyles(T: Theme) {
     suggSub: { fontSize: 13, color: T.textMuted, marginTop: 1 },
     searchAllText: { fontSize: 15, color: T.textSub },
 
-    resultsSection: { fontSize: 18, color: T.text, fontFamily: 'SpaceGrotesk_700Bold', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 6 },
+    resultsSection: { fontSize: 22, lineHeight: 28, color: T.text, fontWeight: '700', letterSpacing: 0.35, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 6 },
     userRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 12, alignItems: 'center' },
     userName: { fontWeight: '700', fontSize: 15, color: T.text, flexShrink: 1 },
     userHandle: { color: T.textMuted, fontSize: 14 },

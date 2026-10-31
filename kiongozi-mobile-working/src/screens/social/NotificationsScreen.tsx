@@ -22,22 +22,31 @@ import { BottomSheet } from '../../components/social/BottomSheet';
 import apiClient from '../../utils/apiClient';
 import { useStoryStore } from '../../stores/storyStore';
 import { useTheme } from '../../hooks/useTheme';
+import { useThemeStore } from '../../stores/themeStore';
 import { RowsSkeleton } from '../../components/social/Skeleton';
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
 import { selectFollowRequests } from './FollowRequestsScreen';
 
 type Theme = ReturnType<typeof useTheme>;
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "now", "2m", "1h" inside the last day; a weekday ("Tue") this week; "Oct 3" before that */
 function timeAgo(dateStr: string): string {
-  const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  const d = new Date(dateStr);
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
   if (mins < 1) return 'now';
   if (mins < 60) return `${mins}m`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (hrs < 24 * 7) return WEEKDAYS[d.getDay()];
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
+
+/** Unread rows get a soft green wash instead of a dot */
+const UNREAD_LIGHT = '#F7FBF7';
+const UNREAD_DARK = 'rgba(92,184,92,0.08)';
 
 const BADGE: Record<string, { icon: keyof typeof Ionicons.glyphMap; bg: string; fg: string }> = {
   like: { icon: 'heart', bg: '#FF3040', fg: '#fff' },
@@ -140,8 +149,8 @@ function PostThumb({ postId, T }: { postId?: string; T: Theme }) {
   );
 }
 const thumbStyles = StyleSheet.create({
-  img: { width: 44, height: 44, borderRadius: 10 },
-  text: { width: 44, height: 44, borderRadius: 10, padding: 5, overflow: 'hidden' },
+  img: { width: 44, height: 44, borderRadius: 8 },
+  text: { width: 44, height: 44, borderRadius: 8, padding: 5, overflow: 'hidden' },
   textInner: { fontSize: 8, lineHeight: 10 },
 });
 
@@ -167,7 +176,8 @@ function FollowPill({ userId, username, seedFollowing, backLabel, T }: { userId?
   );
 }
 
-function ActorAvatars({ row, T }: { row: Row; T: Theme }) {
+function ActorAvatars({ row, T, ringColor }: { row: Row; T: Theme; ringColor?: string }) {
+  const ring = ringColor || T.bg;
   const a = row.items[0], b = row.items[1];
   const badge = BADGE[row.type];
   return (
@@ -175,8 +185,8 @@ function ActorAvatars({ row, T }: { row: Row; T: Theme }) {
       {b ? (
         // Two people: a 34px overlap stack instead of one avatar
         <>
-          <View style={[rowStyles.stackTop, { borderColor: T.bg }]}><UserAvatar avatarUrl={a.fromAvatar} size={34} name={a.fromUsername} /></View>
-          <View style={[rowStyles.stackBottom, { borderColor: T.bg }]}><UserAvatar avatarUrl={b.fromAvatar} size={34} name={b.fromUsername} /></View>
+          <View style={[rowStyles.stackTop, { borderColor: ring }]}><UserAvatar avatarUrl={a.fromAvatar} size={34} name={a.fromUsername} /></View>
+          <View style={[rowStyles.stackBottom, { borderColor: ring }]}><UserAvatar avatarUrl={b.fromAvatar} size={34} name={b.fromUsername} /></View>
         </>
       ) : a.fromUsername ? (
         <UserAvatar avatarUrl={a.fromAvatar} size={48} isBot={a.fromUsername === 'kiongozi'} name={a.fromUsername} />
@@ -186,7 +196,7 @@ function ActorAvatars({ row, T }: { row: Row; T: Theme }) {
         </View>
       )}
       {badge && (
-        <View style={[rowStyles.badge, { backgroundColor: badge.bg, borderColor: T.bg }]}>
+        <View style={[rowStyles.badge, { backgroundColor: badge.bg, borderColor: ring }]}>
           <Ionicons name={badge.icon} size={10} color={badge.fg} />
         </View>
       )}
@@ -216,13 +226,14 @@ function ReplyActions({ item, T }: { item: SocialNotification; T: Theme }) {
   return (
     <View style={rowStyles.replyActions}>
       <Pressable onPress={like} hitSlop={10} style={rowStyles.replyBtn} accessibilityRole="button" accessibilityLabel={liked ? 'Unlike reply' : 'Like reply'}>
-        <Ionicons name={liked ? 'heart' : 'heart-outline'} size={19} color={liked ? '#FF3040' : T.textSub} />
+        <Text style={[rowStyles.replyBtnText, { color: liked ? '#FF3040' : T.textMuted }]} maxFontSizeMultiplier={1.2}>{liked ? 'Liked' : 'Like'}</Text>
       </Pressable>
+      <Text style={[rowStyles.replyBtnText, { color: T.textMuted }]} importantForAccessibility="no">·</Text>
       <Pressable
         onPress={() => navigation.navigate('PostDetail', { postId: replyId, focusReply: true })}
         hitSlop={10} style={rowStyles.replyBtn} accessibilityRole="button" accessibilityLabel="Reply"
       >
-        <Ionicons name="chatbubble-outline" size={18} color={T.textSub} />
+        <Text style={[rowStyles.replyBtnText, { color: T.textMuted }]} maxFontSizeMultiplier={1.2}>Reply</Text>
       </Pressable>
     </View>
   );
@@ -234,9 +245,11 @@ function NotificationRow({ row, onPress, onOthers, onRemove, T }: {
   const first = row.items[0];
   const others = row.items.length - 1;
   const action: [string, string] | undefined = row.type === 'mention' && first.data?.story_id
-    ? ['alikutaja kwenye story', 'walikutaja kwenye story'] : ACTION[row.type];
+    ? ['mentioned you in a story', 'mentioned you in a story'] : ACTION[row.type];
   const name = first.fromUsername || '';
   const hasPost = ['like', 'repost', 'comment', 'mention'].includes(row.type) && !!first.postId;
+  const isDark = useThemeStore(s => s.isDark);
+  const rest = row.unread ? (isDark ? UNREAD_DARK : UNREAD_LIGHT) : T.bg;
 
   // Swipe left: Remove (local; the API has no delete for notifications yet)
   const remove = () => (
@@ -249,14 +262,17 @@ function NotificationRow({ row, onPress, onOthers, onRemove, T }: {
 
   return (
     <ReanimatedSwipeable renderRightActions={remove} friction={1.6} rightThreshold={40} overshootRight={false}>
-    <Pressable onPress={onPress} style={({ pressed }) => [rowStyles.row, { backgroundColor: pressed ? T.surface : T.bg }]}>
-      {row.unread && <View style={[rowStyles.unread, { backgroundColor: T.accent }]} accessibilityLabel="Unread" />}
-      <ActorAvatars row={row} T={T} />
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [rowStyles.row, { backgroundColor: pressed ? T.surface : rest }]}
+      accessibilityHint={row.unread ? 'Unread' : undefined}
+    >
+      <ActorAvatars row={row} T={T} ringColor={row.unread ? rest : T.bg} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={[rowStyles.text, { color: T.text }]} numberOfLines={3}>
           {name && action ? (
             <>
-              <Text style={rowStyles.name}>{name}</Text>
+              <Text style={rowStyles.name}>@{name}</Text>
               {others > 0 && (
                 <>
                   <Text>{' and '}</Text>
@@ -368,7 +384,6 @@ const sheetStyles = StyleSheet.create({
 
 const rowStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 16, minHeight: 68 },
-  unread: { position: 'absolute', left: 5, top: '50%', width: 6, height: 6, borderRadius: 3, marginTop: -3 },
   avatarBox: { width: 48, height: 48 },
   stackTop: { position: 'absolute', left: 0, top: 0, borderWidth: 2, borderRadius: 19 },
   stackBottom: { position: 'absolute', right: -2, bottom: -2, borderWidth: 2, borderRadius: 19 },
@@ -376,8 +391,9 @@ const rowStyles = StyleSheet.create({
   badge: { position: 'absolute', right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   text: { fontSize: 15, lineHeight: 20 },
   replyText: { fontSize: 15, lineHeight: 20, marginTop: 2 },
-  replyActions: { flexDirection: 'row', gap: 18, marginTop: 6 },
+  replyActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   replyBtn: { height: 28, minWidth: 28, justifyContent: 'center' },
+  replyBtnText: { fontSize: 13, fontWeight: '500' },
   name: { fontWeight: '600' },
   others: { fontWeight: '700' },
   swipeBtn: { width: 84, backgroundColor: '#FF3B30', alignItems: 'center', justifyContent: 'center', gap: 4 },
@@ -502,7 +518,7 @@ export default function NotificationsScreen() {
           keyExtractor={r => r.key}
           stickySectionHeadersEnabled={false}
           ListHeaderComponent={showRequestsCard ? <FollowRequestsCard requests={requests} onPress={openRequests} T={T} /> : null}
-          renderSectionHeader={({ section }) => <Text style={[styles.section, section === sections[0] && { paddingTop: 8 }]}>{section.title}</Text>}
+          renderSectionHeader={({ section }) => <Text style={[styles.section, section === sections[0] && { paddingTop: 8 }]} accessibilityRole="header">{section.title.toUpperCase()}</Text>}
           renderItem={({ item }) => (
             <NotificationRow
               row={item}
@@ -550,7 +566,7 @@ function makeStyles(T: Theme) {
     chipText: { fontSize: 14, fontWeight: '600' },
     chipCount: { minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#FF3040', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
     chipCountText: { color: '#fff', fontSize: 11, fontWeight: '800' },
-    section: { color: T.text, fontSize: 15, fontWeight: '700', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 2 },
+    section: { color: T.textMuted, fontSize: 13, fontWeight: '600', letterSpacing: -0.08, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
     empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 12 },
     emptyIcon: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center' },
     emptyTitle: { fontSize: 18, fontWeight: '700', color: T.text },

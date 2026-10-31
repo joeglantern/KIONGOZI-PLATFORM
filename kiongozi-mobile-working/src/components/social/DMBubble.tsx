@@ -58,7 +58,7 @@ export function bubbleColors(isDark: boolean, accent: string) {
     own: accent,
     ownText: '#000000',
     ownMeta: 'rgba(0,0,0,0.5)',
-    other: isDark ? '#1C1C1E' : '#E9E9EB',
+    other: isDark ? '#1C1C1E' : '#F2F2F7',
     otherText: isDark ? '#FFFFFF' : '#000000',
     otherMeta: isDark ? 'rgba(235,235,245,0.45)' : 'rgba(60,60,67,0.5)',
   };
@@ -81,7 +81,7 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
   const meta = isOwn ? C.ownMeta : C.otherMeta;
 
   // Grouped corners: the side facing the sender tucks in inside a group
-  const r = 18, s = 4;
+  const r = 20, s = 6;
   const corners = isOwn
     ? { borderTopRightRadius: isFirst ? r : s, borderBottomRightRadius: isLast ? r : s }
     : { borderTopLeftRadius: isFirst ? r : s, borderBottomLeftRadius: isLast ? r : s };
@@ -235,13 +235,13 @@ const styles = StyleSheet.create({
   rowOther: { justifyContent: 'flex-start' },
   avatarSlot: { width: 28, marginRight: 6, alignItems: 'flex-end' },
 
-  bubble: { maxWidth: '78%', paddingHorizontal: 12, paddingTop: 7, paddingBottom: 7, borderRadius: 18 },
+  bubble: { maxWidth: '78%', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, borderRadius: 20 },
   bubbleFloating: { maxWidth: '100%' },
   mediaBubble: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, overflow: 'hidden' },
-  text: { fontSize: 16, lineHeight: 21, letterSpacing: -0.2 },
+  text: { fontSize: 16.5, lineHeight: 21, letterSpacing: -0.2 },
   spacer: { fontSize: 11, color: 'transparent' },
 
-  metaCorner: { position: 'absolute', right: 10, bottom: 5, flexDirection: 'row', alignItems: 'center' },
+  metaCorner: { position: 'absolute', right: 12, bottom: 8, flexDirection: 'row', alignItems: 'center' },
   metaPill: { backgroundColor: 'rgba(0,0,0,0.38)', borderRadius: 9, paddingHorizontal: 6, paddingVertical: 2, right: 8, bottom: 7 },
   time: { fontSize: 11, fontVariant: ['tabular-nums'] },
   tick: { marginLeft: 2 },

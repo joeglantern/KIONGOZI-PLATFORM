@@ -75,7 +75,7 @@ export default function OnboardingScreen({ onDone }: Props) {
       <View style={[styles.copy, { marginTop: compact ? 8 : 18 }]}>
         <Image source={LOGO} style={styles.logo} accessibilityLabel="KChat" />
         <Text style={[styles.headline, compact && { fontSize: 30, lineHeight: 34 }]} maxFontSizeMultiplier={1.2}>
-          Kenya, say your piece.
+          {'Kenya,\nsay your piece.'}
         </Text>
         <Text style={styles.sub} maxFontSizeMultiplier={1.3}>
           Posts, clips, stories and live barazas, one voice at a time. Made in Nairobi.

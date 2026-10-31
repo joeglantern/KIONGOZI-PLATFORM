@@ -25,19 +25,22 @@ const KIONGOZI_AI_ID = '00000000-0000-0000-0000-000000000001';
 
 type Filter = 'all' | 'unread' | 'groups';
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Like Messages: "now" under a minute, clock time today ("9:42"), then Yesterday, a weekday, a date */
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'now';
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return d.toLocaleDateString('en-US', { weekday: 'short' });
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (Date.now() - d.getTime() < 60000) return 'now';
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const dayMs = 86400000;
+  if (d.getTime() >= startOfToday.getTime()) {
+    return `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+  if (d.getTime() >= startOfToday.getTime() - dayMs) return 'Yesterday';
+  if (d.getTime() >= startOfToday.getTime() - 6 * dayMs) return WEEKDAYS[d.getDay()];
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
 /** Group chat = more than one other person in it */
@@ -226,7 +229,7 @@ export default function DMListScreen() {
       ? last.content
       : last?.media_type === 'video' ? 'Sent a video'
       : last?.media_type === 'image' ? 'Sent a photo'
-      : last?.media_type === 'audio' ? 'Voice note'
+      : last?.media_type === 'audio' ? 'Sent a voice note'
       : 'Say hello';
     // Swipe left: Read (when unread), Pin, Archive, like WhatsApp and Mail
     const actions = () => (
@@ -601,11 +604,11 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     rowTime: { fontSize: 13, color: T.textMuted },
     badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
     badgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
-    swipeBtn: { width: 76, alignItems: 'center', justifyContent: 'center', gap: 4 },
+    swipeBtn: { width: 84, alignItems: 'center', justifyContent: 'center', gap: 4 },
     swipeText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
     convName: { fontSize: 16, color: T.text, fontWeight: '500', flexShrink: 1 },
     convNameUnread: { fontWeight: '700' },
-    convLastMsg: { color: T.textSub, fontSize: 14 },
+    convLastMsg: { color: T.textSub, fontSize: 15 },
     unreadMsg: { fontWeight: '600', color: T.text },
     draftLabel: { color: T.error, fontWeight: '600' },
     groupTop: { position: 'absolute', left: 0, top: 0, borderWidth: 2, borderRadius: 20 },

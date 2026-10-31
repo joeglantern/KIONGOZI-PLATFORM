@@ -12,7 +12,7 @@ import { useStoryStore, StoryGroup } from '../../stores/storyStore';
 import { UserAvatar } from '../social/UserAvatar';
 import { StoryRing, ringInnerSize } from './StoryParts';
 
-const SIZE = 72;
+const SIZE = 64;
 const RING = 2.5; // posting ring stroke
 
 /**
@@ -133,7 +133,8 @@ export function StoryRail() {
                 {busy ? (
                   // Posting: the ring fills as the upload goes; failed: a red ring with a retry badge
                   <ProgressRing size={SIZE} progress={postFailed ? 1 : postProgress} color={postFailed ? T.error : T.accent} track={T.surface2} bg={T.bg}>
-                    {meAvatar(SIZE - RING * 2 - 6)}
+                    {/* Dimmed while it uploads or after it failed, so the ring and badge read first */}
+                    <View style={{ opacity: 0.55 }}>{meAvatar(SIZE - RING * 2 - 6)}</View>
                   </ProgressRing>
                 ) : (
                   <StoryRing size={SIZE} state={mine ? 'seen' : 'none'} bg={T.bg}>
@@ -141,8 +142,8 @@ export function StoryRail() {
                   </StoryRing>
                 )}
                 {postFailed ? (
-                  <Pressable onPress={retry} hitSlop={10} style={[styles.badge, { backgroundColor: '#FFFFFF' }]} accessibilityLabel="Retry posting your story">
-                    <Ionicons name="refresh" size={13} color="#000" />
+                  <Pressable onPress={retry} hitSlop={10} style={styles.retryBadge} accessibilityRole="button" accessibilityLabel="Retry posting your story">
+                    <Ionicons name="refresh" size={14} color={T.error} />
                   </Pressable>
                 ) : posting ? null : (
                   <Pressable onPress={openComposer} hitSlop={10} style={[styles.badge, { backgroundColor: T.accent }]} accessibilityLabel="Add to your story">
@@ -152,7 +153,7 @@ export function StoryRail() {
                   </Pressable>
                 )}
               </View>
-              <Text style={[styles.name, styles.nameSeen, postFailed && { color: T.error, fontWeight: '500' }]} numberOfLines={1}>
+              <Text style={[styles.name, styles.nameSeen, postFailed && { color: T.error, fontWeight: '600' }]} numberOfLines={1}>
                 {postFailed ? 'Tap to retry' : posting ? 'Posting…' : mine ? 'Your story' : 'Add story'}
               </Text>
             </View>
@@ -225,6 +226,12 @@ const makeStyles = (T: any) => StyleSheet.create({
   badge: {
     position: 'absolute', right: 0, bottom: 0, width: 24, height: 24, borderRadius: 12,
     borderWidth: 3, borderColor: T.bg, alignItems: 'center', justifyContent: 'center',
+  },
+  // Failed post: a white retry circle sitting in the middle of the dimmed avatar
+  retryBadge: {
+    position: 'absolute', left: SIZE / 2 - 12, top: SIZE / 2 - 12, width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4,
   },
   plusH: { position: 'absolute', width: 8, height: 2.2, borderRadius: 1.1, backgroundColor: '#000' },
   plusV: { position: 'absolute', width: 2.2, height: 8, borderRadius: 1.1, backgroundColor: '#000' },

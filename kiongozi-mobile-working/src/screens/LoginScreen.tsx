@@ -24,6 +24,9 @@ import { useAuthStore } from '../stores/authStore';
 import apiClient from '../utils/apiClient';
 import { useTheme } from '../hooks/useTheme';
 
+/** iOS system link blue (light / dark) */
+const linkBlue = (dark: boolean) => (dark ? '#0A84FF' : '#007AFF');
+
 /** Set when an account was just created, so the app shows "Who should be in your feed?" once. */
 export const FIRST_FEED_PENDING_KEY = 'first_feed_pending';
 
@@ -268,7 +271,7 @@ export default function LoginScreen({ onLoginSuccess, initialMode = 'signin', on
               ? `We sent a link to ${verifyEmail}. Tap it to finish creating your account, then come back here.`
               : forgotMode
                 ? (!resetSent ? 'Enter your email and we will send a 6-digit code.' : !otpVerified ? `We sent a 6-digit code to ${resetEmail}.` : 'Choose a new password.')
-                : isSignUp ? 'Join the conversation shaping Kenya.' : 'Pick up where you left off.'}
+                : isSignUp ? 'Join the conversation shaping Kenya.' : 'Sign in with the email you used before.'}
           </Text>
 
           {/* waiting on the email link */}
@@ -535,7 +538,7 @@ export default function LoginScreen({ onLoginSuccess, initialMode = 'signin', on
                   hitSlop={6}
                   accessibilityRole="button"
                 >
-                  <Text style={[styles.link, { color: T.text }]}>Forgot password?</Text>
+                  <Text style={[styles.link, { color: linkBlue(T.bg === '#000000') }]}>Forgot password?</Text>
                 </Pressable>
               )}
 

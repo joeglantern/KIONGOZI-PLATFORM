@@ -58,6 +58,7 @@ export default function SettingsScreen() {
   const [exportLoading, setExportLoading] = useState(false);
   const [signOutSheet, setSignOutSheet] = useState(false);
   const [deleteAccountSheet, setDeleteAccountSheet] = useState(false);
+  const [blockedSheet, setBlockedSheet] = useState(false);
   const [exportSheet, setExportSheet] = useState(false);
 
   // Change password modal
@@ -207,6 +208,11 @@ export default function SettingsScreen() {
 
   const appVersion =
     Constants.expoConfig?.version ?? (Constants as any).manifest?.version ?? '1.0.0';
+  // The store build number ("2.1.0 (16)"): the installed binary's, else the one in app.json
+  const buildNumber = Platform.OS === 'ios'
+    ? (Constants.platform?.ios?.buildNumber ?? Constants.expoConfig?.ios?.buildNumber)
+    : (Constants.platform?.android?.versionCode ?? Constants.expoConfig?.android?.versionCode);
+  const versionLabel = buildNumber ? `${appVersion} (${buildNumber})` : appVersion;
 
   const lowData = usePrefs(s => s.lowData);
   const setLowData = usePrefs(s => s.setLowData);
@@ -230,7 +236,6 @@ export default function SettingsScreen() {
     toggleTheme();
   };
 
-  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   return (
     <View style={[styles.container, { backgroundColor: K.page }]}>
@@ -255,7 +260,7 @@ export default function SettingsScreen() {
             onPress={() => navigation.navigate('EditProfile')}
             accessibilityRole="button"
             accessibilityLabel={`${me?.full_name || 'Your profile'}, edit profile`}
-            style={({ pressed }) => [styles.meCard, { backgroundColor: pressed ? K.pressed : K.card, borderColor: K.cardBorder }]}
+            style={({ pressed }) => [styles.meCard, { backgroundColor: pressed ? K.pressed : K.card }]}
           >
             <UserAvatar avatarUrl={me?.avatar_url} size={62} name={me?.full_name || me?.username} />
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -268,8 +273,80 @@ export default function SettingsScreen() {
           </Pressable>
         </Section>
 
+        <Section title="Notifications" order={1}>
+          <Card>
+            <Row
+              icon="notifications-outline"
+              title="Push notifications"
+              sub={pushEnabled ? 'On · silent 11pm to 7am' : 'Off'}
+              right={pushLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : <Toggle value={pushEnabled} onChange={handlePushToggle} label="Push notifications" />}
+            />
+            <Row
+              icon="options-outline"
+              color="#FF9500"
+              title="What you get"
+              sub={notifyOff ? `${notifyOff} ${notifyOff === 1 ? 'kind' : 'kinds'} off` : 'Likes, replies, follows, DMs, Baraza live'}
+              chevron
+              onPress={() => navigation.navigate('NotificationPrefs')}
+            />
+          </Card>
+        </Section>
+
+        <Section title="Privacy" order={2}>
+          <Card>
+            <Row
+              icon="lock-closed-outline"
+              title="Private account"
+              sub={privateAccount ? 'On · you approve new followers' : 'Off · anyone can follow you'}
+              right={<Toggle value={privateAccount} onChange={handlePrivateToggle} label="Private account" />}
+            />
+            {features.presence && (
+              <Row
+                icon="radio-button-on-outline"
+                title="Activity status"
+                sub={showActivity ? 'On · friends see when you’re active' : 'Off · you won’t see theirs either'}
+                right={<Toggle value={showActivity} onChange={setShowActivity} label="Show activity status" />}
+              />
+            )}
+            <Row
+              icon="ban-outline"
+              title="Blocked and muted"
+              sub={blockedCount || mutedCount ? `${blockedCount} blocked · ${mutedCount} muted` : 'No one'}
+              chevron
+              onPress={() => setBlockedSheet(true)}
+            />
+          </Card>
+        </Section>
+
+        <Section title="Data" order={3}>
+          <Card>
+            <Row
+              icon="cellular-outline"
+              title="Low-data mode"
+              sub={lowData ? 'On · tap to play videos, nothing loads ahead' : 'Off · videos play as you scroll'}
+              right={<Toggle value={lowData} onChange={setLowData} label="Low-data mode" />}
+            />
+            <Row
+              icon="stats-chart"
+              color="#34C759"
+              title="Storage and data"
+              sub={`Auto-play ${autoplay === 'always' ? 'always' : 'never'} · ${uploadQuality === 'hd' ? 'HD' : 'Standard'} uploads`}
+              chevron
+              onPress={() => navigation.navigate('StorageData')}
+            />
+            {features.break_reminder && (
+              <Row
+                icon="cafe-outline"
+                title="Break reminders"
+                sub={breakReminder ? 'On · a gentle nudge after 30 minutes of scrolling' : 'Off'}
+                right={<Toggle value={breakReminder} onChange={setBreakReminder} label="Break reminders" />}
+              />
+            )}
+          </Card>
+        </Section>
+
         {/* Appearance: pick by looking, not by reading */}
-        <Section title="Appearance" order={1}>
+        <Section title="Appearance" order={4}>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             {[true, false].map(dark => {
               const on = dark === isDark;
@@ -299,82 +376,8 @@ export default function SettingsScreen() {
           </View>
         </Section>
 
-        <Section title="Privacy" order={2}>
-          <Card>
-            <Row
-              icon="lock-closed-outline"
-              title="Private account"
-              sub={privateAccount ? 'On · you approve new followers' : 'Off · anyone can follow you'}
-              right={<Toggle value={privateAccount} onChange={handlePrivateToggle} label="Private account" />}
-            />
-            {features.presence && (
-              <Row
-                icon="radio-button-on-outline"
-                title="Activity status"
-                sub={showActivity ? 'On · friends see when you’re active' : 'Off · you won’t see theirs either'}
-                right={<Toggle value={showActivity} onChange={setShowActivity} label="Show activity status" />}
-              />
-            )}
-            <Row
-              icon="ban-outline"
-              title="Blocked accounts"
-              sub={blockedCount ? count(blockedCount, 'account', 'accounts') : 'No one'}
-              chevron
-              onPress={() => navigation.navigate('BlockedUsers')}
-            />
-            <Row
-              icon="volume-mute-outline"
-              title="Muted accounts"
-              sub={mutedCount ? count(mutedCount, 'account', 'accounts') : 'No one'}
-              chevron
-              onPress={() => navigation.navigate('MutedUsers')}
-            />
-          </Card>
-        </Section>
-
-        <Section title="Notifications and data" order={3}>
-          <Card>
-            <Row
-              icon="notifications-outline"
-              title="Push notifications"
-              sub={pushEnabled ? 'On · silent from 11pm to 7am' : 'Off'}
-              right={pushLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : <Toggle value={pushEnabled} onChange={handlePushToggle} label="Push notifications" />}
-            />
-            <Row
-              icon="notifications-outline"
-              color="#FF9500"
-              title="What you get"
-              sub={notifyOff ? `${notifyOff} ${notifyOff === 1 ? 'kind' : 'kinds'} off` : 'Likes, replies, follows, messages and more'}
-              chevron
-              onPress={() => navigation.navigate('NotificationPrefs')}
-            />
-            <Row
-              icon="cellular-outline"
-              title="Low-data mode"
-              sub={lowData ? 'On · tap to play videos, nothing loads ahead' : 'Off · videos play as you scroll'}
-              right={<Toggle value={lowData} onChange={setLowData} label="Low-data mode" />}
-            />
-            <Row
-              icon="stats-chart"
-              color="#34C759"
-              title="Storage and data"
-              sub={`Auto-play ${autoplay === 'always' ? 'always' : 'never'} · ${uploadQuality === 'hd' ? 'HD' : 'Standard'} uploads`}
-              chevron
-              onPress={() => navigation.navigate('StorageData')}
-            />
-            {features.break_reminder && (
-              <Row
-                icon="cafe-outline"
-                title="Break reminders"
-                sub={breakReminder ? 'On · a gentle nudge after 30 minutes of scrolling' : 'Off'}
-                right={<Toggle value={breakReminder} onChange={setBreakReminder} label="Break reminders" />}
-              />
-            )}
-          </Card>
-        </Section>
-
         {(features.invites || features.recap) && (
-          <Section title="Grow" order={4}>
+          <Section title="Grow" order={5}>
             <Card>
               {features.invites && (
                 <Row icon="person-add-outline" title="Invite friends" sub="Share your link, see who joined" chevron onPress={() => navigation.navigate('Invite')} />
@@ -386,7 +389,7 @@ export default function SettingsScreen() {
           </Section>
         )}
 
-        <Section title="Account" order={5}>
+        <Section title="Account" order={6}>
           <Card>
             <Row icon="key-outline" title="Change password" chevron onPress={() => setPasswordModalVisible(true)} />
             <Row icon="phone-portrait-outline" title="Where you’re logged in" sub="See your devices, sign out a lost phone" chevron onPress={() => navigation.navigate('Devices')} />
@@ -402,14 +405,14 @@ export default function SettingsScreen() {
           </Card>
         </Section>
 
-        <Section title="The fine print" order={6}>
+        <Section title="The fine print" order={7}>
           <Card>
             <Row icon="document-text-outline" title="Privacy policy" external onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} />
             <Row icon="reader-outline" title="Terms of service" external onPress={() => Linking.openURL(TERMS_URL)} />
           </Card>
         </Section>
 
-        <Animated.View entering={rise(7)}>
+        <Animated.View entering={rise(8)}>
           <Pressable
             onPress={handleSignOut}
             accessibilityRole="button"
@@ -418,7 +421,7 @@ export default function SettingsScreen() {
             <Ionicons name="log-out-outline" size={20} color={T.error} />
             <Text style={[styles.signOutText, { color: T.error }]}>Log out</Text>
           </Pressable>
-          <Text style={styles.footer} maxFontSizeMultiplier={1.3}>KChat {appVersion} · Made in Nairobi</Text>
+          <Text style={styles.footer} maxFontSizeMultiplier={1.3}>Made in Nairobi · {versionLabel}</Text>
         </Animated.View>
       </ScrollView>
 
@@ -431,6 +434,17 @@ export default function SettingsScreen() {
         subtitle="This will package all your Kiongozi data (posts, follows, bookmarks) into a JSON file."
         actions={[
           { icon: 'download-outline', label: 'Export', onPress: doExportData },
+        ]}
+      />
+
+      <BottomSheet
+        visible={blockedSheet}
+        onClose={() => setBlockedSheet(false)}
+        title="Blocked and muted"
+        subtitle="Blocked people can't see your posts or message you. Muted people just go quiet in your feed."
+        actions={[
+          { icon: 'ban-outline', label: `Blocked accounts (${blockedCount})`, onPress: () => navigation.navigate('BlockedUsers') },
+          { icon: 'volume-mute-outline', label: `Muted accounts (${mutedCount})`, onPress: () => navigation.navigate('MutedUsers') },
         ]}
       />
 
@@ -526,7 +540,7 @@ function makeStyles(T: AppTheme) {
     },
     backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     bigTitle: { fontSize: 34, fontWeight: '800', letterSpacing: 0.37, color: T.text, marginTop: 14, marginLeft: 4 },
-    meCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, borderWidth: 1 },
+    meCard: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14 },
     meName: { fontSize: 20, fontWeight: '700', letterSpacing: 0.38, color: T.text },
     meSub: { fontSize: 14, color: T.textSub, marginTop: 2 },
     themeCard: { flex: 1, borderRadius: 18, paddingVertical: 12, alignItems: 'center', gap: 8 },
