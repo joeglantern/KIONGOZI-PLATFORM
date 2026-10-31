@@ -6,7 +6,8 @@
 // under the picture starts quiet and fills with the accent once the ad has been seen for a moment
 // (Instagram's trick). The ⋯ menu gives people control: hide, why am I seeing this, report.
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolateColor } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -88,7 +89,9 @@ export function AdCard({ ad, seen, onOpen, onHide, onReport }: {
 
           {/* Picture and button are one block, like the big apps */}
           <View style={s.block}>
-            <FitImage uri={img} ratio={ratio} placeholder={ad.placeholder} onPress={open} bg={T.surface2} radius={0} minRatio={0.8} maxRatio={1.91} />
+            {ad.media_type === 'video'
+              ? <AdVideo uri={ad.media_url} poster={ad.thumbnail_url || undefined} ratio={Math.max(0.8, Math.min(1.91, ratio))} playing={seen} onPress={open} bg={T.surface2} />
+              : <FitImage uri={img} ratio={ratio} placeholder={ad.placeholder} onPress={open} bg={T.surface2} radius={0} minRatio={0.8} maxRatio={1.91} />}
             <Pressable onPress={open} accessibilityRole="link" accessibilityLabel={ad.cta_label}>
               <Animated.View style={[s.cta, ctaBg]}>
                 <Animated.Text style={[s.ctaText, ctaText]} numberOfLines={1}>{ad.cta_label}</Animated.Text>
@@ -122,6 +125,33 @@ export function AdCard({ ad, seen, onOpen, onHide, onReport }: {
         actions={[{ icon: 'checkmark', label: 'Got it', onPress: () => setWhy(false) }]}
       />
     </View>
+  );
+}
+
+/**
+ * A video ad: the poster first, then the clip plays silently on a loop once the ad has been seen
+ * (Instagram and TikTok autoplay muted in the feed). Sized from its own width so it never zooms.
+ */
+function AdVideo({ uri, poster, ratio, playing, onPress, bg }: { uri: string; poster?: string; ratio: number; playing: boolean; onPress: () => void; bg: string }) {
+  const [w, setW] = useState(0);
+  const [ready, setReady] = useState(false);
+  const player = useVideoPlayer(uri, p => { p.loop = true; p.muted = true; });
+  useEffect(() => {
+    const sub = player.addListener('playingChange', ({ isPlaying }: any) => { if (isPlaying) setReady(true); });
+    return () => sub.remove();
+  }, [player]);
+  useEffect(() => { try { if (playing) player.play(); else player.pause(); } catch {} }, [playing, player]);
+  const h = w ? w / ratio : 0;
+  return (
+    <Pressable onPress={onPress} onLayout={e => setW(e.nativeEvent.layout.width)} style={{ width: '100%', aspectRatio: ratio, backgroundColor: bg }} accessibilityRole="link">
+      {w ? (
+        <>
+          {poster ? <Image source={{ uri: poster }} style={{ position: 'absolute', left: 0, top: 0, width: w, height: h }} resizeMode="cover" /> : null}
+          <VideoView player={player} style={{ position: 'absolute', left: 0, top: 0, width: w, height: h, opacity: ready ? 1 : 0 }}
+            contentFit="cover" nativeControls={false} allowsFullscreen={false} allowsPictureInPicture={false} />
+        </>
+      ) : null}
+    </Pressable>
   );
 }
 
