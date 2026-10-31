@@ -22,6 +22,7 @@ import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
 import { useTheme } from '../../hooks/useTheme';
 import { BottomSheet } from '../../components/social/BottomSheet';
+import { ComposerPoll, ComposerPollValue, PollToolIcon, newPoll, pollChoices } from '../../components/social/ComposerPoll';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { prefs, pickerQuality } from '../../stores/prefsStore';
 
@@ -66,6 +67,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const [content, setContent] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'followers'>('public');
   const [media, setMedia] = useState<MediaItem[]>([]);
+  const [poll, setPoll] = useState<ComposerPollValue | null>(null);
   const [posting, setPosting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<Record<string, UploadStatus | undefined>>({});
   const [discardSheet, setDiscardSheet] = useState(false);
@@ -179,14 +181,15 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   const androidSpacer = useAnimatedStyle(() => ({ height: androidPad.value }));
 
   // ── Derived ─────────────────────────────────────────────────────────────────
-  const canPost = content.trim().length > 0 && content.length <= MAX_CHARS && !posting;
+  const canPost = content.trim().length > 0 && content.length <= MAX_CHARS && !posting && (!poll || !!pollChoices(poll));
   const displayName = currentUserProfile?.full_name || (user as any)?.full_name || 'You';
   const handle = currentUserProfile?.username || (user as any)?.username;
   const contentW = Math.max(200, winW - SIDE * 2);
   // Toolbar at 320: pad 24 + tools 3x46-6 (132) + counter "-12"+ring (62) + chip 6+24+6+"Followers"~64+12 (+6 margin = 118)
   // = 336 > 320. Narrow screens use 40-wide tool buttons (-18) and drop the chip label while the
   // warning counter is visible: 24 + 114 + 62 + 42 = 242.
-  const narrow = winW < 360;
+  // The poll button adds a fourth tool, so phones under 400 wide use the compact tools.
+  const narrow = winW < (parentPostId ? 360 : 400);
 
   // Post button gives a small press when it becomes enabled.
   const postScale = useSharedValue(1);
@@ -387,7 +390,10 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         uploadedMedia = uploaded;
       }
 
-      const res = await apiClient.createPost(content.trim(), uploadedMedia, parentPostId, visibility);
+      const choices = pollChoices(poll);
+      const res = poll && choices
+        ? await apiClient.createPollPost(content.trim(), choices, poll.hours, visibility)
+        : await apiClient.createPost(content.trim(), uploadedMedia, parentPostId, visibility);
       if (res.success && res.data) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         posted.current = true;
@@ -409,7 +415,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   };
 
   const handleCancel = () => {
-    if (content.trim().length > 0 || media.length > 0) {
+    if (content.trim().length > 0 || media.length > 0 || poll) {
       Keyboard.dismiss();
       setDiscardSheet(true);
     } else {
@@ -423,7 +429,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
   };
 
   const mediaFull = media.length >= MAX_MEDIA;
-  const toolsDisabled = mediaFull || posting;
+  const toolsDisabled = mediaFull || posting || !!poll;
   const remaining = MAX_CHARS - content.length;
   const over = remaining < 0;
   const isPublic = visibility === 'public';
@@ -501,7 +507,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
                 caretAtEnd.current = e.nativeEvent.selection.end >= content.length - 1;
               }}
               onContentSizeChange={e => ensureCaretVisible(e.nativeEvent.contentSize.height)}
-              placeholder={parentPostId ? 'Post your reply' : hint}
+              placeholder={parentPostId ? 'Post your reply' : poll ? 'Ask a question' : hint}
               placeholderTextColor={T.placeholder}
               multiline
               scrollEnabled={false}
@@ -531,6 +537,10 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
             </Animated.View>
           )}
 
+          {poll && (
+            <ComposerPoll value={poll} onChange={setPoll} onRemove={() => setPoll(null)} disabled={posting} />
+          )}
+
           <ComposerMedia
             items={media}
             width={contentW}
@@ -555,6 +565,15 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
             <ToolButton icon={ICONS.gallery} label="Add photos" disabled={toolsDisabled} onPress={() => pickMedia('image')} compact={narrow} />
             <ToolButton icon={ICONS.camera} label="Take a photo" disabled={toolsDisabled} onPress={takePhoto} compact={narrow} />
             <ToolButton icon={ICONS.video} label="Add video" disabled={toolsDisabled} onPress={() => pickMedia('video')} compact={narrow} />
+            {!parentPostId && (
+              <ToolButton
+                icon={<PollToolIcon color={T.accent} />}
+                label="Add a poll"
+                disabled={posting || !!poll || media.length > 0}
+                onPress={() => { setPoll(newPoll()); }}
+                compact={narrow}
+              />
+            )}
           </View>
 
           <View style={styles.flex} />
@@ -590,7 +609,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
         visible={discardSheet}
         onClose={() => setDiscardSheet(false)}
         title="Keep this draft?"
-        subtitle={media.length ? 'Your text will be here next time. Photos and videos are not kept.' : 'It will be here next time you write a post.'}
+        subtitle={poll ? 'Your text will be here next time. The poll is not kept.' : media.length ? 'Your text will be here next time. Photos and videos are not kept.' : 'It will be here next time you write a post.'}
         actions={[
           { icon: 'bookmark-outline', label: 'Save draft', onPress: () => { setDiscardSheet(false); onClose(); } },
           { icon: 'trash-outline', label: 'Discard', onPress: () => { skipDraft.current = true; AsyncStorage.removeItem(DRAFT_KEY).catch(() => {}); setDiscardSheet(false); onClose(); }, destructive: true },
@@ -609,7 +628,7 @@ function usePressSpring() {
 }
 
 function ToolButton({ icon, onPress, disabled, label, compact }: {
-  icon: ImageSourcePropType; onPress: () => void; disabled?: boolean; label: string; compact?: boolean;
+  icon: ImageSourcePropType | React.ReactElement; onPress: () => void; disabled?: boolean; label: string; compact?: boolean;
 }) {
   const spring = usePressSpring();
   return (
@@ -625,7 +644,7 @@ function ToolButton({ icon, onPress, disabled, label, compact }: {
       hitSlop={compact ? { top: 4, bottom: 4 } : undefined}
     >
       <Animated.View style={[spring.style, disabled && { opacity: 0.35 }]}>
-        <Image source={icon} style={toolStyles.icon} resizeMode="contain" />
+        {React.isValidElement(icon) ? icon : <Image source={icon as ImageSourcePropType} style={toolStyles.icon} resizeMode="contain" />}
       </Animated.View>
     </Pressable>
   );

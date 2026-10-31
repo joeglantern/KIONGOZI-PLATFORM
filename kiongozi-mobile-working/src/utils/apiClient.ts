@@ -646,6 +646,19 @@ class ApiClient {
     return this.request(`/api/v1/social/posts/${postId}`, { method: 'DELETE' });
   }
 
+  /** New post with a poll (like X): text is the question, 2 to 4 choices, no media */
+  async createPollPost(content: string, options: string[], durationHours: number, visibility: 'public' | 'followers' = 'public') {
+    return this.request('/api/v1/social/posts', {
+      method: 'POST',
+      body: JSON.stringify({ content, visibility, poll: { options, duration_hours: durationHours } })
+    });
+  }
+
+  /** Vote in a post poll (final). Returns the poll with fresh counts */
+  async votePoll(postId: string, option: number) {
+    return this.request(`/api/v1/social/posts/${postId}/poll/vote`, { method: 'POST', body: JSON.stringify({ option }) });
+  }
+
   /** Like or unlike a post (toggle) */
   async likePost(postId: string) {
     return this.request(`/api/v1/social/posts/${postId}/like`, { method: 'POST' });

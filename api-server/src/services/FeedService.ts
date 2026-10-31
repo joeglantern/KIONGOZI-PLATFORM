@@ -1,5 +1,6 @@
 import { supabaseServiceClient } from '../config/supabase';
 import { mediaAlt } from '../config/mediaColumns';
+import { attachPolls } from './PollService';
 
 const postSelect = () => `
   id, content, visibility, like_count, comment_count, repost_count, view_count,
@@ -48,7 +49,9 @@ export function collapseReposts(rows: any[], seen = new Set<string>()): any[] {
  * Batch-enrich posts with isLiked + isBookmarked + isReposted + recentReposters for the given user.
  */
 async function enrichWithUserState(posts: any[], userId?: string): Promise<any[]> {
-  if (!userId || !posts.length) return posts;
+  if (!posts.length) return posts;
+  await attachPolls(posts, userId); // adds poll (with my_vote) to poll posts; no-op before the polls migration
+  if (!userId) return posts;
 
   // Include the originals inside repost cards: the app shows (and likes/bookmarks) those.
   const postIds = [...new Set(posts.flatMap((p: any) => (p.repost_of?.id ? [p.id, p.repost_of.id] : [p.id])))];

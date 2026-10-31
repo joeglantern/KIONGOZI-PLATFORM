@@ -11,6 +11,7 @@ import OpenAI from 'openai';
 import ModerationService from '../services/ModerationService';
 import UploadService from '../services/UploadService';
 import { renderPostShareCard } from '../services/ShareCards2';
+import { parsePoll, createPoll, attachPolls, vote as votePoll } from '../services/PollService';
 
 /**
  * Returns true if the viewer can access posts from the given author.
@@ -161,6 +162,7 @@ router.get('/posts/:id/ancestors', optionalAuth, async (req: Request, res: Respo
       chain.unshift(post); // oldest first
       currentId = post.parent_post_id ?? null;
     }
+    await attachPolls(chain, req.user?.id);
     res.json({ success: true, data: chain });
   } catch {
     res.status(500).json({ success: false, error: 'Failed to fetch thread context' });
@@ -182,8 +184,24 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
       return;
     }
 
+    // Poll (like X): the text is the question, 2 to 4 choices, no media
+    let poll: { options: string[]; hours: number } | null = null;
+    if (req.body.poll) {
+      if (Array.isArray(media) && media.length > 0) {
+        res.status(400).json({ success: false, error: 'A poll post cannot have photos or videos' });
+        return;
+      }
+      const parsed = parsePoll(req.body.poll);
+      if ('error' in parsed) {
+        res.status(400).json({ success: false, error: parsed.error });
+        return;
+      }
+      poll = parsed;
+    }
+
     const imageUrls = Array.isArray(media) ? media.filter((m: any) => m?.media_type === 'image').map((m: any) => m.url) : [];
-    const [moderation, imageCheck] = await Promise.all([ModerationService.checkText(content), ModerationService.checkImages(imageUrls)]);
+    const textToCheck = poll ? `${content}\n${poll.options.join('\n')}` : content;
+    const [moderation, imageCheck] = await Promise.all([ModerationService.checkText(textToCheck), ModerationService.checkImages(imageUrls)]);
     if (moderation.flagged || imageCheck.flagged) {
       res.status(422).json({ success: false, error: moderation.reason || imageCheck.reason });
       return;
@@ -232,7 +250,18 @@ router.post('/posts', authenticateToken, async (req: Request, res: Response): Pr
       setImmediate(() => { optimizePostMedia(post.id).catch(() => {}); describePostImages(post.id); });
     }
 
-    const completePost = { ...post, post_media: postMedia };
+    const completePost: any = { ...post, post_media: postMedia };
+
+    if (poll) {
+      const made = await createPoll(post.id, poll.options, poll.hours);
+      if (!made.ok) {
+        // Polls table not there yet (or failed): don't leave a question without choices
+        await supabaseServiceClient.from('posts').delete().eq('id', post.id);
+        res.status(503).json({ success: false, error: 'Polls are not available right now. Try again later.' });
+        return;
+      }
+      completePost.poll = made.poll;
+    }
 
     // Process mentions + hashtags (non-blocking)
     setImmediate(async () => {
@@ -316,6 +345,52 @@ router.delete('/posts/:id', authenticateToken, async (req: Request, res: Respons
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to delete post' });
+  }
+});
+
+// POST /api/v1/social/posts/:id/poll/vote — { option } one vote per person, final (like X)
+router.post('/posts/:id/poll/vote', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: postId } = req.params;
+    const userId = req.user!.id;
+    const option = Number(req.body?.option);
+
+    const { data: post } = await supabaseServiceClient
+      .from('posts').select('id, user_id').eq('id', postId).maybeSingle();
+    if (!post) {
+      res.status(404).json({ success: false, error: 'Post not found' });
+      return;
+    }
+    if (post.user_id === userId) {
+      res.status(403).json({ success: false, error: 'You cannot vote in your own poll' });
+      return;
+    }
+    if (!(await canViewProfile(post.user_id, userId))) {
+      res.status(403).json({ success: false, error: 'This account is private' });
+      return;
+    }
+
+    const result = await votePoll(postId, userId, option);
+    switch (result.status) {
+      case 'ok':
+      case 'already':
+        res.json({ success: true, data: result.poll, already: result.status === 'already' });
+        return;
+      case 'ended':
+        res.status(409).json({ success: false, error: 'This poll has ended' });
+        return;
+      case 'bad_option':
+        res.status(400).json({ success: false, error: 'Pick one of the choices' });
+        return;
+      case 'missing':
+        res.status(404).json({ success: false, error: 'Poll not found' });
+        return;
+      default:
+        res.status(503).json({ success: false, error: 'Polls are not available right now' });
+    }
+  } catch (err) {
+    console.error('Poll vote error:', err);
+    res.status(500).json({ success: false, error: 'Failed to vote' });
   }
 });
 

@@ -24,6 +24,7 @@ import { RepostLoop, RollingCount } from './RepostLoop';
 import { useStoryStore } from '../../stores/storyStore';
 import { sharePostAsImage } from './CardImageSheet';
 import { shareLink, kchatLink } from '../../utils/links';
+import { PollBlock } from './PollBlock';
 
 const fmtCount = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
@@ -624,6 +625,8 @@ export function PostCard({
 
             {/* Baraza links as "Open the minutes" pills */}
             <LinkPills content={activePost.content} />
+
+            {(activePost as any).poll && <PollBlock key={activePost.id} post={activePost as any} />}
 
             {/* Media */}
             {activePost.post_media && activePost.post_media.length > 0 && (

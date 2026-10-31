@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { attachPolls } from '../services/PollService';
 import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import UploadService from '../services/UploadService';
@@ -224,6 +225,7 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
         : posts;
 
     const list = filtered || [];
+    await attachPolls(list, req.user?.id);
     // nextCursor is null only when the raw fetch returned fewer rows than requested
     const rawExhausted = (posts || []).length < fetchLimit;
     const nextCursor = rawExhausted ? null : list[list.length - 1]?.created_at ?? null;
