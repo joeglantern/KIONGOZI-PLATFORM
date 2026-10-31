@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { WeekStats, SlideId, SLIDE_BG, SLIDE_MS, LIGHT, INK, WHITE, VIDEO, visibleSlides, rangeLabel } from './wrappedData';
 import { LoopVideo } from './motion';
+import { Grain, PAPER } from './paper';
+import { Image } from 'react-native';
 import { SlideContent, Layout, Me } from './slides';
 
 export type ShareProps = {
@@ -181,11 +183,15 @@ function StoryBody({ onClose, stats, status, onRetry, me, share, onOpenPost, onT
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }, backdropStyle]}>
       <Animated.View style={[styles.stage, bgStyle, stageStyle]}>
+        {/* the new slide's paper is pushed in over the last one with a torn top edge */}
+        <TearWipe key={`w-${cur}-${shown}`} color={SLIDE_BG[cur]} dir={dir} H={H} W={W} reduce={reduce} first={shown === 0} />
         {/* video backgrounds for this slide and the next (warmed up, still hidden) */}
         {mounted.map(id => {
           const v = VIDEO_SLIDES[id];
           return v ? <VideoLayer key={`v-${id}`} src={v.src} poster={v.poster} active={id === cur} playing={id === cur && !paused} /> : null;
         })}
+
+        <Grain />
 
         {/* the tap layer sits under the slide, so buttons on the slide still get their own taps */}
         <GestureDetector gesture={gesture}>
@@ -210,6 +216,29 @@ function StoryBody({ onClose, stats, status, onRetry, me, share, onOpenPost, onT
           </View>
         </Animated.View>
       </Animated.View>
+    </Animated.View>
+  );
+}
+
+/** A sheet of the next slide's paper slides over the old one, torn edge first, in stepped stop-motion frames */
+function TearWipe({ color, dir, H, W, reduce, first }: { color: string; dir: number; H: number; W: number; reduce: boolean; first: boolean }) {
+  const t = useSharedValue(first || reduce ? 1 : 0);
+  useEffect(() => {
+    if (first || reduce) return;
+    t.value = withTiming(7, { duration: 7 * 48, easing: Easing.linear });
+  }, []);
+  const edge = 46;
+  const st = useAnimatedStyle(() => {
+    const k = Math.floor(t.value) / 7;
+    const e = 1 - Math.pow(1 - k, 2);
+    const off = (1 - e) * (H + edge);
+    return { transform: [{ translateY: dir >= 0 ? off : -off }] };
+  });
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, top: dir >= 0 ? -edge : 0, height: H + edge }, st]}>
+      {dir >= 0 ? <Image source={PAPER.stripWhite} style={{ width: W + 40, marginLeft: -20, height: edge * 2, marginBottom: -edge, tintColor: color }} resizeMode="stretch" fadeDuration={0} /> : null}
+      <View style={{ flex: 1, backgroundColor: color }} />
+      {dir < 0 ? <Image source={PAPER.stripWhite} style={{ width: W + 40, marginLeft: -20, height: edge * 2, marginTop: -edge, tintColor: color }} resizeMode="stretch" fadeDuration={0} /> : null}
     </Animated.View>
   );
 }

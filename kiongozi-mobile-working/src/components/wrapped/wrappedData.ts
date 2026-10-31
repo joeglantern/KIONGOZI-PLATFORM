@@ -13,25 +13,28 @@ export type WeekStats = {
   bestDay?: string | null;
 };
 
-export const INK = '#16130F';
+// Paper colours: slightly muted, like real card stock (matched to the cut-paper art)
+export const INK = '#1B1712';
 export const WHITE = '#FFFFFF';
-export const LIME = '#B6E36A';
-export const CORAL = '#FF6A3D';
-export const VIOLET = '#6A4FB0';
-export const TEAL = '#1F7A8C';
-export const AMBER = '#F2A81D';
-export const CREAM = '#F6EEDC';
+export const PAPER_WHITE = '#FBF7EE';
+export const LIME = '#B5DC5C';
+export const CORAL = '#F2643D';
+export const VIOLET = '#6248A8';
+export const TEAL = '#1E7384';
+export const AMBER = '#EFA51E';
+export const CREAM = '#F3E9D2';
+export const PINK = '#F4A3B4';
 export const PEACH = '#FFD9A8';
 
 export type SlideId = 'intro' | 'likes' | 'top' | 'followers' | 'fan' | 'streak' | 'baraza' | 'thing' | 'persona' | 'summary';
 
 export const SLIDE_BG: Record<SlideId, string> = {
   intro: INK, likes: CORAL, top: VIOLET, followers: LIME, fan: TEAL,
-  streak: AMBER, baraza: CREAM, thing: INK, persona: '#4A3496', summary: INK,
+  streak: AMBER, baraza: CREAM, thing: PINK, persona: VIOLET, summary: CREAM,
 };
 
 /** Slides with light backgrounds take ink text and ink progress bars */
-export const LIGHT: Partial<Record<SlideId, true>> = { followers: true, streak: true, baraza: true };
+export const LIGHT: Partial<Record<SlideId, true>> = { likes: true, followers: true, streak: true, baraza: true, thing: true, summary: true };
 
 /** How long each slide stays before moving on (ms). The summary waits for you. */
 export const SLIDE_MS: Record<SlideId, number> = {
@@ -40,16 +43,6 @@ export const SLIDE_MS: Record<SlideId, number> = {
 };
 
 export const ART = {
-  heart: require('../../../assets/wrapped/heart.webp'),
-  spark: require('../../../assets/wrapped/spark.webp'),
-  rings: require('../../../assets/wrapped/rings.webp'),
-  flame: require('../../../assets/wrapped/flame.webp'),
-  stick: require('../../../assets/wrapped/stick.webp'),
-  bubble: require('../../../assets/wrapped/bubble.webp'),
-  trophy: require('../../../assets/wrapped/trophy.webp'),
-  pill: require('../../../assets/wrapped/blob1.webp'),
-  squiggle: require('../../../assets/wrapped/blob2.webp'),
-  blob: require('../../../assets/wrapped/blob3.webp'),
   logo: require('../../../assets/kchat-logo.png'),
 };
 
