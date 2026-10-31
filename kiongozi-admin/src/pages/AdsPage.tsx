@@ -10,6 +10,10 @@ const CTA_TARGETS = [
   { value: 'kchat://ai', label: 'Kiongozi AI' },
   { value: 'kchat://recap', label: 'Your week (recap)' },
   { value: 'kchat://story', label: 'New story' },
+  { value: 'kchat://baraza', label: 'Start a baraza' },
+  { value: 'kchat://mitaa', label: 'Mitaa clips' },
+  { value: 'kchat://messages', label: 'Messages (chats)' },
+  { value: 'kchat://explore', label: 'Explore' },
   { value: 'url', label: 'Website link…' },
 ]
 

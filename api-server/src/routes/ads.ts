@@ -11,11 +11,39 @@ import { prisma } from '../config/prisma';
 
 const router = Router();
 const DAILY_CAP = 12;
-const PUBLIC_FIELDS = 'id, advertiser_name, advertiser_avatar_url, headline, body, media_url, media_type, thumbnail_url, width, height, placeholder, cta_label, cta_url, is_house, why_text, weight, frequency_hours, max_impressions';
+const PUBLIC_FIELDS = 'id, advertiser_name, advertiser_avatar_url, headline, body, media_url, media_type, thumbnail_url, width, height, placeholder, cta_label, cta_url, is_house, why_text, feature, weight, frequency_hours, max_impressions';
 
 async function adsEnabled() {
   const row = await prisma.system_settings.findFirst({ where: { category: 'app_config', setting_key: 'config' } }).catch(() => null);
   return (row?.setting_value as any)?.features?.ads !== false;
+}
+
+// House ads promote features. Like the big apps' "feature discovery" units, we lean towards what
+// this person hasn't tried yet. One cheap existence check per feature (head + limit 1, in parallel).
+// A feature with no reliable signal (Mitaa, Your Week, Explore) stays neutral.
+const FEATURE_CHECKS: Record<string, { why: string; check: (uid: string) => PromiseLike<{ count: number | null; error: any }> }> = {
+  baraza: { why: 'you haven’t joined or started a baraza yet',
+    check: uid => db.from('baraza_participants').select('room_id', { count: 'exact', head: true }).eq('user_id', uid).limit(1) },
+  story: { why: 'you haven’t posted a story yet',
+    check: uid => db.from('stories').select('id', { count: 'exact', head: true }).eq('user_id', uid).limit(1) },
+  voice: { why: 'you haven’t sent a voice note yet',
+    check: uid => db.from('dm_messages').select('id', { count: 'exact', head: true }).eq('sender_id', uid).eq('media_type', 'audio').limit(1) },
+  ai: { why: 'you haven’t asked Kiongozi AI anything yet',
+    check: uid => db.from('conversations').select('id', { count: 'exact', head: true }).eq('user_id', uid).limit(1) },
+  invite: { why: 'none of your friends have joined from your invite yet',
+    check: uid => db.from('profiles').select('id', { count: 'exact', head: true }).eq('invited_by', uid).limit(1) },
+};
+
+/** feature -> true (used it), false (hasn't), missing (unknown). Never throws. */
+async function featuresUsed(uid: string, features: string[]): Promise<Record<string, boolean>> {
+  const out: Record<string, boolean> = {};
+  await Promise.all([...new Set(features)].filter(f => FEATURE_CHECKS[f]).map(async f => {
+    try {
+      const { count, error } = await FEATURE_CHECKS[f].check(uid);
+      if (!error && count != null) out[f] = count > 0;
+    } catch { /* neutral */ }
+  }));
+  return out;
 }
 
 /** Weighted pick without replacement */
@@ -23,9 +51,10 @@ function pickWeighted<T extends { weight: number }>(items: T[], n: number): T[] 
   const pool = [...items];
   const out: T[] = [];
   while (out.length < n && pool.length) {
-    const total = pool.reduce((s, x) => s + Math.max(1, x.weight), 0);
+    const w = (x: T) => Math.max(0.1, x.weight);
+    const total = pool.reduce((s, x) => s + w(x), 0);
     let r = Math.random() * total;
-    const i = pool.findIndex(x => (r -= Math.max(1, x.weight)) <= 0);
+    const i = pool.findIndex(x => (r -= w(x)) <= 0);
     out.push(pool.splice(i < 0 ? 0 : i, 1)[0]);
   }
   return out;
@@ -40,12 +69,16 @@ router.get('/slots', authenticateToken, async (req: Request, res: Response) => {
 
     const now = new Date().toISOString();
     const since24 = new Date(Date.now() - 864e5).toISOString();
-    const [{ data: live }, { data: mine }] = await Promise.all([
-      db.from('ad_campaigns').select(PUBLIC_FIELDS).eq('status', 'active')
-        .or(`starts_at.is.null,starts_at.lte.${now}`).or(`ends_at.is.null,ends_at.gt.${now}`).limit(100),
+    const liveQuery = (fields: string) => db.from('ad_campaigns').select(fields).eq('status', 'active')
+      .or(`starts_at.is.null,starts_at.lte.${now}`).or(`ends_at.is.null,ends_at.gt.${now}`).limit(100);
+    const [liveRes, { data: mine }] = await Promise.all([
+      liveQuery(PUBLIC_FIELDS),
       db.from('ad_events').select('campaign_id, kind, created_at').eq('user_id', userId)
         .in('kind', ['impression', 'hide', 'report']).order('created_at', { ascending: false }).limit(500),
     ]);
+    // Before the `feature` column migration lands, fall back to the old field list
+    let live: any[] | null = liveRes.data as any[] | null;
+    if (liveRes.error) live = ((await liveQuery(PUBLIC_FIELDS.replace(' feature,', ''))).data as any[] | null);
     const events = mine || [];
     const todayCount = events.filter((e: any) => e.kind === 'impression' && e.created_at >= since24).length;
     if (todayCount >= DAILY_CAP || !live?.length) { res.json({ success: true, data: [] }); return; }
@@ -69,8 +102,18 @@ router.get('/slots', authenticateToken, async (req: Request, res: Response) => {
     const house = eligible.filter(c => c.is_house);
     const want = Math.min(count, DAILY_CAP - todayCount);
     const chosen = [...pickWeighted(paid, want)];
-    if (chosen.length < want) chosen.push(...pickWeighted(house, want - chosen.length));
-    res.json({ success: true, data: chosen.map(({ weight, frequency_hours, max_impressions, ...ad }) => ad) });
+    if (chosen.length < want && house.length) {
+      // Untried features x5, tried ones x0.3; the reason goes into "Why am I seeing this?"
+      const used = await featuresUsed(userId, house.map(c => c.feature).filter(Boolean)).catch(() => ({} as Record<string, boolean>));
+      const tuned = house.map(c => {
+        const u = c.feature ? used[c.feature] : undefined;
+        if (u === false) return { ...c, weight: c.weight * 5, why_text: `Suggested because ${FEATURE_CHECKS[c.feature].why}. KChat suggests its own features; nobody paid for this.` };
+        if (u === true) return { ...c, weight: c.weight * 0.3 };
+        return c;
+      });
+      chosen.push(...pickWeighted(tuned, want - chosen.length));
+    }
+    res.json({ success: true, data: chosen.map(({ weight, frequency_hours, max_impressions, feature, ...ad }) => ad) });
   } catch (e) {
     console.error('ad slots error', e);
     res.json({ success: true, data: [] }); // ads never break the feed
@@ -93,7 +136,7 @@ admin.use(authenticateToken);
 admin.use(requireRole(['admin', 'super_admin']));
 
 const EDITABLE = ['advertiser_name', 'advertiser_avatar_url', 'headline', 'body', 'media_url', 'media_type', 'thumbnail_url', 'width', 'height', 'placeholder',
-  'cta_label', 'cta_url', 'is_house', 'status', 'weight', 'starts_at', 'ends_at', 'frequency_hours', 'max_impressions', 'why_text'];
+  'cta_label', 'cta_url', 'is_house', 'status', 'weight', 'starts_at', 'ends_at', 'frequency_hours', 'max_impressions', 'why_text', 'feature'];
 const clean = (b: any) => Object.fromEntries(Object.entries(b || {}).filter(([k]) => EDITABLE.includes(k)));
 
 // GET /api/v1/admin/ads — campaigns with stats

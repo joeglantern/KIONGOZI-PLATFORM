@@ -34,6 +34,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { AdCard, Ad } from '../../components/social/AdCard';
 import { usePrefs } from '../../stores/prefsStore';
 import { emitAppEvent } from '../../utils/appEvents';
+import { useBarazaStore } from '../../stores/barazaStore';
 
 // Ads: never in the first 4 posts, then one every 8 (the server also caps per person per day)
 const FIRST_AD_AT = 4;
@@ -187,6 +188,10 @@ export default function FeedScreen() {
     else if (url === 'kchat://ai') emitAppEvent('openAI');
     else if (url === 'kchat://recap') navigation.navigate('Profile', { screen: 'ProfileMain', params: { openRecap: Date.now() } });
     else if (url === 'kchat://story') useStoryStore.getState().setComposerOpen(true);
+    else if (url === 'kchat://baraza') useBarazaStore.getState().openStart();
+    else if (url === 'kchat://mitaa') navigation.navigate('Mitaa');
+    else if (url === 'kchat://messages') navigation.navigate('DMList');
+    else if (url === 'kchat://explore') navigation.navigate('Explore', { screen: 'ExploreMain' });
     else if (url.startsWith('kchat://profile/')) navigation.navigate('PublicProfile', { username: url.slice('kchat://profile/'.length) });
     else if (/^https?:\/\//.test(url)) WebBrowser.openBrowserAsync(url).catch(() => {});
   }, [navigation]);
@@ -214,7 +219,7 @@ export default function FeedScreen() {
       ad={item.__ad}
       seen={!!seenAds[item.__ad.id]}
       onOpen={openAd}
-      onHide={a => { dropAd(a, 'hide'); showNoteRef.current?.('Ad hidden. You won’t see it again.'); }}
+      onHide={a => { dropAd(a, 'hide'); showNoteRef.current?.(a.is_house ? 'Got it. You won’t see this suggestion again.' : 'Ad hidden. You won’t see it again.'); }}
       onReport={a => { dropAd(a, 'report'); showNoteRef.current?.('Thanks. We’ll review this ad.'); }}
     />
   ) : (
