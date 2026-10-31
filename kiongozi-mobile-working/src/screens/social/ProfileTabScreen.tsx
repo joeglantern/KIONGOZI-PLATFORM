@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { ProfileHeader, ProfileChrome } from '../../components/social/ProfileHeader';
-import { PostCard } from '../../components/social/PostCard';
+import { PostCard, isShowable } from '../../components/social/PostCard';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import apiClient from '../../utils/apiClient';
@@ -252,7 +252,7 @@ export default function ProfileTabScreen() {
 
   const spinDeg = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] });
   const profile = currentUserProfile;
-  const displayPosts = activeTab === 'saved' ? savedPosts : posts;
+  const displayPosts = (activeTab === 'saved' ? savedPosts : posts).filter(isShowable);
 
   const openFollowList = (initialTab: 'followers' | 'following') => {
     if (!profile) return;

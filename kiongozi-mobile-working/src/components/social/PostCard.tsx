@@ -206,6 +206,15 @@ function timeAgo(dateStr: string): string {
   return d.getFullYear() === new Date().getFullYear() ? `${d.getDate()} ${mon}` : `${d.getDate()} ${mon} ${d.getFullYear()}`;
 }
 
+/** False for posts the card would draw as nothing (a repost whose original was deleted, an empty post),
+ * so lists can drop them and show their empty state instead of a blank gap. */
+export function isShowable(post: any): boolean {
+  if (!post) return false;
+  if (post.repost_of_id && !post.repost_of) return false;
+  const p = post.repost_of_id ? post.repost_of : post;
+  return !!(p?.content?.trim() || p?.post_media?.length);
+}
+
 export function PostCard({
   post,
   hasConnectorBelow = false,

@@ -184,7 +184,13 @@ router.get('/users/:username/posts', optionalAuth, async (req: Request, res: Res
       .select(`
         *,
         profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
-        post_media (*)
+        post_media (*),
+        repost_of:repost_of_id (
+          id, content, visibility, like_count, comment_count, repost_count, view_count,
+          is_bot_reply, created_at, updated_at, user_id,
+          profiles:user_id (id, full_name, username, avatar_url, is_bot, is_verified),
+          post_media (id, media_type, url, width, height, duration_seconds, thumbnail_url, order_index, placeholder)
+        )
       `)
       .eq('user_id', profile.id)
       .order('created_at', { ascending: false })

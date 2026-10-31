@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { ProfileHeader, ProfileChrome, Mutuals } from '../../components/social/ProfileHeader';
-import { PostCard } from '../../components/social/PostCard';
+import { PostCard, isShowable } from '../../components/social/PostCard';
 import { useProfileStore } from '../../stores/profileStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore } from '../../stores/socialStore';
@@ -424,7 +424,7 @@ export default function PublicProfileScreen() {
   return (
     <View style={styles.container}>
       <Animated.FlatList
-        data={isLocked ? [] : displayPosts}
+        data={isLocked ? [] : displayPosts.filter(isShowable)}
         keyExtractor={(item: any) => item.id}
         onScroll={onScroll}
         scrollEventThrottle={16}

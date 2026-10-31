@@ -222,9 +222,11 @@ export default function ExploreScreen() {
   // Mosaic: newest posts with media first, topped up with text posts
   const mosaic = useMemo(() => {
     const withMedia = explorePosts.filter(p => !p.repost_of_id && p.post_media?.length);
-    const text = explorePosts.filter(p => !p.repost_of_id && !p.post_media?.length && (p.content?.length ?? 0) > 20);
-    const picked = [...withMedia, ...text].slice(0, 6);
-    return picked.length >= 3 ? picked : [];
+    // Watch & see is clips and photos only (videos first); text posts stay in the list below
+    const vids = withMedia.filter(p => p.post_media?.[0]?.media_type === 'video');
+    const pics = withMedia.filter(p => p.post_media?.[0]?.media_type !== 'video');
+    const picked = [...vids, ...pics].slice(0, 6);
+    return picked.length >= 3 ? picked.slice(0, picked.length >= 6 ? 6 : 3) : [];
   }, [explorePosts]);
   const mosaicIds = useMemo(() => new Set(mosaic.map(p => p.id)), [mosaic]);
   const listPosts = useMemo(() => explorePosts.filter(p => !mosaicIds.has(p.id)), [explorePosts, mosaicIds]);

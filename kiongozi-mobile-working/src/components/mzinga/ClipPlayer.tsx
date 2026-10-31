@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, FlatList, Image, Share, useWindowDimensions, Platform, ViewToken, AppState } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, withDelay, withRepeat, cancelAnimation, interpolate, runOnJS, Extrapolation,
-  FadeIn, FadeOut,
+  FadeIn, FadeOut, Easing,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useVideoPlayer, VideoView, VideoPlayer, VideoPlayerStatus } from 'expo-video';
@@ -192,6 +192,8 @@ function PlayerBody() {
   );
 }
 
+const clock = (sec: number) => { const t = Math.max(0, Math.floor(sec)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+
 export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted, onToggleSound, onClose, onComments, chrome, bottomInset, hideTop, onProfile, onNotInterested, followed }: {
   post: Post; W: number; H: number; state: 'play' | 'warm' | 'cold'; muted: boolean;
   onToggleSound: () => void; onClose: () => void; onComments: () => void; chrome: boolean;
@@ -225,6 +227,10 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progress = useSharedValue(0);
+  const scrub = useSharedValue(0);       // 0..1, how "grabbed" the bar is
+  const scrubbing = useRef(false);
+  const [scrubTime, setScrubTime] = useState<{ t: number; d: number } | null>(null);
+  const lastSeek = useRef(0);
   const pauseGlyph = useSharedValue(0);
   const pauseStyle = useAnimatedStyle(() => ({ opacity: pauseGlyph.value, transform: [{ scale: interpolate(pauseGlyph.value, [0, 1], [1.4, 1]) }] }));
 
@@ -244,7 +250,7 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
     if (!player || state !== 'play') return;
     const t = setInterval(() => {
       const d = player.duration || 0;
-      if (d > 0) progress.value = withTiming(player.currentTime / d, { duration: 240 });
+      if (d > 0 && !scrubbing.current) progress.value = withTiming(player.currentTime / d, { duration: 240, easing: Easing.linear });
     }, 250);
     return () => clearInterval(t);
   }, [player, state, progress]);
@@ -309,6 +315,65 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
     .onFinalize(() => { runOnJS(endHold)(); });
   // hold wins as soon as it starts; otherwise a double-tap beats a single tap
   const taps = Gesture.Race(hold, Gesture.Exclusive(double, single));
+
+  // Scrubbing (TikTok / Reels): grab anywhere along the bottom, the bar thickens, a big time
+  // bubble shows where you will land, the picture follows your finger, and it lands where you let go.
+  const trackW = W - 28;
+  const seekTo = (frac: number, final: boolean) => {
+    if (!player) return;
+    const d = player.duration || 0;
+    if (!d) return;
+    const t = Math.max(0, Math.min(d - 0.05, frac * d));
+    setScrubTime({ t, d });
+    const now = Date.now();
+    if (final || now - lastSeek.current > 90) { // live preview without flooding the decoder
+      lastSeek.current = now;
+      try { player.currentTime = t; } catch {}
+    }
+  };
+  const scrubStart = () => {
+    scrubbing.current = true;
+    Haptics.selectionAsync().catch(() => {});
+  };
+  const scrubEnd = (frac: number) => {
+    seekTo(frac, true);
+    scrubbing.current = false;
+    setScrubTime(null);
+    if (paused) { setPaused(false); pauseGlyph.value = withTiming(0, { duration: 120 }); }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  };
+  const pan = Gesture.Pan()
+    .activeOffsetX([-6, 6]).failOffsetY([-14, 14])
+    .onStart(e => {
+      scrub.value = withSpring(1, { damping: 18, stiffness: 320 });
+      progress.value = Math.max(0, Math.min(1, (e.x - 14) / trackW));
+      runOnJS(scrubStart)();
+    })
+    .onUpdate(e => {
+      const f = Math.max(0, Math.min(1, (e.x - 14) / trackW));
+      progress.value = f;
+      runOnJS(seekTo)(f, false);
+    })
+    .onEnd(e => {
+      const f = Math.max(0, Math.min(1, (e.x - 14) / trackW));
+      progress.value = f;
+      runOnJS(scrubEnd)(f);
+    })
+    .onFinalize(() => { scrub.value = withTiming(0, { duration: 260 }); });
+  const tapSeek = Gesture.Tap().maxDuration(250).onEnd(e => {
+    const f = Math.max(0, Math.min(1, (e.x - 14) / trackW));
+    progress.value = withTiming(f, { duration: 160 });
+    scrub.value = withSequence(withTiming(1, { duration: 120 }), withDelay(400, withTiming(0, { duration: 240 })));
+    runOnJS(scrubStart)();
+    runOnJS(scrubEnd)(f);
+  });
+  const scrubGesture = Gesture.Exclusive(pan, tapSeek);
+  const trackGrow = useAnimatedStyle(() => ({ height: 2.5 + scrub.value * 5.5, borderRadius: 2 + scrub.value * 2 }));
+  const thumbStyle = useAnimatedStyle(() => ({
+    opacity: scrub.value,
+    transform: [{ translateX: progress.value * trackW - 8 }, { scale: 0.4 + scrub.value * 0.6 }],
+  }));
+  const chromeFade = useAnimatedStyle(() => ({ opacity: 1 - scrub.value }));
 
   const go = (screen: string, params: any) => {
     const nav = storyNav.current;
@@ -452,7 +517,7 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
       </View>}
 
       {/* Right rail */}
-      <View style={[styles.rail, { bottom: (bottomInset ?? insets.bottom) + 96 }]} pointerEvents="box-none">
+      <Animated.View style={[styles.rail, { bottom: (bottomInset ?? insets.bottom) + 96 }, chromeFade]} pointerEvents="box-none">
         <View>
           <Pressable onPress={openProfile} accessibilityLabel={`Open ${username}'s profile`}>
             <View style={styles.railAvatar}>
@@ -471,10 +536,10 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
         <RailBtn icon="chatbubble-outline" label={post.comment_count ? fmt(post.comment_count) : 'Comment'} onPress={onComments} a11y="Comments" />
         <RailBtn icon="paper-plane-outline" label="Share" onPress={share} a11y="Share" />
         <RailBtn icon="ellipsis-horizontal" onPress={() => setSheet('options')} a11y="More options" />
-      </View>
+      </Animated.View>
 
       {/* Who and what */}
-      <View style={[styles.info, { bottom: (bottomInset ?? insets.bottom) + 30, right: 84 }]} pointerEvents="box-none">
+      <Animated.View style={[styles.info, { bottom: (bottomInset ?? insets.bottom) + 30, right: 84 }, chromeFade]} pointerEvents="box-none">
         <Pressable onPress={openProfile}>
           <Text style={styles.name}>@{username}</Text>
         </Pressable>
@@ -486,11 +551,31 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
             <Text style={[styles.caption, styles.measure]} onTextLayout={e => setLong(e.nativeEvent.lines.length > 2)} accessible={false} importantForAccessibility="no-hide-descendants">{caption}</Text>
           </Pressable>
         ) : null}
-      </View>
-
-      <Animated.View style={[styles.track, { bottom: (bottomInset ?? insets.bottom) + 14 }, trackStyle]} pointerEvents="none">
-        <Animated.View style={[styles.trackFill, bar]} />
       </Animated.View>
+
+      {scrubTime && (
+        <View pointerEvents="none" style={[styles.scrubBubble, { bottom: (bottomInset ?? insets.bottom) + 70 }]}>
+          <Text style={styles.scrubNow}>{clock(scrubTime.t)}</Text>
+          <Text style={styles.scrubTotal}> / {clock(scrubTime.d)}</Text>
+        </View>
+      )}
+
+      {/* The seek bar: a tall invisible touch strip around a thin line */}
+      <GestureDetector gesture={scrubGesture}>
+        <View style={[styles.scrubZone, { bottom: (bottomInset ?? insets.bottom) - 4 }]}
+          accessible accessibilityRole="adjustable" accessibilityLabel="Seek"
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={e => {
+            if (!player || !player.duration) return;
+            const step = e.nativeEvent.actionName === 'increment' ? 5 : -5;
+            try { player.currentTime = Math.max(0, Math.min(player.duration - 0.05, player.currentTime + step)); } catch {}
+          }}>
+          <Animated.View style={[styles.track, { position: 'relative', left: 0, right: 0, marginHorizontal: 14 }, trackStyle, trackGrow]} pointerEvents="none">
+            <Animated.View style={[styles.trackFill, bar]} />
+          </Animated.View>
+          <Animated.View style={[styles.thumb, thumbStyle]} pointerEvents="none" />
+        </View>
+      </GestureDetector>
       </>}
 
       <BottomSheet
@@ -636,5 +721,13 @@ const styles = StyleSheet.create({
   more: { color: '#fff', fontSize: 14.5, lineHeight: 20, fontWeight: '800', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
   measure: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
   track: { position: 'absolute', left: 14, right: 14, height: 2.5, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
+  scrubZone: { position: 'absolute', left: 0, right: 0, height: 36, justifyContent: 'center' },
+  thumb: {
+    position: 'absolute', left: 14, width: 16, height: 16, borderRadius: 8, backgroundColor: '#FFFFFF',
+    shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 3,
+  },
+  scrubBubble: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'baseline' },
+  scrubNow: { color: '#FFFFFF', fontSize: 34, fontWeight: '800', fontVariant: ['tabular-nums'], textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 8 },
+  scrubTotal: { color: 'rgba(255,255,255,0.65)', fontSize: 20, fontWeight: '700', fontVariant: ['tabular-nums'], textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 8 },
   trackFill: { height: '100%', backgroundColor: HONEY, borderRadius: 2 },
 });
