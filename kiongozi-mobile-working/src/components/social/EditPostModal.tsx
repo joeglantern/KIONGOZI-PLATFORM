@@ -1,26 +1,29 @@
-import { appAlert } from '../../utils/alert';
+import { toast } from '../../utils/alert';
 import React, { useState, useEffect } from 'react';
 import {
   Modal, View, Text, TextInput, StyleSheet, TouchableOpacity,
-  ActivityIndicator, KeyboardAvoidingView, Platform, } from 'react-native';
+  KeyboardAvoidingView, Platform, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
 import { useSocialStore } from '../../stores/socialStore';
 
+type Visibility = 'public' | 'followers';
+
 interface Props {
   visible: boolean;
   postId: string;
   initialContent: string;
-  initialVisibility: 'public' | 'followers';
+  initialVisibility: Visibility;
   onClose: () => void;
+  /** Called at once with the new text (and again with the old one if the server refuses the edit) */
+  onSaved?: (content: string, visibility: Visibility) => void;
 }
 
-export function EditPostModal({ visible, postId, initialContent, initialVisibility, onClose }: Props) {
+export function EditPostModal({ visible, postId, initialContent, initialVisibility, onClose, onSaved }: Props) {
   const { updatePost } = useSocialStore();
   const [content, setContent] = useState(initialContent);
-  const [visibility, setVisibility] = useState<'public' | 'followers'>(initialVisibility);
-  const [saving, setSaving] = useState(false);
+  const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
 
   // Reset when opened
   useEffect(() => {
@@ -30,24 +33,21 @@ export function EditPostModal({ visible, postId, initialContent, initialVisibili
     }
   }, [visible]);
 
-  const canSave = content.trim().length > 0 && content.length <= 280 && !saving;
+  const canSave = content.trim().length > 0 && content.length <= 280;
 
-  const handleSave = async () => {
+  // The edit shows everywhere and the sheet closes at once; the old text comes back with a toast if the server says no
+  const handleSave = () => {
     if (!canSave) return;
-    setSaving(true);
-    try {
-      const res = await apiClient.editPost(postId, content.trim(), visibility);
-      if (res.success) {
-        updatePost(postId, { content: content.trim(), visibility });
-        onClose();
-      } else {
-        appAlert('Error', res.error || 'Failed to save changes. Please try again.');
-      }
-    } catch {
-      appAlert('Error', 'Failed to save changes. Please try again.');
-    } finally {
-      setSaving(false);
-    }
+    const text = content.trim();
+    updatePost(postId, { content: text, visibility });
+    onSaved?.(text, visibility);
+    onClose();
+    apiClient.editPost(postId, text, visibility).catch(() => null).then((res: any) => {
+      if (res?.success) return;
+      updatePost(postId, { content: initialContent, visibility: initialVisibility });
+      onSaved?.(initialContent, initialVisibility);
+      toast("Couldn't save changes", { kind: 'error', message: res?.error || undefined });
+    });
   };
 
   return (
@@ -60,9 +60,7 @@ export function EditPostModal({ visible, postId, initialContent, initialVisibili
             </TouchableOpacity>
             <Text style={styles.title}>Edit Post</Text>
             <TouchableOpacity onPress={handleSave} disabled={!canSave} style={styles.saveBtn}>
-              {saving
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={styles.saveText}>Save</Text>}
+              <Text style={styles.saveText}>Save</Text>
             </TouchableOpacity>
           </View>
 

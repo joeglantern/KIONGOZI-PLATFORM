@@ -1,7 +1,9 @@
 // Full-screen story viewer.
 // Tap right/left = next/previous, hold = pause, swipe down = close, swipe sideways = next/previous person.
 // Replies and reactions go to the author as DMs. Your own stories show who has seen them.
-import { appAlert } from '../../utils/alert';
+import { appAlert, toast, withUndo } from '../../utils/alert';
+import { useDMStore } from '../../stores/dmStore';
+import { enqueue } from '../../utils/outbox';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, Animated, Dimensions, TextInput,
@@ -310,6 +312,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
     setSlider(story.id, { avg: ((before.avg ?? 0) * before.count + v) / count, count, mine: v });
     const r: any = await apiClient.slideStory(story.id, v).catch(() => null);
     setSlider(story.id, r?.success ? r.data : before);
+    if (!r?.success) toast("Couldn't save", { kind: 'error' });
   };
 
   const toggleRemind = async () => {
@@ -319,23 +322,25 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
     if (!r?.success) { setReminded(story.id, was); appAlert('Could not save', r?.error || 'Try again.'); }
   };
 
+  // Delete: the story goes at once with "Story deleted · Undo"; the server delete runs after the Undo window
   const confirmDelete = () => {
-    setHolding(true);
-    appAlert('Delete this story?', 'It will be removed for everyone.', [
-      { text: 'Cancel', style: 'cancel', onPress: () => setHolding(false) },
-      {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          setHolding(false);
-          const res: any = await apiClient.deleteStory(story.id);
-          if (res.success) {
-            setSheet(false); sheetP.value = 0;
-            if (stories.length === 1) onClose();
-            else if (idx === stories.length - 1) setIdx(i => i - 1);
-            removeStory(story.id);
-          } else appAlert('Could not delete', res.error || 'Try again.');
-        },
+    const id = story.id;
+    const st = useStoryStore.getState();
+    const snap = { groups: st.groups, viewer: st.viewer };
+    withUndo('Story deleted', {
+      hide: () => {
+        setHolding(false);
+        setSheet(false); sheetP.value = 0;
+        if (stories.length === 1) onClose();
+        else if (idx === stories.length - 1) setIdx(i => i - 1);
+        removeStory(id);
       },
-    ], { cancelable: true, onDismiss: () => setHolding(false) });
+      restore: () => useStoryStore.setState(snap),
+      commit: async () => {
+        const res: any = await apiClient.deleteStory(id);
+        if (!res?.success && !/not found/i.test(res?.error || '')) throw new Error(res?.error || 'Delete failed');
+      },
+    });
   };
 
   // ... on someone else's story: mute or report them
@@ -344,12 +349,13 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
     setHolding(true);
     appAlert(`@${u}`, undefined, [
       {
-        text: `Mute @${u}`, onPress: async () => {
+        text: `Mute @${u}`, onPress: () => {
           setHolding(false);
-          try {
-            await muteUser(group.user.id);
-            appAlert('Muted', `You won't see posts from @${u} in your feed.`);
-          } catch { appAlert('Could not mute', 'Try again.'); }
+          const id = group.user.id;
+          toast(`Muted @${u}`, { message: "You won't see their posts in your feed.", kind: 'success' });
+          muteUser(id).then(() => {
+            if (!useSocialStore.getState().mutedUserIds.includes(id)) toast("Couldn't mute", { kind: 'error' });
+          }).catch(() => toast("Couldn't mute", { kind: 'error' }));
         },
       },
       ...(story ? [{ text: 'Report story', style: 'destructive' as const, onPress: () => { setHolding(false); setReport({ type: 'story', id: story.id }); } }] : []),
@@ -429,7 +435,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
           setPoll(story.id, { counts, mine: option });
           const r: any = await apiClient.voteStoryPoll(story.id, option).catch(() => null);
           if (r?.success) setPoll(story.id, r.data);
-          else setPoll(story.id, prevPoll);
+          else { setPoll(story.id, prevPoll); toast("Couldn't vote", { kind: 'error' }); }
         };
         // Keep the card between the header and the bottom controls (it may have been dragged low
         // in the composer, and screens differ in height); hidden while replying (keyboard is up).
@@ -666,20 +672,17 @@ function AnswerSheet({ storyId, prompt, color, to, onClose }: {
     const hide = Keyboard.addListener('keyboardDidHide', () => setKb(0));
     return () => { show.remove(); hide.remove(); };
   }, []);
-  const send = async () => {
+  // Shows "Sent" and closes at once; the answer goes to the server in the background
+  const send = () => {
     const t = text.trim();
     if (!t || state !== 'idle') return;
-    setState('sending');
-    const r: any = await apiClient.answerStoryQuestion(storyId, t).catch(() => null);
-    if (r?.success) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setState('sent');
-      Keyboard.dismiss();
-      setTimeout(onClose, 900);
-    } else {
-      setState('idle');
-      appAlert("Couldn't send", r?.error || 'Check your connection and try again.');
-    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setState('sent');
+    Keyboard.dismiss();
+    setTimeout(onClose, 900);
+    apiClient.answerStoryQuestion(storyId, t).catch(() => null).then((r: any) => {
+      if (!r?.success) toast("Couldn't send", { kind: 'error', message: 'Your answer did not go through.' });
+    });
   };
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -762,18 +765,39 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
   const [burstEmoji, setBurstEmoji] = useState('❤️');
   const media = story.media_type === 'image' ? story.media_url : story.thumbnail_url;
 
-  const sendDM = async (content: string) => {
-    try {
-      const conv: any = await apiClient.startDMConversation(group.user.id);
-      const id = conv?.data?.id;
-      if (!id) throw new Error(conv?.error || 'Could not open chat');
-      const res: any = await apiClient.sendDM(id, content, media || undefined, media ? 'image' : undefined);
-      if (!res.success) throw new Error(res.error);
-      setSent('Sent ✓');
-    } catch (e: any) {
-      setSent(e?.message || 'Haikutumwa');
-    }
+  // "Sent" shows at once. The message goes through the outbox (so it survives a dropped connection)
+  // into the chat you already have with them, or a new one opened in the background.
+  const sendDM = async (content: string, restoreText?: string) => {
+    setSent('Sent');
     setTimeout(() => setSent(null), 1800);
+    const fail = () => {
+      setSent(null);
+      toast("Couldn't send", { kind: 'error' });
+      if (restoreText) setText(restoreText);
+    };
+    try {
+      const me = useAuthStore.getState().user?.id;
+      const dm = useDMStore.getState();
+      let id = dm.conversations.find(c => c.participants?.some(p => p.id === group.user.id))?.id;
+      if (!id) {
+        const conv: any = await apiClient.startDMConversation(group.user.id);
+        id = conv?.data?.id;
+        if (!id) { fail(); return; }
+      }
+      if (!me) {
+        const res: any = await apiClient.sendDM(id, content, media || undefined, media ? 'image' : undefined);
+        if (!res?.success) fail();
+        return;
+      }
+      const createdAt = new Date().toISOString();
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      dm.appendMessage(id, {
+        id: tempId, conversation_id: id, sender_id: me, content,
+        media_url: media || undefined, media_type: media ? 'image' : undefined,
+        is_read: false, created_at: createdAt, _pending: true,
+      }, true);
+      enqueue({ t: 'dm', conversationId: id, tempId, senderId: me, createdAt, content, mediaUrl: media || undefined, mediaType: media ? 'image' : undefined });
+    } catch { fail(); }
   };
 
   const react = (emoji: string) => {
@@ -794,7 +818,7 @@ function ReplyBar({ story, group, bottom, onFocusChange, onReact, onTop }: {
     if (!t) return;
     setText('');
     Keyboard.dismiss();
-    sendDM(`Replied to your story: ${t}`);
+    sendDM(`Replied to your story: ${t}`, t);
   };
 
   // Share via the system sheet (no server); the story pauses while it is open
@@ -921,15 +945,21 @@ function ViewersSheet({ story, progress, onClose, onDelete, onCloseViewer }: {
   const message = async (p: any) => {
     const nav = storyNav.current;
     if (!p?.id || !nav || opening) return;
+    const go = (conversationId: string) => {
+      onCloseViewer();
+      nav.navigate('Feed', {
+        screen: 'DMConversation',
+        params: { conversationId, participantName: p.full_name || p.username, participantUsername: p.username, participantAvatar: p.avatar_url },
+      });
+    };
+    // A chat with them already on the phone opens straight away
+    const existing = useDMStore.getState().conversations.find(c => c.participants?.some(x => x.id === p.id));
+    if (existing) { go(existing.id); return; }
     setOpening(p.id);
     try {
       const res: any = await apiClient.startDMConversation(p.id);
       if (!res?.success || !res.data?.id) throw new Error(res?.error || 'Could not open chat');
-      onCloseViewer();
-      nav.navigate('Feed', {
-        screen: 'DMConversation',
-        params: { conversationId: res.data.id, participantName: p.full_name || p.username, participantUsername: p.username, participantAvatar: p.avatar_url },
-      });
+      go(res.data.id);
     } catch (e: any) {
       appAlert('Could not open chat', e?.message || 'Try again.');
     } finally {

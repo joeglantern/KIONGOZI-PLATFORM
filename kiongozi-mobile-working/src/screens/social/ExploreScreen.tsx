@@ -23,6 +23,7 @@ import { useSocialStore, Post } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import apiClient from '../../utils/apiClient';
+import { useFollowState, toggleFollow } from '../../stores/followSync';
 import { useTheme } from '../../hooks/useTheme';
 
 type Theme = ReturnType<typeof useTheme>;
@@ -75,19 +76,14 @@ const tileStyles = StyleSheet.create({
 });
 
 function PersonCard({ person, T, onOpen }: { person: any; T: Theme; onOpen: () => void }) {
-  // Optimistic: flips to Following at once, rolls back if the server says no
-  const [state, setState] = useState<'idle' | 'done' | 'requested'>('idle');
-  const follow = async () => {
-    if (state !== 'idle') return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setState('done');
-    try {
-      const res: any = await apiClient.followUser(person.id);
-      if (!res?.success) setState('idle');
-      else if (res.status === 'requested') setState('requested');
-    } catch { setState('idle'); }
+  // Flips to Following (or Requested) at once; followSync settles it with the server and rolls back if it says no
+  const seed = { isFollowing: false, is_private: !!person.is_private, username: person.username };
+  const state = useFollowState(person.id, seed).status;
+  const follow = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    toggleFollow(person.id, seed);
   };
-  const done = state !== 'idle';
+  const done = state !== 'none';
   return (
     <Pressable onPress={onOpen} style={[cardStyles.card, { backgroundColor: T.surface, borderColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA' }]} accessibilityLabel={`${person.full_name || person.username}'s profile`}>
       <UserAvatar avatarUrl={person.avatar_url} size={60} name={person.full_name || person.username} />

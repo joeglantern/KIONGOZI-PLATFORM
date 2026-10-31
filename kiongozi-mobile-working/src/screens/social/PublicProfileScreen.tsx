@@ -14,6 +14,9 @@ import { PostCard, isShowable } from '../../components/social/PostCard';
 import { useProfileStore } from '../../stores/profileStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore } from '../../stores/socialStore';
+import { useDMStore } from '../../stores/dmStore';
+import { useFollowState, toggleFollow, onRealtimeFollow } from '../../stores/followSync';
+import { toast } from '../../utils/alert';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
@@ -35,10 +38,15 @@ export default function PublicProfileScreen() {
   const { user } = useAuthStore();
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
-  const { fetchProfile, updateFollowState } = useProfileStore();
+  const { fetchProfile } = useProfileStore();
   const { blockUser, muteUser, unblockUser, blockedUserIds } = useSocialStore();
 
   const [profile, setProfile] = useState<any>(null);
+  // Follow state lives in followSync: the button flips at once and the counts move in one place
+  const followState = useFollowState(profile?.id, profile ? {
+    isFollowing: profile.isFollowing, followRequestStatus: profile.followRequestStatus,
+    is_private: profile.is_private, follower_count: profile.follower_count, username: profile.username,
+  } : null);
   const [posts, setPosts] = useState<any[]>([]);
   const [postsCursor, setPostsCursor] = useState<string | null>(null);
   const [postsLoadingMore, setPostsLoadingMore] = useState(false);
@@ -137,113 +145,70 @@ export default function PublicProfileScreen() {
     setEditTarget({ id: postId, content, visibility });
   }, []);
 
-  // Realtime: live-update follower count
+  // Realtime: live-update follower count (my own follow echoing back is ignored, it already counted)
   useEffect(() => {
     if (!profile?.id) return;
-
+    const id = profile.id;
     const channel = supabase
-      .channel(`follows-${profile.id}`)
+      .channel(`follows-${id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'follows', filter: `following_id=eq.${profile.id}` },
-        () => setProfile((p: any) => p ? { ...p, follower_count: p.follower_count + 1 } : p)
+        { event: 'INSERT', schema: 'public', table: 'follows', filter: `following_id=eq.${id}` },
+        (payload: any) => onRealtimeFollow(id, 1, payload?.new?.follower_id)
       )
       .on(
         'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'follows', filter: `following_id=eq.${profile.id}` },
-        () => setProfile((p: any) => p ? { ...p, follower_count: Math.max(0, p.follower_count - 1) } : p)
+        { event: 'DELETE', schema: 'public', table: 'follows', filter: `following_id=eq.${id}` },
+        (payload: any) => onRealtimeFollow(id, -1, payload?.old?.follower_id)
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [profile?.id]);
 
-  const handleFollowToggle = useCallback(async () => {
+  // Follow / Requested / Following flips at once; followSync settles it with the server
+  const handleFollowToggle = useCallback(() => {
     if (!profile) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    toggleFollow(profile.id, {
+      isFollowing: profile.isFollowing, followRequestStatus: profile.followRequestStatus,
+      is_private: profile.is_private, follower_count: profile.follower_count, username: profile.username,
+    });
+  }, [profile]);
 
-    // If already following → unfollow
-    if (profile.isFollowing) {
-      setProfile((p: any) => p ? {
-        ...p, isFollowing: false,
-        follower_count: Math.max(0, p.follower_count - 1)
-      } : p);
-      updateFollowState(username, false);
-      try {
-        await apiClient.unfollowUser(profile.id);
-      } catch {
-        setProfile((p: any) => p ? {
-          ...p, isFollowing: true,
-          follower_count: p.follower_count + 1
-        } : p);
-        updateFollowState(username, true);
-      }
-      return;
-    }
-
-    // If request already sent → cancel (unfollow also cancels request)
-    if (profile.followRequestStatus === 'pending') {
-      setProfile((p: any) => p ? { ...p, followRequestStatus: null } : p);
-      try {
-        await apiClient.unfollowUser(profile.id);
-      } catch {
-        setProfile((p: any) => p ? { ...p, followRequestStatus: 'pending' } : p);
-      }
-      return;
-    }
-
-    // Follow / request: flip the button at once (like the big apps), settle with the server after
-    const willRequest = !!profile.is_private;
-    if (willRequest) setProfile((p: any) => p ? { ...p, followRequestStatus: 'pending' } : p);
-    else {
-      setProfile((p: any) => p ? { ...p, isFollowing: true, follower_count: (p.follower_count || 0) + 1, followRequestStatus: null } : p);
-      updateFollowState(username, true);
-    }
-    const undo = () => {
-      setProfile((p: any) => p ? {
-        ...p, isFollowing: false, followRequestStatus: null,
-        follower_count: willRequest ? p.follower_count : Math.max(0, (p.follower_count || 0) - 1),
-      } : p);
-      if (!willRequest) updateFollowState(username, false);
-    };
-    try {
-      const res = await apiClient.followUser(profile.id);
-      if (!res.success) { undo(); return; }
-      const requested = (res as any).status === 'requested';
-      if (requested && !willRequest) {
-        // it turned out to need approval: show Requested and take back the count
-        setProfile((p: any) => p ? { ...p, isFollowing: false, followRequestStatus: 'pending', follower_count: Math.max(0, (p.follower_count || 0) - 1) } : p);
-        updateFollowState(username, false);
-      } else if (!requested && willRequest) {
-        setProfile((p: any) => p ? { ...p, isFollowing: true, followRequestStatus: null, follower_count: (p.follower_count || 0) + 1 } : p);
-        updateFollowState(username, true);
-      }
-    } catch { undo(); }
-  }, [profile, username, updateFollowState]);
+  const openChat = (conversationId: string) => navigation.navigate('DMConversation', {
+    conversationId,
+    participantName: profile.full_name,
+    participantUsername: profile.username,
+    participantAvatar: profile.avatar_url,
+  });
 
   const handleMessage = async () => {
     if (!profile || messageLoading) return;
+    // A chat with them already on the phone opens straight away
+    const existing = useDMStore.getState().conversations.find(c => c.participants?.some(p => p.id === profile.id));
+    if (existing) { openChat(existing.id); return; }
     setMessageLoading(true);
     try {
       const res = await apiClient.startDMConversation(profile.id);
-      if (res.success && res.data) {
-        navigation.navigate('DMConversation', {
-          conversationId: res.data.id,
-          participantName: profile.full_name,
-          participantUsername: profile.username,
-          participantAvatar: profile.avatar_url,
-        });
-      }
+      if (res.success && res.data) openChat((res.data as any).id);
+      else toast("Couldn't open the chat", { kind: 'error' });
     } catch {}
     setMessageLoading(false);
   };
 
   const handleMoreOptions = useCallback(() => { if (profile) setMoreSheet(true); }, [profile]);
 
-  const doBlock = async () => {
+  const doBlock = () => {
     if (!profile) return;
-    await blockUser(profile.id);
+    const { id, username: u } = profile;
+    // Leave at once; the block goes through in the background
     navigation.goBack();
+    blockUser(id).then(() => {
+      if (!useSocialStore.getState().blockedUserIds.includes(id)) {
+        toast(`Couldn't block @${u}`, { kind: 'error', message: 'Check your connection and try again.', duration: 5000 });
+      }
+    }).catch(() => toast(`Couldn't block @${u}`, { kind: 'error', message: 'Check your connection and try again.', duration: 5000 }));
   };
 
   const doMute = async () => {
@@ -380,19 +345,27 @@ export default function PublicProfileScreen() {
     );
   }
 
-  const isPending = profile?.followRequestStatus === 'pending';
-  const isLocked = !!(profile?.is_private && !profile?.isFollowing && !isOwnProfile);
+  const isFollowingNow = followState.status === 'following';
+  const isPending = followState.status === 'requested';
+  const isLocked = !!(profile?.is_private && !isFollowingNow && !isOwnProfile);
   const displayPosts = activeTab === 'reposts'
     ? posts.filter(p => p.repost_of_id && p.repost_of)
     : posts;
+  // What the header shows: the fetched profile with the live follow state and count laid over it
+  const shownProfile = profile ? {
+    ...profile,
+    isFollowing: isFollowingNow,
+    followRequestStatus: isPending ? 'pending' : null,
+    follower_count: followState.followerCount ?? profile.follower_count,
+  } : profile;
 
   // Determine follow button label
   const getFollowLabel = () => {
-    if (profile?.isFollowing) return 'Following';
+    if (isFollowingNow) return 'Following';
     if (isPending) return 'Requested';
     return 'Follow';
   };
-  const followIsPrimary = !profile?.isFollowing && !isPending;
+  const followIsPrimary = !isFollowingNow && !isPending;
 
   const openFollowList = (initialTab: 'followers' | 'following') =>
     navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab });
@@ -408,7 +381,7 @@ export default function PublicProfileScreen() {
   const ListHeader = (
     <ProfileHeader
       scrollY={scrollY}
-      profile={profile}
+      profile={shownProfile}
       isOwn={isOwnProfile}
       onShare={handleShareProfile}
       onEditProfile={() => navigation.navigate('EditProfile')}
@@ -506,6 +479,7 @@ export default function PublicProfileScreen() {
           postId={editTarget.id}
           initialContent={editTarget.content}
           initialVisibility={editTarget.visibility}
+          onSaved={(content, visibility) => setPosts(prev => prev.map(p => (p.id === editTarget.id ? { ...p, content, visibility } : p)))}
           onClose={() => setEditTarget(null)}
         />
       )}

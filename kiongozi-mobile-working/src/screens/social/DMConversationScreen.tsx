@@ -210,8 +210,7 @@ export default function DMConversationScreen() {
       if (useDMStore.getState().messages[conversationId]?.length) { setReady(true); return; }
       Promise.resolve(fetchMessages(conversationId, true)).finally(() => setReady(true));
     });
-    markRead(conversationId);
-    apiClient.markDMRead(conversationId);
+    markRead(conversationId); // clears the badge and tells the server
   }, [conversationId]);
 
   // Keep a ref to current messages for dedup checks inside the realtime callback

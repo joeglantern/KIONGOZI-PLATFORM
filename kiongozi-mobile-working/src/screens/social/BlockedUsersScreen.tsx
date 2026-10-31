@@ -9,6 +9,7 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
+import { toast } from '../../utils/alert';
 import { useTheme, AppTheme } from '../../hooks/useTheme';
 import { BottomSheet } from '../../components/social/BottomSheet';
 
@@ -35,10 +36,17 @@ export default function BlockedUsersScreen() {
 
   const handleUnblock = useCallback((user: any) => setUnblockTarget(user), []);
 
+  // The row goes at once; it comes back with a toast if the server says no
   const doUnblock = async () => {
     if (!unblockTarget) return;
-    await unblockUser(unblockTarget.id);
-    setUsers(prev => prev.filter(u => u.id !== unblockTarget.id));
+    const target = unblockTarget;
+    const before = users;
+    setUsers(prev => prev.filter(u => u.id !== target.id));
+    await unblockUser(target.id);
+    if (useSocialStore.getState().blockedUserIds.includes(target.id)) {
+      setUsers(before);
+      toast(`Couldn't unblock @${target.username}`, { kind: 'error' });
+    }
   };
 
   return (

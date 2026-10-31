@@ -9,6 +9,7 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useSocialStore } from '../../stores/socialStore';
 import apiClient from '../../utils/apiClient';
+import { toast } from '../../utils/alert';
 import { useTheme, AppTheme } from '../../hooks/useTheme';
 import { BottomSheet } from '../../components/social/BottomSheet';
 
@@ -35,10 +36,17 @@ export default function MutedUsersScreen() {
 
   const handleUnmute = useCallback((user: any) => setUnmuteTarget(user), []);
 
+  // The row goes at once; it comes back with a toast if the server says no
   const doUnmute = async () => {
     if (!unmuteTarget) return;
-    await unmuteUser(unmuteTarget.id);
-    setUsers(prev => prev.filter(u => u.id !== unmuteTarget.id));
+    const target = unmuteTarget;
+    const before = users;
+    setUsers(prev => prev.filter(u => u.id !== target.id));
+    await unmuteUser(target.id);
+    if (useSocialStore.getState().mutedUserIds.includes(target.id)) {
+      setUsers(before);
+      toast(`Couldn't unmute @${target.username}`, { kind: 'error' });
+    }
   };
 
   return (

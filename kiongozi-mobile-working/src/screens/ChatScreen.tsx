@@ -1,6 +1,6 @@
 // Kiongozi AI chat — clean, Apple-like: small living orb, time-aware greeting, compact suggestion
 // pills, soft input card, and a ChatGPT-style history drawer that follows your finger (UI thread).
-import { appAlert } from '../utils/alert';
+import { appAlert, withUndo } from '../utils/alert';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Pressable, FlatList, SectionList, StyleSheet, Platform, ActivityIndicator, useWindowDimensions, Keyboard, KeyboardAvoidingView, StatusBar, Share, Image, Modal, ScrollView,
@@ -312,18 +312,21 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     setInputText('');
   };
 
+  // The chat goes at once with "Chat deleted · Undo"; the server delete runs after the Undo window
   const deleteConversation = (convId: string) => {
-    appAlert('Delete Chat', 'Delete this conversation?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          await apiClient.deleteConversation(convId);
-          setConversations(prev => prev.filter(c => c.id !== convId));
-          if (conversationId === convId) startNewChat();
-        },
+    let saved: Conversation[] = [];
+    const wasOpen = conversationId === convId;
+    withUndo('Chat deleted', {
+      hide: () => {
+        setConversations(prev => { saved = prev; return prev.filter(c => c.id !== convId); });
+        if (wasOpen) startNewChat();
       },
-    ]);
+      restore: () => setConversations(() => saved),
+      commit: async () => {
+        const r: any = await apiClient.deleteConversation(convId);
+        if (!r?.success && !/not found/i.test(r?.error || '')) throw new Error(r?.error || 'Delete failed');
+      },
+    });
   };
 
   // ─── Send message ─────────────────────────────────────────────────────────

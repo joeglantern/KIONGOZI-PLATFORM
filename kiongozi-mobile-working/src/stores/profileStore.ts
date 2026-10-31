@@ -32,7 +32,7 @@ interface ProfileState {
   fetchProfile: (username: string) => Promise<PublicProfile | null>;
   fetchCurrentUserProfile: (username?: string) => Promise<void>;
   updateCurrentUserProfile: (updates: Partial<PublicProfile>) => void;
-  updateFollowState: (username: string, isFollowing: boolean) => void;
+  /** Follow state and counts are changed by stores/followSync (one place, no double counting) */
   setFollowerCount: (username: string, count: number) => void;
   /** Last-seen own profile, so Profile opens offline */
   hydrate: () => Promise<void>;
@@ -84,32 +84,6 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     set(s => {
       if (!s.currentUserProfile) return s;
       return { currentUserProfile: { ...s.currentUserProfile, ...updates } };
-    });
-  },
-
-  updateFollowState: (username: string, isFollowing: boolean) => {
-    set(s => {
-      const profile = s.profiles[username];
-      const updatedProfiles = profile ? {
-        ...s.profiles,
-        [username]: {
-          ...profile,
-          isFollowing,
-          follower_count: isFollowing
-            ? profile.follower_count + 1
-            : Math.max(0, profile.follower_count - 1)
-        }
-      } : s.profiles;
-
-      // Also update the current user's following_count
-      const updatedCurrentUser = s.currentUserProfile ? {
-        ...s.currentUserProfile,
-        following_count: isFollowing
-          ? s.currentUserProfile.following_count + 1
-          : Math.max(0, s.currentUserProfile.following_count - 1)
-      } : s.currentUserProfile;
-
-      return { profiles: updatedProfiles, currentUserProfile: updatedCurrentUser };
     });
   },
 

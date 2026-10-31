@@ -1,4 +1,4 @@
-import { appAlert } from '../../utils/alert';
+import { toast } from '../../utils/alert';
 import { deletePostWithUndo, hideFromList } from '../../utils/deletePost';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
@@ -78,7 +78,6 @@ export default function PostDetailScreen() {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
   const [replyText, setReplyText]  = useState('');
-  const [sending, setSending]      = useState(false);
   const [keyboardShown, setKeyboardShown] = useState(false);
   const [editTarget, setEditTarget] = useState<{ id: string; content: string; visibility: 'public' | 'followers' } | null>(null);
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
@@ -87,7 +86,7 @@ export default function PostDetailScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const hasText = replyText.trim().length > 0;
-  const canSend = hasText && !sending;
+  const canSend = hasText;
 
   useEffect(() => { loadPost(); }, [postId]);
 
@@ -136,7 +135,8 @@ export default function PostDetailScreen() {
           // Re-fetch the full replies list so bot grandchild replies also appear
           try {
             const res = await apiClient.getPostReplies(postId);
-            if (res.success) setReplies((res.data as any[]) || []);
+            // keep replies of mine still sending or waiting for a retry
+            if (res.success) setReplies(prev => [...((res.data as any[]) || []), ...prev.filter(r => r._pending || r._failed)]);
           } catch {}
         }
       )
@@ -193,16 +193,30 @@ export default function PostDetailScreen() {
     }
   }, [loading]);
 
-  const handleSendReply = useCallback(async () => {
-    if (!replyText.trim() || sending) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setSending(true);
-    const content = replyText.trim();
-    setReplyText('');
+  // The reply shows up (and the count moves) the moment you tap send; several can be in flight.
+  // If the server refuses one it stays in place as "Not sent · Tap to retry".
+  const sendReply = useCallback(async (content: string, tempId: string) => {
+    setReplies(prev => prev.map(r => r.id === tempId ? { ...r, _pending: true, _failed: false } : r));
+    setPost((p: any) => p ? { ...p, comment_count: (p.comment_count ?? 0) + 1 } : p);
+    const res: any = await apiClient.replyToPost(postId, content).catch(() => null);
+    if (res?.success && res.data) {
+      setReplies(prev => prev.map(r => r.id === tempId ? res.data : r));
+      return;
+    }
+    // Take the count back and leave the reply there to retry
+    setPost((p: any) => p ? { ...p, comment_count: Math.max(0, (p.comment_count ?? 0) - 1) } : p);
+    setReplies(prev => prev.map(r => r.id === tempId ? { ...r, _pending: false, _failed: true } : r));
+    toast("Couldn't send", { kind: 'error' });
+  }, [postId]);
 
-    // Optimistic
+  const handleSendReply = useCallback(() => {
+    const content = replyText.trim();
+    if (!content) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setReplyText('');
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const tempReply = {
-      id: `temp_${Date.now()}`,
+      id: tempId,
       user_id: user?.id,
       content,
       created_at: new Date().toISOString(),
@@ -213,23 +227,13 @@ export default function PostDetailScreen() {
     };
     setReplies(prev => [...prev, tempReply]);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+    sendReply(content, tempId);
+  }, [replyText, postId, user, post, currentUserProfile, sendReply]);
 
-    try {
-      const res = await apiClient.replyToPost(postId, content);
-      if (res.success && res.data) {
-        setReplies(prev => prev.map(r => r.id === tempReply.id ? res.data : r));
-        setPost((p: any) => p ? { ...p, comment_count: (p.comment_count ?? 0) + 1 } : p);
-      } else {
-        setReplies(prev => prev.filter(r => r.id !== tempReply.id));
-        setReplyText(content);
-      }
-    } catch {
-      setReplies(prev => prev.filter(r => r.id !== tempReply.id));
-      setReplyText(content);
-      appAlert('Failed to send', 'Your reply could not be sent. Please try again.');
-    }
-    setSending(false);
-  }, [replyText, sending, postId, user, post, currentUserProfile]);
+  const retryReply = useCallback((item: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    sendReply(item.content, item.id);
+  }, [sendReply]);
 
   const handleDeletePost = useCallback((pid: string) => {
     if (pid === postId) {
@@ -243,10 +247,12 @@ export default function PostDetailScreen() {
     setEditTarget({ id: pid, content, visibility });
   }, []);
 
-  const handleEditSaved = useCallback(() => {
-    setEditTarget(null);
-    loadPost();
-  }, [loadPost]);
+  // The edit lands in this thread at once (no refetch, which could race the save)
+  const handleEditSaved = useCallback((pid: string, content: string, visibility: 'public' | 'followers') => {
+    setPost((p: any) => (p && p.id === pid ? { ...p, content, visibility } : p));
+    setReplies(prev => prev.map(r => (r.id === pid ? { ...r, content, visibility } : r)));
+    setAncestors(prev => prev.map(a => (a.id === pid ? { ...a, content, visibility } : a)));
+  }, []);
 
   const goProfile = useCallback((u: string) => navigation.navigate('PublicProfile', { username: u }), [navigation]);
   const goHashtag = useCallback((tag: string) => navigation.navigate('Explore', {
@@ -326,15 +332,16 @@ export default function PostDetailScreen() {
 
     if (isReply) {
       const author = item.profiles || {};
-      const pending = !!item._pending || String(item.id).startsWith('temp_');
+      const failed = !!item._failed;
+      const pending = !failed && (!!item._pending || String(item.id).startsWith('temp_'));
       return (
         <Pressable
-          onPress={pending ? undefined : () => navigation.push('PostDetail', { postId: item.id })}
-          onLongPress={pending ? undefined : () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); setReplyMenu(item); }}
+          onPress={failed ? () => retryReply(item) : pending ? undefined : () => navigation.push('PostDetail', { postId: item.id })}
+          onLongPress={pending || failed ? undefined : () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); setReplyMenu(item); }}
           delayLongPress={350}
           style={({ pressed }) => [styles.replyRow, pressed && { backgroundColor: T.surface }, pending && { opacity: 0.6 }]}
           accessibilityRole="button"
-          accessibilityLabel={`Reply from ${author.username || 'user'}`}
+          accessibilityLabel={failed ? 'Not sent. Tap to retry' : `Reply from ${author.username || 'user'}`}
         >
           <View style={styles.replyAvatarCol}>
             <Pressable onPress={() => author.username && goProfile(author.username)} hitSlop={4}>
@@ -348,10 +355,13 @@ export default function PostDetailScreen() {
                 {author.username || 'user'}
               </Text>
               {!!author.is_verified && <VerifiedBadge size={14} />}
-              <Text style={styles.replyTime} numberOfLines={1}>{` · ${pending ? 'now' : timeAgo(item.created_at)}`}</Text>
+              <Text style={styles.replyTime} numberOfLines={1}>{` · ${pending || failed ? 'now' : timeAgo(item.created_at)}`}</Text>
             </View>
             {!!item.content && (
               <HashtagHighlight content={item.content} style={styles.replyText} onMentionPress={goProfile} onHashtagPress={goHashtag} />
+            )}
+            {failed && (
+              <Text style={[styles.replyTime, { color: T.error, marginTop: 4 }]} maxFontSizeMultiplier={1.2}>Not sent · Tap to retry</Text>
             )}
           </View>
         </Pressable>
@@ -448,13 +458,11 @@ export default function PostDetailScreen() {
             accessibilityState={{ disabled: !canSend }}
             style={({ pressed }) => [
               styles.sendBtn,
-              !canSend && !sending && styles.sendDisabled,
+              !canSend && styles.sendDisabled,
               pressed && { transform: [{ scale: 0.92 }] },
             ]}
           >
-            {sending
-              ? <ActivityIndicator size="small" color="#000" />
-              : <Ionicons name="arrow-up" size={20} color="#000" />}
+            <Ionicons name="arrow-up" size={20} color="#000" />
           </Pressable>
           </View>
         </View>
@@ -466,7 +474,8 @@ export default function PostDetailScreen() {
           postId={editTarget.id}
           initialContent={editTarget.content}
           initialVisibility={editTarget.visibility}
-          onClose={handleEditSaved}
+          onSaved={(content, visibility) => handleEditSaved(editTarget.id, content, visibility)}
+          onClose={() => setEditTarget(null)}
         />
       )}
       <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />

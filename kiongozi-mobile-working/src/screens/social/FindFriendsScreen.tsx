@@ -12,7 +12,36 @@ import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useSocialStore } from '../../stores/socialStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
+import { useFollowState, toggleFollow } from '../../stores/followSync';
 import { useTheme, AppTheme } from '../../hooks/useTheme';
+
+/** Follow pill: flips to Following (or Requested for a private account) at once; followSync settles it */
+function FollowPill({ item, T, styles }: { item: any; T: AppTheme; styles: ReturnType<typeof makeStyles> }) {
+  const seed = { isFollowing: !!item.is_following, is_private: !!item.is_private, username: item.username };
+  const st = useFollowState(item.id, seed);
+  const on = st.status !== 'none';
+  const label = st.status === 'following' ? 'Following' : st.status === 'requested' ? 'Requested' : 'Follow';
+  return (
+    <Pressable
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        toggleFollow(item.id, seed);
+      }}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={st.status === 'requested' ? `Cancel follow request to ${item.username}` : on ? `Unfollow ${item.username}` : `Follow ${item.username}`}
+      style={({ pressed }) => [
+        styles.pill,
+        on ? styles.pillSecondary : styles.pillPrimary,
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <Text style={[styles.pillText, { color: on ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 export default function FindFriendsScreen() {
   const navigation = useNavigation<any>();
@@ -25,7 +54,7 @@ export default function FindFriendsScreen() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [following, setFollowing] = useState<Record<string, boolean>>({});
+  // Who I already followed when the screen opened (new follows keep their row, showing "Following")
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -61,6 +90,7 @@ export default function FindFriendsScreen() {
         bio: p.bio,
         is_verified: p.is_verified,
         is_bot: p.is_bot,
+        is_private: p.is_private,
       });
     }
     return users.slice(0, 30);
@@ -96,28 +126,11 @@ export default function FindFriendsScreen() {
     setResults(null);
   };
 
-  const handleFollowToggle = useCallback(async (targetId: string, currentlyFollowing: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setFollowing(prev => ({ ...prev, [targetId]: !currentlyFollowing }));
-    try {
-      if (currentlyFollowing) {
-        await apiClient.unfollowUser(targetId);
-        setFollowingIds(prev => { const s = new Set(prev); s.delete(targetId); return s; });
-      } else {
-        await apiClient.followUser(targetId);
-        setFollowingIds(prev => new Set([...prev, targetId]));
-      }
-    } catch {
-      setFollowing(prev => ({ ...prev, [targetId]: currentlyFollowing }));
-    }
-  }, []);
-
   const isSearching = query.length > 0;
   const displayList = isSearching ? (results ?? []) : suggestedUsers;
   const isLoading = isSearching ? (searchLoading || results === null) : exploreLoading;
 
   const renderUser = ({ item }: { item: any }) => {
-    const isFollowing = following[item.id] ?? item.is_following ?? false;
     return (
       <Pressable
         style={({ pressed }) => [styles.userRow, pressed && { backgroundColor: T.surface }]}
@@ -137,20 +150,7 @@ export default function FindFriendsScreen() {
           <Text style={styles.userHandle} numberOfLines={1}>@{item.username}</Text>
           {item.bio ? <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text> : null}
         </View>
-        <Pressable
-          onPress={() => handleFollowToggle(item.id, isFollowing)}
-          hitSlop={6}
-          accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.pill,
-            isFollowing ? styles.pillSecondary : styles.pillPrimary,
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <Text style={[styles.pillText, { color: isFollowing ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
-            {isFollowing ? 'Following' : 'Follow'}
-          </Text>
-        </Pressable>
+        <FollowPill item={item} T={T} styles={styles} />
       </Pressable>
     );
   };

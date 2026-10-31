@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
-import { appAlert } from '../../utils/alert';
+import { toast } from '../../utils/alert';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import type { Post } from '../../stores/socialStore';
@@ -40,7 +40,6 @@ export function ClipComments({ post, open, onClose, onCount, bottomInset = 0 }: 
   const [rows, setRows] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const [kb, setKb] = useState(0);
   const cursor = useRef<string | null>(null);
   const loadedFor = useRef<string | null>(null);
@@ -79,27 +78,39 @@ export function ClipComments({ post, open, onClose, onCount, bottomInset = 0 }: 
     setLoading(false);
   };
 
-  const send = async () => {
+  // The comment shows up and the count moves the moment you tap send; several can be in flight.
+  // If the server refuses one it stays in place as "Not sent · Tap to retry".
+  const deliver = async (postId: string, temp: any) => {
+    setRows(prev => prev.map(x => (x.id === temp.id ? { ...x, _pending: true, _failed: false } : x)));
+    onCount(postId, 1);
+    const r: any = await apiClient.replyToPost(postId, temp.content).catch(() => null);
+    if (r?.success && r.data) {
+      setRows(prev => prev.map(x => (x.id === temp.id ? { ...temp, ...r.data, _pending: false, _failed: false, profiles: r.data.profiles || temp.profiles } : x)));
+      return;
+    }
+    onCount(postId, -1);
+    setRows(prev => prev.map(x => (x.id === temp.id ? { ...x, _pending: false, _failed: true } : x)));
+    toast("Couldn't send", { kind: 'error' });
+  };
+
+  const send = () => {
     const t = text.trim();
-    if (!t || !post || sending) return;
-    setSending(true);
+    if (!t || !post) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const temp: any = {
-      id: `tmp-${Date.now()}`, content: t, created_at: new Date().toISOString(), user_id: user?.id,
+      id: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, content: t, created_at: new Date().toISOString(), user_id: user?.id,
       profiles: { id: user?.id, username: me?.username, full_name: me?.full_name, avatar_url: me?.avatar_url },
+      _pending: true,
     };
     setRows(prev => [...prev, temp]);
     setText('');
-    const r: any = await apiClient.replyToPost(post.id, t);
-    setSending(false);
-    if (r.success && r.data) {
-      setRows(prev => prev.map(x => (x.id === temp.id ? { ...temp, ...r.data, profiles: r.data.profiles || temp.profiles } : x)));
-      onCount(post.id, 1);
-    } else {
-      setRows(prev => prev.filter(x => x.id !== temp.id));
-      setText(t);
-      appAlert('Could not comment', r.error || 'Try again.');
-    }
+    deliver(post.id, temp);
+  };
+
+  const retry = (item: any) => {
+    if (!post) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    deliver(post.id, item);
   };
 
   const drag = Gesture.Pan()
@@ -140,15 +151,17 @@ export function ClipComments({ post, open, onClose, onCount, bottomInset = 0 }: 
               <Text style={styles.emptySub}>Say something nice to start it off.</Text>
             </View>
           )}
-          renderItem={({ item }) => (
-            <Animated.View entering={FadeIn.duration(160)} style={[styles.row, item.id.startsWith('tmp-') && { opacity: 0.6 }]}>
+          renderItem={({ item }: { item: any }) => (
+            <Animated.View entering={FadeIn.duration(160)} style={[styles.row, item._pending && { opacity: 0.6 }]}>
               <UserAvatar avatarUrl={item.profiles?.avatar_url} name={item.profiles?.full_name || item.profiles?.username} size={34} />
-              <View style={{ flex: 1, marginLeft: 10 }}>
+              <Pressable style={{ flex: 1, marginLeft: 10 }} onPress={item._failed ? () => retry(item) : undefined} disabled={!item._failed}
+                accessibilityLabel={item._failed ? 'Not sent. Tap to retry' : undefined}>
                 <Text style={styles.meta}>
                   <Text style={styles.name}>{item.profiles?.username}</Text>  {ago(item.created_at)}
                 </Text>
                 <Text style={styles.body}>{item.content}</Text>
-              </View>
+                {item._failed && <Text style={styles.failed} maxFontSizeMultiplier={1.2}>Not sent · Tap to retry</Text>}
+              </Pressable>
             </Animated.View>
           )}
         />
@@ -166,7 +179,7 @@ export function ClipComments({ post, open, onClose, onCount, bottomInset = 0 }: 
               maxLength={500}
             />
             {text.trim().length > 0 && (
-              <Pressable onPress={send} disabled={sending} style={styles.send} accessibilityLabel="Post comment">
+              <Pressable onPress={send} style={styles.send} accessibilityLabel="Post comment">
                 <Ionicons name="arrow-up" size={17} color="#1A1206" />
               </Pressable>
             )}
@@ -187,6 +200,7 @@ const styles = StyleSheet.create({
   meta: { color: 'rgba(255,255,255,0.45)', fontSize: 12.5 },
   name: { color: 'rgba(255,255,255,0.75)', fontWeight: '700' },
   body: { color: '#fff', fontSize: 15, lineHeight: 20, marginTop: 2 },
+  failed: { color: '#FF6B6B', fontSize: 12.5, marginTop: 4, fontWeight: '600' },
   empty: { alignItems: 'center', marginTop: 50 },
   emptyTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
   emptySub: { color: 'rgba(255,255,255,0.5)', fontSize: 13.5, marginTop: 4 },

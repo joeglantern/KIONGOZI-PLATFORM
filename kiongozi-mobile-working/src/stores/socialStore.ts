@@ -136,7 +136,6 @@ interface SocialState {
   fetchForYouFeed: (refresh?: boolean) => Promise<void>;
   /** Show the feeds saved on the phone (only if nothing is loaded yet) */
   hydrateFromCache: () => Promise<void>;
-  toggleBookmark: (postId: string) => Promise<void>;
   fetchBookmarks: (refresh?: boolean) => Promise<void>;
   prependPost: (post: Post) => void;
   seedInteraction: (post: Post) => void;
@@ -256,37 +255,6 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       throw e;
     } finally {
       set({ forYouLoading: false, forYouRefreshing: false });
-    }
-  },
-
-  toggleBookmark: async (postId: string) => {
-    // Optimistic update across all feeds
-    const toggleInList = (posts: Post[]) =>
-      posts.map(p => p.id === postId ? { ...p, isBookmarked: !p.isBookmarked } : p);
-
-    set(state => ({
-      feedPosts: toggleInList(state.feedPosts),
-      forYouPosts: toggleInList(state.forYouPosts),
-      explorePosts: toggleInList(state.explorePosts),
-    }));
-
-    try {
-      const res = await apiClient.bookmarkPost(postId);
-      if (!res.success) {
-        // Revert on error
-        set(state => ({
-          feedPosts: toggleInList(state.feedPosts),
-          forYouPosts: toggleInList(state.forYouPosts),
-          explorePosts: toggleInList(state.explorePosts),
-        }));
-      }
-    } catch {
-      // Revert on error
-      set(state => ({
-        feedPosts: toggleInList(state.feedPosts),
-        forYouPosts: toggleInList(state.forYouPosts),
-        explorePosts: toggleInList(state.explorePosts),
-      }));
     }
   },
 

@@ -1,4 +1,4 @@
-import { appAlert } from '../../utils/alert';
+import { appAlert, toast } from '../../utils/alert';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
@@ -109,37 +109,47 @@ export default function EditProfileScreen() {
       return;
     }
 
+    if (saving) return;
     setSaving(true);
-    try {
-      const formData = new FormData();
-      if (bio !== undefined) formData.append('bio', bio);
-      if (username) formData.append('username', username);
-      if (fullName) formData.append('full_name', fullName);
-      if (avatarUri) {
-        formData.append('avatar', { uri: avatarUri, type: 'image/jpeg', name: 'avatar.jpg' } as any);
-      }
-      if (bannerUri) {
-        formData.append('banner', { uri: bannerUri, type: 'image/jpeg', name: 'banner.jpg' } as any);
-      }
 
-      const res = await apiClient.updateProfile(formData);
-      if (res.success) {
+    // Show the new profile and leave at once; the upload runs behind. If the server says no,
+    // the old profile comes back with a toast.
+    const before = currentUserProfile ? {
+      full_name: currentUserProfile.full_name, username: currentUserProfile.username, bio: currentUserProfile.bio,
+      avatar_url: currentUserProfile.avatar_url, banner_url: currentUserProfile.banner_url,
+    } : null;
+    updateCurrentUserProfile({
+      full_name: fullName,
+      username,
+      bio,
+      ...(avatarUri ? { avatar_url: avatarUri } : {}),
+      ...(bannerUri ? { banner_url: bannerUri } : {}),
+    });
+    navigation.goBack();
+
+    const formData = new FormData();
+    if (bio !== undefined) formData.append('bio', bio);
+    if (username) formData.append('username', username);
+    if (fullName) formData.append('full_name', fullName);
+    if (avatarUri) {
+      formData.append('avatar', { uri: avatarUri, type: 'image/jpeg', name: 'avatar.jpg' } as any);
+    }
+    if (bannerUri) {
+      formData.append('banner', { uri: bannerUri, type: 'image/jpeg', name: 'banner.jpg' } as any);
+    }
+
+    apiClient.updateProfile(formData).catch(() => null).then(res => {
+      if (res?.success) {
+        // Swap the local photos for the uploaded ones
         updateCurrentUserProfile({
-          full_name: fullName,
-          username,
-          bio,
           ...(res.data?.avatar_url ? { avatar_url: res.data.avatar_url } : {}),
           ...(res.data?.banner_url ? { banner_url: res.data.banner_url } : {}),
         });
-        navigation.goBack();
-      } else {
-        appAlert('Error', res.error || 'Failed to update profile.');
+        return;
       }
-    } catch {
-      appAlert('Error', 'Failed to update profile. Please try again.');
-    } finally {
-      setSaving(false);
-    }
+      if (before) updateCurrentUserProfile(before);
+      toast("Couldn't save your profile", { kind: 'error', message: res?.error || 'Check your connection and try again.' });
+    });
   };
 
   const bannerSource = bannerUri

@@ -209,11 +209,23 @@ export class SegmentPlayer {
   private playing: { seg: PlayableSegment; p: any; sub: any; guard: any } | null = null;
   private preloaded: { seq: number; p: any } | null = null;
   private stopped = false;
+  private muted = false;
 
   constructor(private onNow: (seg: PlayableSegment | null) => void) {}
 
   /** Start after this seq (older chunks are ignored). */
   from(seq: number) { this.lastSeq = Math.max(this.lastSeq, seq); }
+
+  /** Room audio off on this phone only: chunks still flow (captions keep coming), just silent. */
+  setMuted(m: boolean) {
+    this.muted = m;
+    if (this.playing) this.applyMute(this.playing.p);
+    if (this.preloaded) this.applyMute(this.preloaded.p);
+  }
+
+  private applyMute(p: any) {
+    try { p.muted = this.muted; p.volume = this.muted ? 0 : 1; } catch {}
+  }
 
   push(segs: PlayableSegment[]) {
     if (this.stopped) return;
@@ -230,7 +242,9 @@ export class SegmentPlayer {
 
   private create(url: string) {
     const a = A();
-    return a.createAudioPlayer({ uri: url }, { updateInterval: 250 });
+    const p = a.createAudioPlayer({ uri: url }, { updateInterval: 250 });
+    if (this.muted) this.applyMute(p);
+    return p;
   }
 
   private pump() {

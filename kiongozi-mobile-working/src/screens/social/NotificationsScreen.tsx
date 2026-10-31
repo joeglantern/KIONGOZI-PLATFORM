@@ -11,6 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useNotificationStore, SocialNotification } from '../../stores/notificationStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { useSocialStore } from '../../stores/socialStore';
+import { toggleInteraction } from '../../stores/interactionSync';
+import { useFollowState, toggleFollow } from '../../stores/followSync';
+import { toast } from '../../utils/alert';
 import { supabase } from '../../utils/supabaseClient';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import apiClient from '../../utils/apiClient';
@@ -133,52 +138,58 @@ const thumbStyles = StyleSheet.create({
   textInner: { fontSize: 8, lineHeight: 10 },
 });
 
-function FollowBack({ userId, T }: { userId?: string; T: Theme }) {
-  const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle');
+/** Follow back: flips to Following (Requested for a private account) at once; followSync settles it */
+function FollowBack({ userId, username, T }: { userId?: string; username?: string; T: Theme }) {
+  const seed = { isFollowing: false, username };
+  const status = useFollowState(userId, seed).status;
   if (!userId) return null;
-  const done = state === 'done';
+  const done = status !== 'none';
+  const label = status === 'following' ? 'Following' : status === 'requested' ? 'Requested' : 'Follow back';
   return (
     <Pressable
-      onPress={async () => {
-        if (state !== 'idle') return;
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setState('busy');
-        try { await apiClient.followUser(userId); } catch {}
-        setState('done');
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        toggleFollow(userId, seed);
       }}
       style={({ pressed }) => [rowStyles.pill, done ? { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border, paddingHorizontal: 15 } : { backgroundColor: T.text }, pressed && { opacity: 0.8 }]}
       accessibilityRole="button"
-      accessibilityLabel={done ? 'Following' : 'Follow back'}
+      accessibilityLabel={status === 'requested' ? 'Cancel follow request' : done ? 'Unfollow' : 'Follow back'}
     >
-      {state === 'busy'
-        ? <ActivityIndicator size="small" color={T.bg} />
-        : <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{done ? 'Following' : 'Follow back'}</Text>}
+      <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{label}</Text>
     </Pressable>
   );
 }
 
+/** Accept / decline a follow request: the row goes at once; it comes back with a toast if the server says no */
 function FollowRequestButtons({ item, onRemove, T }: { item: SocialNotification; onRemove: (id: string) => void; T: Theme }) {
-  const [loading, setLoading] = useState<'accept' | 'decline' | null>(null);
   const requestId = item.data?.request_id as string | undefined;
   const fromUserId = item.data?.from_user_id as string | undefined;
   const act = async (kind: 'accept' | 'decline') => {
     if (!requestId && !fromUserId) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLoading(kind);
-    try {
-      if (kind === 'accept') await apiClient.acceptFollowRequest(requestId, fromUserId);
-      else await apiClient.declineFollowRequest(requestId, fromUserId);
-      onRemove(item.id);
-    } catch {}
-    setLoading(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const snapshot = useNotificationStore.getState().notifications;
+    onRemove(item.id);
+    const me = useProfileStore.getState().currentUserProfile;
+    if (kind === 'accept' && me) useProfileStore.getState().updateCurrentUserProfile({ follower_count: (me.follower_count || 0) + 1 });
+    const r: any = kind === 'accept'
+      ? await apiClient.acceptFollowRequest(requestId, fromUserId).catch(() => null)
+      : await apiClient.declineFollowRequest(requestId, fromUserId).catch(() => null);
+    if (r?.success || /not found/i.test(r?.error || '')) return;
+    // Put the request back
+    useNotificationStore.setState({ notifications: snapshot, unreadCount: snapshot.filter(n => !n.read).length });
+    if (kind === 'accept') {
+      const cur = useProfileStore.getState().currentUserProfile;
+      if (cur) useProfileStore.getState().updateCurrentUserProfile({ follower_count: Math.max(0, (cur.follower_count || 0) - 1) });
+    }
+    toast(kind === 'accept' ? "Couldn't accept" : "Couldn't decline", { kind: 'error' });
   };
   return (
     <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-      <Pressable onPress={() => act('accept')} disabled={!!loading} style={[rowStyles.pill, { backgroundColor: T.accent, minWidth: 92 }]}>
-        {loading === 'accept' ? <ActivityIndicator size="small" color="#000" /> : <Text style={[rowStyles.pillText, { color: '#000' }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Kubali</Text>}
+      <Pressable onPress={() => act('accept')} style={({ pressed }) => [rowStyles.pill, { backgroundColor: T.accent, minWidth: 92 }, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Accept follow request">
+        <Text style={[rowStyles.pillText, { color: '#000' }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Kubali</Text>
       </Pressable>
-      <Pressable onPress={() => act('decline')} disabled={!!loading} style={[rowStyles.pill, { borderWidth: 1, borderColor: T.border, paddingHorizontal: 15, minWidth: 92 }]}>
-        {loading === 'decline' ? <ActivityIndicator size="small" color={T.text} /> : <Text style={[rowStyles.pillText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Decline</Text>}
+      <Pressable onPress={() => act('decline')} style={({ pressed }) => [rowStyles.pill, { borderWidth: 1, borderColor: T.border, paddingHorizontal: 15, minWidth: 92 }, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Decline follow request">
+        <Text style={[rowStyles.pillText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Decline</Text>
       </Pressable>
     </View>
   );
@@ -214,18 +225,20 @@ function ActorAvatars({ row, T }: { row: Row; T: Theme }) {
 function ReplyActions({ item, T }: { item: SocialNotification; T: Theme }) {
   const navigation = useNavigation<any>();
   const replyId = item.data?.reply_id as string | undefined;
-  const [liked, setLiked] = useState(false);
-  const [busy, setBusy] = useState(false);
+  // The reply's like lives in the shared interaction store, like every other post
+  const liked = useSocialStore(s => (replyId ? s.postInteractions[replyId]?.isLiked : false)) ?? false;
+  useEffect(() => {
+    if (replyId && !useSocialStore.getState().postInteractions[replyId]) {
+      useSocialStore.getState().seedInteraction({ id: replyId, isLiked: false, like_count: 0, isBookmarked: false, isReposted: false, repost_count: 0 } as any);
+    }
+  }, [replyId]);
   if (!replyId) return null;
-  const like = async () => {
-    if (busy) return;
+  const like = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const want = !liked;
-    setLiked(want); setBusy(true);
-    try {
-      const r: any = await apiClient.likePost(replyId); // server toggles
-      if (r?.success) setLiked(!!r.liked); else setLiked(!want);
-    } catch { setLiked(!want); } finally { setBusy(false); }
+    if (!useSocialStore.getState().postInteractions[replyId]) {
+      useSocialStore.getState().seedInteraction({ id: replyId, isLiked: false, like_count: 0, isBookmarked: false, isReposted: false, repost_count: 0 } as any);
+    }
+    toggleInteraction(replyId, 'like');
   };
   return (
     <View style={rowStyles.replyActions}>
@@ -276,7 +289,7 @@ function NotificationRow({ row, onPress, onRemove, T }: { row: Row; onPress: () 
         )}
         {isRequest && <FollowRequestButtons item={first} onRemove={onRemove} T={T} />}
       </View>
-      {row.type === 'follow' && others === 0 && <FollowBack userId={first.fromUserId} T={T} />}
+      {row.type === 'follow' && others === 0 && <FollowBack userId={first.fromUserId} username={first.fromUsername} T={T} />}
       {hasPost && <PostThumb postId={first.postId} T={T} />}
     </Pressable>
   );

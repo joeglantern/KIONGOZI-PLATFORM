@@ -1,5 +1,5 @@
-import { appAlert } from '../../utils/alert';
-import React, { useEffect, useState } from 'react';
+import { appAlert, toast } from '../../utils/alert';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -47,7 +47,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { signOut } = useAuthStore();
-  const { currentUserProfile, fetchCurrentUserProfile } = useProfileStore();
+  const { currentUserProfile, updateCurrentUserProfile } = useProfileStore();
   const { isDark, toggleTheme } = useThemeStore();
   const T = useTheme();
   const styles = React.useMemo(() => makeStyles(T), [T]);
@@ -55,7 +55,6 @@ export default function SettingsScreen() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [privateAccount, setPrivateAccount] = useState(false);
-  const [privacyLoading, setPrivacyLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [signOutSheet, setSignOutSheet] = useState(false);
   const [deleteAccountSheet, setDeleteAccountSheet] = useState(false);
@@ -87,51 +86,59 @@ export default function SettingsScreen() {
 
   const handlePushToggle = async (value: boolean) => {
     Haptics.selectionAsync().catch(() => {});
-    setPushLoading(true);
-    try {
-      if (value) {
-        const token = await registerForPushNotifications();
-        if (token) {
-          await AsyncStorage.setItem(PUSH_ENABLED_KEY, 'true');
-          await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
-          setPushEnabled(true);
-        } else {
-          appAlert(
-            'Permission Denied',
-            'Please allow notifications in your device settings to enable push notifications.'
-          );
-        }
-      } else {
-        const token = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
+    if (!value) {
+      // Off flips at once; the token is unregistered in the background
+      setPushEnabled(false);
+      AsyncStorage.setItem(PUSH_ENABLED_KEY, 'false').catch(() => {});
+      AsyncStorage.getItem(PUSH_TOKEN_KEY).then(async token => {
         if (token) {
           await unregisterPushNotifications(token);
           await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
         }
-        await AsyncStorage.setItem(PUSH_ENABLED_KEY, 'false');
-        setPushEnabled(false);
+      }).catch(() => {});
+      return;
+    }
+    // On may have to wait for the system permission prompt
+    setPushLoading(true);
+    try {
+      const token = await registerForPushNotifications();
+      if (token) {
+        await AsyncStorage.setItem(PUSH_ENABLED_KEY, 'true');
+        await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
+        setPushEnabled(true);
+      } else {
+        appAlert(
+          'Permission Denied',
+          'Please allow notifications in your device settings to enable push notifications.'
+        );
       }
     } finally {
       setPushLoading(false);
     }
   };
 
+  // The toggle flips at once (no spinner); it flips back with a toast if the server says no
+  const privacyBusy = useRef(false);
   const handlePrivateToggle = async (value: boolean) => {
+    if (privacyBusy.current) return;
+    privacyBusy.current = true;
     Haptics.selectionAsync().catch(() => {});
-    setPrivacyLoading(true);
     const prev = privateAccount;
     setPrivateAccount(value);
+    updateCurrentUserProfile({ is_private: value });
     try {
       const res = await apiClient.updatePrivacySettings({ is_private: value });
       if (!res.success) {
         setPrivateAccount(prev);
-        appAlert('Error', 'Failed to update privacy setting.');
-      } else if (currentUserProfile?.username) {
-        fetchCurrentUserProfile(currentUserProfile.username);
+        updateCurrentUserProfile({ is_private: prev });
+        toast("Couldn't change privacy", { kind: 'error' });
       }
     } catch {
       setPrivateAccount(prev);
+      updateCurrentUserProfile({ is_private: prev });
+      toast("Couldn't change privacy", { kind: 'error' });
     } finally {
-      setPrivacyLoading(false);
+      privacyBusy.current = false;
     }
   };
 
@@ -299,7 +306,7 @@ export default function SettingsScreen() {
               icon="lock-closed-outline"
               title="Private account"
               sub={privateAccount ? 'On · you approve new followers' : 'Off · anyone can follow you'}
-              right={privacyLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : <Toggle value={privateAccount} onChange={handlePrivateToggle} label="Private account" />}
+              right={<Toggle value={privateAccount} onChange={handlePrivateToggle} label="Private account" />}
             />
             {features.presence && (
               <Row

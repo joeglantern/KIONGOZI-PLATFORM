@@ -174,11 +174,30 @@ export const useBarazaStore = create<Store>((set, get) => ({
     get().close();
   },
 
+  // Your hand goes up (or down) at once; the server's view of the room replaces it when it answers
   hand: async up => {
     const id = get().openId;
-    if (!id) return;
+    const before = get().state;
+    if (!id || !before?.me) return;
+    const meId = (() => { try { return require('./authStore').useAuthStore.getState().user?.id as string | undefined; } catch { return undefined; } })();
+    const at = up ? new Date().toISOString() : null;
+    set({
+      state: {
+        ...before,
+        me: { ...before.me, hand_raised_at: at },
+        people: before.people.map(p => (meId && p.user_id === meId ? { ...p, hand_raised_at: at } : p)),
+        queue: meId ? (up ? (before.queue.includes(meId) ? before.queue : [...before.queue, meId]) : before.queue.filter(q => q !== meId)) : before.queue,
+      },
+    });
     const res = await barazaApi<BarazaState>(`/${id}/hand`, 'POST', { up });
-    if (res.success) get().apply(res.data); else set({ error: res.error || null });
+    if (get().openId !== id) return;
+    if (res.success) { get().apply(res.data); return; }
+    // Put it back the way it was and say why
+    const cur = get().state;
+    if (cur && cur.room.id === before.room.id) {
+      set({ state: { ...cur, me: cur.me ? { ...cur.me, hand_raised_at: before.me.hand_raised_at } : cur.me, people: before.people, queue: before.queue } });
+    }
+    set({ error: res.error || (up ? 'Could not raise your hand' : 'Could not lower your hand') });
   },
 
   pass: async to => {

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { barazaApi, BarazaMinutes } from '../../stores/barazaStore';
+import { toast } from '../../utils/alert';
 import { UserAvatar } from '../social/UserAvatar';
 import { NoiseOverlay } from '../social/NoiseOverlay';
 import { HONEY, INK, Stick, PillButton } from './barazaUi';
@@ -43,7 +44,10 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
     Haptics.selectionAsync().catch(() => {});
     setM(cur => cur && { ...cur, ahadi: cur.ahadi.map(a => (a.id === id ? { ...a, done } : a)) });
     const res = await barazaApi(`/ahadi/${id}`, 'PATCH', { done });
-    if (!res.success) setM(cur => cur && { ...cur, ahadi: cur.ahadi.map(a => (a.id === id ? { ...a, done: !done } : a)) });
+    if (!res.success) {
+      setM(cur => cur && { ...cur, ahadi: cur.ahadi.map(a => (a.id === id ? { ...a, done: !done } : a)) });
+      toast("Couldn't save that", { kind: 'error' });
+    }
   };
 
   // The host decides whether the minutes go on their profile; nothing is posted on its own

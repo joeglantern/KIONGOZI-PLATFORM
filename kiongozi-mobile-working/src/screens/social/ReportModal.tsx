@@ -1,4 +1,4 @@
-import { appAlert } from '../../utils/alert';
+import { appAlert, toast } from '../../utils/alert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, Modal, TextInput,
@@ -64,27 +64,16 @@ export default function ReportModal({ target, onClose }: ReportModalProps) {
     }
     if (!target) return;
 
-    setLoading(true);
-    try {
-      const res = await apiClient.reportContent(
-        target.type,
-        target.id,
-        selectedReason,
-        description.trim() || undefined
-      );
-      if (res.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        setDone('submitted');
-      } else if (res.error?.includes('already reported')) {
-        setDone('duplicate');
-      } else {
-        appAlert('Error', res.error || 'Failed to submit report. Please try again.');
-      }
-    } catch {
-      appAlert('Error', 'Failed to submit report. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    // "Thanks" at once; the report goes in the background, with a toast only if it fails
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setDone('submitted');
+    apiClient.reportContent(target.type, target.id, selectedReason, description.trim() || undefined)
+      .catch(() => null)
+      .then((res: any) => {
+        if (res?.success) return;
+        if (res?.error?.includes('already reported')) { setDone('duplicate'); return; }
+        toast("Couldn't send the report", { kind: 'error', message: 'Check your connection and try again.' });
+      });
   };
 
   const handleClose = () => {

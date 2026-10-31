@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Modal, ActivityIndicator, SafeAreaView,
+  Modal, SafeAreaView,
 } from 'react-native';
 import { UserAvatar } from './UserAvatar';
 import { PostInput } from './PostInput';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore, Post } from '../../stores/socialStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { markInteraction } from '../../stores/interactionSync';
+import { toast } from '../../utils/alert';
 import apiClient from '../../utils/apiClient';
 
 interface QuotePostModalProps {
@@ -30,28 +33,42 @@ function timeAgo(dateStr: string): string {
 
 export default function QuotePostModal({ visible, post, onClose, onPosted }: QuotePostModalProps) {
   const { user } = useAuthStore();
-  const { prependPost } = useSocialStore();
+  const { prependPost, deletePost } = useSocialStore();
   const [content, setContent] = useState('');
-  const [posting, setPosting] = useState(false);
 
   const charCount = content.length;
-  const canPost = content.trim().length > 0 && charCount <= 280 && !posting;
+  const canPost = content.trim().length > 0 && charCount <= 280;
 
-  const handlePost = async () => {
-    if (!canPost) return;
-    setPosting(true);
-    try {
-      const res = await apiClient.repostPost(post.id, content.trim());
-      if (res.success && res.data) {
-        prependPost(res.data);
+  // The quote shows at the top of the feed and the sheet closes at once; the server call runs behind.
+  // If it is refused the quote disappears again, with a toast, and your text is still here.
+  const handlePost = () => {
+    if (!canPost || !user) return;
+    const text = content.trim();
+    const me = useProfileStore.getState().currentUserProfile;
+    const tempId = `temp_quote_${Date.now()}`;
+    const temp: Post = {
+      id: tempId, user_id: user.id, content: text, visibility: 'public',
+      like_count: 0, comment_count: 0, repost_count: 0, view_count: 0, is_bot_reply: false,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      repost_of_id: post.id, repost_of: post,
+      profiles: { id: user.id, username: me?.username || (user as any).username || '', full_name: me?.full_name || (user as any).full_name || '', avatar_url: me?.avatar_url, is_verified: me?.is_verified },
+    };
+    prependPost(temp);
+    onPosted();
+    apiClient.repostPost(post.id, text).catch(() => null).then((res: any) => {
+      if (res?.success && res.data) {
+        const real = res.data as Post;
+        useSocialStore.setState(s => {
+          const swap = (posts: Post[]) => posts.map(p => (p.id === tempId ? { ...real, repost_of: real.repost_of || post } : p));
+          return { feedPosts: swap(s.feedPosts), forYouPosts: swap(s.forYouPosts) };
+        });
         setContent('');
-        onPosted();
+        return;
       }
-    } catch {
-      // silent
-    } finally {
-      setPosting(false);
-    }
+      deletePost(tempId);
+      markInteraction(post.id, 'repost', false);
+      toast("Couldn't post", { kind: 'error', message: res?.error || 'Your quote is kept. Try again.' });
+    });
   };
 
   const handleClose = () => {
@@ -73,10 +90,7 @@ export default function QuotePostModal({ visible, post, onClose, onPosted }: Quo
             disabled={!canPost}
             style={[styles.postBtn, !canPost && styles.postBtnDisabled]}
           >
-            {posting
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.postBtnText}>Post</Text>
-            }
+            <Text style={styles.postBtnText}>Post</Text>
           </TouchableOpacity>
         </View>
 

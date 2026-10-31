@@ -71,7 +71,6 @@ export default function DMListScreen() {
   const [searching, setSearching] = useState(false);
   const [startingFor, setStartingFor] = useState<string | null>(null);
   const [convSheet, setConvSheet] = useState<{ convId: string; isArchived: boolean } | null>(null);
-  const [deleteConfirmSheet, setDeleteConfirmSheet] = useState<string | null>(null);
 
   useEffect(() => {
     loadPersistedDMState().then(() => fetchConversations());
@@ -153,18 +152,22 @@ export default function DMListScreen() {
   );
 
   const handleSelectUser = useCallback(async (person: UserRow) => {
+    const open = (conversationId: string) => {
+      setNewDMVisible(false);
+      navigation.navigate('DMConversation', {
+        conversationId,
+        participantName: person.full_name,
+        participantUsername: person.username,
+        participantAvatar: person.avatar_url,
+      });
+    };
+    // A chat with them already on the phone opens straight away
+    const existing = useDMStore.getState().conversations.find(c => c.participants?.some(p => p.id === person.id));
+    if (existing) { open(existing.id); return; }
     setStartingFor(person.id);
     try {
-      const convRes = await apiClient.startDMConversation(person.id);
-      if (convRes.success && convRes.data?.id) {
-        setNewDMVisible(false);
-        navigation.navigate('DMConversation', {
-          conversationId: convRes.data.id,
-          participantName: person.full_name,
-          participantUsername: person.username,
-          participantAvatar: person.avatar_url,
-        });
-      }
+      const convRes: any = await apiClient.startDMConversation(person.id);
+      if (convRes.success && convRes.data?.id) open(convRes.data.id);
     } catch {}
     setStartingFor(null);
   }, [navigation]);
@@ -469,26 +472,12 @@ export default function DMListScreen() {
             icon: 'trash-outline',
             label: 'Delete conversation',
             destructive: true,
-            onPress: () => setDeleteConfirmSheet(convSheet.convId),
+            // Goes at once with "Chat deleted · Undo" (no "Are you sure?")
+            onPress: () => deleteConversation(convSheet.convId),
           },
         ] : []}
       />
 
-      {/* Delete confirmation sheet */}
-      <BottomSheet
-        visible={!!deleteConfirmSheet}
-        onClose={() => setDeleteConfirmSheet(null)}
-        title="Delete conversation?"
-        subtitle="This removes it from your list. The other person will still have it."
-        actions={deleteConfirmSheet ? [
-          {
-            icon: 'trash-outline',
-            label: 'Delete',
-            destructive: true,
-            onPress: () => deleteConversation(deleteConfirmSheet!),
-          },
-        ] : []}
-      />
     </View>
   );
 }

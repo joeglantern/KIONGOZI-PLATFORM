@@ -10,6 +10,8 @@ import * as Haptics from 'expo-haptics';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import apiClient from '../../utils/apiClient';
+import { useAuthStore } from '../../stores/authStore';
+import { useFollowState, toggleFollow } from '../../stores/followSync';
 import { useTheme, AppTheme } from '../../hooks/useTheme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -22,6 +24,36 @@ interface FollowUser {
   avatar_url?: string;
   bio?: string;
   is_verified?: boolean;
+  is_private?: boolean;
+}
+
+/** Follow / Follow back / Following / Requested: flips at once, followSync settles it with the server */
+function FollowPill({ user, isFollowing, back, T, styles }: {
+  user: FollowUser; isFollowing: boolean; back?: boolean; T: AppTheme; styles: ReturnType<typeof makeStyles>;
+}) {
+  const st = useFollowState(user.id, { isFollowing, is_private: user.is_private, username: user.username });
+  const on = st.status !== 'none';
+  const label = st.status === 'following' ? 'Following' : st.status === 'requested' ? 'Requested' : back ? 'Follow back' : 'Follow';
+  return (
+    <Pressable
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        toggleFollow(user.id, { isFollowing, is_private: user.is_private, username: user.username });
+      }}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={st.status === 'requested' ? `Cancel follow request to ${user.username}` : on ? `Unfollow ${user.username}` : `${label} ${user.username}`}
+      style={({ pressed }) => [
+        styles.pill,
+        on ? styles.pillSecondary : styles.pillPrimary,
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <Text style={[styles.pillText, { color: on ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
 
 export default function FollowListScreen() {
@@ -29,6 +61,7 @@ export default function FollowListScreen() {
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const { userId, username, initialTab = 'followers', isOwnProfile = false } = route.params || {};
+  const myId = useAuthStore(s => s.user?.id);
 
   const T = useTheme();
   const styles = useMemo(() => makeStyles(T), [T]);
@@ -36,8 +69,8 @@ export default function FollowListScreen() {
   const [following, setFollowing] = useState<FollowUser[]>([]);
   const [loadingFollowers, setLoadingFollowers] = useState(true);
   const [loadingFollowing, setLoadingFollowing] = useState(true);
-  // Track optimistic follow state for the following list (only used when isOwnProfile)
-  const [followingState, setFollowingState] = useState<Map<string, boolean>>(new Map());
+  // Who I follow, so the Followers tab can offer "Follow back" (null until known)
+  const [myFollowing, setMyFollowing] = useState<Set<string> | null>(null);
   const scrollX = useRef(new Animated.Value(initialTab === 'followers' ? 0 : SCREEN_WIDTH)).current;
   const scrollRef = useRef<ScrollView>(null);
   const activeTab = useRef<Tab>(initialTab === 'following' ? 'following' : 'followers');
@@ -58,31 +91,19 @@ export default function FollowListScreen() {
       if (res.success && res.data) {
         const list = res.data as FollowUser[];
         setFollowing(list);
-        // Seed all as followed (they're in the following list)
-        const map = new Map<string, boolean>();
-        list.forEach(u => map.set(u.id, true));
-        setFollowingState(map);
+        if (isOwnProfile || userId === myId) setMyFollowing(new Set(list.map(u => u.id)));
       }
     } catch {}
     setLoadingFollowing(false);
-  }, [userId]);
+  }, [userId, isOwnProfile, myId]);
 
-  const handleToggleFollow = useCallback(async (targetUserId: string) => {
-    const currentlyFollowing = followingState.get(targetUserId) ?? true;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    // Optimistic toggle
-    setFollowingState(prev => new Map(prev).set(targetUserId, !currentlyFollowing));
-    try {
-      if (currentlyFollowing) {
-        await apiClient.unfollowUser(targetUserId);
-      } else {
-        await apiClient.followUser(targetUserId);
-      }
-    } catch {
-      // Revert on error
-      setFollowingState(prev => new Map(prev).set(targetUserId, currentlyFollowing));
-    }
-  }, [followingState]);
+  // Someone else's list: load who I follow once, for the Follow back pills
+  useEffect(() => {
+    if (isOwnProfile || !myId || userId === myId) return;
+    apiClient.getFollowing(myId).then(res => {
+      if (res.success && Array.isArray(res.data)) setMyFollowing(new Set((res.data as FollowUser[]).map(u => u.id)));
+    }).catch(() => {});
+  }, [isOwnProfile, myId, userId]);
 
   useEffect(() => {
     fetchFollowers();
@@ -136,35 +157,23 @@ export default function FollowListScreen() {
       onPress={() => openProfile(item)}
     >
       {renderIdentity(item)}
+      {myFollowing && item.id !== myId && (
+        <FollowPill user={item} isFollowing={myFollowing.has(item.id)} back T={T} styles={styles} />
+      )}
     </Pressable>
   );
 
-  const renderFollowing = ({ item }: { item: FollowUser }) => {
-    const isFollowed = followingState.get(item.id) ?? true;
-    return (
-      <Pressable
-        style={({ pressed }) => [styles.userRow, pressed && { backgroundColor: T.surface }]}
-        onPress={() => openProfile(item)}
-      >
-        {renderIdentity(item)}
-        {isOwnProfile && (
-          <Pressable
-            onPress={() => handleToggleFollow(item.id)}
-            hitSlop={6}
-            style={({ pressed }) => [
-              styles.pill,
-              isFollowed ? styles.pillSecondary : styles.pillPrimary,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Text style={[styles.pillText, { color: isFollowed ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
-              {isFollowed ? 'Following' : 'Follow'}
-            </Text>
-          </Pressable>
-        )}
-      </Pressable>
-    );
-  };
+  const renderFollowing = ({ item }: { item: FollowUser }) => (
+    <Pressable
+      style={({ pressed }) => [styles.userRow, pressed && { backgroundColor: T.surface }]}
+      onPress={() => openProfile(item)}
+    >
+      {renderIdentity(item)}
+      {(isOwnProfile || userId === myId) && item.id !== myId && (
+        <FollowPill user={item} isFollowing T={T} styles={styles} />
+      )}
+    </Pressable>
+  );
 
   const renderPage = (
     loading: boolean,

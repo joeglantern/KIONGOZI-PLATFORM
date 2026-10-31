@@ -119,11 +119,17 @@ async function runDM(job: DMJob): Promise<Result> {
 async function runFollow(job: FollowJob): Promise<Result> {
   const api = require('./apiClient').default;
   const r: any = job.want ? await api.followUserNow(job.userId) : await api.unfollowUserNow(job.userId);
-  if (r?.success) return 'done';
-  if (isNetworkError(r)) return 'network';
+  const err = r?.error || '';
   // "Already following" / "not following" mean the wish is already true
-  if (/already|not following|not found/i.test(r?.error || '')) return 'done';
-  return 'rejected';
+  const done = r?.success || /already|not following|not found/i.test(err);
+  if (!done) return isNetworkError(r) ? 'network' : 'rejected';
+  // Show what the server made of it (a private account turns the follow into a request)
+  try {
+    const { confirmFollow } = require('../stores/followSync');
+    const requested = r?.status === 'requested' || /request already/i.test(err);
+    confirmFollow(job.userId, job.want ? (requested ? 'requested' : 'following') : 'none');
+  } catch {}
+  return 'done';
 }
 
 async function runInteraction(job: IxJob): Promise<Result> {

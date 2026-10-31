@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import apiClient from '../../utils/apiClient';
+import { useFollowState, toggleFollow } from '../../stores/followSync';
 import { useAuthStore } from '../../stores/authStore';
 import { useBarazaStore, barazaApi, BarazaState } from '../../stores/barazaStore';
 import { UserAvatar } from '../social/UserAvatar';
@@ -40,21 +40,10 @@ export function WhoSheet({ visible, onClose, state }: { visible: boolean; onClos
   const meId = useAuthStore(s => s.user?.id);
   const [picking, setPicking] = useState(false);
   const [filter, setFilter] = useState<string | null>(null);
-  const [follow, setFollow] = useState<Record<string, boolean>>({});
 
   useEffect(() => { if (!visible) { setPicking(false); setFilter(null); } }, [visible]);
 
   const room = state.room;
-  const isFollowing = (p: Person) => follow[p.user_id] ?? !!p.following;
-  const toggleFollow = async (p: Person) => {
-    const next = !isFollowing(p);
-    Haptics.impactAsync(next ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
-    setFollow(f => ({ ...f, [p.user_id]: next }));
-    try {
-      const r: any = next ? await apiClient.followUserNow(p.user_id) : await apiClient.unfollowUserNow(p.user_id);
-      if (r && r.success === false) setFollow(f => ({ ...f, [p.user_id]: !next }));
-    } catch { setFollow(f => ({ ...f, [p.user_id]: !next })); }
-  };
 
   const setCounty = async (county: string | null) => {
     Haptics.selectionAsync().catch(() => {});
@@ -143,17 +132,17 @@ export function WhoSheet({ visible, onClose, state }: { visible: boolean; onClos
                 {/* People */}
                 {groups.holder.length > 0 && (
                   <Section t={t} title="Has the stick">
-                    {groups.holder.map(p => <Row key={p.user_id} p={p} t={t} me={p.user_id === meId} holder following={isFollowing(p)} onFollow={() => toggleFollow(p)} />)}
+                    {groups.holder.map(p => <Row key={p.user_id} p={p} t={t} me={p.user_id === meId} holder/>)}
                   </Section>
                 )}
                 {groups.queue.length > 0 && (
                   <Section t={t} title="Hands up" note="Next in line to speak">
-                    {groups.queue.map((p, i) => <Row key={p.user_id} p={p} t={t} me={p.user_id === meId} queuePos={i + 1} following={isFollowing(p)} onFollow={() => toggleFollow(p)} />)}
+                    {groups.queue.map((p, i) => <Row key={p.user_id} p={p} t={t} me={p.user_id === meId} queuePos={i + 1}/>)}
                   </Section>
                 )}
                 {groups.rest.length > 0 && (
                   <Section t={t} title="Listening">
-                    {groups.rest.map(p => <Row key={p.user_id} p={p} t={t} me={p.user_id === meId} following={isFollowing(p)} onFollow={() => toggleFollow(p)} />)}
+                    {groups.rest.map(p => <Row key={p.user_id} p={p} t={t} me={p.user_id === meId}/>)}
                   </Section>
                 )}
                 {state.count > state.people.length ? (
@@ -241,10 +230,19 @@ function Section({ t, title, note, children }: { t: BarazaTheme; title: string; 
   );
 }
 
-function Row({ p, t, me, holder, queuePos, following, onFollow }: {
-  p: Person; t: BarazaTheme; me: boolean; holder?: boolean; queuePos?: number; following: boolean; onFollow: () => void;
+function Row({ p, t, me, holder, queuePos }: {
+  p: Person; t: BarazaTheme; me: boolean; holder?: boolean; queuePos?: number;
 }) {
   const name = p.profile?.full_name || p.profile?.username || 'Someone';
+  // Follow flips at once; followSync settles it with the server (and shows Requested for a private account)
+  const seed = { following: !!p.following, username: p.profile?.username };
+  const status = useFollowState(p.user_id, seed).status;
+  const following = status !== 'none';
+  const label = status === 'following' ? 'Following' : status === 'requested' ? 'Requested' : 'Follow';
+  const onFollow = () => {
+    Haptics.impactAsync(following ? Haptics.ImpactFeedbackStyle.Soft : Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    toggleFollow(p.user_id, seed);
+  };
   return (
     <Animated.View entering={FadeInDown.springify().damping(18)} layout={LinearTransition.springify().damping(18)} style={s.row}>
       <View>
@@ -275,7 +273,7 @@ function Row({ p, t, me, holder, queuePos, following, onFollow }: {
       {!me ? (
         <Pressable onPress={onFollow} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${name}` : `Follow ${name}`}
           style={({ pressed }) => [s.follow, following ? { backgroundColor: t.soft } : { backgroundColor: t.ink }, pressed && { transform: [{ scale: 0.95 }] }]}>
-          <Text style={[s.followText, { color: following ? t.ink : t.dark ? '#141A33' : '#FFFFFF' }]}>{following ? 'Following' : 'Follow'}</Text>
+          <Text style={[s.followText, { color: following ? t.ink : t.dark ? '#141A33' : '#FFFFFF' }]}>{label}</Text>
         </Pressable>
       ) : null}
     </Animated.View>

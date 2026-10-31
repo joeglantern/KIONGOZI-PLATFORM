@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../utils/apiClient';
 import { saveSnap, readSnap } from '../utils/snapshot';
 import { queuedDMs } from '../utils/outbox';
+import { toast, withUndo } from '../utils/alert';
 
 /** Messages still waiting in the outbox, added after what the server/snapshot returned */
 function withQueued(conversationId: string, list: DMMessage[]): DMMessage[] {
@@ -224,17 +225,21 @@ export const useDMStore = create<DMState>((set, get) => ({
     }));
   },
 
+  // Unsend: the message goes at once; it comes back with a toast if the server says no
   unsendMessage: async (conversationId: string, messageId: string) => {
+    const before = get().messages[conversationId] || [];
     get().removeMessage(conversationId, messageId);
     persistMsgs(conversationId);
-    try {
-      await apiClient.deleteDMMessage(conversationId, messageId);
-    } catch {
-      // Optimistic delete — silently ignore if backend isn't ready yet
-    }
+    const r: any = await apiClient.deleteDMMessage(conversationId, messageId).catch(() => null);
+    if (r?.success || /not found/i.test(r?.error || '')) return;
+    set(s => ({ messages: { ...s.messages, [conversationId]: before } }));
+    persistMsgs(conversationId);
+    toast("Couldn't unsend", { kind: 'error' });
   },
 
+  // Edit: the new text shows at once; the old text comes back with a toast if the server says no
   updateMessageContent: async (conversationId: string, messageId: string, content: string) => {
+    const old = (get().messages[conversationId] || []).find(m => m.id === messageId);
     set(s => ({
       messages: {
         ...s.messages,
@@ -243,19 +248,27 @@ export const useDMStore = create<DMState>((set, get) => ({
         ),
       }
     }));
-    try {
-      await apiClient.editDMMessage(conversationId, messageId, content);
-    } catch {
-      // Optimistic edit — silently ignore if backend isn't ready yet
+    const r: any = await apiClient.editDMMessage(conversationId, messageId, content).catch(() => null);
+    if (r?.success) { persistMsgs(conversationId); return; }
+    if (old) {
+      set(s => ({
+        messages: {
+          ...s.messages,
+          [conversationId]: (s.messages[conversationId] || []).map(m => (m.id === messageId ? old : m)),
+        }
+      }));
     }
+    toast("Couldn't edit", { kind: 'error' });
   },
 
+  // Read: the badge clears at once; the server is told in the background
   markRead: (conversationId: string) => {
     set(s => ({
       conversations: s.conversations.map(c =>
         c.id === conversationId ? { ...c, unread_count: 0 } : c
       )
     }));
+    apiClient.markDMRead(conversationId).catch(() => {});
   },
 
   archiveConversation: async (id: string) => {
@@ -270,17 +283,37 @@ export const useDMStore = create<DMState>((set, get) => ({
     await AsyncStorage.setItem(ARCHIVED_KEY, JSON.stringify(next));
   },
 
+  // Delete: the chat leaves the list at once with "Chat deleted · Undo"; the server is told
+  // (you leave the conversation, a new one is created next time) once the Undo window closes
   deleteConversation: async (id: string) => {
-    // Remove from server — user leaves the conversation so a new one is created next time
-    try { await apiClient.deleteDMConversation(id); } catch {}
-    // Remove from local state immediately
-    const nextArchived = get().archivedIds.filter(x => x !== id);
-    set(s => ({
-      conversations: s.conversations.filter(c => c.id !== id),
-      messages: Object.fromEntries(Object.entries(s.messages).filter(([k]) => k !== id)),
-      archivedIds: nextArchived,
-    }));
-    await AsyncStorage.setItem(ARCHIVED_KEY, JSON.stringify(nextArchived));
+    const snap = { conversations: get().conversations, messages: get().messages, archivedIds: get().archivedIds };
+    const saveArchived = (ids: string[]) => AsyncStorage.setItem(ARCHIVED_KEY, JSON.stringify(ids)).catch(() => {});
+    withUndo('Chat deleted', {
+      hide: () => {
+        const nextArchived = get().archivedIds.filter(x => x !== id);
+        set(s => ({
+          conversations: s.conversations.filter(c => c.id !== id),
+          messages: Object.fromEntries(Object.entries(s.messages).filter(([k]) => k !== id)),
+          archivedIds: nextArchived,
+        }));
+        saveArchived(nextArchived);
+        persistConvs();
+      },
+      restore: () => {
+        set(s => ({
+          conversations: s.conversations.some(c => c.id === id) ? s.conversations : [...s.conversations, ...snap.conversations.filter(c => c.id === id)]
+            .sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()),
+          messages: snap.messages[id] ? { ...s.messages, [id]: snap.messages[id] } : s.messages,
+          archivedIds: snap.archivedIds.includes(id) ? [...new Set([...s.archivedIds, id])] : s.archivedIds,
+        }));
+        saveArchived(get().archivedIds);
+        persistConvs();
+      },
+      commit: async () => {
+        const r: any = await apiClient.deleteDMConversation(id);
+        if (!r?.success && !/not found/i.test(r?.error || '')) throw new Error(r?.error || 'Delete failed');
+      },
+    });
   },
 
   setShowArchived: (v: boolean) => set({ showArchived: v }),
