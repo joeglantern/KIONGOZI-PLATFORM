@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Profile header</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#007AFF}a:hover{color:#0062cc}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFFFF; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; color: #000000; position: relative; overflow: hidden">
+  <div style="height: 210px; position: relative; background: #C9C6F2; overflow: hidden; display: flex; align-items: center; justify-content: center">
+    <span style="font-size: 13px; font-weight: 600; color: rgba(30,18,54,.5)">[Cover photo]</span>
+    <button aria-label="Back" style="position: absolute; left: 16px; top: 54px; width: 36px; height: 36px; border-radius: 18px; border: 0; background: rgba(0,0,0,.32); display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    </button>
+    <button aria-label="Share profile" style="position: absolute; right: 16px; top: 54px; width: 36px; height: 36px; border-radius: 18px; border: 0; background: rgba(0,0,0,.32); display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5"></path></svg>
+    </button>
+  </div>
+
+  <div style="padding: 0 20px">
+    <div style="display: flex; align-items: flex-end; margin-top: -46px">
+      <div style="width: 92px; height: 92px; border-radius: 46px; border: 4px solid #FFFFFF; background: linear-gradient(135deg, #3FA845, #86BD2E); display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-size: 36px; font-weight: 800">J</div>
+      <div style="flex-grow: 1"></div>
+      <div style="display: flex; gap: 8px; margin-bottom: 6px">
+        <button aria-label="Profile QR card" style="width: 36px; height: 36px; border-radius: 18px; border: 1px solid rgba(60,60,67,.2); background: #FFFFFF; display: flex; align-items: center; justify-content: center">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2"></path></svg>
+        </button>
+        <button style="height: 36px; border-radius: 18px; border: 1px solid rgba(60,60,67,.2); background: #FFFFFF; font-weight: 700; font-size: 15px; padding: 0 16px">Message</button>
+        <button style="height: 36px; border-radius: 18px; border: 0; background: #000000; color: #FFFFFF; font-weight: 700; font-size: 15px; padding: 0 18px">Follow</button>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 5px; margin-top: 10px">
+      <span style="font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif; font-size: 24px; font-weight: 800">[Display name]</span>
+      <svg width="20" height="20" viewBox="0 0 24 24" role="img" aria-label="Verified"><path fill="#1D9BF0" d="M12 1.5l2.4 1.8 3-.2.9 2.9 2.6 1.6-.8 2.9 1.4 2.7-2.1 2.1-.1 3-3 .6-1.6 2.6-2.8-1-2.8 1-1.6-2.6-3-.6-.1-3L2.5 13.3l1.4-2.7-.8-2.9 2.6-1.6.9-2.9 3 .2z"></path><path d="M8 12.3l2.6 2.5L16.2 9" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+    </div>
+    <div style="font-size: 15px; color: rgba(60,60,67,.7)">@[username]</div>
+    <div style="font-size: 15px; line-height: 21px; margin-top: 10px">[Bio, one or two lines about who they are and what they care about]</div>
+    <div style="display: flex; gap: 14px; margin-top: 10px; font-size: 13.5px; color: rgba(60,60,67,.7)">
+      <span>[County]</span><span>Joined [Month Year]</span>
+    </div>
+    <div style="display: flex; gap: 18px; margin-top: 12px; font-size: 15px">
+      <span><b>[n]</b> <span style="color: rgba(60,60,67,.7)">posts</span></span>
+      <span><b>[n]</b> <span style="color: rgba(60,60,67,.7)">followers</span></span>
+      <span><b>[n]</b> <span style="color: rgba(60,60,67,.7)">following</span></span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px">
+      <div style="display: flex"><div style="width: 22px; height: 22px; border-radius: 11px; background: #FF6A3D; border: 2px solid #FFFFFF"></div><div style="width: 22px; height: 22px; border-radius: 11px; background: #F2A81D; border: 2px solid #FFFFFF; margin-left: -8px"></div></div>
+      <span style="font-size: 13.5px; color: rgba(60,60,67,.8)">Followed by <b style="color: #000">@[friend]</b> and <b style="color: #000">@[friend]</b></span>
+    </div>
+  </div>
+
+  <div style="display: flex; margin-top: 18px; border-bottom: 0.5px solid rgba(60,60,67,.2)">
+    <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 15px; font-weight: 700; position: relative">Posts<span style="position: absolute; left: 30%; right: 30%; bottom: -0.5px; height: 3px; border-radius: 2px; background: #000"></span></div>
+    <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 15px; font-weight: 600; color: rgba(60,60,67,.6)">Replies</div>
+    <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 15px; font-weight: 600; color: rgba(60,60,67,.6)">Mitaa</div>
+    <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 15px; font-weight: 600; color: rgba(60,60,67,.6)">Barazas</div>
+  </div>
+  <div style="padding: 14px 20px; display: flex; gap: 10px">
+    <div style="width: 40px; height: 40px; border-radius: 20px; background: linear-gradient(135deg, #3FA845, #86BD2E); flex-shrink: 0"></div>
+    <div style="flex-grow: 1">
+      <div style="font-size: 15px"><b>[Display name]</b> <span style="color: rgba(60,60,67,.6)">@[username] · 2h</span></div>
+      <div style="font-size: 15px; line-height: 21px; margin-top: 2px">[Their latest post]</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

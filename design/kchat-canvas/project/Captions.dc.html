@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Baraza captions like lyrics</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#007AFF}a:hover{color:#0062cc}
+@keyframes lyricIn{0%{transform:translateY(22px);opacity:0;filter:blur(3px)}100%{transform:none;opacity:1;filter:none}}
+@keyframes wordOn{0%{color:rgba(22,19,15,.28)}100%{color:#16130F}}
+.in{animation:lyricIn .55s cubic-bezier(.2,.9,.3,1) both}
+.w{display:inline-block;animation:wordOn .25s ease-out both;color:rgba(22,19,15,.28)}
+</style>
+</helmet>
+<div style="width: 860px; height: 844px; box-sizing: border-box; background: #E9E9EE; font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif; color: #16130F; display: flex; gap: 24px; padding: 30px; align-items: flex-start">
+
+  <!-- 1. Lyric captions in the room (default light) -->
+  <div style="width: 390px; height: 784px; border-radius: 26px; background: linear-gradient(180deg,#fff 0%,#FBF7F1 60%,#F6EEDC 100%); position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.12)">
+    <div style="position: absolute; left: 16px; top: 20px; font-size: 11px; font-weight: 700; color: #8F877D; letter-spacing: 1px; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif">CAPTIONS AS LYRICS</div>
+    <!-- a compact stage up top -->
+    <div style="position: absolute; left: 50%; top: 56px; width: 96px; height: 96px; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(135deg,#3FA845,#86BD2E); box-shadow: 0 0 0 4px #fff, 0 10px 24px rgba(0,0,0,.15)"></div>
+    <img src="/_blob/b47e660922f4cb91a8dfd2fd26b6c540" alt="" style="position: absolute; left: 236px; top: 52px; width: 42px; transform: rotate(-24deg)">
+    <div style="position: absolute; left: 0; right: 0; top: 162px; text-align: center; font-size: 15px; font-weight: 700; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif">@[speaker] <span style="color: #8F877D; font-weight: 500">· 1:24 left</span></div>
+
+    <!-- the lyric column: said lines dim above, the live line bright, the next line waiting -->
+    <div style="position: absolute; left: 24px; right: 24px; top: 210px; bottom: 120px; display: flex; flex-direction: column; justify-content: center; gap: 22px; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%)">
+      <div style="font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -0.5px; color: rgba(22,19,15,.22)">So the first thing we agreed on last week was the clean-up.</div>
+      <div style="font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -0.5px; color: rgba(22,19,15,.4)">Saturday morning at the market, nine o'clock.</div>
+      <div class="in" style="font-size: 30px; line-height: 36px; font-weight: 800; letter-spacing: -0.6px">
+        <span class="w" style="animation-delay:.0s">Kila</span> <span class="w" style="animation-delay:.25s">mtu</span> <span class="w" style="animation-delay:.5s">alete</span> <span class="w" style="animation-delay:.75s">gloves</span> <span class="w" style="animation-delay:1s">na</span> <span class="w" style="animation-delay:1.25s">mifuko,</span> <span class="w" style="animation-delay:1.5s">we</span> <span class="w" style="animation-delay:1.75s">will</span> <span class="w" style="animation-delay:2s">sort</span> <span class="w" style="animation-delay:2.25s">the</span> <span class="w" style="animation-delay:2.5s">rest.</span>
+      </div>
+      <div style="font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -0.5px; color: rgba(22,19,15,.14)">…</div>
+    </div>
+    <div style="position: absolute; left: 24px; right: 24px; bottom: 76px; font-size: 12.5px; line-height: 17px; color: #8F877D; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif">Each 6-second chunk is one line. It slides in bright the moment its audio starts; said lines drift up and dim; words light up when the server has word timings. No boxes, no borders: the words are the surface.</div>
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 16px; height: 48px; border-radius: 24px; background: #fff; box-shadow: 0 10px 28px rgba(107,74,31,.16); display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 700; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif"><img src="/_blob/1a3f081e23043c0d6b50f6dc11e690e9" alt="" style="width: 20px">Hand up</div>
+  </div>
+
+  <!-- 2. Same thing on the night room, plus the mini mode -->
+  <div style="width: 390px; height: 784px; border-radius: 26px; background: radial-gradient(circle at 50% 20%, #243055, #141A33 70%); position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.2); color: #F4F1EA">
+    <div style="position: absolute; left: 16px; top: 20px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.5); letter-spacing: 1px; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif">USIKU · TAP A LINE TO EXPAND / COLLAPSE</div>
+    <div style="position: absolute; left: 50%; top: 56px; width: 96px; height: 96px; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(135deg,#3FA845,#86BD2E); box-shadow: 0 0 0 4px #1B2140, 0 0 40px rgba(242,181,68,.45)"></div>
+    <img src="/_blob/b47e660922f4cb91a8dfd2fd26b6c540" alt="" style="position: absolute; left: 236px; top: 52px; width: 42px; transform: rotate(-24deg)">
+    <div style="position: absolute; left: 24px; right: 24px; top: 210px; bottom: 300px; display: flex; flex-direction: column; justify-content: center; gap: 22px; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%)">
+      <div style="font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -0.5px; color: rgba(244,241,234,.3)">Saturday morning at the market, nine o'clock.</div>
+      <div style="font-size: 30px; line-height: 36px; font-weight: 800; letter-spacing: -0.6px; color: #F4F1EA; text-shadow: 0 0 24px rgba(242,181,68,.35)">Kila mtu alete gloves na mifuko, we will sort the rest.</div>
+      <div style="font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -0.5px; color: rgba(244,241,234,.18)">…</div>
+    </div>
+    <!-- mini mode: one line under the speaker when the circle needs the room -->
+    <div style="position: absolute; left: 16px; right: 16px; top: 520px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.5); letter-spacing: 1px; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif">MINI MODE (DEFAULT WHEN THE CIRCLE IS BIG)</div>
+    <div style="position: absolute; left: 24px; right: 24px; top: 548px; text-align: center">
+      <div style="font-size: 14px; color: rgba(244,241,234,.4); font-weight: 600; line-height: 19px">Saturday morning at the market, nine o'clock.</div>
+      <div style="font-size: 19px; color: #F4F1EA; font-weight: 800; letter-spacing: -0.4px; line-height: 24px; margin-top: 6px">Kila mtu alete gloves na mifuko, we will sort the rest.</div>
+      <div style="margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px; background: rgba(255,255,255,.1); font-size: 12px; font-weight: 700; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif">Transcript <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F4F1EA" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div>
+    </div>
+    <div style="position: absolute; left: 24px; right: 24px; bottom: 24px; font-size: 12.5px; line-height: 17px; color: rgba(255,255,255,.55); font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif">Mini mode is two lines under the speaker. Tap Transcript or swipe up on the words and the full lyric column takes the stage, the circle shrinks to a row of small avatars.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":860,"height":844}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

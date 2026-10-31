@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Your week recap</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#007AFF}a:hover{color:#0062cc}
+@keyframes count{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+.c1{animation:count .5s .1s both}.c2{animation:count .5s .3s both}.c3{animation:count .5s .5s both}
+</style>
+</helmet>
+<div style="width: 860px; height: 844px; box-sizing: border-box; background: #E9E9EE; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; color: #000; display: flex; gap: 40px; padding: 30px; align-items: flex-start">
+
+  <!-- 1. In-app recap sheet (Spotify Wrapped energy, grown up) -->
+  <div style="width: 390px; height: 784px; border-radius: 40px; background: #0E3B2C; position: relative; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,.2); color: #fff">
+    <div style="position: absolute; left: 24px; top: 60px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,.6); letter-spacing: -0.08px">YOUR WEEK · 24 TO 30 OCT</div>
+    <div class="c1" style="position: absolute; left: 20px; top: 92px; font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif; font-size: 112px; line-height: 104px; font-weight: 900; letter-spacing: -5px; color: #B6E36A">1.2K</div>
+    <div class="c1" style="position: absolute; left: 24px; top: 204px; font-size: 20px; font-weight: 700">people saw your posts</div>
+    <div style="position: absolute; left: 24px; right: 24px; top: 262px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <div class="c2" style="border-radius: 18px; background: rgba(255,255,255,.08); padding: 14px"><div style="font-size: 32px; font-weight: 800; letter-spacing: -0.5px">34</div><div style="font-size: 13.5px; color: rgba(255,255,255,.7); margin-top: 2px">new followers</div></div>
+      <div class="c2" style="border-radius: 18px; background: rgba(255,255,255,.08); padding: 14px"><div style="font-size: 32px; font-weight: 800; letter-spacing: -0.5px">212</div><div style="font-size: 13.5px; color: rgba(255,255,255,.7); margin-top: 2px">likes</div></div>
+      <div class="c3" style="border-radius: 18px; background: rgba(255,255,255,.08); padding: 14px"><div style="font-size: 32px; font-weight: 800; letter-spacing: -0.5px">3</div><div style="font-size: 13.5px; color: rgba(255,255,255,.7); margin-top: 2px">barazas joined</div></div>
+      <div class="c3" style="border-radius: 18px; background: rgba(255,255,255,.08); padding: 14px"><div style="font-size: 32px; font-weight: 800; letter-spacing: -0.5px">7 days</div><div style="font-size: 13.5px; color: rgba(255,255,255,.7); margin-top: 2px">posting streak</div></div>
+    </div>
+    <div style="position: absolute; left: 24px; right: 24px; top: 480px">
+      <div style="font-size: 13px; font-weight: 600; color: rgba(255,255,255,.6)">YOUR TOP POST</div>
+      <div style="margin-top: 8px; display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,.08); border-radius: 16px; padding: 10px"><div style="width: 56px; height: 56px; border-radius: 10px; background: linear-gradient(135deg,#C9C6F2,#FFD9A8); flex-shrink: 0"></div><div style="font-size: 14px; line-height: 19px; color: rgba(255,255,255,.9)">[First line of the post that did best] <span style="color: rgba(255,255,255,.6)">· 640 views</span></div></div>
+    </div>
+    <div style="position: absolute; left: 20px; right: 20px; bottom: 28px; display: flex; gap: 10px">
+      <div style="flex-grow: 1; height: 52px; border-radius: 26px; background: #B6E36A; color: #0E3B2C; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800">Share to story</div>
+      <div style="width: 52px; height: 52px; border-radius: 26px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5"></path></svg></div>
+    </div>
+  </div>
+
+  <!-- 2. The story card it shares (9:16) -->
+  <div style="width: 340px; height: 604px; border-radius: 30px; background: #0E3B2C; position: relative; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,.25); color: #fff; margin-top: 90px">
+    <div style="position: absolute; left: 22px; top: 26px; display: flex; align-items: center; gap: 8px"><div style="width: 30px; height: 30px; border-radius: 15px; background: linear-gradient(135deg,#3FA845,#86BD2E)"></div><div style="font-size: 14px; font-weight: 700">@[username]'s week</div></div>
+    <div style="position: absolute; left: 18px; top: 120px; font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif; font-size: 96px; line-height: 90px; font-weight: 900; letter-spacing: -4px; color: #B6E36A">1.2K</div>
+    <div style="position: absolute; left: 22px; top: 214px; font-size: 18px; font-weight: 700">people saw my posts this week</div>
+    <div style="position: absolute; left: 22px; right: 22px; top: 270px; display: flex; gap: 8px">
+      <div style="flex: 1; border-radius: 14px; background: rgba(255,255,255,.08); padding: 10px"><div style="font-size: 24px; font-weight: 800">34</div><div style="font-size: 12px; color: rgba(255,255,255,.7)">followers</div></div>
+      <div style="flex: 1; border-radius: 14px; background: rgba(255,255,255,.08); padding: 10px"><div style="font-size: 24px; font-weight: 800">212</div><div style="font-size: 12px; color: rgba(255,255,255,.7)">likes</div></div>
+      <div style="flex: 1; border-radius: 14px; background: rgba(255,255,255,.08); padding: 10px"><div style="font-size: 24px; font-weight: 800">3</div><div style="font-size: 12px; color: rgba(255,255,255,.7)">barazas</div></div>
+    </div>
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: rgba(255,255,255,.08); border-top: 0.5px solid rgba(255,255,255,.12); display: flex; align-items: center; gap: 10px; padding: 0 18px">
+      <img src="/_blob/4c69b82c7339d387af7e5d36a2047c26" alt="KChat" style="width: 32px; height: 32px; border-radius: 8px">
+      <div style="flex-grow: 1"><div style="font-size: 14px; font-weight: 600">KChat</div><div style="font-size: 12px; color: rgba(255,255,255,.6)">Kenya, say your piece</div></div>
+      <span style="height: 28px; border-radius: 14px; background: #B6E36A; color: #0E3B2C; font-weight: 800; font-size: 13px; padding: 0 12px; display: flex; align-items: center">GET</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":860,"height":844}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

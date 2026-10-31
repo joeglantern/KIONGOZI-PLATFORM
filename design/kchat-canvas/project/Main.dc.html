@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Explore with Baraza card</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#007AFF}a:hover{color:#0062cc}
+@keyframes bz-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes bz-drift{0%{transform:translateX(0)}100%{transform:translateX(30px)}}
+@keyframes bz-drift2{0%{transform:translateX(0)}100%{transform:translateX(-24px)}}
+@keyframes bz-glow{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+@keyframes bz-sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.bz-island{animation:bz-float 4.2s ease-in-out infinite}
+.bz-cloud1{animation:bz-drift 9s ease-in-out infinite alternate}
+.bz-cloud2{animation:bz-drift2 11s ease-in-out infinite alternate}
+.bz-glow{animation:bz-glow 2.4s ease-in-out infinite}
+.bz-stick{animation:bz-sway 3.2s ease-in-out infinite;transform-origin:50% 95%}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F2F2F7; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; color: #000000; display: flex; flex-direction: column; overflow: hidden">
+  <div style="height: 54px"></div>
+  <div style="display: flex; align-items: flex-end; padding: 6px 20px 14px">
+    <div style="flex-grow: 1">
+      <div style="font-size: 13px; font-weight: 600; color: #8A8A8E; letter-spacing: -0.08px">FRIDAY 31 OCTOBER</div>
+      <h1 style="margin: 0; font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif; font-size: 34px; font-weight: 800; letter-spacing: 0.37px; line-height: 41px">Explore</h1>
+    </div>
+    <button aria-label="Search" style="width: 36px; height: 36px; border-radius: 18px; border: 0; background: #E3E3E8; display: flex; align-items: center; justify-content: center; margin-bottom: 4px">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+    </button>
+  </div>
+
+  <!-- Today-style card -->
+  <div style="margin: 0 20px; height: 452px; border-radius: 22px; position: relative; overflow: hidden; background: linear-gradient(180deg, #B9B4F0 0%, #DCC7EC 40%, #FBD3B0 78%, #FFE2BF 100%); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12)">
+    <img class="bz-cloud1" src="/_blob/0cdb558ab30133e95fe4626eb40c4d64" alt="" style="position: absolute; left: -10px; top: 120px; width: 96px; opacity: 0.95">
+    <img class="bz-cloud2" src="/_blob/0cdb558ab30133e95fe4626eb40c4d64" alt="" style="position: absolute; right: -6px; top: 96px; width: 74px; opacity: 0.85">
+    <div class="bz-island" style="position: absolute; left: 34px; top: 112px; width: 282px; height: 277px">
+      <div style="position: absolute; left: 50px; right: 50px; bottom: 6px; height: 50px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 160, 80, 0.5), rgba(255, 160, 80, 0))"></div>
+      <img src="/_blob/8c5770f9e032b8e93c986e84607e0962" alt="A floating island with six stools around a hearth and the talking stick" style="position: absolute; left: 0; top: 0; width: 282px">
+      <div class="bz-glow" style="position: absolute; left: 108px; top: 56px; width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 214, 120, 0.95), rgba(255, 190, 90, 0))"></div>
+      <img class="bz-stick" src="/_blob/b47e660922f4cb91a8dfd2fd26b6c540" alt="" style="position: absolute; left: 120px; top: 72px; width: 31px">
+    </div>
+
+    <div style="position: absolute; left: 20px; right: 20px; top: 18px">
+      <div style="font-size: 13px; font-weight: 600; letter-spacing: -0.08px; color: rgba(40, 24, 70, 0.6)">NEW ON KCHAT</div>
+      <div style="font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif; font-size: 28px; line-height: 32px; font-weight: 800; letter-spacing: 0.36px; color: #1E1236; margin-top: 2px">Pull up a stool.<br>Say your piece.</div>
+    </div>
+
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 76px; background: rgba(255, 255, 255, 0.72); border-top: 0.5px solid rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 12px; padding: 0 16px">
+      <div style="width: 44px; height: 44px; border-radius: 11px; background: linear-gradient(160deg, #FFE1A8, #F2A81D); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,.08)">
+        <img src="/_blob/b47e660922f4cb91a8dfd2fd26b6c540" alt="" style="width: 15px; transform: rotate(-24deg)">
+      </div>
+      <div style="flex-grow: 1; min-width: 0">
+        <div style="font-size: 15px; font-weight: 600; letter-spacing: -0.24px; color: #000000">Baraza</div>
+        <div style="font-size: 13px; color: rgba(60, 60, 67, 0.7); letter-spacing: -0.08px">One voice at a time</div>
+      </div>
+      <button style="height: 30px; border-radius: 15px; border: 0; background: rgba(118, 118, 128, 0.14); color: #007AFF; font-family: -apple-system, system-ui, sans-serif; font-weight: 700; font-size: 15px; padding: 0 18px">START</button>
+    </div>
+  </div>
+
+  <div style="padding: 26px 20px 0">
+    <div style="font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 0.35px">Trending in Kenya</div>
+    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; flex-direction: column"><span style="font-size: 13px; color: #8A8A8E">[Trend category]</span><span style="font-size: 17px; font-weight: 600; letter-spacing: -0.4px">[#Trending topic]</span></div>
+      <div style="display: flex; flex-direction: column"><span style="font-size: 13px; color: #8A8A8E">[Trend category]</span><span style="font-size: 17px; font-weight: 600; letter-spacing: -0.4px">[#Trending topic]</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

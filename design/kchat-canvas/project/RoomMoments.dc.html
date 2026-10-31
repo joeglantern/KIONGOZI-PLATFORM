@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Baraza moments</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#007AFF}a:hover{color:#0062cc}
+@keyframes fall{0%{transform:translateY(-20px) rotate(0)}100%{transform:translateY(120px) rotate(200deg);opacity:0}}
+.c1{animation:fall 1.8s ease-in infinite}.c2{animation:fall 2.2s ease-in infinite .3s}.c3{animation:fall 1.6s ease-in infinite .6s}
+</style>
+</helmet>
+<div style="width: 860px; height: 844px; box-sizing: border-box; background: #E9E9EE; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; color: #16130F; display: flex; gap: 24px; padding: 30px; align-items: flex-start; flex-wrap: wrap">
+
+  <!-- 1. The stick lands on you -->
+  <div style="width: 250px; height: 380px; border-radius: 26px; background: linear-gradient(180deg,#fff,#F6EEDC); position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.12)">
+    <div style="position: absolute; left: 16px; top: 16px; font-size: 11px; font-weight: 700; color: #8F877D; letter-spacing: 1px">YOUR TURN</div>
+    <div style="position: absolute; inset: 0; background: radial-gradient(circle at 50% 42%, rgba(242,168,29,.35), rgba(242,168,29,0) 55%)"></div>
+    <span class="c1" style="position: absolute; left: 40px; top: 40px; width: 10px; height: 14px; background: #FF6A3D; border-radius: 2px"></span>
+    <span class="c2" style="position: absolute; left: 120px; top: 30px; width: 9px; height: 9px; background: #3FA845; border-radius: 5px"></span>
+    <span class="c3" style="position: absolute; left: 190px; top: 50px; width: 12px; height: 8px; background: #1F7A8C; border-radius: 2px"></span>
+    <span class="c2" style="position: absolute; left: 80px; top: 60px; width: 8px; height: 12px; background: #F2A81D; border-radius: 2px"></span>
+    <span class="c1" style="position: absolute; left: 160px; top: 20px; width: 9px; height: 9px; background: #D93A2B; border-radius: 5px"></span>
+    <div style="position: absolute; left: 50%; top: 110px; width: 104px; height: 104px; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(135deg,#3FA845,#86BD2E); color: #fff; font-size: 40px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 6px #fff, 0 14px 30px rgba(0,0,0,.2)">J</div>
+    <img src="/_blob/b47e660922f4cb91a8dfd2fd26b6c540" alt="" style="position: absolute; left: 150px; top: 100px; width: 48px; transform: rotate(-24deg)">
+    <div style="position: absolute; left: 0; right: 0; top: 236px; text-align: center; font-size: 20px; font-weight: 800; letter-spacing: -0.4px">The stick is yours</div>
+    <div style="position: absolute; left: 20px; right: 20px; top: 266px; text-align: center; font-size: 13.5px; line-height: 18px; color: #5E574F">Everyone hears you about 8 seconds later. You have 2 minutes.</div>
+    <div style="position: absolute; left: 20px; right: 20px; bottom: 18px; height: 48px; border-radius: 24px; background: #16130F; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px">Start talking</div>
+  </div>
+
+  <!-- 2. Reactions floating up -->
+  <div style="width: 250px; height: 380px; border-radius: 26px; background: #fff; position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.12)">
+    <div style="position: absolute; left: 16px; top: 16px; font-size: 11px; font-weight: 700; color: #8F877D; letter-spacing: 1px">REACTIONS</div>
+    <div style="position: absolute; left: 16px; right: 16px; top: 44px; font-size: 13.5px; line-height: 18px; color: #5E574F">Tap the ember to send a quick reaction. It floats up past the speaker so they feel the room without anyone interrupting.</div>
+    <div style="position: absolute; left: 50%; top: 150px; width: 90px; height: 90px; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(135deg,#3FA845,#86BD2E); box-shadow: 0 0 0 5px #fff, 0 10px 24px rgba(0,0,0,.15)"></div>
+    <span style="position: absolute; left: 178px; top: 120px; font-size: 22px; opacity: .9">&#128293;</span>
+    <span style="position: absolute; left: 196px; top: 86px; font-size: 18px; opacity: .6">&#128079;</span>
+    <span style="position: absolute; left: 170px; top: 56px; font-size: 14px; opacity: .35">&#10084;&#65039;</span>
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 18px; height: 52px; border-radius: 26px; background: #F6EEDC; display: flex; align-items: center; justify-content: space-around; font-size: 24px">
+      <span>&#128293;</span><span>&#128079;</span><span>&#10084;&#65039;</span><span>&#128514;</span><span>&#129300;</span><span>&#128588;</span>
+    </div>
+  </div>
+
+  <!-- 3. Passing the stick -->
+  <div style="width: 250px; height: 380px; border-radius: 26px; background: #fff; position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.12)">
+    <div style="position: absolute; left: 16px; top: 16px; font-size: 11px; font-weight: 700; color: #8F877D; letter-spacing: 1px">HOST · PASS THE STICK</div>
+    <div style="position: absolute; left: 16px; right: 16px; top: 44px; font-size: 13.5px; line-height: 18px; color: #5E574F">Hands up are a numbered line. Tap a person, or swipe the stick onto them.</div>
+    <div style="position: absolute; left: 16px; right: 16px; top: 104px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 16px; background: #FFF6E3; border: 1.5px solid #E9A23B">
+        <span style="width: 22px; height: 22px; border-radius: 11px; background: #E9A23B; color: #1C1408; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">1</span>
+        <span style="width: 36px; height: 36px; border-radius: 18px; background: #F2A81D"></span>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 700">@[name]</span>
+        <span style="height: 30px; padding: 0 12px; border-radius: 15px; background: #16130F; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center">Pass</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 16px; background: #F7F7F9">
+        <span style="width: 22px; height: 22px; border-radius: 11px; background: #E5E5EA; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">2</span>
+        <span style="width: 36px; height: 36px; border-radius: 18px; background: #FF6A3D"></span>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 700">@[name]</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 16px; background: #F7F7F9">
+        <span style="width: 22px; height: 22px; border-radius: 11px; background: #E5E5EA; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">3</span>
+        <span style="width: 36px; height: 36px; border-radius: 18px; background: #5B4BC4"></span>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 700">@[name]</span>
+      </div>
+    </div>
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 18px; display: flex; gap: 8px">
+      <div style="flex-grow: 1; height: 44px; border-radius: 22px; background: #F6EEDC; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">Take it back</div>
+      <div style="flex-grow: 1; height: 44px; border-radius: 22px; background: rgba(217,80,58,.1); color: #D9503A; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">End baraza</div>
+    </div>
+  </div>
+
+  <!-- 4. Night theme of the new room -->
+  <div style="width: 250px; height: 380px; border-radius: 26px; background: radial-gradient(circle at 50% 30%, #243055, #141A33 70%); position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.2)">
+    <div style="position: absolute; left: 16px; top: 16px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.5); letter-spacing: 1px">USIKU STYLE</div>
+    <span style="position: absolute; left: 40px; top: 50px; width: 2px; height: 2px; background: #fff; border-radius: 1px"></span><span style="position: absolute; left: 200px; top: 70px; width: 3px; height: 3px; background: #fff; border-radius: 2px"></span><span style="position: absolute; left: 120px; top: 40px; width: 2px; height: 2px; background: #fff; border-radius: 1px"></span><span style="position: absolute; left: 220px; top: 130px; width: 2px; height: 2px; background: #fff; border-radius: 1px"></span>
+    <div style="position: absolute; left: 50%; top: 200px; width: 200px; height: 80px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(242,181,68,.45), rgba(242,181,68,0))"></div>
+    <div style="position: absolute; left: 50%; top: 96px; width: 110px; height: 110px; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(135deg,#3FA845,#86BD2E); box-shadow: 0 0 0 5px #1B2140, 0 0 40px rgba(242,181,68,.5)"></div>
+    <img src="/_blob/b47e660922f4cb91a8dfd2fd26b6c540" alt="" style="position: absolute; left: 156px; top: 86px; width: 50px; transform: rotate(-24deg)">
+    <div style="position: absolute; left: 16px; right: 16px; top: 236px; background: rgba(255,255,255,.08); border-radius: 16px; padding: 10px 12px; color: #F4F1EA; font-size: 14px; line-height: 19px">[Captions glow softly on the night room]</div>
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 18px; height: 52px; border-radius: 26px; background: rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; color: #F2B544; font-weight: 700; font-size: 15px">Hand up</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":860,"height":844}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Your story viewers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#5CB85C}a:hover{color:#7DCF7D}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #000000; color: #FFFFFF; font-family: Inter, system-ui, sans-serif">
+  <div style="position: absolute; left: 95px; top: 56px; width: 200px; height: 356px; border-radius: 18px; overflow: hidden">
+    <img src="/_blob/4d703504f902ee4fea355c8815542b5a" alt="Your story: frame from a U2i video" style="width: 100%; height: 100%; object-fit: cover">
+  </div>
+
+  <section aria-label="Viewers" style="position: absolute; left: 0; right: 0; bottom: 0; height: 470px; background: #111111; border-radius: 28px 28px 0 0; border-top: 1px solid #FFFFFF14; display: flex; flex-direction: column">
+    <span aria-hidden="true" style="align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #3A3A3C; margin-top: 10px"></span>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 16px 20px 10px">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      <h2 style="margin: 0; flex: 1; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px">Imeonekana na 128</h2>
+      <button aria-label="Delete story" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #1C1C1E; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>
+      </button>
+    </div>
+    <div style="display: flex; gap: 8px; padding: 0 20px 8px">
+      <span style="padding: 6px 12px; border-radius: 16px; background: #FFFFFF; color: #000000; font-size: 13px; font-weight: 600">Reactions kwanza</span>
+      <span style="padding: 6px 12px; border-radius: 16px; background: #1C1C1E; color: #AEAEB2; font-size: 13px; font-weight: 600">Mpya kwanza</span>
+    </div>
+    <ul style="list-style: none; margin: 0; padding: 0 8px; display: flex; flex-direction: column">
+      <sc-for list="{{viewers}}" as="v" hint-placeholder-count="6">
+        <li style="display: flex; align-items: center; gap: 12px; padding: 9px 12px">
+          <div style="width: 44px; height: 44px; border-radius: 22px; background: {{v.fill}}; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px">{{v.initials}}</div>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 15px; font-weight: 600">{{v.name}}</span>
+            <span style="font-size: 13px; color: #8E8E93">@{{v.handle}} · {{v.when}}</span>
+          </div>
+          <span style="font-size: 22px">{{v.reaction}}</span>
+          <button aria-label="Message {{v.name}}" style="width: 40px; height: 40px; border-radius: 20px; border: 0; background: transparent; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7z"></path></svg>
+          </button>
+        </li>
+      </sc-for>
+    </ul>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      viewers: [
+        { name: 'Mercy Njeri', handle: 'njeri_from_ke', when: 'dak 4', reaction: '🔥', initials: 'MN', fill: '#8A3B12' },
+        { name: 'Brian Otieno', handle: 'brian.otieno', when: 'dak 12', reaction: '👏', initials: 'BO', fill: '#1D3A6E' },
+        { name: 'Faith Wambui', handle: 'faith_wambui', when: 'dak 20', reaction: '😍', initials: 'FW', fill: '#5B2A6E' },
+        { name: 'Kevin Mutua', handle: 'kev_mutua', when: 'saa 1', reaction: '', initials: 'KM', fill: '#2F5D3A' },
+        { name: 'Amina Hassan', handle: 'amina.h', when: 'saa 2', reaction: '', initials: 'AH', fill: '#6E4A1D' },
+        { name: 'Dennis Kiprop', handle: 'kiprop_d', when: 'saa 2', reaction: '', initials: 'DK', fill: '#3A3A6E' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

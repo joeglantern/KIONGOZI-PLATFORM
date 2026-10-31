@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Share this answer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#5CB85C}a:hover{color:#7DCF7D}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #000000; color: #FFFFFF; font-family: -apple-system, 'SF Pro Text', Inter, system-ui, sans-serif; display: flex; flex-direction: column; padding: 56px 16px 34px; overflow: hidden">
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 18px 0 8px">
+    <h1 style="margin: 0; font-size: 17px; font-weight: 700">Share this answer</h1>
+    <button aria-label="Close" style="width: 32px; height: 32px; border-radius: 16px; border: 0; background: #1A1A1A; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 8px 0">
+    <img src="/_blob/08cb0521a2202ae0ebe0f1bf821d6f82" alt="Card preview: question and answer on the cream Mchanga skin" style="width: 238px; height: 424px; border-radius: 20px; object-fit: cover">
+  </div>
+
+  <div role="group" aria-label="Card shape" style="align-self: center; display: flex; background: #1A1A1A; border-radius: 18px; padding: 3px; margin-top: 6px">
+    <button aria-pressed="true" style="height: 32px; padding: 0 16px; border-radius: 15px; border: 0; background: #000000; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+      <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect></svg>Story
+    </button>
+    <button aria-pressed="false" style="height: 32px; padding: 0 16px; border-radius: 15px; border: 0; background: transparent; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+      <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>Post
+    </button>
+  </div>
+
+  <div style="display: flex; justify-content: center; gap: 14px; margin-top: 14px">
+    <sc-for list="{{skins}}" as="s" hint-placeholder-count="4">
+      <button aria-label="{{s.label}} card" style="min-width: 56px; border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; font-family: inherit">
+        <span style="border: 2px solid {{s.ring}}; border-radius: 14px; padding: 2px; display: block">
+          <img src="{{s.thumb}}" alt="" style="width: 40px; height: 56px; border-radius: 10px; display: block; object-fit: cover">
+        </span>
+        <span style="font-size: 12px; font-weight: 600; color: {{s.color}}">{{s.label}}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; gap: 10px; margin-top: 16px">
+    <button style="flex: 1; height: 52px; border-radius: 26px; border: 0; background: #FFFFFF; color: #000000; font-family: inherit; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="#000000"><circle cx="12" cy="12" r="10"></circle><path d="M12 7.5v9M7.5 12h9" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"></path></svg>
+      Add to story
+    </button>
+    <button aria-label="Post to feed" style="width: 52px; height: 52px; border-radius: 26px; border: 0; background: #1A1A1A; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>
+    </button>
+    <button aria-label="Share to other apps" style="width: 52px; height: 52px; border-radius: 26px; border: 0; background: #1A1A1A; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"></path></svg>
+    </button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const on = { ring: '#FFFFFF', color: '#FFFFFF' }, off = { ring: 'transparent', color: '#8E8E93' };
+    return { skins: [
+      { label: 'Mchanga', thumb: '/_blob/3d3638d7d82d1f5424e01663144bf346', ...on },
+      { label: 'Usiku', thumb: '/_blob/a6e07f1b63cfa873d146b24a5ecda88c', ...off },
+      { label: 'Jua', thumb: '/_blob/8e81557ecf83b1b21a83867a734976c7', ...off },
+      { label: 'Msitu', thumb: '/_blob/b33316632657b46e7b0a10f57b322501', ...off },
+    ] };
+  }
+}
+</script>
+</body>
+</html>

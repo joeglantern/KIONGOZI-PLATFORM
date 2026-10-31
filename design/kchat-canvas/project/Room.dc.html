@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inside a baraza</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D9BF0}a:hover{color:#0f7cc4}
+@keyframes bz-glow{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.2)}}
+@keyframes bz-sway{0%,100%{transform:rotate(-30deg)}50%{transform:rotate(-24deg)}}
+.bz-glow{animation:bz-glow 1.8s ease-in-out infinite}
+.bz-stick{animation:bz-sway 2.6s ease-in-out infinite;transform-origin:50% 90%}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFFFF; font-family: Inter, system-ui, sans-serif; color: #16130F; position: relative; overflow: hidden">
+  <div style="height: 54px"></div>
+  <div style="display: flex; align-items: center; gap: 8px; padding: 4px 16px">
+    <button aria-label="Leave" style="width: 40px; height: 40px; border-radius: 20px; border: 0; background: #F3EFE8; display: flex; align-items: center; justify-content: center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16130F" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center">
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px">[Baraza title]</div>
+      <div style="display: flex; gap: 6px; margin-top: 5px">
+        <span style="display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 5px; border-radius: 12px; background: #F3EFE8"><img src="/_blob/89031e2c90b0ade68cd8fad0ea9eeaad" alt="" style="width: 17px"><span style="font-size: 12px; font-weight: 700; color: #C9472F">Live</span></span>
+        <a href="Who.dc.html" style="display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 5px; border-radius: 12px; background: #F3EFE8; text-decoration: none"><img src="/_blob/781db85d7c4d3ace7236c47a2948dc11" alt="" style="width: 17px"><span style="font-size: 12px; font-weight: 700; color: #16130F">7</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8F877D" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></a>
+        <span style="display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 5px; border-radius: 12px; background: #F3EFE8"><img src="/_blob/9e22937fbf8382417ad37cd8555ff2b2" alt="" style="width: 17px"><span style="font-size: 12px; font-weight: 700; color: #5E574F">Minutes</span></span>
+      </div>
+    </div>
+    <button aria-label="Room style" style="width: 40px; height: 40px; border-radius: 20px; border: 0; background: #F3EFE8; display: flex; align-items: center; justify-content: center">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#16130F" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="8" cy="10" r="1.2"></circle><circle cx="12" cy="7.5" r="1.2"></circle><circle cx="16" cy="10" r="1.2"></circle><path d="M12 21c-1.5 0-2-1-2-2s1-2 2.5-2H15"></path></svg>
+    </button>
+  </div>
+
+  <div style="position: relative; width: 220px; height: 220px; margin: 34px auto 0">
+    <div style="position: absolute; inset: 0; border-radius: 50%; border: 7px dotted #E9A23B"></div>
+    <div style="position: absolute; inset: 26px; border-radius: 50%; background: linear-gradient(135deg, #3FA845, #86BD2E); display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-family: 'Space Grotesk', sans-serif; font-size: 52px; font-weight: 700">J</div>
+    <div class="bz-glow" style="position: absolute; right: -8px; top: 22px; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 210, 110, 0.95), rgba(255, 190, 90, 0))"></div>
+    <img class="bz-stick" src="/_blob/b47e660922f4cb91a8dfd2fd26b6c540" alt="The talking stick" style="position: absolute; right: 2px; top: 34px; width: 62px">
+  </div>
+  <div style="text-align: center; margin-top: 14px">
+    <div style="font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700">[Speaker name]</div>
+    <div style="font-size: 13.5px; color: #5E574F; margin-top: 2px">Has the stick · 1:24 left</div>
+  </div>
+  <div style="margin: 16px 20px 0; padding: 16px; border-radius: 20px; background: #FFFFFF; border: 1px solid rgba(22,19,15,0.10); box-shadow: 0 6px 18px rgba(0,0,0,.05); font-size: 16px; line-height: 22px; text-align: center">[Live captions of what the speaker is saying]</div>
+
+  <div style="display: flex; justify-content: center; gap: 10px; margin-top: 26px">
+    <div style="width: 40px; height: 40px; border-radius: 20px; background: #FF6A3D; color: #FFFFFF; font-weight: 800; display: flex; align-items: center; justify-content: center">K</div>
+    <div style="width: 40px; height: 40px; border-radius: 20px; background: #F2A81D; color: #1E1530; font-weight: 800; display: flex; align-items: center; justify-content: center">M</div>
+    <div style="width: 40px; height: 40px; border-radius: 20px; background: #6A4FB0; color: #FFFFFF; font-weight: 800; display: flex; align-items: center; justify-content: center">A</div>
+    <div style="width: 40px; height: 40px; border-radius: 20px; background: #1F7A8C; color: #FFFFFF; font-weight: 800; display: flex; align-items: center; justify-content: center">W</div>
+  </div>
+  <div style="text-align: center; margin-top: 10px"><a href="Who.dc.html" style="font-size: 13px; font-weight: 700; color: #5E574F; text-decoration: none">+2 more · See who's here</a></div>
+
+  <div style="position: absolute; left: 16px; right: 16px; bottom: 34px; display: flex; gap: 10px">
+    <button style="flex-grow: 1; height: 54px; border-radius: 27px; border: 0; background: #E9A23B; color: #1C1408; font-family: Inter, sans-serif; font-weight: 700; font-size: 16px">Raise hand</button>
+    <button style="width: 128px; height: 54px; border-radius: 27px; border: 0; background: #F3EFE8; color: #16130F; font-family: Inter, sans-serif; font-weight: 700; font-size: 16px">Leave</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

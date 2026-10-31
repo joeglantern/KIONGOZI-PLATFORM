@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Repost states and animation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#007AFF}a:hover{color:#0062cc}
+.rp{transition:transform .5s cubic-bezier(.3,1.4,.4,1), color .2s}
+.roll{display:inline-block;transition:transform .35s cubic-bezier(.3,1.3,.4,1), opacity .2s}
+@keyframes toastIn{0%{transform:translateY(16px);opacity:0}100%{transform:none;opacity:1}}
+.toast{animation:toastIn .28s cubic-bezier(.2,.9,.3,1.2) both}
+</style>
+</helmet>
+<div style="width: 860px; height: 844px; box-sizing: border-box; background: #E9E9EE; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; color: #16130F; display: flex; gap: 24px; padding: 30px; align-items: flex-start">
+
+  <!-- 1. A post card with the action row -->
+  <div style="width: 390px; height: 784px; border-radius: 26px; background: #fff; position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.12)">
+    <div style="position: absolute; left: 16px; top: 20px; font-size: 11px; font-weight: 700; color: #8F877D; letter-spacing: 1px">FEED POST · TAP THE LOOP</div>
+    <div style="position: absolute; left: 16px; right: 16px; top: 50px; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6B6B70">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B6B70" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+      <span><b style="color: #16130F">Amina</b> and 2 others reposted</span>
+    </div>
+    <div style="position: absolute; left: 16px; right: 16px; top: 80px; display: flex; gap: 10px">
+      <div style="width: 44px; height: 44px; border-radius: 22px; background: linear-gradient(135deg,#3FA845,#86BD2E); flex-shrink: 0"></div>
+      <div style="flex-grow: 1">
+        <div style="font-size: 15px"><b>[Display name]</b> <span style="color: #6B6B70">@[username] · 2h</span></div>
+        <div style="font-size: 15.5px; line-height: 21px; margin-top: 2px">[Post text that got reposted]</div>
+        <div style="margin-top: 10px; height: 220px; border-radius: 16px; background: linear-gradient(135deg,#C9C6F2,#FFD9A8)"></div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-right: 20px">
+          <span style="display: flex; align-items: center; gap: 6px; color: #6B6B70; font-size: 13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B70" stroke-width="2" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"></path></svg>24</span>
+          <button onClick="{{ toggle }}" aria-label="{{ rpLabel }}" style="display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 6px; font-family: inherit; font-size: 13px; font-weight: 600; color: {{ rpColor }}">
+            <svg class="rp" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{ rpColor }}" stroke-width="{{ rpStroke }}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: rotate({{ rpRot }}deg)"><path d="M17 2l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+            <span style="display: inline-block; height: 16px; overflow: hidden; line-height: 16px"><span class="roll" style="transform: translateY({{ rollY }}px); display: inline-flex; flex-direction: column">{{ countA }}<span>{{ countB }}</span></span></span>
+          </button>
+          <span style="display: flex; align-items: center; gap: 6px; color: #6B6B70; font-size: 13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B70" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"></path></svg>1.2K</span>
+          <span style="color: #6B6B70"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B70" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5"></path></svg></span>
+        </div>
+      </div>
+    </div>
+    <sc-if value="{{ on }}" hint-placeholder-val="{{ true }}">
+      <div class="toast" style="position: absolute; left: 16px; right: 16px; bottom: 24px; height: 52px; border-radius: 16px; background: #16130F; color: #fff; display: flex; align-items: center; gap: 10px; padding: 0 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#86BD2E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 600">Reposted to your profile</span>
+        <button onClick="{{ toggle }}" style="border: 0; background: transparent; color: #86BD2E; font-weight: 800; font-size: 14px; font-family: inherit">Undo</button>
+      </div>
+    </sc-if>
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 92px; font-size: 12.5px; line-height: 17px; color: #8F877D">Loop keeps the shape everyone knows. On tap it spins a half turn with a spring, fills green, the count rolls up, light haptic, and a toast with Undo.</div>
+  </div>
+
+  <!-- 2. Mitaa clip, reposted by line -->
+  <div style="width: 390px; height: 784px; border-radius: 26px; background: #000; position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.2); color: #fff">
+    <div style="position: absolute; inset: 0; background: radial-gradient(circle at 50% 40%, #3A2E5C 0%, #0B0B10 70%)"></div>
+    <div style="position: absolute; left: 16px; top: 20px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.5); letter-spacing: 1px">MITAA CLIP</div>
+    <div style="position: absolute; right: 10px; bottom: 150px; display: flex; flex-direction: column; align-items: center; gap: 18px">
+      <div style="position: relative"><div style="width: 48px; height: 48px; border-radius: 24px; background: #F2A81D; border: 2px solid #fff"></div><div style="position: absolute; left: 14px; bottom: -8px; width: 20px; height: 20px; border-radius: 10px; background: #3FA845; display: flex; align-items: center; justify-content: center; border: 2px solid #000"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg></div></div>
+      <div style="text-align: center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"></path></svg><div style="font-size: 12.5px; font-weight: 600">1.2K</div></div>
+      <div style="text-align: center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"></path></svg><div style="font-size: 12.5px; font-weight: 600">84</div></div>
+      <div style="text-align: center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#86BD2E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg><div style="font-size: 12.5px; font-weight: 600; color: #86BD2E">312</div></div>
+      <div style="text-align: center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5"></path></svg><div style="font-size: 12.5px; font-weight: 600">Share</div></div>
+    </div>
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 260px; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.7))"></div>
+    <div style="position: absolute; left: 14px; right: 90px; bottom: 100px">
+      <div style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border-radius: 13px; background: rgba(255,255,255,.16); font-size: 12.5px; font-weight: 600; margin-bottom: 8px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#86BD2E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+        Reposted by <b>@[friend]</b>
+      </div>
+      <div style="font-size: 16px; font-weight: 700">@[username]</div>
+      <div style="font-size: 14.5px; line-height: 20px; color: rgba(255,255,255,.9); margin-top: 2px">[Caption text]</div>
+    </div>
+    <div style="position: absolute; left: 14px; right: 14px; bottom: 30px; font-size: 12.5px; line-height: 17px; color: rgba(255,255,255,.55)">Rail: the loop sits under comments, green with its count once you've reposted. The "Reposted by @friend" pill goes above the caption, where TikTok and Instagram place it. A small green loop badge on the avatar means a friend reposted this.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":860,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { on: false, base: 311 }; }
+  renderVals() {
+    const on = this.state.on;
+    return {
+      on,
+      rpLabel: on ? 'Undo repost' : 'Repost',
+      rpColor: on ? '#3FA845' : '#6B6B70',
+      rpStroke: on ? 2.6 : 2,
+      rpRot: on ? 180 : 0,
+      countA: String(this.state.base),
+      countB: String(this.state.base + 1),
+      rollY: on ? -16 : 0,
+      toggle: () => this.setState({ on: !on }),
+    };
+  }
+}
+</script>
+</body>
+</html>

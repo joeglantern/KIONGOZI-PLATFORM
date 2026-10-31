@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Polish pass</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.wrap{display:flex;gap:30px;padding:0;background:#0a0a0a;font-family:-apple-system,'SF Pro Text',Inter,system-ui,sans-serif;color:#fff}
+.ph{width:390px;height:844px;box-sizing:border-box;background:#000;border-radius:40px;overflow:hidden;position:relative;padding-top:54px;flex:none}
+.cap{position:absolute;left:0;right:0;bottom:-0px;padding:10px 22px 18px;color:#8E8E93;font-size:12px;line-height:17px;background:linear-gradient(transparent,#000 30%)}
+.hd{padding:6px 16px 10px;font-weight:700;font-size:20px;font-family:'Space Grotesk',-apple-system,sans-serif}
+.post{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid #141416}
+.av{width:40px;height:40px;border-radius:20px;background:#1C1C1E;flex:none}
+.ln{height:11px;border-radius:6px;background:#1C1C1E;margin-top:6px}
+.toast{position:absolute;left:16px;right:16px;bottom:104px;background:#2C2C2E;border:0.5px solid rgba(255,255,255,.1);border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast b{font-weight:600;font-size:14.5px;flex:1}
+.toast i{font-style:normal;color:#5CB85C;font-weight:700;font-size:15px}
+.cd{position:absolute;left:0;bottom:0;height:2px;background:rgba(92,184,92,.55);animation:cd 6s linear infinite}
+@keyframes cd{from{width:100%}to{width:0}}
+.tab{position:absolute;left:0;right:0;bottom:0;height:84px;border-top:0.5px solid #1C1C1E;background:#000}
+.bub{max-width:76%;padding:8px 13px;border-radius:20px;font-size:15px;line-height:20px;margin:3px 10px}
+.me{background:#5CB85C;color:#000;margin-left:auto}
+.them{border:1px solid #2C2C2E;color:#fff}
+.meta{font-size:11px;color:rgba(0,0,0,.55);text-align:right;margin-top:2px}
+.chip{border:1px solid #2C2C2E;border-radius:18px;height:36px;padding:0 14px;display:flex;align-items:center;font-size:14.5px;font-weight:500;white-space:nowrap}
+.card{background:#0F0F10;border:1px solid #1F1F22;border-radius:18px;margin:0 16px;padding:6px}
+.row{display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px}
+.tile{width:36px;height:36px;border-radius:10px;background:#1C1C1E;display:flex;align-items:center;justify-content:center;font-size:17px}
+.sec{color:#fff;font-weight:700;font-size:15px;margin:22px 22px 8px}
+.sub{color:#8E8E93;font-size:12.5px;margin-top:2px}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#1C1C1E;border-radius:24px 24px 0 0;padding:8px 20px 30px;text-align:center}
+.grab{width:38px;height:5px;border-radius:3px;background:#3A3A3C;margin:0 auto 14px}
+.paint{width:112px;height:112px;border-radius:18px;transform:rotate(-2deg);box-shadow:0 6px 18px rgba(0,0,0,.45);display:block;margin:4px auto 14px;object-fit:cover}
+.btn{height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;margin-top:10px}
+</style>
+</helmet>
+<div class="wrap">
+
+  <!-- 1. Undo instead of "Are you sure?" -->
+  <div class="ph">
+    <div class="hd">KChat</div>
+    <div class="post"><div class="av"></div><div style="flex:1"><div class="ln" style="width:38%"></div><div class="ln" style="width:90%"></div><div class="ln" style="width:70%"></div><div style="height:180px;border-radius:16px;background:#1C1C1E;margin-top:10px"></div></div></div>
+    <div class="post"><div class="av"></div><div style="flex:1"><div class="ln" style="width:30%"></div><div class="ln" style="width:80%"></div></div></div>
+    <div class="toast"><b>Post deleted</b><i>Undo</i><div class="cd"></div></div>
+    <div class="tab"></div>
+    <div class="cap" style="bottom:84px;display:none"></div>
+  </div>
+
+  <!-- 2. Chat: queued, failed, quick replies -->
+  <div class="ph">
+    <div class="hd" style="display:flex;align-items:center;gap:10px"><div class="av" style="width:34px;height:34px"></div><div><div style="font-size:16px">Amina</div><div style="font-size:12px;color:#5CB85C;font-weight:500">Active now</div></div></div>
+    <div style="padding-top:10px">
+      <div class="bub them">Uko wapi? Tunaanza saa nane</div>
+      <div class="bub me">Niko njiani 🚶🏾<div class="meta">14:02 ✓✓</div></div>
+      <div class="bub me" style="opacity:.75">Nitafika in 10<div class="meta">14:03 ◷</div></div>
+      <div class="bub me" style="opacity:.5">Weka seat yangu<div class="meta">14:03 !</div></div>
+      <div style="text-align:right;margin:4px 14px 0;color:#FF453A;font-size:12.5px;font-weight:600">⊘ Not sent · Tap to retry</div>
+      <div class="bub them" style="margin-top:14px">Sawa, tutakungoja 👍🏾</div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:34px">
+      <div style="display:flex;gap:8px;padding:0 12px 8px;overflow:hidden"><div class="chip">Asante sana</div><div class="chip">Niko karibu</div><div class="chip">Poa, see you</div></div>
+      <div style="margin:0 12px;height:44px;border-radius:22px;background:#1C1C1E;display:flex;align-items:center;padding:0 16px;color:#636366;font-size:15px">Message…</div>
+    </div>
+  </div>
+
+  <!-- 3. Where you're logged in -->
+  <div class="ph" style="background:#000">
+    <div class="hd" style="text-align:center;font-size:17px">Where you’re logged in</div>
+    <div class="sec">This phone</div>
+    <div class="card"><div class="row"><div class="tile">▯</div><div style="flex:1"><div style="font-weight:600;font-size:15.5px">iPhone</div><div class="sub">Signed in since 12 Oct 2026</div></div><div style="background:rgba(92,184,92,.14);color:#5CB85C;font-size:12px;font-weight:600;padding:4px 9px;border-radius:8px">This device</div></div></div>
+    <div class="sec">Other devices</div>
+    <div class="card">
+      <div class="row"><div class="tile">▯</div><div style="flex:1"><div style="font-weight:600;font-size:15.5px">Android phone</div><div class="sub">Active 2 h ago · since 3 Sep · 41.90.x.x</div></div><div style="color:#FF453A;font-weight:600;font-size:14px">Sign out</div></div>
+      <div class="row"><div class="tile">▭</div><div style="flex:1"><div style="font-weight:600;font-size:15.5px">Windows computer</div><div class="sub">Active 9 days ago · since 1 Aug</div></div><div style="color:#FF453A;font-weight:600;font-size:14px">Sign out</div></div>
+    </div>
+    <div style="color:#636366;font-size:12.5px;margin:10px 26px;line-height:17px">Don’t recognise one? Sign it out, then change your password in Settings.</div>
+    <div class="card" style="margin-top:20px"><div class="row" style="color:#FF453A;font-weight:600"><div class="tile" style="color:#FF453A">⇥</div>Sign out everywhere else</div></div>
+  </div>
+
+  <!-- 4. Break reminder -->
+  <div class="ph">
+    <div class="hd">KChat</div>
+    <div class="post"><div class="av"></div><div style="flex:1"><div class="ln" style="width:38%"></div><div class="ln" style="width:90%"></div><div style="height:220px;border-radius:16px;background:#1C1C1E;margin-top:10px"></div></div></div>
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <img class="paint" src="/_blob/ef4b26a5e5150ff367985f55c6ae7830" alt="">
+      <div style="font-weight:700;font-size:18px">Time for a break?</div>
+      <div style="color:#AEAEB2;font-size:14.5px;line-height:20px;margin-top:6px">You’ve been scrolling for 30 minutes. Stretch, grab some chai, or text a friend. The feed will be here.</div>
+      <div class="btn" style="background:#fff;color:#000;margin-top:20px">Done for now</div>
+      <div class="btn" style="color:#AEAEB2;margin-top:4px">Keep scrolling</div>
+    </div>
+  </div>
+
+  <!-- 5. One screen breaks, the app doesn't -->
+  <div class="ph" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 32px;text-align:center">
+    <img class="paint" style="width:132px;height:132px;border-radius:22px;margin-bottom:22px" src="/_blob/508e19477a50547aeaf42203374cd4ea" alt="">
+    <div style="font-weight:700;font-size:19px">This screen hit a snag</div>
+    <div style="color:#8E8E93;font-size:14.5px;line-height:21px;margin:8px 0 26px">We’ve been sent the details. Try again, or go back. Everything else still works.</div>
+    <div class="btn" style="background:#fff;color:#000;width:100%">Try again</div>
+    <div class="btn" style="border:1.5px solid #1C1C1E;width:100%">Go back</div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2070,"height":844}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

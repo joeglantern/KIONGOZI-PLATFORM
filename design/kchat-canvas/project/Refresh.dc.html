@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pull to refresh</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+@keyframes cycle{
+  0%{transform:translateY(-14px) scale(.2) rotate(-24deg);opacity:0}
+  22%{transform:translateY(0) scale(1) rotate(0);opacity:1}
+  27%{transform:scale(1.08,.78)}
+  33%{transform:scale(1)}
+  80%{transform:scale(1.04)}
+  86%{transform:scale(1.22);opacity:1}
+  94%,100%{transform:scale(0);opacity:0}
+}
+@keyframes hop{0%,40%,100%{transform:translateY(0)}20%{transform:translateY(-5px)}}
+.bub{animation:cycle 3.2s infinite cubic-bezier(.3,.7,.3,1.2)}
+.dot{width:7px;height:7px;border-radius:4px;background:#000;animation:hop .9s infinite}
+.dot:nth-child(2){animation-delay:.14s}.dot:nth-child(3){animation-delay:.28s}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#000;color:#fff;font-family:-apple-system,'SF Pro Text',Inter,system-ui,sans-serif;overflow:hidden;padding-top:54px">
+  <div style="padding:6px 16px 0;font-weight:700;font-size:22px">KChat</div>
+  <div style="display:flex;gap:8px;padding:12px 16px 10px;border-bottom:1px solid #1C1C1E">
+    <div style="padding:8px 16px;border-radius:20px;background:#fff;color:#000;font-weight:600;font-size:14px">For You</div>
+    <div style="padding:8px 16px;border-radius:20px;background:#1C1C1E;color:#AEAEB2;font-weight:600;font-size:14px">Following</div>
+  </div>
+  <div style="display:flex;justify-content:center;padding:14px 0 6px">
+    <div class="bub" style="position:relative">
+      <div style="width:52px;height:36px;border-radius:18px;background:#5CB85C;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 4px 10px rgba(0,0,0,.35)"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div style="position:absolute;left:9px;bottom:-3px;width:12px;height:12px;border-radius:2px;background:#5CB85C;transform:rotate(45deg);z-index:-1"></div>
+    </div>
+  </div>
+  <div style="padding:14px 16px;display:flex;gap:12px;opacity:.6"><div style="width:44px;height:44px;border-radius:22px;background:#1C1C1E"></div><div style="flex:1"><div style="height:12px;width:40%;background:#1C1C1E;border-radius:6px"></div><div style="height:12px;width:85%;background:#1C1C1E;border-radius:6px;margin-top:8px"></div><div style="height:220px;background:#1C1C1E;border-radius:16px;margin-top:10px"></div></div></div>
+  <div style="padding:0 24px;color:#8E8E93;font-size:12.5px;line-height:18px">Pull: swings in and grows, dots fill one by one · Let go: squash and bounce, dots hop like typing · Done: a happy pop, then “You’re up to date”.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

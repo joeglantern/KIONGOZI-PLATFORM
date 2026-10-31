@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live details</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.lbl{font-size:11px;letter-spacing:.06em;color:#636366;margin:18px 0 8px;text-transform:uppercase}
+.dot{width:7px;height:7px;border-radius:4px;background:#8E8E93;display:inline-block}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#000;color:#fff;font-family:-apple-system,'SF Pro Text',Inter,system-ui,sans-serif;overflow:hidden;padding:54px 16px 0;position:relative">
+  <!-- offline pill -->
+  <div style="display:flex;justify-content:center">
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 18px 9px 14px;border-radius:22px;background:#1C1C1E;border:.5px solid rgba(255,255,255,.14)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"><path d="M4 4l16 16M8.5 8.6A5 5 0 0 0 6 18h11M16.5 11.3A4 4 0 0 1 20 15.2"/></svg>
+      <div><div style="font-size:13.5px;font-weight:600">No internet connection</div><div style="font-size:12px;color:rgba(255,255,255,.62)">Showing what you saw last · tap to retry</div></div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:center;gap:10px;margin-top:10px">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 12px 6px 10px;border-radius:16px;background:#1C1C1E;font-size:13.5px;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 4l16 16M8.5 8.6A5 5 0 0 0 6 18h11"/></svg>Offline</div>
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 14px 7px 12px;border-radius:16px;background:#1C1C1E;font-size:13.5px;font-weight:600"><span style="width:8px;height:8px;border-radius:4px;background:#5CB85C"></span>Back online</div>
+  </div>
+
+  <div class="lbl">Feed</div>
+  <div style="display:flex;justify-content:center;gap:10px">
+    <div style="display:flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:18px;background:#5CB85C;color:#000;font-weight:700;font-size:14px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+      <span style="display:flex"><span style="width:22px;height:22px;border-radius:11px;background:#7a5c3e;border:2px solid #5CB85C"></span><span style="width:22px;height:22px;border-radius:11px;background:#3e5c7a;border:2px solid #5CB85C;margin-left:-8px"></span><span style="width:22px;height:22px;border-radius:11px;background:#5c3e7a;border:2px solid #5CB85C;margin-left:-8px"></span></span>
+      New posts
+    </div>
+    <div style="display:flex;align-items:center;height:36px;padding:0 14px;border-radius:18px;background:#fff;color:#000;font-weight:700;font-size:14px">You’re up to date</div>
+  </div>
+  <div style="margin-top:14px;font-size:13px;color:#8E8E93;display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>Brian and 2 others reposted</div>
+
+  <div class="lbl">Messages</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="position:relative;width:54px;height:54px"><div style="width:54px;height:54px;border-radius:27px;background:#4a3a2a"></div><div style="position:absolute;right:1px;bottom:1px;width:14px;height:14px;border-radius:7px;background:#34C759;border:2.5px solid #000;box-sizing:border-box"></div></div>
+    <div><div style="font-size:16px;font-weight:600">Wanjiku</div><div style="font-size:14px;color:#8E8E93"><span style="color:#FF3B30;font-weight:600">Draft: </span>tukutane saa ngapi kesho?</div></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+    <div style="width:54px;height:54px;border-radius:27px;background:#2a3a4a"></div>
+    <div><div style="font-size:16px;font-weight:600">Otieno</div><div style="font-size:14px;color:#8E8E93">You: sawa · Active now</div></div>
+  </div>
+
+  <div class="lbl">Chat</div>
+  <div style="display:flex;align-items:center;gap:9px;padding-bottom:12px;border-bottom:1px solid #1C1C1E">
+    <div style="position:relative"><div style="width:32px;height:32px;border-radius:16px;background:#4a3a2a"></div><div style="position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:6px;background:#34C759;border:2px solid #000;box-sizing:border-box"></div></div>
+    <div><div style="font-size:16px;font-weight:600">Wanjiku</div><div style="font-size:12px;color:#5CB85C">typing…</div></div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-top:14px"><div style="background:#5CB85C;color:#000;padding:9px 14px;border-radius:18px;font-size:15px">Niko njiani</div></div>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+    <div style="width:28px;height:28px;border-radius:14px;background:#3A3A3C;display:flex;align-items:center;justify-content:center;opacity:.9"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 6 6v3"/></svg></div>
+    <div style="border:1px solid #2C2C2E;padding:9px 14px;border-radius:18px;font-size:15px;transform:translateX(18px)">Uko wapi? ← swipe to reply</div>
+  </div>
+  <div style="display:flex;align-items:flex-end;gap:8px;margin-top:10px">
+    <div style="width:26px;height:26px;border-radius:13px;background:#4a3a2a"></div>
+    <div style="height:36px;padding:0 14px;border-radius:18px;border:1px solid #2C2C2E;display:flex;align-items:center;gap:4px"><span class="dot"></span><span class="dot" style="opacity:.7"></span><span class="dot" style="opacity:.4"></span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

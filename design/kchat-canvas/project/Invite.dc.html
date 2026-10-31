@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invite friends</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #000000; color: #FFFFFF; font-family: -apple-system, 'SF Pro Text', Inter, system-ui, sans-serif; display: flex; flex-direction: column; padding: 56px 20px 34px; overflow: hidden">
+  <header style="display: flex; align-items: center; gap: 12px; padding: 10px 0 4px">
+    <button aria-label="Back" style="width: 32px; height: 32px; border: 0; background: transparent; padding: 0; display: flex; align-items: center">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+    </button>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 700">Invite friends</h1>
+  </header>
+
+  <img src="/_blob/f86d83077ae14cf838d1c2c5b2c94ad6" alt="Three friends taking a selfie" style="width: 250px; height: 250px; align-self: center; margin-top: 8px">
+
+  <h2 style="margin: 4px 0 0; font-size: 28px; line-height: 1.1; font-weight: 800; letter-spacing: -0.6px; text-align: center">Bring your people<br>to KChat</h2>
+  <p style="margin: 10px 12px 0; font-size: 15px; line-height: 1.45; color: #8E8E93; text-align: center">Send your link. When friends join through it, they show up here and follow you straight away.</p>
+
+  <div style="display: flex; align-items: center; gap: 12px; background: #111111; border-radius: 18px; padding: 14px 16px; margin-top: 22px">
+    <div style="display: flex">
+      <sc-for list="{{faces}}" as="f" hint-placeholder-count="3">
+        <span style="width: 30px; height: 30px; border-radius: 15px; border: 2px solid #111111; margin-left: -8px; background: {{f}}; display: block"></span>
+      </sc-for>
+    </div>
+    <div style="flex: 1">
+      <div style="font-size: 15px; font-weight: 700">12 friends joined</div>
+      <div style="font-size: 13px; color: #8E8E93">through your link</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 10px; border: 1px solid #262626; border-radius: 16px; padding: 0 6px 0 14px; height: 50px; margin-top: 12px">
+    <span style="flex: 1; font-size: 14px; color: #C7C7CC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">api.kiongozi.org/u/liban?ref=liban</span>
+    <button style="height: 38px; padding: 0 14px; border-radius: 12px; border: 0; background: #1A1A1A; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600">Copy</button>
+  </div>
+
+  <button style="height: 54px; border-radius: 27px; border: 0; background: #5CB85C; color: #0E1116; font-family: inherit; font-size: 16px; font-weight: 700; margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px">
+    <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"></path></svg>
+    Share invite link
+  </button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { faces: ['#F5B83D', '#FF5A5F', '#5CB85C'] };
+  }
+}
+</script>
+</body>
+</html>

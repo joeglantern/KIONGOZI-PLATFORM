@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Conversation with reactions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#007AFF}a:hover{color:#0062cc}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.pop{animation:pop .32s cubic-bezier(.2,.9,.3,1.3) both}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFFFF; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; color: #000000; overflow: hidden; position: relative">
+  <div style="height: 96px; padding: 54px 12px 0; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-bottom: 0.5px solid rgba(60,60,67,.2)">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    <div style="width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg,#3FA845,#86BD2E)"></div>
+    <div style="flex-grow: 1"><div style="font-size: 16px; font-weight: 700">[Friend name]</div><div style="font-size: 12.5px; color: #34C759">Active now</div></div>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" aria-hidden="true"><circle cx="12" cy="5" r="1.6" fill="#000"></circle><circle cx="12" cy="12" r="1.6" fill="#000"></circle><circle cx="12" cy="19" r="1.6" fill="#000"></circle></svg>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; top: 96px; bottom: 90px; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; justify-content: flex-end; background: rgba(20,16,10,{{ dimAmt }})">
+    <div style="align-self: center; font-size: 12px; color: #8A8A8E; font-weight: 600; margin-bottom: 4px">TODAY 9:40</div>
+    <div style="align-self: flex-start; max-width: 76%; background: #F2F2F7; border-radius: 20px 20px 20px 6px; padding: 10px 14px; font-size: 16.5px; line-height: 21px">Are you coming to the baraza tonight?</div>
+    <div style="align-self: flex-end; max-width: 76%; position: relative; margin-bottom: 10px">
+      <div style="background: #3FA845; color: #fff; border-radius: 20px 20px 6px 20px; padding: 10px 14px; font-size: 16.5px; line-height: 21px">Yes, I will bring the speaker</div>
+      <div style="position: absolute; left: -4px; bottom: -12px; display: flex; align-items: center; gap: 3px; height: 24px; padding: 0 7px; border-radius: 12px; background: #fff; border: 0.5px solid rgba(60,60,67,.2); box-shadow: 0 2px 6px rgba(0,0,0,.12); font-size: 13px">
+        <span>&#128293;</span><span style="font-weight: 700">2</span>
+      </div>
+    </div>
+
+    <!-- the lifted bubble with the reaction bar -->
+    <div style="align-self: flex-start; max-width: 80%; position: relative; margin-top: 18px; transform: scale({{ liftScale }}); transform-origin: left bottom; transition: transform .2s">
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ true }}">
+        <div class="pop" style="position: absolute; left: 0; top: -54px; display: flex; gap: 4px; height: 46px; padding: 0 8px; border-radius: 23px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.18); align-items: center; z-index: 2">
+          <sc-for list="{{ reactions }}" as="r" hint-placeholder-count="6">
+            <button onClick="{{ r.pick }}" aria-label="{{ r.label }}" style="width: 36px; height: 36px; border-radius: 18px; border: 0; background: {{ r.bg }}; font-size: 22px; transform: scale({{ r.scale }}); transition: transform .15s">{{ r.e }}</button>
+          </sc-for>
+          <button aria-label="More reactions" style="width: 30px; height: 30px; border-radius: 15px; border: 0; background: #F2F2F7; font-size: 18px; color: #6B6B70">+</button>
+        </div>
+      </sc-if>
+      <button onClick="{{ toggleMenu }}" style="text-align: left; border: 0; background: #F2F2F7; border-radius: 20px 20px 20px 6px; padding: 10px 14px; font-size: 16.5px; line-height: 21px; font-family: inherit; box-shadow: {{ liftShadow }}">Hold a message to react. Double-tap to send a heart.</button>
+      <sc-if value="{{ picked }}" hint-placeholder-val="{{ true }}">
+        <div class="pop" style="position: absolute; right: -4px; bottom: -12px; display: flex; align-items: center; height: 24px; padding: 0 7px; border-radius: 12px; background: #fff; border: 0.5px solid rgba(60,60,67,.2); box-shadow: 0 2px 6px rgba(0,0,0,.12); font-size: 14px">{{ picked }}</div>
+      </sc-if>
+    </div>
+    <div style="align-self: flex-start; font-size: 12px; color: #8A8A8E; margin-left: 6px; margin-top: 8px">Tap the grey bubble above to open the reaction bar</div>
+    <div style="align-self: flex-end; font-size: 12px; color: #8A8A8E; margin-right: 6px">Seen 9:42</div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 90px; padding: 10px 12px 30px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; border-top: 0.5px solid rgba(60,60,67,.2); background: #fff">
+    <button aria-label="Camera" style="width: 36px; height: 36px; border-radius: 18px; border: 0; background: #3FA845; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></button>
+    <div style="flex-grow: 1; height: 38px; border-radius: 19px; border: 1px solid rgba(60,60,67,.25); display: flex; align-items: center; padding: 0 14px; color: #8A8A8E; font-size: 16.5px">Message…</div>
+    <button aria-label="Voice note" style="width: 36px; height: 36px; border-radius: 18px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { open: false, picked: '', hover: -1 }; }
+  renderVals() {
+    const E = [['❤️','Heart'],['😂','Laugh'],['😮','Wow'],['😢','Sad'],['🔥','Fire'],['👏','Clap']];
+    const open = this.state.open;
+    return {
+      menuOpen: open,
+      dimAmt: open ? 0.32 : 0,
+      liftScale: open ? 1.04 : 1,
+      liftShadow: open ? '0 10px 30px rgba(0,0,0,.25)' : 'none',
+      picked: this.state.picked,
+      toggleMenu: () => this.setState({ open: !open }),
+      reactions: E.map(([e, label], i) => ({
+        e, label,
+        bg: this.state.picked === e ? '#E8F5E9' : 'transparent',
+        scale: this.state.picked === e ? 1.15 : 1,
+        pick: () => this.setState({ picked: this.state.picked === e ? '' : e, open: false }),
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

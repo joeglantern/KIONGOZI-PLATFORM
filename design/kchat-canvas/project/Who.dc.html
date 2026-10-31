@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Who's here sheet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D9BF0}a:hover{color:#0f7cc4}
+@keyframes bz-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes bz-ring{0%{opacity:.6;transform:scale(1)}100%{opacity:0;transform:scale(2.6)}}
+.bz-map{animation:bz-float 3.6s ease-in-out infinite}
+.bz-ring{animation:bz-ring 1.8s ease-out infinite}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: rgba(20, 16, 10, 0.45); font-family: Inter, system-ui, sans-serif; color: #16130F; position: relative; overflow: hidden">
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 760px; background: #FFFFFF; border-radius: 30px 30px 0 0; overflow: hidden; display: flex; flex-direction: column">
+    <div style="align-self: center; width: 38px; height: 5px; border-radius: 3px; background: rgba(22,19,15,0.12); margin-top: 10px"></div>
+    <div style="overflow-y: auto; flex-grow: 1; padding-bottom: 30px">
+      <div style="display: flex; align-items: center; padding: 12px 20px 4px">
+        <div style="flex-grow: 1">
+          <div style="font-size: 11.5px; font-weight: 800; letter-spacing: 1.1px; color: #8F877D">WHO'S HERE</div>
+          <div style="font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.4px">[Baraza title]</div>
+        </div>
+        <a href="Room.dc.html" aria-label="Close" style="width: 36px; height: 36px; border-radius: 18px; background: #F3EFE8; display: flex; align-items: center; justify-content: center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16130F" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+        </a>
+      </div>
+
+      <div style="display: flex; gap: 10px; padding: 14px 20px 0">
+        <div style="flex: 1; border-radius: 18px; background: #F3EFE8; padding: 12px">
+          <img src="/_blob/781db85d7c4d3ace7236c47a2948dc11" alt="" style="width: 22px">
+          <div style="font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; margin-top: 6px">7</div>
+          <div style="font-size: 12.5px; font-weight: 600; color: #5E574F">here now</div>
+        </div>
+        <div style="flex: 1; border-radius: 18px; background: #F3EFE8; padding: 12px">
+          <img src="/_blob/89031e2c90b0ade68cd8fad0ea9eeaad" alt="" style="width: 22px">
+          <div style="font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; margin-top: 6px">2</div>
+          <div style="font-size: 12.5px; font-weight: 600; color: #5E574F">hands up</div>
+        </div>
+        <div style="flex: 1; border-radius: 18px; background: #F3EFE8; padding: 12px">
+          <img src="/_blob/b553c303a7bc2d6abd45f2a341dc947b" alt="" style="width: 22px">
+          <div style="font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; margin-top: 6px">4</div>
+          <div style="font-size: 12.5px; font-weight: 600; color: #5E574F">counties</div>
+        </div>
+      </div>
+
+      <div style="position: relative; height: 300px; display: flex; align-items: center; justify-content: center; margin-top: 10px">
+        <div style="position: absolute; width: 250px; height: 250px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 198, 92, 0.28), rgba(255, 198, 92, 0))"></div>
+        <div class="bz-map" style="position: relative; width: 220px; height: 277px">
+          <img src="/_blob/267e193c56fa1de6f36febfc68aba995" alt="Map of Kenya" style="width: 220px; height: 277px">
+          <button onClick="{{ pinNairobi }}" aria-label="3 listening from Nairobi" style="position: absolute; left: 67px; top: 144px; width: 32px; height: 32px; border: 0; padding: 0; background: transparent; opacity: {{ dimNairobi }}">
+            <span class="bz-ring" style="position: absolute; left: 6px; top: 16px; width: 20px; height: 12px; border-radius: 50%; background: #FF8A4C"></span>
+            <img src="/_blob/b553c303a7bc2d6abd45f2a341dc947b" alt="" style="position: absolute; left: 0; top: 0; width: 32px">
+            <span style="position: absolute; right: -6px; top: -4px; min-width: 18px; height: 18px; border-radius: 9px; background: #16130F; color: #FFFFFF; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center">3</span>
+          </button>
+          <button onClick="{{ pinMombasa }}" aria-label="2 listening from Mombasa" style="position: absolute; left: 142px; top: 216px; width: 26px; height: 26px; border: 0; padding: 0; background: transparent; opacity: {{ dimMombasa }}">
+            <span class="bz-ring" style="position: absolute; left: 5px; top: 13px; width: 16px; height: 10px; border-radius: 50%; background: #FF8A4C; animation-delay: .5s"></span>
+            <img src="/_blob/b553c303a7bc2d6abd45f2a341dc947b" alt="" style="position: absolute; left: 0; top: 0; width: 26px">
+            <span style="position: absolute; right: -6px; top: -4px; min-width: 18px; height: 18px; border-radius: 9px; background: #16130F; color: #FFFFFF; font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center">2</span>
+          </button>
+          <button onClick="{{ pinKisumu }}" aria-label="1 listening from Kisumu" style="position: absolute; left: 22px; top: 125px; width: 22px; height: 22px; border: 0; padding: 0; background: transparent; opacity: {{ dimKisumu }}">
+            <span class="bz-ring" style="position: absolute; left: 4px; top: 11px; width: 14px; height: 8px; border-radius: 50%; background: #FF8A4C; animation-delay: 1s"></span>
+            <img src="/_blob/b553c303a7bc2d6abd45f2a341dc947b" alt="" style="position: absolute; left: 0; top: 0; width: 22px">
+          </button>
+          <button onClick="{{ pinNakuru }}" aria-label="1 listening from Nakuru" style="position: absolute; left: 55px; top: 137px; width: 20px; height: 20px; border: 0; padding: 0; background: transparent; opacity: {{ dimNakuru }}">
+            <img src="/_blob/b553c303a7bc2d6abd45f2a341dc947b" alt="" style="position: absolute; left: 0; top: 0; width: 20px">
+          </button>
+        </div>
+      </div>
+      <div style="text-align: center; font-size: 13px; color: #8F877D; padding: 0 24px">{{ mapHint }}</div>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin: 16px 20px 0; border-radius: 20px; padding: 14px; background: #F3EFE8">
+        <div style="width: 44px; height: 44px; border-radius: 14px; background: #FFFFFF; display: flex; align-items: center; justify-content: center"><img src="/_blob/b553c303a7bc2d6abd45f2a341dc947b" alt="" style="width: 26px"></div>
+        <div style="flex-grow: 1">
+          <div style="font-size: 15px; font-weight: 700">You're listening from Nairobi</div>
+          <div style="font-size: 12.5px; line-height: 17px; color: #5E574F; margin-top: 2px">Only your county shows, never your exact location. Tap to change or hide it.</div>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8F877D" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+      </div>
+
+      <div style="display: flex; align-items: baseline; gap: 8px; padding: 22px 20px 4px">
+        <span style="font-size: 16px; font-weight: 800">Has the stick</span>
+      </div>
+      <div style="display: flex; align-items: center; padding: 9px 20px">
+        <div style="width: 44px; height: 44px; border-radius: 22px; border: 2.5px solid #E9A23B; padding: 1.5px; box-sizing: content-box"><div style="width: 44px; height: 44px; border-radius: 22px; background: linear-gradient(135deg,#3FA845,#86BD2E); color: #FFFFFF; font-weight: 800; display: flex; align-items: center; justify-content: center">J</div></div>
+        <div style="flex-grow: 1; margin-left: 12px">
+          <div style="font-size: 15.5px; font-weight: 700">[Host name]</div>
+          <div style="font-size: 13px; color: #5E574F">@[host] · host</div>
+          <div style="display: flex; align-items: center; gap: 4px; margin-top: 3px"><img src="/_blob/b553c303a7bc2d6abd45f2a341dc947b" alt="" style="width: 13px"><span style="font-size: 12.5px; font-weight: 600; color: #5E574F">Nairobi</span></div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: baseline; gap: 8px; padding: 18px 20px 4px">
+        <span style="font-size: 16px; font-weight: 800">{{ listTitle }}</span>
+      </div>
+      <sc-for list="{{ people }}" as="p" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; padding: 9px 20px">
+          <div style="width: 44px; height: 44px; border-radius: 22px; color: #FFFFFF; font-weight: 800; display: flex; align-items: center; justify-content: center; background: {{ p.color }}">{{ p.initial }}</div>
+          <div style="flex-grow: 1; margin-left: 12px">
+            <div style="font-size: 15.5px; font-weight: 700">{{ p.name }}</div>
+            <div style="font-size: 13px; color: #5E574F">{{ p.handle }}</div>
+            <sc-if value="{{ p.from }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; gap: 4px; margin-top: 3px"><img src="/_blob/b553c303a7bc2d6abd45f2a341dc947b" alt="" style="width: 13px"><span style="font-size: 12.5px; font-weight: 600; color: #5E574F">{{ p.from }}</span></div>
+            </sc-if>
+          </div>
+          <button onClick="{{ p.toggle }}" style="height: 34px; border-radius: 17px; border: 0; padding: 0 16px; font-family: Inter, sans-serif; font-weight: 800; font-size: 13.5px; background: {{ p.btnBg }}; color: {{ p.btnFg }}">{{ p.btnLabel }}</button>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: null, follows: { k: true } };
+  }
+  renderVals() {
+    const all = [
+      { id: 'k', name: '[Listener name]', handle: '@[username] · hand up #1', from: 'Mombasa', initial: 'K', color: '#FF6A3D' },
+      { id: 'm', name: '[Listener name]', handle: '@[username] · hand up #2', from: 'Nairobi', initial: 'M', color: '#F2A81D' },
+      { id: 'a', name: '[Listener name]', handle: '@[username]', from: 'Kisumu', initial: 'A', color: '#6A4FB0' },
+      { id: 'w', name: '[Listener name]', handle: '@[username]', from: 'Mombasa', initial: 'W', color: '#1F7A8C' },
+      { id: 'n', name: '[Listener name]', handle: '@[username]', from: 'Nakuru', initial: 'N', color: '#3FA845' },
+      { id: 'z', name: '[Listener name]', handle: '@[username]', from: '', initial: 'Z', color: '#C9472F' },
+    ];
+    const f = this.state.filter;
+    const pick = (c) => () => this.setState({ filter: this.state.filter === c ? null : c });
+    const dim = (c) => (f && f !== c ? 0.35 : 1);
+    const people = all.filter(p => !f || p.from === f).map(p => {
+      const on = !!this.state.follows[p.id];
+      return {
+        ...p,
+        btnLabel: on ? 'Following' : 'Follow',
+        btnBg: on ? '#F3EFE8' : '#16130F',
+        btnFg: on ? '#16130F' : '#FFFFFF',
+        toggle: () => this.setState({ follows: { ...this.state.follows, [p.id]: !on } }),
+      };
+    });
+    return {
+      people,
+      listTitle: f ? 'Listening from ' + f : 'Listening',
+      mapHint: f ? 'Tap the pin again to show everyone.' : 'Tap a pin to see who is listening from there.',
+      pinNairobi: pick('Nairobi'), pinMombasa: pick('Mombasa'), pinKisumu: pick('Kisumu'), pinNakuru: pick('Nakuru'),
+      dimNairobi: dim('Nairobi'), dimMombasa: dim('Mombasa'), dimKisumu: dim('Kisumu'), dimNakuru: dim('Nakuru'),
+    };
+  }
+}
+</script>
+</body>
+</html>
