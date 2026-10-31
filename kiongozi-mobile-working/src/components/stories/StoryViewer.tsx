@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Keyboard, StatusBar, Share, Linking, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, Extrapolation, runOnJS, Easing, SharedValue } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withRepeat, interpolate, Extrapolation, runOnJS, Easing, SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -22,6 +22,7 @@ import { useSocialStore } from '../../stores/socialStore';
 import ReportModal from '../../screens/social/ReportModal';
 import apiClient from '../../utils/apiClient';
 import { setFeedPaused } from '../social/videoPlayback';
+import { prefs } from '../../stores/prefsStore';
 import { UserAvatar } from '../social/UserAvatar';
 import { VerifiedBadge } from '../social/VerifiedBadge';
 import { StoryBackground, StoryText, StoryOverlays, POLL_H, FramedMedia, mediaFrameOf, LinkPill, LINK_H, linkLabel, CLOSE_RING } from './StoryParts';
@@ -48,6 +49,32 @@ const SHEET_H = Math.min(470, Math.round(H * 0.62));
 const REACT_GAP = 8;
 const REACT_SIZE = Math.min(48, Math.floor((W - 32 - 5 * REACT_GAP) / 6));
 const CLAMP = Extrapolation.CLAMP;
+
+/** Nothing loads ahead in low-data mode (or when the server turned prefetch off) */
+const mayPrefetch = () => { const p = prefs(); return !p.lowData && p.features.prefetch; };
+/** Warm a story's first frame: the image itself, or a video's thumbnail */
+const prefetchStory = (st?: Story | null) => {
+  if (!st || !mayPrefetch()) return;
+  const url = st.media_type === 'image' ? st.media_url : st.media_type === 'video' ? st.thumbnail_url : null;
+  if (url) Image.prefetch(url).catch(() => {});
+};
+
+/** Soft light sweeping along the active progress segment while the media is still loading */
+function BarShimmer({ width }: { width: number }) {
+  const x = useSharedValue(0);
+  useEffect(() => {
+    x.value = 0;
+    x.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }), -1, false);
+  }, [x, width]);
+  const band = Math.max(24, width * 0.45);
+  const style = useAnimatedStyle(() => ({ transform: [{ translateX: -band + x.value * (width + band) }] }));
+  if (!width) return null;
+  return (
+    <Reanimated.View style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, width: band }, style]}>
+      <LinearGradient colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.85)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+    </Reanimated.View>
+  );
+}
 
 export function StoryViewer() {
   const viewer = useStoryStore(s => s.viewer);
@@ -86,6 +113,9 @@ function ViewerBody({ groups, startIndex, onClose }: { groups: StoryGroup[]; sta
   const scrollX = useRef(new Animated.Value(startIndex * W)).current;
   const drag = useSharedValue(0); // swipe-down distance, driven on the UI thread
   const [locked, setLocked] = useState(false);
+
+  // The next person's first story is warmed too, not just this person's next story
+  useEffect(() => { prefetchStory(groups[page + 1]?.stories[0]); }, [page, groups]);
 
   const goPage = useCallback((next: number) => {
     if (next < 0) return;
@@ -238,6 +268,7 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
   const [pollH, setPollH] = useState(POLL_H * (W / 390)); // measured poll card height (unscaled)
 
   const progress = useRef(new Animated.Value(0)).current;
+  const [barW, setBarW] = useState(0); // one segment's width, for the loading shimmer
   const anim = useRef<Animated.CompositeAnimation | null>(null);
   const done = useRef(0); // ms already played of the current segment
 
@@ -283,12 +314,8 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
     return () => clearTimeout(t);
   }, [active, ready, story?.id]);
 
-  // Warm the next image
-  useEffect(() => {
-    const n = stories[idx + 1];
-    const url = n?.media_type === 'image' ? n.media_url : n?.thumbnail_url;
-    if (url) Image.prefetch(url).catch(() => {});
-  }, [idx]);
+  // Warm the next image (skipped in low-data mode)
+  useEffect(() => { prefetchStory(stories[idx + 1]); }, [idx]);
 
   // Leaving this person: stop where we are
   useEffect(() => { if (!active) { setTyping(false); setAnswering(null); } }, [active]);
@@ -404,7 +431,6 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
           </FramedMedia>
         )}
         <StoryOverlays overlays={story.overlays} width={W} height={H} skipPolls />
-        {!ready && active && <ActivityIndicator style={StyleSheet.absoluteFill} color="#fff" />}
       </Reanimated.View>
       </Reanimated.View>
 
@@ -532,12 +558,14 @@ function GroupPage({ group, active, onPrevGroup, onNextGroup, onClose }: {
 
         <View style={[styles.bars, { top: insets.top + 8 }]} pointerEvents="none">
           {stories.map((s, i) => (
-            <View key={s.id} style={styles.barTrack}>
+            <View key={s.id} style={styles.barTrack} onLayout={i === 0 ? e => setBarW(e.nativeEvent.layout.width) : undefined}>
               {i < idx && <View style={[styles.barFill, { width: '100%' }]} />}
               {i === idx && (
                 // a transform on the native thread, so it never stutters while a video decodes
                 <Animated.View style={[styles.barFill, { width: '100%', transformOrigin: 'left', transform: [{ scaleX: progress }] }]} />
               )}
+              {/* Still loading: the thumbnail / placeholder shows underneath and this segment shimmers (no spinner) */}
+              {i === idx && !ready && active && <BarShimmer width={barW} />}
             </View>
           ))}
         </View>

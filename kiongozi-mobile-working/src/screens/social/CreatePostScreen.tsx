@@ -22,7 +22,7 @@ import { supabase } from '../../utils/supabaseClient';
 import { useTheme } from '../../hooks/useTheme';
 import { BottomSheet } from '../../components/social/BottomSheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { prefs } from '../../stores/prefsStore';
+import { prefs, pickerQuality } from '../../stores/prefsStore';
 
 type Uploaded = { url: string; storage_path: string; media_type: string; width?: number; height?: number };
 
@@ -274,7 +274,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: type === 'image' ? 'images' : 'videos',
-      quality: 0.9,
+      quality: pickerQuality(), // Settings > Storage and data > Media upload quality
       allowsMultipleSelection: true,
       selectionLimit: Math.max(1, MAX_MEDIA - media.length),
     });
@@ -288,7 +288,7 @@ export default function CreatePostScreen({ onClose, parentPostId }: CreatePostSc
       appAlert('Permission required', 'Please allow camera access in Settings.');
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.9 });
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: pickerQuality() });
     if (!result.canceled) await addAssets(result.assets, 'image');
   };
 

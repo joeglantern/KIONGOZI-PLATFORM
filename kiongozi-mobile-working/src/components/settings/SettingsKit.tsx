@@ -1,7 +1,7 @@
 // Settings building blocks. Inset cards with a soft inner padding so a pressed row lights up as a
 // rounded pill inside the card; icon tiles; every row says its current state in the subtitle
 // ("On · silent 11pm to 7am") so you don't have to open things to know how they're set.
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, interpolateColor, FadeInDown,
@@ -20,6 +20,7 @@ const TILE: Record<string, string> = {
   'cellular-outline': '#34C759', 'download-outline': '#30B0C7', 'phone-portrait-outline': '#64D2FF',
   'sparkles-outline': '#AF52DE', 'cafe-outline': '#A2845E', 'reader-outline': '#FF9F0A', 'document-text-outline': '#8E8E93',
   'trash-outline': '#FF3B30',
+  'stats-chart': '#34C759', 'stats-chart-outline': '#34C759',
 };
 const solid = (name: string) => (name.endsWith('-outline') ? name.slice(0, -8) : name) as IconName;
 
@@ -121,6 +122,46 @@ export function Toggle({ value, onChange, disabled, label }: { value: boolean; o
   );
 }
 
+/** iOS-style segmented control (two to four short options); the thumb springs between them */
+export function Segmented<T extends string>({ options, value, onChange, label }: {
+  options: { id: T; label: string }[]; value: T; onChange: (v: T) => void; label: string;
+}) {
+  const C = useKitColors();
+  const [w, setW] = useState(0);
+  const idx = Math.max(0, options.findIndex(o => o.id === value));
+  const x = useSharedValue(idx);
+  useEffect(() => { x.value = withSpring(idx, { damping: 20, stiffness: 260 }); }, [idx, x]);
+  const seg = w ? (w - 4) / options.length : 0;
+  const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value * seg }] }));
+  return (
+    <View
+      onLayout={e => setW(e.nativeEvent.layout.width)}
+      style={[s.segment, { backgroundColor: C.isDark ? '#1C1C1E' : '#E9E9EE' }]}
+      accessibilityRole="radiogroup"
+      accessibilityLabel={label}
+    >
+      {seg > 0 && (
+        <Animated.View style={[s.segThumb, { width: seg, backgroundColor: C.isDark ? '#3A3A3C' : '#FFFFFF' }, thumb]} />
+      )}
+      {options.map(o => {
+        const on = o.id === value;
+        return (
+          <Pressable
+            key={o.id}
+            onPress={() => { if (on) return; Haptics.selectionAsync().catch(() => {}); onChange(o.id); }}
+            style={s.segItem}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={o.label}
+          >
+            <Text style={[s.segText, { color: C.T.text, fontWeight: on ? '600' : '400' }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   section: { fontSize: 13, fontWeight: '600', letterSpacing: -0.08, textTransform: 'uppercase', opacity: 0.6, marginLeft: 16, marginBottom: 7 },
   note: { fontSize: 12.5, lineHeight: 17, marginTop: 8, marginHorizontal: 6 },
@@ -135,4 +176,8 @@ const s = StyleSheet.create({
   sub: { fontSize: 13, marginTop: 2, lineHeight: 17 },
   track: { width: 52, height: 32, borderRadius: 16, padding: 3, justifyContent: 'center' },
   thumb: { width: 26, height: 26, borderRadius: 13, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
+  segment: { flexDirection: 'row', height: 36, borderRadius: 10, padding: 2, marginTop: 10, marginHorizontal: 10, marginBottom: 6 },
+  segThumb: { position: 'absolute', top: 2, bottom: 2, left: 2, borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  segItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  segText: { fontSize: 14, letterSpacing: -0.1 },
 });

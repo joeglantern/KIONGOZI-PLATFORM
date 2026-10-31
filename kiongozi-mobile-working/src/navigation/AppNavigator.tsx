@@ -31,6 +31,12 @@ import MutedUsersScreen from '../screens/social/MutedUsersScreen';
 import FindFriendsScreen from '../screens/social/FindFriendsScreen';
 import InviteScreen from '../screens/social/InviteScreen';
 import DevicesScreen from '../screens/social/DevicesScreen';
+import FirstFeedScreen from '../screens/FirstFeedScreen';
+import { FIRST_FEED_PENDING_KEY } from '../screens/LoginScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import FollowRequestsScreen from '../screens/social/FollowRequestsScreen';
+import StorageDataScreen from '../screens/social/StorageDataScreen';
+import NotificationPrefsScreen from '../screens/social/NotificationPrefsScreen';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../utils/supabaseClient';
@@ -114,6 +120,7 @@ function NotificationsStackNavigator() {
   return (
     <NotificationsStack.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout}>
       <NotificationsStack.Screen name="NotificationsMain" component={NotificationsScreen} />
+      <NotificationsStack.Screen name="FollowRequests" component={FollowRequestsScreen} />
       <NotificationsStack.Screen name="PostDetail" component={PostDetailScreen} />
       <NotificationsStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <NotificationsStack.Screen name="DMList" component={DMListScreen} />
@@ -130,6 +137,8 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="ProfileMain" component={ProfileTabScreen} />
       <ProfileStack.Screen name="PostDetail" component={PostDetailScreen} />
       <ProfileStack.Screen name="Settings" component={SettingsScreen} />
+      <ProfileStack.Screen name="StorageData" component={StorageDataScreen} />
+      <ProfileStack.Screen name="NotificationPrefs" component={NotificationPrefsScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
       <ProfileStack.Screen name="DMList" component={DMListScreen} />
       <ProfileStack.Screen name="DMConversation" component={DMConversationScreen} />
@@ -233,6 +242,8 @@ interface AppNavigatorProps {
 export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorProps = {}) {
   const [chatVisible, setChatVisible] = useState(false);
   const [tabBarHidden, setTabBarHidden] = useState(false);
+  // "Who should be in your feed?" once, right after an account is created
+  const [firstFeed, setFirstFeed] = useState(false);
   // Ads and links can open Kiongozi AI (kchat://ai)
   useEffect(() => onAppEvent('openAI', () => setChatVisible(true)), []);
   const forceUpdate = useForceUpdate();
@@ -270,6 +281,26 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
       appAlert('Session expired', 'Your session has expired. Please sign in again.');
     }
   }, [sessionExpired]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
+    AsyncStorage.multiGet(['onboarded_v1', FIRST_FEED_PENDING_KEY]).then(rows => {
+      if (!alive) return;
+      const onboarded = rows[0]?.[1] === '1';
+      const pending = rows[1]?.[1] === '1';
+      // Sign-up sets the pending flag; an account made in the last 15 minutes (Google / Apple / email link) counts too
+      const fresh = !!user.created_at && Date.now() - new Date(user.created_at).getTime() < 15 * 60 * 1000;
+      if (!onboarded && (pending || fresh)) setFirstFeed(true);
+      else if (pending) AsyncStorage.removeItem(FIRST_FEED_PENDING_KEY).catch(() => {});
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [user?.id]);
+
+  const finishFirstFeed = () => {
+    setFirstFeed(false);
+    AsyncStorage.multiSet([['onboarded_v1', '1'], [FIRST_FEED_PENDING_KEY, '0']]).catch(() => {});
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -409,6 +440,11 @@ export default function AppNavigator({ navRef: externalNavRef }: AppNavigatorPro
       <BarazaHost />
       <AvatarHost />
       <ConfettiHost />
+
+      {/* First run, step 2: county, topics and people to follow */}
+      <Modal visible={firstFeed} animationType="fade" presentationStyle="fullScreen" statusBarTranslucent onRequestClose={finishFirstFeed}>
+        <FirstFeedScreen onDone={finishFirstFeed} />
+      </Modal>
 
       {/* Kiongozi AI Chat Modal — fullscreen */}
       <Modal

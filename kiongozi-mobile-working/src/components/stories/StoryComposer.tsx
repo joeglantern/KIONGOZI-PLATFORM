@@ -2,7 +2,7 @@
 // with draggable / pinchable stickers and text labels. Posting uploads in the background.
 // Photos/videos can be framed IG-style (pinch = zoom, drag = move, twist = rotate, double-tap = fit);
 // the framing is saved as a '__media' overlay entry (see StoryParts MEDIA_KEY).
-import { appAlert } from '../../utils/alert';
+import { appAlert, toast } from '../../utils/alert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Image, Modal, Pressable, StyleSheet, TextInput, Dimensions, PanResponder,
@@ -28,6 +28,7 @@ import { MentionEntry, QuestionEntry, SliderEntry, CountdownEntry, AudienceSheet
 import { CLOSE_RING } from './StoryParts';
 import { celebrate } from '../Confetti';
 import { BACKGROUNDS, FONTS, TEXT_COLORS, STICKERS, fontById, fitFontSize, fitLineHeight, textAnchoredTop, TEXT_TOP, bgById } from './storyAssets';
+import { pickerQuality } from '../../stores/prefsStore';
 
 const { width: W, height: H } = Dimensions.get('window');
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -72,7 +73,7 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const me = useProfileStore(s => s.currentUserProfile);
-  const { addMine, setPosting } = useStoryStore();
+  const { addMine, setPosting, setPostProgress, setPostFailed } = useStoryStore();
   const seed = useStoryStore(s => s.composerSeed);
 
   const [media, setMedia] = useState<Picked | null>(null);
@@ -133,7 +134,8 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
   const pick = async (from: 'library' | 'camera') => {
     Keyboard.dismiss();
     const opts: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ['images', 'videos'], quality: 0.8, videoMaxDuration: 60, allowsEditing: false,
+      // Settings > Storage and data > Media upload quality (Standard re-compresses a little, HD keeps the original)
+      mediaTypes: ['images', 'videos'], quality: pickerQuality(), videoMaxDuration: 60, allowsEditing: false,
     };
     let res: ImagePicker.ImagePickerResult;
     if (from === 'camera') {
@@ -219,39 +221,49 @@ function ComposerBody({ onClose }: { onClose: () => void }) {
     // Framing goes first so the server's 20-overlay cap can never drop it
     const draft = { media, text: text.trim(), bg, font, textStyle, color: textColor, overlays: [...(framed ? [framed] : []), ...overlays.map(({ _id, ...rest }) => rest)], audience };
     onClose();
-    setPosting(true);
-    try {
-      const body: Record<string, any> = {
-        media_type: draft.media ? draft.media.type : 'text',
-        overlays: draft.overlays,
-        audience: draft.audience,
-      };
-      if (draft.media) {
-        const up = await upload(draft.media.uri, draft.media.type, user.id);
-        Object.assign(body, { media_url: up.url, storage_path: up.path, width: draft.media.width, height: draft.media.height });
-        if (draft.media.type === 'video') {
-          body.duration_ms = draft.media.durationMs;
-          try {
-            const thumbUri = draft.media.thumb || (await VideoThumbnails.getThumbnailAsync(draft.media.uri, { time: 0, quality: 0.6 })).uri;
-            const t = await upload(thumbUri, 'image', user.id);
-            body.thumbnail_url = t.url;
-          } catch {}
+    // The draft lives on in this closure: if the upload fails the rail shows a red ring and "Tap to retry"
+    // runs the same send again (the composer is already closed, nothing is lost).
+    const author = { id: user.id, username: me?.username || 'you', full_name: me?.full_name, avatar_url: me?.avatar_url, is_verified: me?.is_verified };
+    const run = async () => {
+      setPosting(true);
+      try {
+        const body: Record<string, any> = {
+          media_type: draft.media ? draft.media.type : 'text',
+          overlays: draft.overlays,
+          audience: draft.audience,
+        };
+        if (draft.media) {
+          const hasThumb = draft.media.type === 'video';
+          // Ring budget: media 0.04..0.78 (0.92 without a thumbnail), thumbnail ..0.92, server ..1
+          const mediaEnd = hasThumb ? 0.78 : 0.92;
+          const up = await upload(draft.media.uri, draft.media.type, user.id, f => setPostProgress(0.04 + f * (mediaEnd - 0.04)));
+          Object.assign(body, { media_url: up.url, storage_path: up.path, width: draft.media.width, height: draft.media.height });
+          if (hasThumb) {
+            body.duration_ms = draft.media.durationMs;
+            try {
+              const thumbUri = draft.media.thumb || (await VideoThumbnails.getThumbnailAsync(draft.media.uri, { time: 0, quality: 0.6 })).uri;
+              const t = await upload(thumbUri, 'image', user.id, f => setPostProgress(mediaEnd + f * (0.92 - mediaEnd)));
+              body.thumbnail_url = t.url;
+            } catch {}
+          }
+        } else {
+          Object.assign(body, { text_content: draft.text, bg: draft.bg, font: draft.font, text_color: draft.color, ...(draft.textStyle !== 'plain' ? { text_style: draft.textStyle } : {}) });
         }
-      } else {
-        Object.assign(body, { text_content: draft.text, bg: draft.bg, font: draft.font, text_color: draft.color, ...(draft.textStyle !== 'plain' ? { text_style: draft.textStyle } : {}) });
+        setPostProgress(0.92);
+        const res: any = await apiClient.createStory(body);
+        if (!res.success) throw new Error(res.error || 'Could not post');
+        setPostProgress(1);
+        addMine(res.data as Story, author);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        celebrate();
+        // Let the full ring show for a beat before the rail goes back to normal
+        setTimeout(() => setPosting(false), 350);
+      } catch (e: any) {
+        setPostFailed(run);
+        toast("Story didn't post", { message: 'Tap your story to try again.', kind: 'error' });
       }
-      const res: any = await apiClient.createStory(body);
-      if (!res.success) throw new Error(res.error || 'Could not post');
-      addMine(res.data as Story, {
-        id: user.id, username: me?.username || 'you', full_name: me?.full_name, avatar_url: me?.avatar_url, is_verified: me?.is_verified,
-      });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      celebrate();
-    } catch (e: any) {
-      appAlert("Story didn't post", e?.message || 'Check your connection and try again.');
-    } finally {
-      setPosting(false);
-    }
+    };
+    run();
   };
 
   const updateOverlay = (id: number, patch: Partial<StoryOverlay>) =>
@@ -706,7 +718,12 @@ function DraggableOverlay({ o, author, onChange, onDragState, onDrop }: {
   );
 }
 
-async function upload(uri: string, type: 'image' | 'video', userId: string): Promise<{ url: string; path: string }> {
+/**
+ * Upload to Supabase storage with progress (0..1). The SDK's upload() uses fetch, which has no
+ * upload progress in React Native, so the bytes go through XMLHttpRequest to the same REST
+ * endpoint the SDK calls, with the same headers. Falls back to the SDK if that request cannot start.
+ */
+async function upload(uri: string, type: 'image' | 'video', userId: string, onProgress?: (f: number) => void): Promise<{ url: string; path: string }> {
   const ext = (uri.split('.').pop() || (type === 'image' ? 'jpg' : 'mp4')).toLowerCase().split('?')[0];
   const mime = type === 'image'
     ? (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg')
@@ -720,9 +737,40 @@ async function upload(uri: string, type: 'image' | 'video', userId: string): Pro
     xhr.onerror = () => reject(new Error('Could not read the file'));
     xhr.send();
   });
+  onProgress?.(0.02);
+  const publicUrl = () => supabase.storage.from('social-media').getPublicUrl(path).data.publicUrl;
+
+  const storage: any = supabase.storage;
+  const base: string | undefined = storage?.url;
+  const headers: Record<string, string> = { ...(storage?.headers || {}) };
+  if (base) {
+    const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+    if (data?.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
+    const sent = await new Promise<{ ok: boolean; status: number; body: string } | null>(resolve => {
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${base}/object/social-media/${path}`);
+        Object.entries(headers).forEach(([k, v]) => { if (k.toLowerCase() !== 'content-type') xhr.setRequestHeader(k, v); });
+        xhr.setRequestHeader('Content-Type', mime);
+        xhr.setRequestHeader('x-upsert', 'false');
+        xhr.upload.onprogress = e => { if (e.lengthComputable && e.total > 0) onProgress?.(Math.max(0.02, Math.min(1, e.loaded / e.total))); };
+        xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText || '' });
+        xhr.onerror = () => resolve({ ok: false, status: 0, body: '' });
+        xhr.send(buf);
+      } catch { resolve(null); }
+    });
+    if (sent) {
+      if (sent.ok) { onProgress?.(1); return { url: publicUrl(), path }; }
+      let msg = 'Upload failed';
+      try { const j = JSON.parse(sent.body); msg = j?.message || j?.error || msg; } catch {}
+      if (sent.status === 0) msg = 'No connection';
+      throw new Error(msg);
+    }
+  }
   const { error } = await supabase.storage.from('social-media').upload(path, buf, { contentType: mime, upsert: false });
   if (error) throw new Error(error.message);
-  return { url: supabase.storage.from('social-media').getPublicUrl(path).data.publicUrl, path };
+  onProgress?.(1);
+  return { url: publicUrl(), path };
 }
 
 const styles = StyleSheet.create({

@@ -1,7 +1,8 @@
 // The stories rail at the top of the feed ("Your story" first, then people with stories),
 // and StoryStack: the mini avatar stack the rail folds into when you scroll down.
 import React, { useEffect, useMemo, useRef } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, Animated } from 'react-native';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
@@ -12,6 +13,43 @@ import { UserAvatar } from '../social/UserAvatar';
 import { StoryRing, ringInnerSize } from './StoryParts';
 
 const SIZE = 72;
+const RING = 2.5; // posting ring stroke
+
+/**
+ * Thin progress ring with no SVG: a full coloured ring under two half-circle masks (track colour),
+ * each clipped to its half and rotated about the centre. The right mask turns first (0..50%), then
+ * the left one (50..100%), so the arc grows clockwise from 12 o'clock.
+ */
+function ProgressRing({ size, progress, color, track, bg, children }: {
+  size: number; progress: number; color: string; track: string; bg: string; children: React.ReactNode;
+}) {
+  const p = useSharedValue(progress);
+  useEffect(() => { p.value = withTiming(progress, { duration: 320, easing: Easing.out(Easing.quad) }); }, [progress, p]);
+  const half = size / 2;
+  // Each mask pivots on the circle's centre: shift the pivot to the edge, rotate, shift back
+  const rightMask = useAnimatedStyle(() => ({
+    transform: [{ translateX: -half / 2 }, { rotate: `${Math.min(p.value, 0.5) * 360}deg` }, { translateX: half / 2 }],
+  }));
+  const leftMask = useAnimatedStyle(() => ({
+    transform: [{ translateX: half / 2 }, { rotate: `${Math.max(p.value - 0.5, 0) * 360}deg` }, { translateX: -half / 2 }],
+  }));
+  const inner = size - RING * 2;
+  return (
+    <View style={{ width: size, height: size }}>
+      <View style={{ position: 'absolute', width: size, height: size, borderRadius: half, backgroundColor: color }} />
+      <View style={{ position: 'absolute', left: half, top: 0, width: half, height: size, overflow: 'hidden' }}>
+        <Reanimated.View style={[{ position: 'absolute', left: 0, top: 0, width: half, height: size, backgroundColor: track }, rightMask]} />
+      </View>
+      <View style={{ position: 'absolute', left: 0, top: 0, width: half, height: size, overflow: 'hidden' }}>
+        <Reanimated.View style={[{ position: 'absolute', left: 0, top: 0, width: half, height: size, backgroundColor: track }, leftMask]} />
+      </View>
+      {/* bg gap, then the avatar */}
+      <View style={{ position: 'absolute', left: RING, top: RING, width: inner, height: inner, borderRadius: inner / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+        {children}
+      </View>
+    </View>
+  );
+}
 
 /** Rail order: yours first, then everyone else as the server sorted them. */
 function useRailGroups() {
@@ -42,7 +80,7 @@ export function StoryRail() {
   const { user } = useAuthStore();
   const me = useProfileStore(s => s.currentUserProfile);
   const fetchMe = useProfileStore(s => s.fetchCurrentUserProfile);
-  const { loaded, posting, fetchFeed, openViewer, setComposerOpen, setMeId } = useStoryStore();
+  const { loaded, posting, postProgress, postFailed, retryPost, fetchFeed, openViewer, setComposerOpen, setMeId } = useStoryStore();
   const { mine, others, all } = useRailGroups();
 
   useEffect(() => { setMeId(user?.id ?? null); fetchFeed(); if (!me) fetchMe(); }, [user?.id]);
@@ -52,6 +90,10 @@ export function StoryRail() {
     openViewer(all, all.indexOf(g));
   };
   const openComposer = () => { Haptics.selectionAsync(); setComposerOpen(true); };
+  const retry = () => { Haptics.selectionAsync(); retryPost?.(); };
+  const busy = posting || postFailed;
+  const avatarSize = mine ? ringInnerSize(SIZE, 'seen') : SIZE - 8;
+  const meAvatar = (size: number) => <UserAvatar avatarUrl={me?.avatar_url} size={size} name={me?.full_name || me?.username} neutral />;
 
   const renderOther = ({ item }: { item: StoryGroup }) => (
     <Squish onPress={() => openGroup(item)} label={`${item.user.full_name || item.user.username}'s story${item.has_unseen ? ', new' : ''}`}>
@@ -81,22 +123,28 @@ export function StoryRail() {
       style={styles.wrap}
       ListHeaderComponent={
         <View style={styles.headerRow}>
-          <Squish onPress={mine ? () => openGroup(mine) : openComposer} onLongPress={openComposer} label={mine ? 'Your story' : 'Add to your story'}>
+          <Squish
+            onPress={postFailed ? retry : mine ? () => openGroup(mine) : openComposer}
+            onLongPress={openComposer}
+            label={postFailed ? 'Story did not post. Tap to retry' : posting ? `Posting your story, ${Math.round(postProgress * 100)} percent` : mine ? 'Your story' : 'Add to your story'}
+          >
             <View style={styles.item}>
               <View>
-                <StoryRing size={SIZE} state={mine ? 'seen' : 'none'} bg={T.bg}>
-                  <UserAvatar
-                    avatarUrl={me?.avatar_url}
-                    size={mine ? ringInnerSize(SIZE, 'seen') : SIZE - 8}
-                    name={me?.full_name || me?.username}
-                    neutral
-                  />
-                </StoryRing>
-                {posting ? (
-                  <View style={[styles.badge, { backgroundColor: T.surface2 }]}>
-                    <ActivityIndicator size="small" color={T.accent} />
-                  </View>
+                {busy ? (
+                  // Posting: the ring fills as the upload goes; failed: a red ring with a retry badge
+                  <ProgressRing size={SIZE} progress={postFailed ? 1 : postProgress} color={postFailed ? T.error : T.accent} track={T.surface2} bg={T.bg}>
+                    {meAvatar(SIZE - RING * 2 - 6)}
+                  </ProgressRing>
                 ) : (
+                  <StoryRing size={SIZE} state={mine ? 'seen' : 'none'} bg={T.bg}>
+                    {meAvatar(avatarSize)}
+                  </StoryRing>
+                )}
+                {postFailed ? (
+                  <Pressable onPress={retry} hitSlop={10} style={[styles.badge, { backgroundColor: '#FFFFFF' }]} accessibilityLabel="Retry posting your story">
+                    <Ionicons name="refresh" size={13} color="#000" />
+                  </Pressable>
+                ) : posting ? null : (
                   <Pressable onPress={openComposer} hitSlop={10} style={[styles.badge, { backgroundColor: T.accent }]} accessibilityLabel="Add to your story">
                     {/* 8px plus, 2.2 stroke (design) */}
                     <View style={styles.plusH} />
@@ -104,7 +152,9 @@ export function StoryRail() {
                   </Pressable>
                 )}
               </View>
-              <Text style={[styles.name, styles.nameSeen]} numberOfLines={1}>{mine ? 'Your story' : 'Add story'}</Text>
+              <Text style={[styles.name, styles.nameSeen, postFailed && { color: T.error, fontWeight: '500' }]} numberOfLines={1}>
+                {postFailed ? 'Tap to retry' : posting ? 'Posting…' : mine ? 'Your story' : 'Add story'}
+              </Text>
             </View>
           </Squish>
           {!loaded && [0, 1, 2, 3].map(i => (

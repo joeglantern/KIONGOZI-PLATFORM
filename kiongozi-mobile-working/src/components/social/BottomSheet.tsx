@@ -21,9 +21,11 @@ interface BottomSheetProps {
   title?: string;
   subtitle?: string;
   actions: SheetAction[];
+  /** Custom content (a list of people, say) shown between the header and the actions */
+  children?: React.ReactNode;
 }
 
-export function BottomSheet({ visible, onClose, title, subtitle, actions }: BottomSheetProps) {
+export function BottomSheet({ visible, onClose, title, subtitle, actions, children }: BottomSheetProps) {
   const T = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(T), [T]);
@@ -64,6 +66,8 @@ export function BottomSheet({ visible, onClose, title, subtitle, actions }: Bott
               {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
             </View>
           )}
+
+          {children}
 
           {actions.map((action, i) => (
             <React.Fragment key={action.label}>

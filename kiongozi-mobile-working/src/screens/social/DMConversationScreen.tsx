@@ -18,7 +18,7 @@ import { DMBubble } from '../../components/social/DMBubble';
 import { MediaViewerModal } from '../../components/social/MediaViewerModal';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
-import { useDMStore, DMMessage } from '../../stores/dmStore';
+import { useDMStore, DMMessage, clearTyping } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
@@ -199,6 +199,16 @@ export default function DMConversationScreen() {
     [conversationMessages, user?.id]
   );
 
+  // iMessage "Seen 9:42": only under the newest message of mine that they have read
+  const lastSeenMineId = useMemo(() => {
+    for (let i = conversationMessages.length - 1; i >= 0; i--) {
+      const m = conversationMessages[i];
+      if (m.sender_id !== user?.id || m._pending || m._failed) continue;
+      return m.is_read ? m.id : null; // my newest delivered message decides: unread = no line at all
+    }
+    return null;
+  }, [conversationMessages, user?.id]);
+
   // 'loading' until we know: shimmer bubbles, never the "new chat" wave for a chat that has messages
   const [ready, setReady] = useState(() => (useDMStore.getState().messages[conversationId]?.length ?? 0) > 0);
   useEffect(() => { if (conversationMessages.length) setReady(true); }, [conversationMessages.length]);
@@ -233,6 +243,7 @@ export default function DMConversationScreen() {
           // Skip own messages — already added optimistically in handleSend
           if (msg.sender_id === user.id) return;
           setPeerTyping(false);
+          clearTyping(conversationId);
 
           // Dedup: skip if we already have this message in the list
           if (msgsRef.current.some(m => m.id === msg.id)) return;
@@ -275,10 +286,23 @@ export default function DMConversationScreen() {
     };
   }, [conversationId, user?.id]);
 
+  // Their inbox channel: the chats list on their phone shows "typing…" from this (see dmStore attachTypingInbox).
+  // Its own topic, never shared with the chat channel: realtime-js tears down all channels on a topic together.
+  const inboxRef = useRef<any>(null);
+  useEffect(() => {
+    if (!participantId || isBot || participantId === user?.id) return;
+    const ch = supabase.channel(`dm-inbox-${participantId}`).subscribe();
+    inboxRef.current = ch;
+    return () => { inboxRef.current = null; supabase.removeChannel(ch); };
+  }, [participantId, isBot, user?.id]);
+
   const sendTyping = useCallback((on: boolean) => {
     if (!channelRef.current || !user?.id) return;
     Promise.resolve(channelRef.current.send({ type: 'broadcast', event: 'typing', payload: { user_id: user.id, on } })).catch(() => {});
-  }, [user?.id]);
+    if (inboxRef.current) {
+      Promise.resolve(inboxRef.current.send({ type: 'broadcast', event: 'typing', payload: { conversation_id: conversationId, user_id: user.id, on } })).catch(() => {});
+    }
+  }, [user?.id, conversationId]);
 
   const handleChangeText = useCallback((t: string) => {
     setText(t);
@@ -406,6 +430,7 @@ export default function DMConversationScreen() {
         onMediaPress={item.message.media_url ? () => setViewerMessage(item.message) : undefined}
         onLongPress={(rect) => openContextMenu(item.message, isOwn, rect)}
         onRetry={item.message._failed ? () => retryMessage(item.message) : undefined}
+        seenAt={item.message.id === lastSeenMineId ? (item.message.read_at || '') : undefined}
         replyPreview={repliedTo ? {
           senderName: repliedTo.sender_id === user?.id ? 'You' : (participantName || 'Them'),
           content: repliedTo.content || (repliedTo.media_url ? '📷 Photo' : 'Message'),
@@ -413,7 +438,7 @@ export default function DMConversationScreen() {
       />
       </SwipeToReply>
     );
-  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap, isBot, isDark, retryMessage]);
+  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap, isBot, isDark, retryMessage, lastSeenMineId]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

@@ -215,6 +215,9 @@ export default function SettingsScreen() {
   const breakReminder = usePrefs(s => s.breakReminder);
   const setBreakReminder = usePrefs(s => s.setBreakReminder);
   const features = usePrefs(s => s.features);
+  const autoplay = usePrefs(s => s.autoplay);
+  const uploadQuality = usePrefs(s => s.uploadQuality);
+  const notifyOff = usePrefs(s => Object.values(s.notify).filter(v => !v).length);
   const blockedCount = useSocialStore(s => s.blockedUserIds.length);
   const mutedCount = useSocialStore(s => s.mutedUserIds.length);
   const [recapOpen, setRecapOpen] = useState(false);
@@ -246,27 +249,23 @@ export default function SettingsScreen() {
         </Pressable>
         <Text style={styles.bigTitle} maxFontSizeMultiplier={1.2} accessibilityRole="header">Settings</Text>
 
-        {/* You */}
+        {/* Account card: who you are, one tap to edit */}
         <Section order={0}>
-          <Card>
-            <Pressable
-              onPress={() => navigation.navigate('EditProfile')}
-              accessibilityRole="button"
-              accessibilityLabel="Edit profile"
-              style={({ pressed }) => [styles.meRow, pressed && { backgroundColor: K.pressed }]}
-            >
-              <View style={[styles.meRing, { borderColor: T.accent }]}>
-                <UserAvatar avatarUrl={me?.avatar_url} size={52} name={me?.full_name || me?.username} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.meName} numberOfLines={1} maxFontSizeMultiplier={1.2}>{me?.full_name || 'Your profile'}</Text>
-                <Text style={styles.meSub} numberOfLines={1} maxFontSizeMultiplier={1.3}>
-                  {me?.username ? `@${me.username} · ` : ''}Edit profile, photo and bio
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
-            </Pressable>
-          </Card>
+          <Pressable
+            onPress={() => navigation.navigate('EditProfile')}
+            accessibilityRole="button"
+            accessibilityLabel={`${me?.full_name || 'Your profile'}, edit profile`}
+            style={({ pressed }) => [styles.meCard, { backgroundColor: pressed ? K.pressed : K.card, borderColor: K.cardBorder }]}
+          >
+            <UserAvatar avatarUrl={me?.avatar_url} size={62} name={me?.full_name || me?.username} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.meName} numberOfLines={1} maxFontSizeMultiplier={1.2}>{me?.full_name || 'Your profile'}</Text>
+              <Text style={styles.meSub} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+                {me?.username ? `@${me.username} · ` : ''}Edit profile
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
+          </Pressable>
         </Section>
 
         {/* Appearance: pick by looking, not by reading */}
@@ -342,10 +341,26 @@ export default function SettingsScreen() {
               right={pushLoading ? <ActivityIndicator size="small" color={T.textMuted} /> : <Toggle value={pushEnabled} onChange={handlePushToggle} label="Push notifications" />}
             />
             <Row
+              icon="notifications-outline"
+              color="#FF9500"
+              title="What you get"
+              sub={notifyOff ? `${notifyOff} ${notifyOff === 1 ? 'kind' : 'kinds'} off` : 'Likes, replies, follows, messages and more'}
+              chevron
+              onPress={() => navigation.navigate('NotificationPrefs')}
+            />
+            <Row
               icon="cellular-outline"
               title="Low-data mode"
               sub={lowData ? 'On · tap to play videos, nothing loads ahead' : 'Off · videos play as you scroll'}
               right={<Toggle value={lowData} onChange={setLowData} label="Low-data mode" />}
+            />
+            <Row
+              icon="stats-chart"
+              color="#34C759"
+              title="Storage and data"
+              sub={`Auto-play ${autoplay === 'always' ? 'always' : 'never'} · ${uploadQuality === 'hd' ? 'HD' : 'Standard'} uploads`}
+              chevron
+              onPress={() => navigation.navigate('StorageData')}
             />
             {features.break_reminder && (
               <Row
@@ -511,10 +526,9 @@ function makeStyles(T: AppTheme) {
     },
     backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     bigTitle: { fontSize: 34, fontWeight: '800', letterSpacing: 0.37, color: T.text, marginTop: 14, marginLeft: 4 },
-    meRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 10, borderRadius: 15 },
-    meRing: { borderWidth: 2, borderRadius: 30, padding: 2 },
+    meCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, borderWidth: 1 },
     meName: { fontSize: 20, fontWeight: '700', letterSpacing: 0.38, color: T.text },
-    meSub: { fontSize: 13, color: T.textMuted, marginTop: 2 },
+    meSub: { fontSize: 14, color: T.textSub, marginTop: 2 },
     themeCard: { flex: 1, borderRadius: 18, paddingVertical: 12, alignItems: 'center', gap: 8 },
     phone: { width: 54, height: 80, borderRadius: 12, borderWidth: 1, padding: 6, gap: 4 },
     phoneBlock: { height: 22, borderRadius: 5 },
@@ -526,7 +540,7 @@ function makeStyles(T: AppTheme) {
     footer: { textAlign: 'center', fontSize: 12.5, color: T.textMuted, marginTop: 6 },
     headerTitle: {
       flex: 1, textAlign: 'center', fontSize: 17,
-      fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text,
+      fontWeight: '600', color: T.text,
     },
     row: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -548,7 +562,7 @@ function makeStyles(T: AppTheme) {
     modalHeaderBtn: { minWidth: 64, height: 44, justifyContent: 'center', paddingHorizontal: 4 },
     modalCancel: { fontSize: 16, color: T.textSub },
     // 320pt: 320 − 24 padding − 2×64 buttons = 168pt for the title ("Change password" ≈ 135pt @17pt).
-    modalTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text },
+    modalTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '600', color: T.text },
     modalSave: { fontSize: 16, fontWeight: '700', color: T.accent },
     modalBody: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
     inputLabel: { fontSize: 13, color: T.textMuted, marginBottom: 8, marginTop: 16 },

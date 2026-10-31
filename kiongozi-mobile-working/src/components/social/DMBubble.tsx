@@ -4,6 +4,7 @@
 import React, { useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Reanimated, { FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
@@ -30,6 +31,8 @@ interface DMBubbleProps {
   onRetry?: () => void;
   /** Drawn inside the long-press menu: no avatar slot, no press handling */
   floating?: boolean;
+  /** "Seen 9:42" under my newest message they have read (read_at ISO; '' = no time known) */
+  seenAt?: string | null;
 }
 
 /** 24h "10:42" — built by hand so it's identical on every device/locale */
@@ -61,7 +64,10 @@ export function bubbleColors(isDark: boolean, accent: string) {
   };
 }
 
-export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarName, onMediaPress, onLongPress, replyPreview, onRetry, floating }: DMBubbleProps) {
+/** "9:42": like formatTime, without the leading zero (reads as a word in a sentence) */
+const seenTime = (iso: string) => formatTime(iso).replace(/^0/, '');
+
+export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarName, onMediaPress, onLongPress, replyPreview, onRetry, floating, seenAt }: DMBubbleProps) {
   const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
   const C = useMemo(() => bubbleColors(isDark, T.accent), [isDark, T.accent]);
@@ -198,14 +204,23 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
       )}
     </View>
   );
-  if (!failed || floating) return row;
+  const seen = isOwn && !floating && seenAt !== undefined && seenAt !== null;
+  if (!failed && !seen) return row;
+  if (floating) return row;
   return (
     <View>
       {row}
+      {seen && (
+        <Reanimated.Text entering={FadeIn.duration(260)} style={[styles.seen, { color: T.textMuted }]} accessibilityLabel={seenAt ? `Seen at ${seenTime(seenAt)}` : 'Seen'}>
+          {seenAt ? `Seen ${seenTime(seenAt)}` : 'Seen'}
+        </Reanimated.Text>
+      )}
+      {failed && (
       <Pressable onPress={onRetry} hitSlop={8} accessibilityRole="button" accessibilityLabel="Message not sent. Tap to retry." style={styles.failRow}>
         <Ionicons name="alert-circle" size={14} color={T.error} />
         <Text style={[styles.failText, { color: T.error }]}>Not sent · Tap to retry</Text>
       </Pressable>
+      )}
     </View>
   );
 }
@@ -213,6 +228,7 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
 const styles = StyleSheet.create({
   failRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 4, marginTop: 4, marginRight: 14 },
   failText: { fontSize: 12.5, fontWeight: '600' },
+  seen: { fontSize: 12, alignSelf: 'flex-end', marginTop: 3, marginRight: 14 },
   row: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 2, paddingHorizontal: 10 },
   groupStart: { marginTop: 12 },
   rowOwn: { justifyContent: 'flex-end' },

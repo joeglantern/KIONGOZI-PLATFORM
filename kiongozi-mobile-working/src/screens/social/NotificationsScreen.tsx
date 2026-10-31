@@ -1,28 +1,30 @@
-// Activity: notifications grouped like modern apps ("mercy and 12 others liked your post"),
+// Activity: notifications grouped like modern apps ("mercy na wengine 12 walipenda post yako"),
 // split into New / Today / This week / Earlier, with filter chips, post previews and Follow back.
+// Follow requests live in a pinned card at the top (and their own screen), not in the feed.
 import React, { useEffect, useMemo, useState } from 'react';
 import { TAB_LIST_INSET } from '../../navigation/tabInset';
 import {
-  View, Text, StyleSheet, Pressable, ActivityIndicator, Image, ScrollView, Animated,
+  View, Text, StyleSheet, Pressable, ActivityIndicator, Image, ScrollView, Animated, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useNotificationStore, SocialNotification } from '../../stores/notificationStore';
 import { useAuthStore } from '../../stores/authStore';
-import { useProfileStore } from '../../stores/profileStore';
 import { useSocialStore } from '../../stores/socialStore';
 import { toggleInteraction } from '../../stores/interactionSync';
 import { useFollowState, toggleFollow } from '../../stores/followSync';
-import { toast } from '../../utils/alert';
 import { supabase } from '../../utils/supabaseClient';
 import { UserAvatar } from '../../components/social/UserAvatar';
+import { BottomSheet } from '../../components/social/BottomSheet';
 import apiClient from '../../utils/apiClient';
 import { useStoryStore } from '../../stores/storyStore';
 import { useTheme } from '../../hooks/useTheme';
 import { RowsSkeleton } from '../../components/social/Skeleton';
 import { useBubbleRefresh } from '../../components/social/RefreshBubble';
+import { selectFollowRequests } from './FollowRequestsScreen';
 
 type Theme = ReturnType<typeof useTheme>;
 
@@ -58,12 +60,17 @@ const ACTION: Record<string, [string, string]> = {
   dm: ['amekutumia ujumbe', 'wamekutumia ujumbe'],
 };
 
+// Title of the "who did this" sheet per kind
+const SHEET_TITLE: Record<string, string> = {
+  like: 'Liked by', repost: 'Reposted by', follow: 'New followers', comment: 'Replies from', mention: 'Mentioned by',
+};
+
 const FILTERS: { id: string; label: string; types: string[] | null }[] = [
   { id: 'all', label: 'All', types: null },
   { id: 'mentions', label: 'Mentions', types: ['mention'] },
   { id: 'replies', label: 'Replies', types: ['comment'] },
   { id: 'likes', label: 'Likes', types: ['like'] },
-  { id: 'follows', label: 'Follows', types: ['follow', 'follow_request'] },
+  { id: 'follows', label: 'Follows', types: ['follow'] },
 ];
 
 /** A row: one notification, or several of the same kind on the same post. */
@@ -138,13 +145,13 @@ const thumbStyles = StyleSheet.create({
   textInner: { fontSize: 8, lineHeight: 10 },
 });
 
-/** Follow back: flips to Following (Requested for a private account) at once; followSync settles it */
-function FollowBack({ userId, username, T }: { userId?: string; username?: string; T: Theme }) {
-  const seed = { isFollowing: false, username };
+/** Follow pill: flips to Following (Requested for a private account) at once; followSync settles it */
+function FollowPill({ userId, username, seedFollowing, backLabel, T }: { userId?: string; username?: string; seedFollowing?: boolean; backLabel?: string; T: Theme }) {
+  const seed = { isFollowing: !!seedFollowing, username };
   const status = useFollowState(userId, seed).status;
   if (!userId) return null;
   const done = status !== 'none';
-  const label = status === 'following' ? 'Following' : status === 'requested' ? 'Requested' : 'Follow back';
+  const label = status === 'following' ? 'Following' : status === 'requested' ? 'Requested' : (backLabel || 'Follow');
   return (
     <Pressable
       onPress={() => {
@@ -153,45 +160,10 @@ function FollowBack({ userId, username, T }: { userId?: string; username?: strin
       }}
       style={({ pressed }) => [rowStyles.pill, done ? { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.border, paddingHorizontal: 15 } : { backgroundColor: T.text }, pressed && { opacity: 0.8 }]}
       accessibilityRole="button"
-      accessibilityLabel={status === 'requested' ? 'Cancel follow request' : done ? 'Unfollow' : 'Follow back'}
+      accessibilityLabel={status === 'requested' ? 'Cancel follow request' : done ? 'Unfollow' : (backLabel || 'Follow')}
     >
       <Text style={[rowStyles.pillText, { color: done ? T.text : T.bg }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{label}</Text>
     </Pressable>
-  );
-}
-
-/** Accept / decline a follow request: the row goes at once; it comes back with a toast if the server says no */
-function FollowRequestButtons({ item, onRemove, T }: { item: SocialNotification; onRemove: (id: string) => void; T: Theme }) {
-  const requestId = item.data?.request_id as string | undefined;
-  const fromUserId = item.data?.from_user_id as string | undefined;
-  const act = async (kind: 'accept' | 'decline') => {
-    if (!requestId && !fromUserId) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const snapshot = useNotificationStore.getState().notifications;
-    onRemove(item.id);
-    const me = useProfileStore.getState().currentUserProfile;
-    if (kind === 'accept' && me) useProfileStore.getState().updateCurrentUserProfile({ follower_count: (me.follower_count || 0) + 1 });
-    const r: any = kind === 'accept'
-      ? await apiClient.acceptFollowRequest(requestId, fromUserId).catch(() => null)
-      : await apiClient.declineFollowRequest(requestId, fromUserId).catch(() => null);
-    if (r?.success || /not found/i.test(r?.error || '')) return;
-    // Put the request back
-    useNotificationStore.setState({ notifications: snapshot, unreadCount: snapshot.filter(n => !n.read).length });
-    if (kind === 'accept') {
-      const cur = useProfileStore.getState().currentUserProfile;
-      if (cur) useProfileStore.getState().updateCurrentUserProfile({ follower_count: Math.max(0, (cur.follower_count || 0) - 1) });
-    }
-    toast(kind === 'accept' ? "Couldn't accept" : "Couldn't decline", { kind: 'error' });
-  };
-  return (
-    <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-      <Pressable onPress={() => act('accept')} style={({ pressed }) => [rowStyles.pill, { backgroundColor: T.accent, minWidth: 92 }, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Accept follow request">
-        <Text style={[rowStyles.pillText, { color: '#000' }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Kubali</Text>
-      </Pressable>
-      <Pressable onPress={() => act('decline')} style={({ pressed }) => [rowStyles.pill, { borderWidth: 1, borderColor: T.border, paddingHorizontal: 15, minWidth: 92 }, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Decline follow request">
-        <Text style={[rowStyles.pillText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Decline</Text>
-      </Pressable>
-    </View>
   );
 }
 
@@ -201,6 +173,7 @@ function ActorAvatars({ row, T }: { row: Row; T: Theme }) {
   return (
     <View style={rowStyles.avatarBox}>
       {b ? (
+        // Two people: a 34px overlap stack instead of one avatar
         <>
           <View style={[rowStyles.stackTop, { borderColor: T.bg }]}><UserAvatar avatarUrl={a.fromAvatar} size={34} name={a.fromUsername} /></View>
           <View style={[rowStyles.stackBottom, { borderColor: T.bg }]}><UserAvatar avatarUrl={b.fromAvatar} size={34} name={b.fromUsername} /></View>
@@ -255,17 +228,28 @@ function ReplyActions({ item, T }: { item: SocialNotification; T: Theme }) {
   );
 }
 
-function NotificationRow({ row, onPress, onRemove, T }: { row: Row; onPress: () => void; onRemove: (id: string) => void; T: Theme }) {
+function NotificationRow({ row, onPress, onOthers, onRemove, T }: {
+  row: Row; onPress: () => void; onOthers: () => void; onRemove: () => void; T: Theme;
+}) {
   const first = row.items[0];
   const others = row.items.length - 1;
   const action: [string, string] | undefined = row.type === 'mention' && first.data?.story_id
     ? ['alikutaja kwenye story', 'walikutaja kwenye story'] : ACTION[row.type];
   const name = first.fromUsername || '';
   const hasPost = ['like', 'repost', 'comment', 'mention'].includes(row.type) && !!first.postId;
-  const isRequest = row.type === 'follow_request' && !first.read;
+
+  // Swipe left: Remove (local; the API has no delete for notifications yet)
+  const remove = () => (
+    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onRemove(); }}
+      style={rowStyles.swipeBtn} accessibilityRole="button" accessibilityLabel="Remove notification">
+      <Ionicons name="close" size={22} color="#fff" />
+      <Text style={rowStyles.swipeText}>Remove</Text>
+    </Pressable>
+  );
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [rowStyles.row, pressed && { backgroundColor: T.surface }]}>
+    <ReanimatedSwipeable renderRightActions={remove} friction={1.6} rightThreshold={40} overshootRight={false}>
+    <Pressable onPress={onPress} style={({ pressed }) => [rowStyles.row, { backgroundColor: pressed ? T.surface : T.bg }]}>
       {row.unread && <View style={[rowStyles.unread, { backgroundColor: T.accent }]} accessibilityLabel="Unread" />}
       <ActorAvatars row={row} T={T} />
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -273,7 +257,14 @@ function NotificationRow({ row, onPress, onRemove, T }: { row: Row; onPress: () 
           {name && action ? (
             <>
               <Text style={rowStyles.name}>{name}</Text>
-              {others > 0 && <Text>{` na wengine ${others}`}</Text>}
+              {others > 0 && (
+                <>
+                  <Text>{' na '}</Text>
+                  <Text onPress={onOthers} style={[rowStyles.others, { color: T.text }]} accessibilityRole="button" accessibilityLabel={`See all ${others + 1} people`}>
+                    {`wengine ${others}`}
+                  </Text>
+                </>
+              )}
               <Text style={{ color: T.textSub }}>{` ${action[others > 0 ? 1 : 0]}`}</Text>
             </>
           ) : (
@@ -287,13 +278,93 @@ function NotificationRow({ row, onPress, onRemove, T }: { row: Row; onPress: () 
             <ReplyActions item={first} T={T} />
           </>
         )}
-        {isRequest && <FollowRequestButtons item={first} onRemove={onRemove} T={T} />}
       </View>
-      {row.type === 'follow' && others === 0 && <FollowBack userId={first.fromUserId} username={first.fromUsername} T={T} />}
+      {row.type === 'follow' && others === 0 && <FollowPill userId={first.fromUserId} username={first.fromUsername} backLabel="Follow back" T={T} />}
       {hasPost && <PostThumb postId={first.postId} T={T} />}
+    </Pressable>
+    </ReanimatedSwipeable>
+  );
+}
+
+/** Pinned card at the top: who is waiting to follow you */
+function FollowRequestsCard({ requests, onPress, T }: { requests: SocialNotification[]; onPress: () => void; T: Theme }) {
+  const first = requests[0];
+  const unseen = requests.some(r => !r.read);
+  const others = requests.length - 1;
+  const who = first.fromUsername ? `@${first.fromUsername}` : 'Someone';
+  const sub = others > 0 ? `${who} and ${others} ${others === 1 ? 'other' : 'others'}` : who;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [cardStyles.card, { backgroundColor: T.surface2 }, pressed && { opacity: 0.85 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Follow requests, ${sub}${unseen ? ', new' : ''}`}
+    >
+      <View style={[cardStyles.stack, { width: 40 + Math.min(requests.length - 1, 2) * 22 }]}>
+        {requests.slice(0, 3).map((r, i) => (
+          <View key={r.id} style={[cardStyles.stackItem, { left: i * 22, zIndex: 3 - i, borderColor: T.surface2 }]}>
+            <UserAvatar avatarUrl={r.fromAvatar} size={40} name={r.fromUsername} />
+          </View>
+        ))}
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[cardStyles.title, { color: T.text }]} maxFontSizeMultiplier={1.2}>Follow requests</Text>
+          {unseen && <View style={[cardStyles.dot, { backgroundColor: T.accent }]} />}
+        </View>
+        <Text style={[cardStyles.sub, { color: T.textSub }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
     </Pressable>
   );
 }
+const cardStyles = StyleSheet.create({
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 4, marginBottom: 6, padding: 12, borderRadius: 18 },
+  stack: { height: 44, justifyContent: 'center' },
+  stackItem: { position: 'absolute', top: 0, borderWidth: 2, borderRadius: 22 },
+  title: { fontSize: 15.5, fontWeight: '700' },
+  sub: { fontSize: 13.5, marginTop: 2 },
+  dot: { width: 7, height: 7, borderRadius: 3.5 },
+});
+
+/** Everyone in a grouped row, with a Follow pill each */
+function ActorsSheet({ row, onClose, T }: { row: Row | null; onClose: () => void; T: Theme }) {
+  const navigation = useNavigation<any>();
+  const { height } = useWindowDimensions();
+  return (
+    <BottomSheet visible={!!row} onClose={onClose} title={row ? (SHEET_TITLE[row.type] || 'People') : undefined} actions={[]}>
+      {row && (
+        <ScrollView style={{ maxHeight: height * 0.55 }} showsVerticalScrollIndicator={false}>
+          {row.items.map(n => {
+            const name = (n.data?.from_full_name as string) || n.fromUsername || 'Someone';
+            return (
+              <View key={n.id} style={sheetStyles.row}>
+                <Pressable
+                  style={sheetStyles.person}
+                  onPress={() => { onClose(); if (n.fromUsername) navigation.navigate('PublicProfile', { username: n.fromUsername }); }}
+                  accessibilityRole="button" accessibilityLabel={`${name}'s profile`}
+                >
+                  <UserAvatar avatarUrl={n.fromAvatar} size={44} name={name} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[sheetStyles.name, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{name}</Text>
+                    {n.fromUsername ? <Text style={[sheetStyles.handle, { color: T.textSub }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>@{n.fromUsername}</Text> : null}
+                  </View>
+                </Pressable>
+                <FollowPill userId={n.fromUserId} username={n.fromUsername} seedFollowing={!!n.data?.is_following} T={T} />
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
+    </BottomSheet>
+  );
+}
+const sheetStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 8 },
+  person: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  name: { fontSize: 15.5, fontWeight: '600' },
+  handle: { fontSize: 13, marginTop: 1 },
+});
 
 const rowStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 16, minHeight: 68 },
@@ -308,6 +379,9 @@ const rowStyles = StyleSheet.create({
   replyActions: { flexDirection: 'row', gap: 18, marginTop: 6 },
   replyBtn: { height: 28, minWidth: 28, justifyContent: 'center' },
   name: { fontWeight: '600' },
+  others: { fontWeight: '700' },
+  swipeBtn: { width: 84, backgroundColor: '#FF3B30', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  swipeText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
   // flexShrink 0: the text column (numberOfLines 3) gives way on narrow screens, not the button
   pill: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 0, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   pillText: { fontSize: 14, fontWeight: '700' },
@@ -321,9 +395,10 @@ export default function NotificationsScreen() {
   const styles = useMemo(() => makeStyles(T), [T]);
   const {
     notifications, unreadCount, isLoading, hasMore,
-    fetchNotifications, markAllRead, markRead, addNotification, removeNotification,
+    fetchNotifications, markAllRead, markRead, addNotification, dismiss,
   } = useNotificationStore();
   const [filter, setFilter] = useState('all');
+  const [actorsRow, setActorsRow] = useState<Row | null>(null);
 
   useEffect(() => { fetchNotifications(true); }, []);
 
@@ -337,11 +412,15 @@ export default function NotificationsScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
+  // Follow requests sit in the pinned card, not in the feed
+  const requests = useMemo(() => selectFollowRequests(notifications), [notifications]);
+  const feed = useMemo(() => notifications.filter(n => n.type !== 'follow_request'), [notifications]);
+
   const unreadByFilter = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const f of FILTERS) out[f.id] = notifications.filter(n => !n.read && (!f.types || f.types.includes(n.type))).length;
+    for (const f of FILTERS) out[f.id] = feed.filter(n => !n.read && (!f.types || f.types.includes(n.type))).length;
     return out;
-  }, [notifications]);
+  }, [feed]);
 
   const { onScroll, refreshControl, bubble, refreshing, onHeaderLayout } = useBubbleRefresh(
     () => fetchNotifications(true), T.accent, T.surface,
@@ -349,8 +428,8 @@ export default function NotificationsScreen() {
 
   const sections = useMemo(() => {
     const types = FILTERS.find(f => f.id === filter)?.types;
-    return buildSections(types ? notifications.filter(n => types.includes(n.type)) : notifications);
-  }, [notifications, filter]);
+    return buildSections(types ? feed.filter(n => types.includes(n.type)) : feed);
+  }, [feed, filter]);
 
   const open = (row: Row) => {
     row.items.forEach(n => { if (!n.read) markRead(n.id); });
@@ -369,18 +448,26 @@ export default function NotificationsScreen() {
     }
   };
 
+  const openRequests = () => {
+    Haptics.selectionAsync().catch(() => {});
+    navigation.navigate('FollowRequests');
+  };
+
+  const showRequestsCard = requests.length > 0 && (filter === 'all' || filter === 'follows');
+
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Activity</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3} accessibilityRole="header">Activity</Text>
         {unreadCount > 0 && (
           <Pressable
             onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); markAllRead(); }}
-            style={({ pressed }) => [styles.markAll, pressed && { opacity: 0.7 }]}
+            hitSlop={10}
+            style={({ pressed }) => [styles.markAll, pressed && { opacity: 0.6 }]}
             accessibilityRole="button"
             accessibilityLabel="Mark all as read"
           >
-            <Ionicons name="checkmark-done" size={20} color={T.text} />
+            <Text style={styles.markAllText} maxFontSizeMultiplier={1.2}>Mark all read</Text>
           </Pressable>
         )}
       </View>
@@ -414,9 +501,16 @@ export default function NotificationsScreen() {
           sections={sections}
           keyExtractor={r => r.key}
           stickySectionHeadersEnabled={false}
+          ListHeaderComponent={showRequestsCard ? <FollowRequestsCard requests={requests} onPress={openRequests} T={T} /> : null}
           renderSectionHeader={({ section }) => <Text style={[styles.section, section === sections[0] && { paddingTop: 8 }]}>{section.title}</Text>}
           renderItem={({ item }) => (
-            <NotificationRow row={item} T={T} onPress={() => open(item)} onRemove={(id) => { markRead(id); removeNotification?.(id); }} />
+            <NotificationRow
+              row={item}
+              T={T}
+              onPress={() => open(item)}
+              onOthers={() => { Haptics.selectionAsync().catch(() => {}); setActorsRow(item); }}
+              onRemove={() => item.items.forEach(n => dismiss(n.id))}
+            />
           )}
           onScroll={onScroll}
           scrollEventThrottle={16}
@@ -438,6 +532,8 @@ export default function NotificationsScreen() {
         />
       )}
       {bubble}
+
+      <ActorsSheet row={actorsRow} onClose={() => setActorsRow(null)} T={T} />
     </View>
   );
 }
@@ -445,18 +541,16 @@ export default function NotificationsScreen() {
 function makeStyles(T: Theme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: T.bg },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 6 },
-    headerTitle: { fontSize: 30, color: T.text, letterSpacing: -0.8, fontFamily: 'SpaceGrotesk_700Bold' },
-    markAll: { width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 20, paddingBottom: 6 },
+    headerTitle: { flex: 1, fontSize: 34, lineHeight: 41, color: T.text, letterSpacing: 0.37, fontWeight: '800' },
+    markAll: { paddingBottom: 8, paddingLeft: 12 },
+    markAllText: { fontSize: 15, fontWeight: '600', color: T.accentDeep },
     chips: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 8 },
     chip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
     chipText: { fontSize: 14, fontWeight: '600' },
     chipCount: { minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#FF3040', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
     chipCountText: { color: '#fff', fontSize: 11, fontWeight: '800' },
     section: { color: T.text, fontSize: 15, fontWeight: '700', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 2 },
-    skelRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
-    skelAvatar: { width: 48, height: 48, borderRadius: 24 },
-    skelLine: { height: 12, borderRadius: 6 },
     empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 12 },
     emptyIcon: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center' },
     emptyTitle: { fontSize: 18, fontWeight: '700', color: T.text },

@@ -1,17 +1,16 @@
-import { appAlert } from '../utils/alert';
+// Sign in / sign up: one clean sheet. Auth is email + password on Supabase (plus Google and Apple),
+// so email is the main field; there is no phone flow on the backend, so none is shown here.
+// Every problem is said inline under its field, never as a pop-up.
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Animated,
-  Dimensions,
-  StatusBar,
   ScrollView,
   Image,
   useWindowDimensions,
@@ -19,18 +18,35 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '../utils/apiClient';
-import * as AppleAuthentication from 'expo-apple-authentication';
+import { useTheme } from '../hooks/useTheme';
 
-const { width } = Dimensions.get('window');
+/** Set when an account was just created, so the app shows "Who should be in your feed?" once. */
+export const FIRST_FEED_PENDING_KEY = 'first_feed_pending';
 
-export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
+type Field = 'firstName' | 'lastName' | 'username' | 'email' | 'password' | 'newPassword' | 'confirm';
+type Errors = Partial<Record<Field | 'form', string>>;
+
+interface Props {
+  onLoginSuccess: () => void;
+  /** Which door the welcome screen was opened from */
+  initialMode?: 'signin' | 'signup';
+  /** Back to the welcome screen (hidden when not given) */
+  onBack?: () => void;
+}
+
+export default function LoginScreen({ onLoginSuccess, initialMode = 'signin', onBack }: Props) {
+  const T = useTheme();
   const { signIn, signUp, resetPassword, verifyResetOTP, cancelPasswordReset, signInWithGoogle, signInWithApple, loading } = useAuthStore();
-  const [appleAvailable, setAppleAvailable] = React.useState(false);
-  React.useEffect(() => {
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
     AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
   }, []);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -39,67 +55,65 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'reserved' | 'short'>('idle');
   const usernameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(initialMode === 'signup');
   const [showPassword, setShowPassword] = useState(false);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<Field | null>(null);
+  const [errors, setErrors] = useState<Errors>({});
+  const [oauthBusy, setOauthBusy] = useState<null | 'google' | 'apple'>(null);
+  // Sign-up done but the email link still has to be tapped
+  const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
 
-  // Forgot password state
+  // Forgot password
   const [forgotMode, setForgotMode] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  // OTP step
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetNote, setResetNote] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const otpInputRef = useRef<TextInput>(null);
-  // New password step (inline after OTP)
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [resetPwLoading, setResetPwLoading] = useState(false);
 
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const setError = (k: keyof Errors, msg?: string) => setErrors(e => {
+    if (!msg) { if (!(k in e)) return e; const n = { ...e }; delete n[k]; return n; }
+    return { ...e, [k]: msg };
+  });
 
-  // Auto-submit when all 6 OTP digits are entered
+  // Auto-submit when all 6 OTP digits are in
   useEffect(() => {
-    if (otpCode.length === 6 && resetSent && !otpVerified && !otpLoading) {
-      handleVerifyOTP();
-    }
+    if (otpCode.length === 6 && resetSent && !otpVerified && !otpLoading) handleVerifyOTP();
   }, [otpCode]);
 
   const handleVerifyOTP = async () => {
     if (otpCode.length < 6 || otpLoading) return;
     setOtpLoading(true);
+    setResetError(null);
     const result = await verifyResetOTP(resetEmail, otpCode);
     setOtpLoading(false);
     if (result.success) {
       setOtpVerified(true);
     } else {
-      appAlert('Invalid code', result.error || 'The code is incorrect or has expired.');
+      setResetError(result.error || 'That code is wrong or has expired.');
       setOtpCode('');
     }
   };
 
   const handleSetNewPassword = async () => {
-    if (newPassword.length < 8) {
-      appAlert('Too short', 'Password must be at least 8 characters.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      appAlert('Mismatch', 'Passwords do not match.');
-      return;
-    }
+    setResetError(null);
+    if (newPassword.length < 8) { setResetError('Password needs at least 8 characters.'); return; }
+    if (newPassword !== confirmPassword) { setResetError('The two passwords do not match.'); return; }
     setResetPwLoading(true);
     const { updatePassword } = useAuthStore.getState();
     const result = await updatePassword(newPassword);
     setResetPwLoading(false);
-    if (!result.success) {
-      appAlert('Error', result.error || 'Failed to update password.');
-    }
-    // On success, authStore sets user → app navigates away automatically
+    if (!result.success) setResetError(result.error || 'Could not update your password.');
+    // On success authStore sets the user and the app moves on by itself
   };
 
   const exitForgotMode = async () => {
@@ -110,909 +124,531 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
     setOtpVerified(false);
     setNewPassword('');
     setConfirmPassword('');
+    setResetError(null);
+    setResetNote(null);
   };
 
-  const handleFocusEmail = React.useCallback(() => setFocusedField('email'), []);
-  const handleFocusPassword = React.useCallback(() => setFocusedField('password'), []);
-  const handleFocusFirstName = React.useCallback(() => setFocusedField('firstName'), []);
-  const handleFocusLastName = React.useCallback(() => setFocusedField('lastName'), []);
-  const handleFocusUsername = React.useCallback(() => setFocusedField('username'), []);
-  const handleBlur = React.useCallback(() => setFocusedField(null), []);
+  const sendResetCode = async () => {
+    setResetLoading(true);
+    setResetError(null);
+    const result = await resetPassword(resetEmail.trim());
+    setResetLoading(false);
+    if (result.success) setResetSent(true);
+    else setResetError(result.error || 'Could not send the code.');
+  };
 
-  // Auto-suggest username from first+last name (only when user hasn't manually edited it)
+  // Suggest a username from the name until they type their own
   useEffect(() => {
     if (usernameTouched) return;
-    const suggested = (firstName + lastName)
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, '');
+    const suggested = (firstName + lastName).toLowerCase().replace(/[^a-z0-9_]/g, '');
     setUsername(suggested || '');
   }, [firstName, lastName, usernameTouched]);
 
-  // Debounced availability check whenever username changes (sign-up only)
+  // Debounced availability check (sign-up only)
   useEffect(() => {
     if (!isSignUp) return;
     if (usernameCheckTimer.current) clearTimeout(usernameCheckTimer.current);
-
     if (username.length === 0) { setUsernameStatus('idle'); return; }
-    if (username.length < 3)   { setUsernameStatus('short'); return; }
-
+    if (username.length < 3) { setUsernameStatus('short'); return; }
     setUsernameStatus('checking');
     usernameCheckTimer.current = setTimeout(async () => {
       try {
         const res = await apiClient.checkUsername(username);
-        if (res.reason === 'Reserved') {
-          setUsernameStatus('reserved');
-        } else {
-          setUsernameStatus(res.available ? 'available' : 'taken');
-        }
+        if (res.reason === 'Reserved') setUsernameStatus('reserved');
+        else setUsernameStatus(res.available ? 'available' : 'taken');
       } catch {
         setUsernameStatus('idle');
       }
     }, 500);
-
     return () => { if (usernameCheckTimer.current) clearTimeout(usernameCheckTimer.current); };
   }, [username, isSignUp]);
 
-  const togglePasswordVisibility = React.useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowPassword(!showPassword);
-  }, [showPassword]);
-
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [slideAnim, fadeAnim]);
+  const togglePasswordVisibility = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setShowPassword(v => !v);
+  }, []);
 
   const toggleAuthMode = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsSignUp(!isSignUp);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setErrors({});
+    setIsSignUp(v => !v);
   };
 
   const handleSubmit = async () => {
-    if (!email || !password) {
-      appAlert('Error', 'Please fill in all fields');
-      return;
+    const next: Errors = {};
+    const em = email.trim();
+    if (!em) next.email = 'Enter your email.';
+    else if (!/^\S+@\S+\.\S+$/.test(em)) next.email = 'That does not look like an email.';
+    if (!password) next.password = 'Enter your password.';
+    else if (isSignUp && password.length < 8) next.password = 'Use at least 8 characters.';
+    if (isSignUp) {
+      if (!firstName.trim()) next.firstName = 'Your first name.';
+      if (!lastName.trim()) next.lastName = 'Your last name.';
+      if (username.length > 0 && username.length < 3) next.username = 'At least 3 characters.';
+      else if (usernameStatus === 'taken') next.username = 'That username is taken.';
+      else if (usernameStatus === 'reserved') next.username = 'That username is reserved.';
+      else if (username.length > 0 && usernameStatus === 'checking') next.username = 'Still checking that username, one moment.';
     }
-
-    if (isSignUp && (!firstName || !lastName)) {
-      appAlert('Error', 'Please enter your first and last name');
-      return;
-    }
-
-    if (isSignUp && username.length > 0 && username.length < 3) {
-      appAlert('Error', 'Username must be at least 3 characters');
-      return;
-    }
-
-    if (isSignUp && (usernameStatus === 'taken' || usernameStatus === 'reserved')) {
-      appAlert('Error', usernameStatus === 'reserved' ? 'That username is reserved' : 'That username is already taken');
-      return;
-    }
-
-    if (isSignUp && username.length > 0 && usernameStatus === 'checking') {
-      appAlert('Please wait', 'Still checking username availability');
-      return;
-    }
+    setErrors(next);
+    if (Object.keys(next).length) return;
 
     try {
       const result = isSignUp
-        ? await signUp(email, password, firstName, lastName, username || undefined)
-        : await signIn(email, password);
+        ? await signUp(em, password, firstName.trim(), lastName.trim(), username || undefined)
+        : await signIn(em, password);
 
       if (result.success) {
+        if (isSignUp) {
+          try { await AsyncStorage.setItem(FIRST_FEED_PENDING_KEY, '1'); } catch {}
+          if ('needsVerification' in result && result.needsVerification) { setVerifyEmail(em); return; }
+        }
         onLoginSuccess();
       } else {
-        appAlert('Error', result.error || 'Authentication failed');
+        const msg = result.error || 'Could not sign you in.';
+        if (/password|credential/i.test(msg) && !/email/i.test(msg)) setError('password', friendly(msg));
+        else if (/email/i.test(msg)) setError('email', friendly(msg));
+        else setError('form', friendly(msg));
       }
     } catch (error: any) {
-      appAlert('Error', error.message || 'Something went wrong');
+      setError('form', error?.message || 'Something went wrong. Try again.');
     }
   };
 
+  const runOAuth = async (which: 'google' | 'apple') => {
+    setError('form');
+    setOauthBusy(which);
+    try {
+      const result = which === 'google' ? await signInWithGoogle() : await signInWithApple();
+      if (!result.success && result.error && result.error !== 'Sign-in cancelled') setError('form', result.error);
+    } finally {
+      setOauthBusy(null);
+    }
+  };
 
-  // Layout only: tighter spacing on short phones (SE1 568pt / SE2 667pt) so the form needs less scrolling.
   const { height: winH } = useWindowDimensions();
   const compact = winH < 700;
+  const busy = loading || !!oauthBusy;
 
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [50, 0],
-  });
+  const fieldStyle = (name: Field, hasError?: boolean) => [
+    styles.input,
+    { backgroundColor: T.inputBg, borderColor: hasError ? T.error : focusedField === name ? T.text : T.borderLight, color: T.text },
+  ];
+
+  const showBack = forgotMode || !!verifyEmail || !!onBack;
+  const goBack = () => {
+    if (forgotMode) { exitForgotMode(); return; }
+    if (verifyEmail) { setVerifyEmail(null); setIsSignUp(false); return; }
+    onBack?.();
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+    <SafeAreaView style={[styles.container, { backgroundColor: T.bg }]}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { minHeight: winH - 100 }]}
+          contentContainerStyle={[styles.scroll, compact && { paddingTop: 8 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View style={[
-            styles.content,
-            compact && styles.contentCompact,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY }],
-            },
-          ]}>
-            {/* Header */}
-            <View style={[styles.header, compact && styles.headerCompact]}>
-              {forgotMode ? (
-                <View style={styles.forgotHeader}>
-                  <TouchableOpacity
-                    onPress={exitForgotMode}
-                    style={styles.backBtn}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-                  </TouchableOpacity>
-                  <Text
-                    style={[styles.title, styles.forgotTitle, compact && styles.titleCompact]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.7}
-                    maxFontSizeMultiplier={1.2}
-                  >
-                    Reset Password
-                  </Text>
-                  <View style={styles.backBtnPlaceholder} />
-                </View>
-              ) : (
-                <View style={styles.logoContainer}>
-                  <Image
-                    source={require('../../assets/kchat-logo.png')}
-                    style={[styles.logoImage, compact && styles.logoImageCompact]}
-                    resizeMode="contain"
-                  />
-                  <Text style={[styles.title, compact && styles.titleCompact]} maxFontSizeMultiplier={1.2}>
-                    {isSignUp ? 'Create an account' : 'Sign in'}
-                  </Text>
-                  <Text style={styles.subtitle} maxFontSizeMultiplier={1.3}>
-                    {isSignUp ? 'Join the conversation shaping Kenya.' : 'Welcome back. Pick up where you left off.'}
-                  </Text>
-                </View>
-              )}
+          {/* back */}
+          <View style={styles.topRow}>
+            {showBack ? (
+              <Pressable onPress={goBack} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back"
+                style={({ pressed }) => [styles.back, { backgroundColor: T.surface2 }, pressed && { opacity: 0.7 }]}>
+                <Ionicons name="chevron-back" size={20} color={T.text} />
+              </Pressable>
+            ) : <View style={{ height: 36 }} />}
+          </View>
+
+          {/* title */}
+          <Text style={[styles.title, { color: T.text }, compact && { fontSize: 27 }]} maxFontSizeMultiplier={1.2}>
+            {verifyEmail ? 'Check your email' : forgotMode ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
+          </Text>
+          <Text style={[styles.sub, { color: T.textSub }]} maxFontSizeMultiplier={1.3}>
+            {verifyEmail
+              ? `We sent a link to ${verifyEmail}. Tap it to finish creating your account, then come back here.`
+              : forgotMode
+                ? (!resetSent ? 'Enter your email and we will send a 6-digit code.' : !otpVerified ? `We sent a 6-digit code to ${resetEmail}.` : 'Choose a new password.')
+                : isSignUp ? 'Join the conversation shaping Kenya.' : 'Pick up where you left off.'}
+          </Text>
+
+          {/* waiting on the email link */}
+          {verifyEmail && (
+            <View style={styles.form}>
+              <Pressable onPress={() => { setVerifyEmail(null); setIsSignUp(false); }} accessibilityRole="button"
+                style={({ pressed }) => [styles.primary, { backgroundColor: T.text }, pressed && { opacity: 0.85 }]}>
+                <Text style={[styles.primaryText, { color: T.bg }]} maxFontSizeMultiplier={1.2}>Back to sign in</Text>
+              </Pressable>
             </View>
+          )}
 
-            {/* Forgot Password Flow */}
-            {forgotMode && (
-              <View style={styles.formContainer}>
-                {!resetSent && (
-                  /* Step 1: Enter email */
-                  <>
-                    <Text style={styles.resetSubtitle}>
-                      Enter your email and we'll send you a 6-digit code to reset your password.
-                    </Text>
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="mail-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, styles.inputWithIcon]}
-                        placeholder="Email address"
-                        placeholderTextColor="#636366"
-                        value={resetEmail}
-                        onChangeText={setResetEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        autoComplete="email"
-                      />
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.submitButton, (resetLoading || !resetEmail) && styles.submitButtonDisabled]}
-                      disabled={resetLoading || !resetEmail}
-                      onPress={async () => {
-                        setResetLoading(true);
-                        const result = await resetPassword(resetEmail);
-                        setResetLoading(false);
-                        if (result.success) {
-                          setResetSent(true);
-                        } else {
-                          appAlert('Error', result.error || 'Failed to send code.');
-                        }
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      {resetLoading ? (
-                        <ActivityIndicator color="#000000" size="small" />
-                      ) : (
-                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Send code</Text>
-                      )}
-                    </TouchableOpacity>
-                  </>
-                )}
-
-                {resetSent && !otpVerified && (
-                  /* Step 2: Enter 6-digit OTP */
-                  <>
-                    <Text style={styles.resetSubtitle}>
-                      We sent a 6-digit code to {resetEmail}. Enter it below.
-                    </Text>
-                    <TouchableOpacity
-                      activeOpacity={1}
-                      onPress={() => otpInputRef.current?.focus()}
-                      style={styles.otpWrapper}
-                    >
-                      <View style={styles.otpBoxRow} pointerEvents="none">
-                        {[0, 1, 2, 3, 4, 5].map(i => (
-                          <View key={i} style={[
-                            styles.otpBox,
-                            i < otpCode.length ? styles.otpBoxFilled : (i === otpCode.length && styles.otpBoxActive),
-                          ]}>
-                            <Text style={styles.otpDigit} maxFontSizeMultiplier={1.2}>{otpCode[i] || ''}</Text>
-                          </View>
-                        ))}
-                      </View>
-                      <TextInput
-                        ref={otpInputRef}
-                        style={styles.otpHiddenInput}
-                        value={otpCode}
-                        onChangeText={(t) => setOtpCode(t.replace(/[^0-9]/g, '').slice(0, 6))}
-                        keyboardType="number-pad"
-                        maxLength={6}
-                        caretHidden
-                        autoFocus
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.submitButton, (otpLoading || otpCode.length < 6) && styles.submitButtonDisabled]}
-                      disabled={otpLoading || otpCode.length < 6}
-                      onPress={handleVerifyOTP}
-                      activeOpacity={0.8}
-                    >
-                      {otpLoading ? (
-                        <ActivityIndicator color="#000000" size="small" />
-                      ) : (
-                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Verify code</Text>
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.resendBtn}
-                      onPress={async () => {
-                        setOtpCode('');
-                        setResetLoading(true);
-                        await resetPassword(resetEmail);
-                        setResetLoading(false);
-                        appAlert('Code resent', 'A new code has been sent to your email.');
-                      }}
-                    >
-                      <Text style={styles.resendText}>
-                        {resetLoading ? 'Sending…' : "Didn't get it? Resend code"}
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-
-                {resetSent && otpVerified && (
-                  /* Step 3: Set new password */
-                  <>
-                    <Text style={styles.resetSubtitle}>
-                      Choose a new password for your account.
-                    </Text>
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, styles.inputWithIcon, styles.passwordInput]}
-                        placeholder="New password (min. 8 characters)"
-                        placeholderTextColor="#636366"
-                        value={newPassword}
-                        onChangeText={setNewPassword}
-                        secureTextEntry={!showNewPw}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      <TouchableOpacity style={styles.eyeButton} onPress={() => setShowNewPw(!showNewPw)}>
-                        <Ionicons name={showNewPw ? 'eye-off' : 'eye'} size={20} color="#8E8E93" />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, styles.inputWithIcon, styles.passwordInput]}
-                        placeholder="Confirm new password"
-                        placeholderTextColor="#636366"
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry={!showConfirmPw}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmPw(!showConfirmPw)}>
-                        <Ionicons name={showConfirmPw ? 'eye-off' : 'eye'} size={20} color="#8E8E93" />
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.submitButton, (resetPwLoading || !newPassword || !confirmPassword) && styles.submitButtonDisabled]}
-                      disabled={resetPwLoading || !newPassword || !confirmPassword}
-                      onPress={handleSetNewPassword}
-                      activeOpacity={0.8}
-                    >
-                      {resetPwLoading ? (
-                        <ActivityIndicator color="#000000" size="small" />
-                      ) : (
-                        <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Set new password</Text>
-                      )}
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            )}
-
-            {/* Form Container */}
-            {!forgotMode && <View style={styles.formContainer}>
-              {isSignUp && (
+          {/* forgot password */}
+          {forgotMode && !verifyEmail && (
+            <View style={styles.form}>
+              {!resetSent && (
                 <>
-                  <View style={styles.inputContainer}>
-                    <Ionicons
-                      name="person-outline"
-                      size={20}
-                      color="#8E8E93"
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.inputWithIcon,
-                        focusedField === 'firstName' && styles.inputFocused
-                      ]}
-                      placeholder="First Name"
-                      placeholderTextColor="#636366"
-                      value={firstName}
-                      onChangeText={setFirstName}
-                      onFocus={handleFocusFirstName}
-                      onBlur={handleBlur}
-                      autoCapitalize="words"
-                      autoCorrect={false}
-                    />
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Ionicons
-                      name="person-outline"
-                      size={20}
-                      color="#8E8E93"
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.inputWithIcon,
-                        focusedField === 'lastName' && styles.inputFocused
-                      ]}
-                      placeholder="Last Name"
-                      placeholderTextColor="#636366"
-                      value={lastName}
-                      onChangeText={setLastName}
-                      onFocus={handleFocusLastName}
-                      onBlur={handleBlur}
-                      autoCapitalize="words"
-                      autoCorrect={false}
-                    />
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.usernameAt}>@</Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.inputWithAt,
-                        styles.inputWithStatusIcon,
-                        focusedField === 'username' && styles.inputFocused,
-                        usernameStatus === 'taken' && styles.inputError,
-                        usernameStatus === 'reserved' && styles.inputError,
-                        usernameStatus === 'available' && styles.inputSuccess,
-                      ]}
-                      placeholder="username"
-                      placeholderTextColor="#636366"
-                      value={username}
-                      onChangeText={(text) => {
-                        setUsernameTouched(true);
-                        setUsername(text.toLowerCase().replace(/[^a-z0-9_]/g, ''));
-                      }}
-                      onFocus={handleFocusUsername}
-                      onBlur={handleBlur}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                    {usernameStatus === 'checking' && (
-                      <ActivityIndicator size="small" color="#8E8E93" style={styles.statusIcon} />
-                    )}
-                    {usernameStatus === 'available' && (
-                      <Ionicons name="checkmark-circle" size={20} color="#5CB85C" style={styles.statusIcon} />
-                    )}
-                    {(usernameStatus === 'taken' || usernameStatus === 'reserved') && (
-                      <Ionicons name="close-circle" size={20} color="#FF3B30" style={styles.statusIcon} />
-                    )}
-                    {(usernameStatus === 'taken' || usernameStatus === 'reserved' || usernameStatus === 'short') && (
-                      <Text style={styles.usernameHint}>
-                        {usernameStatus === 'taken' && 'Username already taken'}
-                        {usernameStatus === 'reserved' && 'That username is reserved'}
-                        {usernameStatus === 'short' && 'At least 3 characters required'}
-                      </Text>
-                    )}
-                  </View>
+                  <TextInput
+                    style={fieldStyle('email', !!resetError)}
+                    placeholder="Email address"
+                    placeholderTextColor={T.placeholder}
+                    value={resetEmail}
+                    onChangeText={t => { setResetEmail(t); setResetError(null); }}
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                  />
+                  {resetError && <Text style={[styles.err, { color: T.error }]}>{resetError}</Text>}
+                  <Pressable
+                    onPress={sendResetCode}
+                    disabled={resetLoading || !resetEmail.trim()}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.primary, { backgroundColor: T.text }, (pressed || resetLoading || !resetEmail.trim()) && { opacity: resetLoading || !resetEmail.trim() ? 0.35 : 0.85 }]}
+                  >
+                    {resetLoading ? <ActivityIndicator color={T.bg} size="small" /> : <Text style={[styles.primaryText, { color: T.bg }]} maxFontSizeMultiplier={1.2}>Send code</Text>}
+                  </Pressable>
                 </>
               )}
 
-              <View style={styles.inputContainer}>
-                <Ionicons
-                  name="mail-outline"
-                  size={20}
-                  color="#8E8E93"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.inputWithIcon,
-                    focusedField === 'email' && styles.inputFocused
-                  ]}
-                  placeholder="Email address"
-                  placeholderTextColor="#636366"
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={handleFocusEmail}
-                  onBlur={handleBlur}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={20}
-                  color="#8E8E93"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.inputWithIcon,
-                    styles.passwordInput,
-                    focusedField === 'password' && styles.inputFocused
-                  ]}
-                  placeholder="Password"
-                  placeholderTextColor="#636366"
-                  value={password}
-                  onChangeText={setPassword}
-                  onFocus={handleFocusPassword}
-                  onBlur={handleBlur}
-                  secureTextEntry={!showPassword}
-                  autoComplete="password"
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  style={styles.eyeButton}
-                  onPress={togglePasswordVisibility}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off' : 'eye'}
-                    size={20}
-                    color="#8E8E93"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {!isSignUp && (
-                <TouchableOpacity
-                  onPress={() => { setForgotMode(true); setResetSent(false); setOtpCode(''); setOtpVerified(false); setResetEmail(email); }}
-                  style={styles.forgotLink}
-                >
-                  <Text style={styles.forgotText}>Forgot password?</Text>
-                </TouchableOpacity>
+              {resetSent && !otpVerified && (
+                <>
+                  <Pressable onPress={() => otpInputRef.current?.focus()} style={styles.otpWrap} accessibilityLabel="6-digit code">
+                    <View style={styles.otpRow} pointerEvents="none">
+                      {[0, 1, 2, 3, 4, 5].map(i => (
+                        <View key={i} style={[
+                          styles.otpBox,
+                          { backgroundColor: T.inputBg, borderColor: i < otpCode.length ? T.text : i === otpCode.length ? T.text : T.borderLight },
+                          i === otpCode.length && { borderWidth: 2 },
+                        ]}>
+                          <Text style={[styles.otpDigit, { color: T.text }]} maxFontSizeMultiplier={1.2}>{otpCode[i] || ''}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <TextInput
+                      ref={otpInputRef}
+                      style={styles.otpHidden}
+                      value={otpCode}
+                      onChangeText={t => { setOtpCode(t.replace(/[^0-9]/g, '').slice(0, 6)); setResetError(null); }}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      caretHidden
+                      autoFocus
+                    />
+                  </Pressable>
+                  {resetError && <Text style={[styles.err, { color: T.error }]}>{resetError}</Text>}
+                  {resetNote && !resetError && <Text style={[styles.note, { color: T.textSub }]}>{resetNote}</Text>}
+                  <Pressable
+                    onPress={handleVerifyOTP}
+                    disabled={otpLoading || otpCode.length < 6}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.primary, { backgroundColor: T.text }, (otpLoading || otpCode.length < 6) ? { opacity: 0.35 } : pressed && { opacity: 0.85 }]}
+                  >
+                    {otpLoading ? <ActivityIndicator color={T.bg} size="small" /> : <Text style={[styles.primaryText, { color: T.bg }]} maxFontSizeMultiplier={1.2}>Verify code</Text>}
+                  </Pressable>
+                  <Pressable
+                    style={styles.linkBtn}
+                    disabled={resetLoading}
+                    onPress={async () => {
+                      setOtpCode('');
+                      setResetError(null);
+                      setResetLoading(true);
+                      const r = await resetPassword(resetEmail);
+                      setResetLoading(false);
+                      if (r.success) setResetNote('A new code is on its way.');
+                      else setResetError(r.error || 'Could not resend the code.');
+                    }}
+                  >
+                    <Text style={[styles.link, { color: T.text }]}>{resetLoading ? 'Sending' : 'Did not get it? Resend code'}</Text>
+                  </Pressable>
+                </>
               )}
 
-              <TouchableOpacity
-                style={[styles.submitButton, (loading || !email || !password) && styles.submitButtonDisabled]}
-                onPress={handleSubmit}
-                disabled={loading || !email || !password}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#000000" size="small" />
-                ) : (
-                  <Text style={styles.submitButtonText} numberOfLines={1} maxFontSizeMultiplier={1.3}>
-                    {isSignUp ? 'Create account' : 'Log in'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>}
-
-            {/* Google Sign-In */}
-            {!forgotMode && (
-              <View style={styles.oauthSection}>
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-                <TouchableOpacity
-                  style={[styles.googleBtn, loading && styles.submitButtonDisabled]}
-                  disabled={loading}
-                  activeOpacity={0.8}
-                  onPress={async () => {
-                    const result = await signInWithGoogle();
-                    if (!result.success && result.error && result.error !== 'Sign-in cancelled') {
-                      appAlert('Google Sign-In Failed', result.error);
-                    }
-                  }}
-                >
-                  <Image
-                    source={require('../../assets/google-icon.png')}
-                    style={styles.googleIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.googleBtnText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Continue with Google</Text>
-                </TouchableOpacity>
-
-                {appleAvailable && (
-                  <View style={styles.appleWrap}>
-                  <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={14}
-                    style={styles.appleBtn}
-                    onPress={async () => {
-                      const result = await signInWithApple();
-                      if (!result.success && result.error && result.error !== 'Sign-in cancelled') {
-                        appAlert('Apple Sign-In Failed', result.error);
-                      }
-                    }}
-                  />
+              {resetSent && otpVerified && (
+                <>
+                  <View style={styles.pwWrap}>
+                    <TextInput
+                      style={[...fieldStyle('newPassword', !!resetError), styles.pwInput]}
+                      placeholder="New password (8+ characters)"
+                      placeholderTextColor={T.placeholder}
+                      value={newPassword}
+                      onChangeText={t => { setNewPassword(t); setResetError(null); }}
+                      onFocus={() => setFocusedField('newPassword')}
+                      onBlur={() => setFocusedField(null)}
+                      secureTextEntry={!showNewPw}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <Pressable style={styles.eye} onPress={() => setShowNewPw(v => !v)} hitSlop={8} accessibilityLabel={showNewPw ? 'Hide password' : 'Show password'}>
+                      <Ionicons name={showNewPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={T.textSub} />
+                    </Pressable>
                   </View>
-                )}
-              </View>
-            )}
+                  <View style={styles.pwWrap}>
+                    <TextInput
+                      style={[...fieldStyle('confirm', !!resetError), styles.pwInput]}
+                      placeholder="Confirm new password"
+                      placeholderTextColor={T.placeholder}
+                      value={confirmPassword}
+                      onChangeText={t => { setConfirmPassword(t); setResetError(null); }}
+                      onFocus={() => setFocusedField('confirm')}
+                      onBlur={() => setFocusedField(null)}
+                      secureTextEntry={!showConfirmPw}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <Pressable style={styles.eye} onPress={() => setShowConfirmPw(v => !v)} hitSlop={8} accessibilityLabel={showConfirmPw ? 'Hide password' : 'Show password'}>
+                      <Ionicons name={showConfirmPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={T.textSub} />
+                    </Pressable>
+                  </View>
+                  {resetError && <Text style={[styles.err, { color: T.error }]}>{resetError}</Text>}
+                  <Pressable
+                    onPress={handleSetNewPassword}
+                    disabled={resetPwLoading || !newPassword || !confirmPassword}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.primary, { backgroundColor: T.text }, (resetPwLoading || !newPassword || !confirmPassword) ? { opacity: 0.35 } : pressed && { opacity: 0.85 }]}
+                  >
+                    {resetPwLoading ? <ActivityIndicator color={T.bg} size="small" /> : <Text style={[styles.primaryText, { color: T.bg }]} maxFontSizeMultiplier={1.2}>Set new password</Text>}
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
 
-            {/* Switch Auth Mode */}
-            {!forgotMode && <View style={[styles.footer, compact && { marginTop: 16 }]}>
-              <Text style={styles.footerText}>
-                {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-              </Text>
-              <TouchableOpacity onPress={toggleAuthMode} style={styles.switchButton}>
-                <Text style={styles.switchText}>
-                  {isSignUp ? 'Log in' : 'Sign up'}
-                </Text>
-              </TouchableOpacity>
-            </View>}
-          </Animated.View>
+          {/* sign in / sign up */}
+          {!forgotMode && !verifyEmail && (
+            <View style={styles.form}>
+              {isSignUp && (
+                <>
+                  <View style={styles.row}>
+                    <View style={styles.flex}>
+                      <TextInput
+                        style={fieldStyle('firstName', !!errors.firstName)}
+                        placeholder="First name"
+                        placeholderTextColor={T.placeholder}
+                        value={firstName}
+                        onChangeText={t => { setFirstName(t); setError('firstName'); }}
+                        onFocus={() => setFocusedField('firstName')}
+                        onBlur={() => setFocusedField(null)}
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                        autoComplete="given-name"
+                      />
+                      {errors.firstName && <Text style={[styles.err, { color: T.error }]}>{errors.firstName}</Text>}
+                    </View>
+                    <View style={styles.flex}>
+                      <TextInput
+                        style={fieldStyle('lastName', !!errors.lastName)}
+                        placeholder="Last name"
+                        placeholderTextColor={T.placeholder}
+                        value={lastName}
+                        onChangeText={t => { setLastName(t); setError('lastName'); }}
+                        onFocus={() => setFocusedField('lastName')}
+                        onBlur={() => setFocusedField(null)}
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                        autoComplete="family-name"
+                      />
+                      {errors.lastName && <Text style={[styles.err, { color: T.error }]}>{errors.lastName}</Text>}
+                    </View>
+                  </View>
+
+                  <View style={styles.pwWrap}>
+                    <Text style={[styles.at, { color: T.textSub }]}>@</Text>
+                    <TextInput
+                      style={[
+                        ...fieldStyle('username', !!errors.username || usernameStatus === 'taken' || usernameStatus === 'reserved'),
+                        styles.withAt,
+                        usernameStatus === 'available' && { borderColor: T.accent },
+                      ]}
+                      placeholder="username"
+                      placeholderTextColor={T.placeholder}
+                      value={username}
+                      onChangeText={text => {
+                        setUsernameTouched(true);
+                        setUsername(text.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+                        setError('username');
+                      }}
+                      onFocus={() => setFocusedField('username')}
+                      onBlur={() => setFocusedField(null)}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="username"
+                    />
+                    <View style={styles.status} pointerEvents="none">
+                      {usernameStatus === 'checking' && <ActivityIndicator size="small" color={T.textSub} />}
+                      {usernameStatus === 'available' && <Ionicons name="checkmark-circle" size={20} color={T.accent} />}
+                      {(usernameStatus === 'taken' || usernameStatus === 'reserved') && <Ionicons name="close-circle" size={20} color={T.error} />}
+                    </View>
+                  </View>
+                  {(errors.username || usernameStatus === 'taken' || usernameStatus === 'reserved' || usernameStatus === 'short') && (
+                    <Text style={[styles.err, { color: T.error }]}>
+                      {errors.username
+                        || (usernameStatus === 'taken' ? 'That username is taken.' : usernameStatus === 'reserved' ? 'That username is reserved.' : 'At least 3 characters.')}
+                    </Text>
+                  )}
+                </>
+              )}
+
+              <TextInput
+                style={fieldStyle('email', !!errors.email)}
+                placeholder="Email address"
+                placeholderTextColor={T.placeholder}
+                value={email}
+                onChangeText={t => { setEmail(t); setError('email'); setError('form'); }}
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                textContentType="emailAddress"
+              />
+              {errors.email && <Text style={[styles.err, { color: T.error }]}>{errors.email}</Text>}
+
+              <View style={styles.pwWrap}>
+                <TextInput
+                  style={[...fieldStyle('password', !!errors.password), styles.pwInput]}
+                  placeholder="Password"
+                  placeholderTextColor={T.placeholder}
+                  value={password}
+                  onChangeText={t => { setPassword(t); setError('password'); setError('form'); }}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showPassword}
+                  autoComplete={isSignUp ? 'new-password' : 'password'}
+                  textContentType={isSignUp ? 'newPassword' : 'password'}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  returnKeyType="go"
+                  onSubmitEditing={handleSubmit}
+                />
+                <Pressable style={styles.eye} onPress={togglePasswordVisibility} hitSlop={8} accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={T.textSub} />
+                </Pressable>
+              </View>
+              {errors.password && <Text style={[styles.err, { color: T.error }]}>{errors.password}</Text>}
+
+              {!isSignUp && (
+                <Pressable
+                  onPress={() => { setForgotMode(true); setResetSent(false); setOtpCode(''); setOtpVerified(false); setResetEmail(email); setResetError(null); }}
+                  style={styles.forgot}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.link, { color: T.text }]}>Forgot password?</Text>
+                </Pressable>
+              )}
+
+              {errors.form && <Text style={[styles.err, styles.formErr, { color: T.error }]}>{errors.form}</Text>}
+
+              <Pressable
+                onPress={handleSubmit}
+                disabled={busy}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.primary, { backgroundColor: T.text, marginTop: isSignUp ? 14 : 6 }, busy ? { opacity: 0.5 } : pressed && { opacity: 0.85 }]}
+              >
+                {loading && !oauthBusy ? <ActivityIndicator color={T.bg} size="small" /> : <Text style={[styles.primaryText, { color: T.bg }]} maxFontSizeMultiplier={1.2}>Continue</Text>}
+              </Pressable>
+
+              <View style={styles.dividerRow}>
+                <View style={[styles.dividerLine, { backgroundColor: T.borderLight }]} />
+                <Text style={[styles.dividerText, { color: T.textSub }]}>or</Text>
+                <View style={[styles.dividerLine, { backgroundColor: T.borderLight }]} />
+              </View>
+
+              {appleAvailable && (
+                <Pressable
+                  onPress={() => runOAuth('apple')}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.oauth, { backgroundColor: T.card, borderColor: T.border }, busy ? { opacity: 0.5 } : pressed && { opacity: 0.8 }]}
+                >
+                  {oauthBusy === 'apple' ? <ActivityIndicator color={T.text} size="small" /> : (
+                    <>
+                      <Ionicons name="logo-apple" size={22} color={T.text} style={{ marginTop: -2 }} />
+                      <Text style={[styles.oauthText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Continue with Apple</Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
+
+              <Pressable
+                onPress={() => runOAuth('google')}
+                disabled={busy}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.oauth, { backgroundColor: T.card, borderColor: T.border }, busy ? { opacity: 0.5 } : pressed && { opacity: 0.8 }]}
+              >
+                {oauthBusy === 'google' ? <ActivityIndicator color={T.text} size="small" /> : (
+                  <>
+                    <Image source={require('../../assets/google-icon.png')} style={styles.googleIcon} resizeMode="contain" />
+                    <Text style={[styles.oauthText, { color: T.text }]} numberOfLines={1} maxFontSizeMultiplier={1.2}>Continue with Google</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          )}
+
+          {!forgotMode && !verifyEmail && (
+            <View style={styles.footer}>
+              <Text style={[styles.footerText, { color: T.textSub }]}>{isSignUp ? 'Have an account?' : 'New here?'}</Text>
+              <Pressable onPress={toggleAuthMode} style={styles.switch} hitSlop={6} accessibilityRole="button">
+                <Text style={[styles.switchText, { color: T.text }]}>{isSignUp ? 'Sign in' : 'Create an account'}</Text>
+              </Pressable>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
-
     </SafeAreaView>
   );
 }
 
-// Design tokens (screen is dark-only; values mirror src/theme/colors.ts)
-const BG = '#000000';
-const TEXT = '#FFFFFF';
-const MUTED = '#8E8E93';
-const FAINT = '#636366';
-const BORDER = '#2A2A2A';
-const ACCENT = '#5CB85C';
-const ERROR = '#FF3B30';
+/** Supabase's own wording, made plainer where it is terse */
+function friendly(msg: string) {
+  if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.';
+  if (/email not confirmed/i.test(msg)) return 'Confirm your email first. Check your inbox for the link.';
+  if (/already registered|already been registered/i.test(msg)) return 'There is already an account with this email. Sign in instead.';
+  if (/rate limit|too many/i.test(msg)) return 'Too many tries. Wait a minute and try again.';
+  return msg;
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BG,
-  },
-  keyboardContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  content: {
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-  },
-  contentCompact: {
-    paddingVertical: 16,
-  },
-  header: {
-    marginBottom: 32,
-    alignItems: 'center',
-  },
-  headerCompact: {
-    marginBottom: 20,
-  },
-  logoContainer: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoImage: {
-    width: 72,
-    height: 48,
-    marginBottom: 28,
-  },
-  logoImageCompact: {
-    width: 60,
-    height: 40,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 32,
-    color: TEXT,
-    fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: -0.8,
-    textAlign: 'center',
-  },
-  titleCompact: {
-    fontSize: 28,
-  },
-  // Sits between two 36pt buttons: 320 − 48 gutter − 72 = 200pt, so it must shrink, not overflow.
-  forgotTitle: {
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: MUTED,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  formContainer: {
-    marginBottom: 24,
-  },
-  inputContainer: {
-    marginBottom: 12,
-    position: 'relative',
-  },
-  // Plain filled fields (no icons inside: the placeholder already says what goes there)
-  inputIcon: {
-    display: 'none',
-  },
-  input: {
-    height: 54,
-    backgroundColor: '#111113',
-    borderWidth: 1,
-    borderColor: '#1F1F22',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 0,
-    fontSize: 16,
-    color: TEXT,
-  },
-  inputWithIcon: {
-    paddingLeft: 16,
-  },
-  usernameAt: {
-    position: 'absolute',
-    left: 16,
-    top: 15,
-    zIndex: 1,
-    fontSize: 16,
-    color: MUTED,
-    fontWeight: '600',
-  },
-  inputWithAt: {
-    paddingLeft: 34,
-  },
-  inputWithStatusIcon: {
-    paddingRight: 44,
-  },
-  inputError: {
-    borderColor: ERROR,
-  },
-  inputSuccess: {
-    borderColor: ACCENT,
-  },
-  statusIcon: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
-  },
-  usernameHint: {
-    fontSize: 13,
-    color: ERROR,
-    marginTop: 6,
-    marginLeft: 4,
-  },
-  inputFocused: {
-    borderColor: ACCENT,
-  },
-  passwordInput: {
-    paddingRight: 52,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: 12,
-    top: 13,
-    padding: 4,
-  },
-  submitButton: {
-    height: 54,
-    backgroundColor: '#F2F2F2',
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  submitButtonDisabled: {
-    opacity: 0.3,
-  },
-  submitButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: -0.1,
-  },
-  oauthSection: {
-    marginTop: 0,
-    marginBottom: 8,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: BORDER,
-  },
-  dividerText: {
-    color: FAINT,
-    fontSize: 13,
-  },
-  googleBtn: {
-    height: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0F0F10',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#2C2C2E',
-    paddingHorizontal: 20,
-    gap: 10,
-  },
-  googleIcon: {
-    width: 18,
-    height: 18,
-  },
-  googleBtnText: {
-    flexShrink: 1,
-    color: TEXT,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  appleWrap: {
-    marginTop: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#2C2C2E',
-    overflow: 'hidden',
-  },
-  appleBtn: {
-    width: '100%',
-    height: 52,
-  },
-  footer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  footerText: {
-    color: MUTED,
-    fontSize: 15,
-  },
-  switchButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-  },
-  switchText: {
-    color: ACCENT,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  forgotHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: BORDER,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtnPlaceholder: {
-    width: 36,
-  },
-  forgotLink: {
-    alignSelf: 'flex-end',
-    marginBottom: 4,
-    paddingVertical: 6,
-  },
-  forgotText: {
-    color: ACCENT,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  resetSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: MUTED,
-    marginBottom: 24,
-  },
-  otpWrapper: {
-    position: 'relative',
-    marginVertical: 24,
-  },
-  // 6×46 + 5×10 = 326pt overflowed the 272pt (320 wide) / 312pt (360 wide) content area.
-  // flex:1 + maxWidth keeps 46pt boxes where they fit and shrinks them (≈38pt at 320) otherwise.
-  otpBoxRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  otpBox: {
-    flex: 1,
-    maxWidth: 46,
-    height: 56,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  otpBoxActive: {
-    borderColor: ACCENT,
-  },
-  otpBoxFilled: {
-    borderColor: '#3A3A3A',
-    backgroundColor: '#0E0E0E',
-  },
-  otpDigit: {
-    fontSize: 22,
-    color: TEXT,
-    fontFamily: 'SpaceGrotesk_700Bold',
-  },
-  otpHiddenInput: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    color: 'transparent',
-    backgroundColor: 'transparent',
-  },
-  resendBtn: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 4,
-  },
-  resendText: {
-    color: ACCENT,
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  container: { flex: 1 },
+  flex: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 28 },
+  topRow: { height: 44, justifyContent: 'center', marginBottom: 12 },
+  back: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.6 },
+  sub: { fontSize: 15, lineHeight: 21, marginTop: 6 },
+  form: { marginTop: 24 },
+  row: { flexDirection: 'row', gap: 10 },
+  input: { height: 54, borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 0, fontSize: 16, marginTop: 10 },
+  pwWrap: { position: 'relative' },
+  pwInput: { paddingRight: 50 },
+  eye: { position: 'absolute', right: 14, top: 10 + 17, padding: 2 },
+  at: { position: 'absolute', left: 16, top: 10 + 17, zIndex: 1, fontSize: 16, fontWeight: '600' },
+  withAt: { paddingLeft: 34, paddingRight: 44 },
+  status: { position: 'absolute', right: 14, top: 10 + 17 },
+  err: { fontSize: 13, lineHeight: 17, marginTop: 6, marginLeft: 4 },
+  formErr: { marginTop: 12, marginLeft: 0 },
+  note: { fontSize: 13, lineHeight: 17, marginTop: 6, marginLeft: 4 },
+  forgot: { alignSelf: 'flex-end', paddingVertical: 10 },
+  link: { fontSize: 14, fontWeight: '600' },
+  linkBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  primary: { height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
+  primaryText: { fontSize: 17, fontWeight: '700' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13 },
+  oauth: { height: 54, borderRadius: 27, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 10 },
+  oauthText: { fontSize: 16, fontWeight: '600', flexShrink: 1 },
+  googleIcon: { width: 18, height: 18 },
+  footer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: 'auto', paddingTop: 20 },
+  footerText: { fontSize: 15 },
+  switch: { paddingVertical: 8, paddingHorizontal: 6 },
+  switchText: { fontSize: 15, fontWeight: '700' },
+  otpWrap: { position: 'relative', marginTop: 14, marginBottom: 4 },
+  otpRow: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  otpBox: { flex: 1, maxWidth: 48, height: 56, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  otpDigit: { fontSize: 22, fontWeight: '700' },
+  otpHidden: { position: 'absolute', width: '100%', height: '100%', color: 'transparent', backgroundColor: 'transparent', opacity: 0.01 },
 });

@@ -97,6 +97,11 @@ interface StoryState {
   composerOpen: boolean;
   composerSeed: ComposerSeed | null;
   posting: boolean;
+  /** 0..1 while posting: file read, upload, then the server call */
+  postProgress: number;
+  /** The last post did not go through; the draft is kept and `retryPost` sends it again */
+  postFailed: boolean;
+  retryPost: (() => void) | null;
   meId: string | null;
 
   fetchFeed: () => Promise<void>;
@@ -115,6 +120,9 @@ interface StoryState {
   removeStory: (storyId: string) => void;
   setComposerOpen: (open: boolean) => void;
   setPosting: (p: boolean) => void;
+  setPostProgress: (p: number) => void;
+  /** Keep the failed draft's retry; null clears the failed state */
+  setPostFailed: (retry: (() => void) | null) => void;
   /** Stories rail as last seen (unexpired only), for offline launch */
   hydrate: () => Promise<void>;
   reset: () => void;
@@ -144,6 +152,9 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   composerOpen: false,
   composerSeed: null,
   posting: false,
+  postProgress: 0,
+  postFailed: false,
+  retryPost: null,
   meId: null,
 
   fetchFeed: async () => {
@@ -241,7 +252,9 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   },
 
   setComposerOpen: (open) => set(open ? { composerOpen: true } : { composerOpen: false, composerSeed: null }),
-  setPosting: (p) => set({ posting: p }),
+  setPosting: (p) => set(p ? { posting: true, postProgress: 0, postFailed: false, retryPost: null } : { posting: false }),
+  setPostProgress: (p) => set(s => ({ postProgress: Math.max(s.posting ? s.postProgress : 0, Math.min(1, p)) })),
+  setPostFailed: (retry) => set(retry ? { postFailed: true, retryPost: retry, posting: false } : { postFailed: false, retryPost: null }),
   hydrate: async () => {
     if (get().groups.length) return;
     const saved = await readSnap<StoryGroup[]>('stories');
@@ -254,5 +267,5 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     if (groups.length) set({ groups });
   },
 
-  reset: () => set({ groups: [], loaded: false, viewer: null, composerOpen: false, composerSeed: null, posting: false }),
+  reset: () => set({ groups: [], loaded: false, viewer: null, composerOpen: false, composerSeed: null, posting: false, postProgress: 0, postFailed: false, retryPost: null }),
 }));

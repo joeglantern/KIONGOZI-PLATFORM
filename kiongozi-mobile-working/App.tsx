@@ -24,7 +24,7 @@ import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
 import { useSupabaseDeepLink } from './src/hooks/useSupabaseDeepLink';
 import AppNavigator from './src/navigation/AppNavigator';
 import LoginScreen from './src/screens/LoginScreen';
-import OnboardingScreen from './src/screens/OnboardingScreen';
+import OnboardingScreen, { OnboardingChoice } from './src/screens/OnboardingScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePrefs } from './src/stores/prefsStore';
@@ -56,6 +56,8 @@ export default function App() {
   });
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // Which door the welcome screen was left through (sign up or sign in)
+  const [authMode, setAuthMode] = useState<OnboardingChoice>('signin');
   const [showResetPassword, setShowResetPassword] = useState(false);
   const navRef = useRef<any>(null);
 
@@ -166,7 +168,7 @@ export default function App() {
     return withSplash(
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <OnboardingScreen onDone={() => setShowOnboarding(false)} />
+          <OnboardingScreen onDone={choice => { setAuthMode(choice); setShowOnboarding(false); }} />
         </GestureHandlerRootView>
       </SafeAreaProvider>
     );
@@ -180,7 +182,7 @@ export default function App() {
           {user ? (
             <AppNavigator navRef={navRef} />
           ) : (
-            <LoginScreen onLoginSuccess={() => {}} />
+            <LoginScreen onLoginSuccess={() => {}} initialMode={authMode} onBack={() => setShowOnboarding(true)} />
           )}
         </ScreenErrorBoundary>
         <ResetPasswordScreen

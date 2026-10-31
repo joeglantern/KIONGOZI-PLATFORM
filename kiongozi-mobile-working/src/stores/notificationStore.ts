@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import apiClient from '../utils/apiClient';
 import { saveSnap, readSnap } from '../utils/snapshot';
+import { useProfileStore } from './profileStore';
+import { toast } from '../utils/alert';
 
 export interface SocialNotification {
   id: string;
@@ -43,6 +45,10 @@ interface NotificationState {
   fetchNotifications: (refresh?: boolean) => Promise<void>;
   addNotification: (rawOrNotification: any) => void;
   removeNotification: (id: string) => void;
+  /** Swipe to remove: local only (the API has no delete for a notification yet), marked read on the server */
+  dismiss: (id: string) => void;
+  /** Accept / decline a follow request: the row goes at once; it comes back with a toast if the server says no */
+  respondToFollowRequest: (n: SocialNotification, kind: 'accept' | 'decline') => Promise<void>;
   markAllRead: () => void;
   markRead: (id: string) => void;
   hydrate: () => Promise<void>;
@@ -100,6 +106,35 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount: notifications.filter(n => !n.read).length,
       };
     });
+  },
+
+  dismiss: (id: string) => {
+    const n = get().notifications.find(x => x.id === id);
+    if (n && !n.read) apiClient.markNotificationRead(id).catch(() => {});
+    get().removeNotification(id);
+  },
+
+  respondToFollowRequest: async (item, kind) => {
+    const requestId = item.data?.request_id as string | undefined;
+    const fromUserId = (item.data?.from_user_id as string | undefined) || item.fromUserId;
+    if (!requestId && !fromUserId) return;
+    const snapshot = get().notifications;
+    if (!item.read) apiClient.markNotificationRead(item.id).catch(() => {});
+    get().removeNotification(item.id);
+    const profile = useProfileStore.getState();
+    const me = profile.currentUserProfile;
+    if (kind === 'accept' && me) profile.updateCurrentUserProfile({ follower_count: (me.follower_count || 0) + 1 });
+    const r: any = kind === 'accept'
+      ? await apiClient.acceptFollowRequest(requestId, fromUserId).catch(() => null)
+      : await apiClient.declineFollowRequest(requestId, fromUserId).catch(() => null);
+    if (r?.success || /not found/i.test(r?.error || '')) return;
+    // Put the request back
+    set({ notifications: snapshot, unreadCount: snapshot.filter(n => !n.read).length });
+    if (kind === 'accept') {
+      const cur = useProfileStore.getState().currentUserProfile;
+      if (cur) useProfileStore.getState().updateCurrentUserProfile({ follower_count: Math.max(0, (cur.follower_count || 0) - 1) });
+    }
+    toast(kind === 'accept' ? "Couldn't accept" : "Couldn't decline", { kind: 'error' });
   },
 
   markAllRead: () => {

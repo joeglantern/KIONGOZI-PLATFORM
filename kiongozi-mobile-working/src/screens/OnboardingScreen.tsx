@@ -1,289 +1,128 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  FlatList,
-  ViewToken,
-  Image,
-  Animated,
-  useWindowDimensions,
-} from 'react-native';
+// First run: one welcome screen under the Baraza sky. The island floats, two clouds drift,
+// then "Get started" goes to sign up and "I have an account" to sign in.
+// (The old three marketing slides carried no permission flow, so nothing is lost by replacing them.)
+import React, { useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, Image, Linking, useWindowDimensions } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
-// Short phones (iPhone SE 1st gen 568pt, SE2/8 667pt) get tighter spacing.
-const COMPACT_HEIGHT = 700;
+const ISLAND = require('../../assets/baraza/island.webp');
+const CLOUD = require('../../assets/baraza/cloud.png');
+const LOGO = require('../../assets/kchat-logo.png');
+const ISLAND_RATIO = 886 / 900; // island.webp height / width (same as barazaArt ISLAND.ratio)
 
-const NAVY = '#5CB85C';
-const GRAY = '#8E8E93';
-const LIGHT = '#2A2A2A';
+// Same links Settings opens
+const TERMS_URL = 'https://chat.kiongozi.org/terms';
+const PRIVACY_POLICY_URL = 'https://chat.kiongozi.org/privacy-policy';
 
-const SLIDES = [
-  {
-    id: '1',
-    title: 'Welcome to Kiongozi',
-    subtitle: 'A space where young Kenyans connect, share, and shape conversations that matter.',
-    image: require('../../assets/onboarding/slide1.png'),
-  },
-  {
-    id: '2',
-    title: 'Built for Civic Life',
-    subtitle: 'Connect with other young Kenyans, share posts, and join conversations on topics that matter to your community.',
-    image: require('../../assets/onboarding/slide2.png'),
-  },
-  {
-    id: '3',
-    title: 'Your Civic Guide',
-    subtitle: 'Get clear answers on the Constitution, governance, and public finance. One tap from anywhere in the app.',
-    image: require('../../assets/onboarding/slide3.png'),
-  },
-];
+const INK = '#1E1236';
+const INK_SOFT = '#4E4060';
 
-interface SlideItemProps {
-  item: typeof SLIDES[0];
-  isActive: boolean;
-}
-
-function SlideItem({ item, isActive }: SlideItemProps) {
-  const { width: winW, height: winH } = useWindowDimensions();
-  const compact = winH < COMPACT_HEIGHT;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.92)).current;
-
-  useEffect(() => {
-    if (isActive) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 420,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 60,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.92);
-    }
-  }, [isActive]);
-
-  return (
-    <View style={[styles.slide, { width: winW }]}>
-      {/* Image takes its preferred 40% of window height but shrinks (flexShrink) when the
-          slide area is shorter than image + text, so the text is never clipped on 320×568. */}
-      <Animated.View
-        style={[
-          styles.imageWrapper,
-          { width: winW - 48, height: winH * (compact ? 0.34 : 0.4) },
-          { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-        ]}
-      >
-        <Image
-          source={item.image}
-          style={styles.image}
-          resizeMode="contain"
-        />
-      </Animated.View>
-      <Text style={[styles.title, compact && styles.titleCompact]} maxFontSizeMultiplier={1.2}>{item.title}</Text>
-      <Text style={[styles.subtitle, compact && styles.subtitleCompact]} maxFontSizeMultiplier={1.3}>{item.subtitle}</Text>
-    </View>
-  );
-}
+export type OnboardingChoice = 'signup' | 'signin';
 
 interface Props {
-  onDone: () => void;
+  onDone: (choice: OnboardingChoice) => void;
 }
 
 export default function OnboardingScreen({ onDone }: Props) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
-  const { width: winW, height: winH } = useWindowDimensions();
-  const compact = winH < COMPACT_HEIGHT;
+  const { width: W, height: H } = useWindowDimensions();
+  const compact = H < 700;
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems[0]) {
-      setActiveIndex(viewableItems[0].index ?? 0);
-    }
-  }).current;
+  // Island width ~300, sitting between y 110 and 400 on a regular phone
+  const IW = Math.min(W * 0.8, H < 600 ? 180 : compact ? 220 : 300);
+  const IH = IW * ISLAND_RATIO;
+  const islandTop = compact ? Math.max(insets.top + 8, 56) : 110;
 
-  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+  const f = useSharedValue(0);
+  const c = useSharedValue(0);
+  useEffect(() => {
+    f.value = withRepeat(withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.sin) }), -1, true);
+    c.value = withRepeat(withTiming(1, { duration: 11000, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [f, c]);
+  const float = useAnimatedStyle(() => ({ transform: [{ translateY: -8 + f.value * 8 }] }));
+  const cloudA = useAnimatedStyle(() => ({ transform: [{ translateX: c.value * 28 }] }));
+  const cloudB = useAnimatedStyle(() => ({ transform: [{ translateX: -c.value * 22 }] }));
 
-  const finish = useCallback(async () => {
-    await AsyncStorage.setItem('onboarding_done', 'true');
-    onDone();
+  const finish = useCallback(async (choice: OnboardingChoice) => {
+    try { await AsyncStorage.setItem('onboarding_done', 'true'); } catch {}
+    onDone(choice);
   }, [onDone]);
 
-  const handleNext = useCallback(() => {
-    if (activeIndex < SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
-    } else {
-      finish();
-    }
-  }, [activeIndex, finish]);
-
-  const isLast = activeIndex === SLIDES.length - 1;
+  const open = (url: string) => Linking.openURL(url).catch(() => {});
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      {!isLast ? (
-        <TouchableOpacity
-          style={styles.skip}
-          onPress={finish}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.skipText} maxFontSizeMultiplier={1.3}>Skip</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.skipPlaceholder} />
-      )}
-
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        keyExtractor={(item) => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        renderItem={({ item, index }) => (
-          <SlideItem item={item} isActive={index === activeIndex} />
-        )}
+    <View style={styles.root}>
+      <StatusBar style="dark" />
+      <LinearGradient
+        colors={['#B9B4F0', '#DCC7EC', '#FBD3B0', '#FFE2BF']}
+        locations={[0, 0.4, 0.78, 1]}
+        style={StyleSheet.absoluteFill}
       />
 
-      {/* Android often reports insets.bottom 0 under 3-button/gesture nav, so keep a floor. */}
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + (compact ? 12 : 28) }]}>
-        <View style={[styles.dots, compact && { marginBottom: 16 }]}>
-          {SLIDES.map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]}
-            />
-          ))}
-        </View>
+      {/* sky */}
+      <Animated.Image source={CLOUD} style={[styles.cloud, { left: -16, top: islandTop + IH * 0.18, width: 104, height: 60 }, cloudA]} />
+      <Animated.Image source={CLOUD} style={[styles.cloud, { right: -10, top: islandTop + IH * 0.62, width: 78, height: 45, opacity: 0.8 }, cloudB]} />
+      <Animated.View style={[{ marginTop: islandTop, alignSelf: 'center', width: IW, height: IH }, float]}>
+        <View style={[styles.islandShadow, { left: IW * 0.18, right: IW * 0.18, height: IH * 0.16, borderRadius: IW }]} />
+        <Image source={ISLAND} style={{ width: IW, height: IH }} fadeDuration={0} accessibilityIgnoresInvertColors />
+      </Animated.View>
 
-        <TouchableOpacity style={[styles.btn, { width: winW - 48 }]} onPress={handleNext} activeOpacity={0.82}>
-          <Text style={styles.btnText} maxFontSizeMultiplier={1.3} numberOfLines={1}>{isLast ? 'Get started' : 'Next'}</Text>
-        </TouchableOpacity>
+      {/* words */}
+      <View style={[styles.copy, { marginTop: compact ? 8 : 18 }]}>
+        <Image source={LOGO} style={styles.logo} accessibilityLabel="KChat" />
+        <Text style={[styles.headline, compact && { fontSize: 30, lineHeight: 34 }]} maxFontSizeMultiplier={1.2}>
+          Kenya, say your piece.
+        </Text>
+        <Text style={styles.sub} maxFontSizeMultiplier={1.3}>
+          Posts, clips, stories and live barazas, one voice at a time. Made in Nairobi.
+        </Text>
+      </View>
+
+      {/* doors */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
+        <Pressable
+          onPress={() => finish('signup')}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.btn, styles.btnDark, pressed && { transform: [{ scale: 0.985 }], opacity: 0.92 }]}
+        >
+          <Text style={styles.btnDarkText} maxFontSizeMultiplier={1.2}>Get started</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => finish('signin')}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.btn, styles.btnLight, pressed && { transform: [{ scale: 0.985 }], opacity: 0.92 }]}
+        >
+          <Text style={styles.btnLightText} maxFontSizeMultiplier={1.2}>I have an account</Text>
+        </Pressable>
+        <Text style={styles.legal} maxFontSizeMultiplier={1.2}>
+          By continuing you agree to the{' '}
+          <Text style={styles.legalLink} onPress={() => open(TERMS_URL)} accessibilityRole="link">Terms</Text>
+          {' '}and{' '}
+          <Text style={styles.legalLink} onPress={() => open(PRIVACY_POLICY_URL)} accessibilityRole="link">Privacy Policy</Text>
+        </Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  skip: {
-    alignSelf: 'flex-end',
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  skipPlaceholder: {
-    height: 44,
-  },
-  skipText: {
-    fontSize: 15,
-    color: GRAY,
-    fontWeight: '600',
-    fontFamily: 'SpaceGrotesk_600SemiBold',
-  },
-  slide: {
-    width,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  imageWrapper: {
-    width: width - 48,
-    flexShrink: 1,
-    minHeight: 96,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginTop: 36,
-    letterSpacing: -0.8,
-    lineHeight: 38,
-    fontFamily: 'SpaceGrotesk_700Bold',
-  },
-  titleCompact: {
-    fontSize: 26,
-    lineHeight: 32,
-    marginTop: 20,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: GRAY,
-    textAlign: 'center',
-    marginTop: 14,
-    lineHeight: 24,
-    fontWeight: '400',
-    paddingHorizontal: 12,
-  },
-  subtitleCompact: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 10,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  dots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 24,
-  },
-  dot: {
-    height: 6,
-    borderRadius: 3,
-  },
-  dotActive: {
-    width: 20,
-    backgroundColor: NAVY,
-  },
-  dotInactive: {
-    width: 6,
-    backgroundColor: LIGHT,
-  },
-  btn: {
-    backgroundColor: NAVY,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  btnText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: -0.2,
-  },
+  root: { flex: 1, backgroundColor: '#DCC7EC' },
+  cloud: { position: 'absolute', opacity: 0.92 },
+  islandShadow: { position: 'absolute', bottom: 0, backgroundColor: 'rgba(60,40,110,0.16)' },
+  copy: { flex: 1, paddingHorizontal: 24, alignItems: 'flex-start' },
+  logo: { width: 44, height: 44, borderRadius: 11, marginBottom: 14 },
+  headline: { fontSize: 34, lineHeight: 38, fontWeight: '800', color: INK, letterSpacing: -0.8 },
+  sub: { fontSize: 16, lineHeight: 22, color: INK_SOFT, marginTop: 10 },
+  footer: { paddingHorizontal: 24, gap: 10 },
+  btn: { height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
+  btnDark: { backgroundColor: INK },
+  btnDarkText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  btnLight: { backgroundColor: 'rgba(255,255,255,0.7)' },
+  btnLightText: { color: INK, fontSize: 17, fontWeight: '700' },
+  legal: { fontSize: 12, lineHeight: 16, color: INK_SOFT, textAlign: 'center', marginTop: 4 },
+  legalLink: { color: INK, fontWeight: '600', textDecorationLine: 'underline' },
 });

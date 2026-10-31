@@ -1,41 +1,66 @@
-// "Your week" recap (Spotify Wrapped idea): the server draws a card from the last 7 days
-// (likes, followers, streak, top post). Add it to your story, post it, or send it out.
-import React, { useEffect, useState } from 'react';
-import { View, Text, Image, Modal, Pressable, StyleSheet, ActivityIndicator, Share, useWindowDimensions } from 'react-native';
+// "Your week" recap (Spotify Wrapped idea). The sheet draws this week's numbers itself on a deep green
+// board (GET /social/recap); sharing still uses the server-drawn 1080x1920 card (POST /social/recap/card),
+// which goes to your story, your feed, or any other app.
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, Image, Modal, Pressable, StyleSheet, ActivityIndicator, Share, ScrollView } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import apiClient from '../../utils/apiClient';
-import { useTheme } from '../../hooks/useTheme';
 import { useStoryStore } from '../../stores/storyStore';
 import { useSocialStore } from '../../stores/socialStore';
 
-let cachedPreview: { at: number; uri: string } | null = null; // the week changes slowly; reuse for 10 min
+const GREEN = '#0E3B2C';
+const LIME = '#B6E36A';
+const WHITE = '#FFFFFF';
+const TILE = 'rgba(255,255,255,0.08)';
 
-function rangeLabel() {
-  const end = new Date();
-  const start = new Date(end.getTime() - 6 * 24 * 3600 * 1000);
-  const m = (d: Date) => d.toLocaleString('en-GB', { month: 'short' });
-  return m(start) === m(end) ? `${start.getDate()}–${end.getDate()} ${m(end)}` : `${start.getDate()} ${m(start)} – ${end.getDate()} ${m(end)}`;
+type WeekStats = {
+  since: string; until: string;
+  posts: number; likes: number; comments: number; followers: number; storyViews: number;
+  activeDays: number; streak: number;
+  topPost: { id: string; content: string; likes: number } | null;
+  topTag: string | null;
+  /** not counted by the server yet */
+  barazas?: number;
+};
+
+let cachedStats: { at: number; stats: WeekStats } | null = null; // the week changes slowly; reuse for 10 min
+
+const fmt = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e4 ? `${Math.round(n / 1e3)}K` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K` : String(n);
+
+/** "24 TO 30 OCT" or "28 OCT TO 3 NOV", Nairobi time */
+function rangeLabel(since?: string, until?: string) {
+  const end = until ? new Date(until) : new Date();
+  const start = since ? new Date(since) : new Date(end.getTime() - 6 * 24 * 3600 * 1000);
+  const m = (d: Date) => d.toLocaleString('en-GB', { month: 'short', timeZone: 'Africa/Nairobi' });
+  const day = (d: Date) => Number(d.toLocaleString('en-GB', { day: 'numeric', timeZone: 'Africa/Nairobi' }));
+  return (m(start) === m(end) ? `${day(start)} to ${day(end)} ${m(end)}` : `${day(start)} ${m(start)} to ${day(end)} ${m(end)}`).toUpperCase();
 }
 
 export function RecapSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const T = useTheme();
   const insets = useSafeAreaInsets();
-  const { width: W, height: H } = useWindowDimensions();
-  const [uri, setUri] = useState<string | null>(null);
+  const [stats, setStats] = useState<WeekStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | 'story' | 'post' | 'more'>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [run, setRun] = useState(0); // bump to replay the numbers
+
+  const load = () => {
+    if (cachedStats && Date.now() - cachedStats.at < 10 * 60 * 1000) { setStats(cachedStats.stats); setRun(r => r + 1); return; }
+    setLoading(true);
+    setError(null);
+    apiClient.getRecap().then((r: any) => {
+      if (r?.success && r.data) { cachedStats = { at: Date.now(), stats: r.data }; setStats(r.data); setRun(x => x + 1); }
+      else setError(r?.error || 'Could not load your week');
+    }).catch(() => setError('Could not load your week')).finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     if (!visible) { setDone(null); setBusy(null); return; }
-    if (cachedPreview && Date.now() - cachedPreview.at < 10 * 60 * 1000) { setUri(cachedPreview.uri); return; }
-    setLoading(true);
-    apiClient.getRecapCard(true).then((r: any) => {
-      if (r?.success && r.data?.uri) { cachedPreview = { at: Date.now(), uri: r.data.uri }; setUri(r.data.uri); }
-      else setDone(r?.error || 'Could not load your week');
-    }).catch(() => setDone('Could not load your week')).finally(() => setLoading(false));
+    load();
   }, [visible]);
 
   const finish = (msg: string) => {
@@ -67,7 +92,7 @@ export function RecapSheet({ visible, onClose }: { visible: boolean; onClose: ()
     setBusy('post');
     try {
       const c = await makeFull();
-      const res: any = await apiClient.createPost('Wiki yangu kwenye KChat 📊 #WikiYangu', [{ media_type: 'image', url: c.url, storage_path: c.storage_path, width: c.width, height: c.height }]);
+      const res: any = await apiClient.createPost('My week on KChat #WikiYangu', [{ media_type: 'image', url: c.url, storage_path: c.storage_path, width: c.width, height: c.height }]);
       if (!res?.success) throw new Error(res?.error || 'Could not post');
       if (res.data) useSocialStore.getState().prependPost(res.data);
       finish('Posted to your feed');
@@ -79,50 +104,110 @@ export function RecapSheet({ visible, onClose }: { visible: boolean; onClose: ()
     try {
       const c = await makeFull();
       setBusy(null);
-      await Share.share({ url: c.url, message: `My week on KChat 📊\n${c.url}` });
+      await Share.share({ url: c.url, message: `My week on KChat\n${c.url}` });
     } catch { setBusy(null); }
   };
 
-  const maxH = Math.max(240, H - insets.top - insets.bottom - 230);
-  const pw = Math.min(W - 96, maxH * (9 / 16));
-  const ph = pw * (16 / 9);
+  // Hero: the biggest audience number we have. Post views are not counted yet, so story views stand in when they beat likes.
+  const hero = stats
+    ? stats.storyViews > stats.likes ? { n: stats.storyViews, label: 'people saw your stories' } : { n: stats.likes, label: stats.likes === 1 ? 'like this week' : 'likes this week' }
+    : null;
+
+  const tiles = stats ? [
+    { n: `+${fmt(stats.followers)}`, label: stats.followers === 1 ? 'new follower' : 'new followers' },
+    { n: fmt(stats.likes), label: stats.likes === 1 ? 'like' : 'likes' },
+    { n: fmt(stats.barazas ?? 0), label: 'barazas joined' },
+    { n: `${stats.streak} ${stats.streak === 1 ? 'day' : 'days'}`, label: 'posting streak' },
+  ] : [];
+
+  // A picture for the top post, if the feed already has it
+  const topThumb = useMemo(() => {
+    const id = stats?.topPost?.id;
+    if (!id) return null;
+    const s = useSocialStore.getState();
+    const all = [...s.feedPosts, ...s.explorePosts, ...s.forYouPosts, ...s.bookmarkPosts];
+    const p = all.find(x => x.id === id);
+    const m = p?.post_media?.[0];
+    return m ? (m.thumbnail_url || (m.media_type === 'image' ? m.url : null)) : null;
+  }, [stats?.topPost?.id]);
+
+  const stagger = (i: number) => FadeInDown.delay(i * 100).duration(420).springify().damping(18);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[styles.root, { backgroundColor: T.bg, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.root, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={styles.head}>
-          <View>
-            <Text style={[styles.title, { color: T.text }]}>Your week</Text>
-            <Text style={[styles.sub, { color: T.textSub }]}>{rangeLabel()} · new every Monday</Text>
-          </View>
-          <Pressable onPress={onClose} hitSlop={10} style={[styles.close, { backgroundColor: T.surface2 }]} accessibilityLabel="Close">
-            <Ionicons name="close" size={18} color={T.text} />
+          <Text style={styles.caption}>YOUR WEEK · {rangeLabel(stats?.since, stats?.until)}</Text>
+          <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityLabel="Close">
+            <Ionicons name="close" size={18} color={WHITE} />
           </Pressable>
         </View>
 
-        <View style={styles.previewWrap}>
-          <View style={[styles.preview, { width: pw, height: ph, backgroundColor: T.surface }]}>
-            {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityLabel="Your week recap card" /> : null}
-            {loading && <View style={styles.loading}><ActivityIndicator color={T.text} /></View>}
+        {loading && !stats ? (
+          <View style={styles.center}><ActivityIndicator color={WHITE} /></View>
+        ) : error && !stats ? (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Pressable onPress={load} style={({ pressed }) => [styles.retry, pressed && { opacity: 0.8 }]} accessibilityRole="button">
+              <Text style={styles.retryText}>Try again</Text>
+            </Pressable>
           </View>
-        </View>
+        ) : stats && hero ? (
+          <ScrollView key={run} style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
+            <Animated.View entering={stagger(0)}>
+              <Text style={styles.hero} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} maxFontSizeMultiplier={1}>{fmt(hero.n)}</Text>
+            </Animated.View>
+            <Animated.View entering={stagger(1)}>
+              <Text style={styles.heroLabel} maxFontSizeMultiplier={1.2}>{hero.label}</Text>
+            </Animated.View>
+
+            <View style={styles.grid}>
+              {tiles.map((t, i) => (
+                <Animated.View key={t.label} entering={stagger(2 + i)} style={styles.tile}>
+                  <Text style={styles.tileNum} numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={1.1}>{t.n}</Text>
+                  <Text style={styles.tileLabel} maxFontSizeMultiplier={1.2}>{t.label}</Text>
+                </Animated.View>
+              ))}
+            </View>
+
+            <Animated.View entering={stagger(6)} style={[styles.tile, styles.topTile]}>
+              <Text style={styles.tileCaption}>YOUR TOP POST</Text>
+              {stats.topPost ? (
+                <View style={styles.topRow}>
+                  {topThumb ? (
+                    <Image source={{ uri: topThumb }} style={styles.thumb} />
+                  ) : (
+                    <View style={[styles.thumb, styles.thumbEmpty]}><Ionicons name="chatbubble-ellipses" size={22} color={LIME} /></View>
+                  )}
+                  <View style={styles.topBody}>
+                    <Text style={styles.topText} numberOfLines={2}>{stats.topPost.content}</Text>
+                    <Text style={styles.topMeta}>{fmt(stats.topPost.likes)} {stats.topPost.likes === 1 ? 'like' : 'likes'}</Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.topText}>Nothing posted this week yet. Say something and it will show up here.</Text>
+              )}
+            </Animated.View>
+          </ScrollView>
+        ) : <View style={styles.body} />}
 
         {done ? (
           <View style={styles.doneRow}>
-            <Ionicons name="checkmark-circle" size={20} color={T.accent} />
-            <Text style={[styles.doneText, { color: T.text }]}>{done}</Text>
+            <Ionicons name="checkmark-circle" size={20} color={LIME} />
+            <Text style={styles.doneText}>{done}</Text>
           </View>
         ) : (
-          <View style={styles.actions}>
-            <Pressable onPress={toStory} disabled={!!busy || !uri} style={({ pressed }) => [styles.primary, { backgroundColor: T.text }, (pressed || !!busy || !uri) && { opacity: 0.8 }]}>
-              {busy === 'story' ? <ActivityIndicator color={T.bg} /> : <Ionicons name="add-circle" size={20} color={T.bg} />}
-              <Text style={[styles.primaryText, { color: T.bg }]}>Add to story</Text>
-            </Pressable>
-            <Pressable onPress={toPost} disabled={!!busy || !uri} style={({ pressed }) => [styles.secondary, { backgroundColor: T.surface2 }, (pressed || !!busy) && { opacity: 0.8 }]} accessibilityLabel="Post to feed">
-              {busy === 'post' ? <ActivityIndicator color={T.text} /> : <Ionicons name="create-outline" size={20} color={T.text} />}
-            </Pressable>
-            <Pressable onPress={toMore} disabled={!!busy || !uri} style={({ pressed }) => [styles.secondary, { backgroundColor: T.surface2 }, (pressed || !!busy) && { opacity: 0.8 }]} accessibilityLabel="Share to other apps">
-              {busy === 'more' ? <ActivityIndicator color={T.text} /> : <Ionicons name="paper-plane-outline" size={20} color={T.text} />}
+          <View style={styles.actionsWrap}>
+            <View style={styles.actions}>
+              <Pressable onPress={toStory} disabled={!!busy || !stats} style={({ pressed }) => [styles.primary, (pressed || !!busy || !stats) && { opacity: 0.8 }]} accessibilityRole="button">
+                {busy === 'story' ? <ActivityIndicator color={GREEN} /> : <Text style={styles.primaryText}>Share to story</Text>}
+              </Pressable>
+              <Pressable onPress={toMore} disabled={!!busy || !stats} style={({ pressed }) => [styles.round, (pressed || !!busy) && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Share to other apps">
+                {busy === 'more' ? <ActivityIndicator color={WHITE} /> : <Ionicons name="arrow-redo-outline" size={22} color={WHITE} />}
+              </Pressable>
+            </View>
+            <Pressable onPress={toPost} disabled={!!busy || !stats} style={styles.postLink} hitSlop={6} accessibilityRole="button">
+              <Text style={styles.postLinkText}>{busy === 'post' ? 'Posting' : 'Post it to your feed instead'}</Text>
             </Pressable>
           </View>
         )}
@@ -132,18 +217,37 @@ export function RecapSheet({ visible, onClose }: { visible: boolean; onClose: ()
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 16 },
+  root: { flex: 1, paddingHorizontal: 20, backgroundColor: GREEN },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 18, paddingBottom: 8 },
-  title: { fontSize: 17, fontWeight: '700' },
-  sub: { fontSize: 13, marginTop: 2 },
-  close: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  previewWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
-  preview: { borderRadius: 20, overflow: 'hidden' },
-  loading: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.18)' },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  primary: { flex: 1, height: 52, borderRadius: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  primaryText: { fontSize: 16, fontWeight: '700' },
-  secondary: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  doneRow: { height: 52, marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  doneText: { fontSize: 16, fontWeight: '600' },
+  caption: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700', letterSpacing: 1.2 },
+  close: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  errorText: { color: 'rgba(255,255,255,0.8)', fontSize: 15, textAlign: 'center' },
+  retry: { height: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  retryText: { color: WHITE, fontSize: 15, fontWeight: '600' },
+  body: { flex: 1 },
+  bodyContent: { paddingTop: 18, paddingBottom: 12 },
+  hero: { color: LIME, fontSize: 112, lineHeight: 118, fontWeight: '900', letterSpacing: -5, includeFontPadding: false },
+  heroLabel: { color: WHITE, fontSize: 20, lineHeight: 26, fontWeight: '700', marginTop: -2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 24 },
+  tile: { backgroundColor: TILE, borderRadius: 18, padding: 16, width: '48%', flexGrow: 1 },
+  tileNum: { color: WHITE, fontSize: 32, lineHeight: 38, fontWeight: '800', letterSpacing: -0.8 },
+  tileLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 13.5, lineHeight: 18, marginTop: 2 },
+  topTile: { width: '100%', marginTop: 10 },
+  tileCaption: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700', letterSpacing: 1.2, marginBottom: 12 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  thumb: { width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)' },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(182,227,106,0.16)' },
+  topBody: { flex: 1, minWidth: 0 },
+  topText: { color: WHITE, fontSize: 15, lineHeight: 20 },
+  topMeta: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginTop: 4 },
+  actionsWrap: { marginTop: 12 },
+  actions: { flexDirection: 'row', gap: 10 },
+  primary: { flex: 1, height: 52, borderRadius: 26, backgroundColor: LIME, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: GREEN, fontSize: 16, fontWeight: '700' },
+  round: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  postLink: { alignSelf: 'center', paddingVertical: 10 },
+  postLinkText: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
+  doneRow: { height: 52, marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  doneText: { color: WHITE, fontSize: 16, fontWeight: '600' },
 });

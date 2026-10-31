@@ -4,6 +4,8 @@ import apiClient from '../utils/apiClient';
 import { saveSnap, readSnap } from '../utils/snapshot';
 import { queuedDMs } from '../utils/outbox';
 import { toast, withUndo } from '../utils/alert';
+import { supabase } from '../utils/supabaseClient';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 /** Messages still waiting in the outbox, added after what the server/snapshot returned */
 function withQueued(conversationId: string, list: DMMessage[]): DMMessage[] {
@@ -26,6 +28,8 @@ const persistMsgs = (id: string) =>
   saveSnap(`dm.msgs.${id}`, (useDMStore.getState().messages[id] || []).filter(m => !m._pending).slice(-40));
 
 const ARCHIVED_KEY = 'dm_archived_ids';
+const PINNED_KEY = 'dm_pinned_ids';
+const MUTED_KEY = 'dm_muted_ids';
 
 export interface DMParticipant {
   id: string;
@@ -74,9 +78,15 @@ interface DMState {
   messagesLoading: Record<string, boolean>;
   messageCursors: Record<string, string | null>;
   archivedIds: string[];
+  /** Chats kept at the top of the list (on this phone) */
+  pinnedIds: string[];
+  /** Chats whose time and badge stay grey (on this phone) */
+  mutedIds: string[];
   showArchived: boolean;
   /** Unsent text per chat (WhatsApp "Draft:"), kept across restarts */
   drafts: Record<string, string>;
+  /** Chats where the other person is typing right now (cleared 4s after the last beat) */
+  typing: Record<string, true>;
 
   setDraft: (conversationId: string, text: string) => void;
   hydrateMessages: (conversationId: string) => Promise<void>;
@@ -91,6 +101,8 @@ interface DMState {
   markRead: (conversationId: string) => void;
   archiveConversation: (id: string) => Promise<void>;
   unarchiveConversation: (id: string) => Promise<void>;
+  togglePin: (id: string) => void;
+  toggleMute: (id: string) => void;
   deleteConversation: (id: string) => Promise<void>;
   setShowArchived: (v: boolean) => void;
   loadPersistedDMState: () => Promise<void>;
@@ -104,8 +116,11 @@ export const useDMStore = create<DMState>((set, get) => ({
   messagesLoading: {},
   messageCursors: {},
   archivedIds: [],
+  pinnedIds: [],
+  mutedIds: [],
   showArchived: false,
   drafts: {},
+  typing: {},
 
   setDraft: (conversationId, text) => {
     const cur = get().drafts[conversationId] || '';
@@ -283,6 +298,21 @@ export const useDMStore = create<DMState>((set, get) => ({
     await AsyncStorage.setItem(ARCHIVED_KEY, JSON.stringify(next));
   },
 
+  // Pin / mute live on this phone only: they flip at once and are saved in the background
+  togglePin: (id: string) => {
+    const on = get().pinnedIds.includes(id);
+    const next = on ? get().pinnedIds.filter(x => x !== id) : [...get().pinnedIds, id];
+    set({ pinnedIds: next });
+    AsyncStorage.setItem(PINNED_KEY, JSON.stringify(next)).catch(() => {});
+  },
+
+  toggleMute: (id: string) => {
+    const on = get().mutedIds.includes(id);
+    const next = on ? get().mutedIds.filter(x => x !== id) : [...get().mutedIds, id];
+    set({ mutedIds: next });
+    AsyncStorage.setItem(MUTED_KEY, JSON.stringify(next)).catch(() => {});
+  },
+
   // Delete: the chat leaves the list at once with "Chat deleted · Undo"; the server is told
   // (you leave the conversation, a new one is created next time) once the Undo window closes
   deleteConversation: async (id: string) => {
@@ -320,13 +350,18 @@ export const useDMStore = create<DMState>((set, get) => ({
 
   loadPersistedDMState: async () => {
     try {
-      const [archived, convs, drafts] = await Promise.all([
+      const [archived, pinned, muted, convs, drafts] = await Promise.all([
         AsyncStorage.getItem(ARCHIVED_KEY),
+        AsyncStorage.getItem(PINNED_KEY),
+        AsyncStorage.getItem(MUTED_KEY),
         readSnap<DMConversation[]>('dm.convs'),
         readSnap<Record<string, string>>('dm.drafts'),
       ]);
+      const ids = (raw: string | null) => { try { const v = raw ? JSON.parse(raw) : []; return Array.isArray(v) ? v : []; } catch { return []; } };
       set(s => ({
-        archivedIds: archived ? JSON.parse(archived) : [],
+        archivedIds: ids(archived),
+        pinnedIds: ids(pinned),
+        mutedIds: ids(muted),
         conversations: s.conversations.length || !Array.isArray(convs) ? s.conversations : convs,
         drafts: drafts && typeof drafts === 'object' ? drafts : s.drafts,
       }));
@@ -340,7 +375,58 @@ export const useDMStore = create<DMState>((set, get) => ({
     messagesLoading: {},
     messageCursors: {},
     archivedIds: [],
+    pinnedIds: [],
+    mutedIds: [],
     showArchived: false,
     drafts: {},
+    typing: {},
   })
 }));
+
+// ─── "typing…" in the chats list ─────────────────────────────────────────────
+// The open chat broadcasts typing on its own channel (dm-conv-<id>) and on the other person's
+// inbox (dm-inbox-<their id>). The list listens on my inbox: one channel for every row, and it
+// never shares a topic with the chat screen (realtime-js tears down every channel on a topic
+// together, so two screens on one topic would cut each other off).
+const typingTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+let inbox: RealtimeChannel | null = null;
+let inboxUsers = 0;
+
+function setTyping(conversationId: string, on: boolean) {
+  if (typingTimers[conversationId]) { clearTimeout(typingTimers[conversationId]); delete typingTimers[conversationId]; }
+  const cur = useDMStore.getState().typing;
+  if (on) {
+    if (!cur[conversationId]) useDMStore.setState({ typing: { ...cur, [conversationId]: true } });
+    typingTimers[conversationId] = setTimeout(() => setTyping(conversationId, false), 4000);
+  } else if (cur[conversationId]) {
+    const next = { ...cur };
+    delete next[conversationId];
+    useDMStore.setState({ typing: next });
+  }
+}
+
+/** Mount this from the chats list; returns the detach function. Shared when the list is open in several tabs. */
+export function attachTypingInbox(myId: string): () => void {
+  inboxUsers++;
+  if (!inbox) {
+    inbox = supabase
+      .channel(`dm-inbox-${myId}`)
+      .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
+        const id = payload?.conversation_id;
+        if (!id || payload.user_id === myId) return;
+        setTyping(String(id), !!payload.on);
+      })
+      .subscribe();
+  }
+  return () => {
+    if (--inboxUsers > 0) return;
+    inboxUsers = 0;
+    if (inbox) supabase.removeChannel(inbox);
+    inbox = null;
+    Object.keys(typingTimers).forEach(k => { clearTimeout(typingTimers[k]); delete typingTimers[k]; });
+    if (Object.keys(useDMStore.getState().typing).length) useDMStore.setState({ typing: {} });
+  };
+}
+
+/** Called by the open chat when a message from them arrives: they are no longer typing */
+export const clearTyping = (conversationId: string) => setTyping(conversationId, false);
