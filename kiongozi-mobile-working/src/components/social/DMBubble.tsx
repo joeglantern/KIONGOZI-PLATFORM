@@ -1,10 +1,12 @@
 // Chat bubble, iMessage / Telegram feel: solid green for you, a soft filled grey for them,
 // tight grouping (inner corners tuck in), and the time sits inside the last bubble of a group,
 // tucked into the corner of the last line (Telegram's trick) instead of on its own row.
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Reanimated, { FadeIn } from 'react-native-reanimated';
+import Reanimated, {
+  FadeIn, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withDelay, runOnJS,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { DMMessage } from '../../stores/dmStore';
 import { UserAvatar } from './UserAvatar';
@@ -33,6 +35,67 @@ interface DMBubbleProps {
   floating?: boolean;
   /** "Seen 9:42" under my newest message they have read (read_at ISO; '' = no time known) */
   seenAt?: string | null;
+  /** Me: to highlight my own reaction chip */
+  myId?: string;
+  /** Double-tap: a heart (Instagram). Leave out to switch it off (sending, failed) */
+  onDoubleTap?: () => void;
+  /** Tap on the reaction chips: who reacted */
+  onReactionsPress?: () => void;
+}
+
+/** One chip per emoji, in the order people first used it */
+function groupReactions(list: DMMessage['reactions'], myId?: string) {
+  const out: { emoji: string; count: number; mine: boolean }[] = [];
+  for (const r of list || []) {
+    const g = out.find(x => x.emoji === r.emoji);
+    if (g) { g.count++; g.mine = g.mine || r.user_id === myId; }
+    else out.push({ emoji: r.emoji, count: 1, mine: r.user_id === myId });
+  }
+  return out;
+}
+
+function chipColors(isDark: boolean, mine: boolean) {
+  if (isDark) return mine ? { bg: '#1E3A24', border: 'rgba(52,199,89,0.45)', ink: '#EBEBF5' } : { bg: '#2C2C2E', border: 'rgba(255,255,255,0.12)', ink: '#EBEBF5' };
+  return mine ? { bg: '#E8F5E9', border: 'rgba(63,168,69,0.35)', ink: '#1B5E20' } : { bg: '#FFFFFF', border: 'rgba(60,60,67,0.2)', ink: '#3C3C43' };
+}
+
+/** A white pill hanging off the bubble: springs in when it first appears, bumps when its count changes */
+function ReactionChip({ emoji, count, mine, animate, isDark }: { emoji: string; count: number; mine: boolean; animate: boolean; isDark: boolean }) {
+  const scale = useSharedValue(animate ? 0.4 : 1);
+  const first = useRef(true);
+  useEffect(() => {
+    if (animate) scale.value = withSpring(1, { damping: 11, stiffness: 320, mass: 0.7 });
+  }, []);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    scale.value = withSequence(withTiming(1.18, { duration: 90 }), withSpring(1, { damping: 10, stiffness: 300 }));
+  }, [count, mine]);
+  const st = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const c = chipColors(isDark, mine);
+  return (
+    <Reanimated.View style={[styles.chip, { backgroundColor: c.bg, borderColor: c.border }, st]}>
+      <Text style={styles.chipEmoji}>{emoji}</Text>
+      {count > 1 ? <Text style={[styles.chipCount, { color: c.ink }]}>{count}</Text> : null}
+    </Reanimated.View>
+  );
+}
+
+/** The double-tap heart: pops over the bubble, then floats up and fades */
+function HeartBurst({ onDone }: { onDone: () => void }) {
+  const scale = useSharedValue(0.3);
+  const opacity = useSharedValue(0);
+  const lift = useSharedValue(0);
+  useEffect(() => {
+    scale.value = withSequence(withSpring(1.2, { damping: 7, stiffness: 340 }), withTiming(1, { duration: 120 }));
+    opacity.value = withSequence(withTiming(1, { duration: 80 }), withDelay(380, withTiming(0, { duration: 240 }, f => { if (f) runOnJS(onDone)(); })));
+    lift.value = withDelay(380, withTiming(-18, { duration: 260 }));
+  }, []);
+  const st = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: lift.value }, { scale: scale.value }] }));
+  return (
+    <View style={styles.burstWrap} pointerEvents="none">
+      <Reanimated.Text style={[styles.burst, st]}>❤️</Reanimated.Text>
+    </View>
+  );
 }
 
 /** 24h "10:42" — built by hand so it's identical on every device/locale */
@@ -67,11 +130,28 @@ export function bubbleColors(isDark: boolean, accent: string) {
 /** "9:42": like formatTime, without the leading zero (reads as a word in a sentence) */
 const seenTime = (iso: string) => formatTime(iso).replace(/^0/, '');
 
-export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarName, onMediaPress, onLongPress, replyPreview, onRetry, floating, seenAt }: DMBubbleProps) {
+export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarName, onMediaPress, onLongPress, replyPreview, onRetry, floating, seenAt, myId, onDoubleTap, onReactionsPress }: DMBubbleProps) {
   const T = useTheme();
   const isDark = useThemeStore(s => s.isDark);
   const C = useMemo(() => bubbleColors(isDark, T.accent), [isDark, T.accent]);
   const bubbleRef = useRef<View>(null);
+  // Chips already there when the bubble first draws stay still; ones that arrive later spring in
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; }, []);
+  const groups = useMemo(() => groupReactions(message.reactions, myId), [message.reactions, myId]);
+  const showChips = !floating && groups.length > 0;
+  const [burst, setBurst] = useState(0);
+  const lastTap = useRef(0);
+  const tap = () => {
+    if (!onDoubleTap) return;
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      lastTap.current = 0;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      setBurst(b => b + 1);
+      onDoubleTap();
+    } else lastTap.current = now;
+  };
 
   const isVoice = message.media_type === 'audio' && !!message.media_url;
   const mediaOnly = !!message.media_url && !message.content && !isVoice;
@@ -120,8 +200,9 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
         <View style={styles.avatarSlot}>{isLast ? <UserAvatar avatarUrl={avatarUrl} size={28} name={avatarName} /> : null}</View>
       )}
 
+      <View style={[styles.col, floating && { maxWidth: '100%' }, showChips && styles.colChips]}>
       {emojiOnly ? (
-        <Pressable ref={bubbleRef} onLongPress={longPress} delayLongPress={280} disabled={floating} style={[styles.emojiWrap, isOwn && { alignItems: 'flex-end' }]}>
+        <Pressable ref={bubbleRef} onPress={tap} onLongPress={longPress} delayLongPress={280} disabled={floating} style={[styles.emojiWrap, isOwn && { alignItems: 'flex-end' }]}>
           <Text style={styles.emoji}>{message.content!.trim()}</Text>
           {showMeta ? (
             <View style={[styles.emojiMeta, { alignSelf: isOwn ? 'flex-end' : 'flex-start', backgroundColor: C.other }]}>
@@ -133,6 +214,7 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
       ) : (
         <Pressable
           ref={bubbleRef}
+          onPress={tap}
           onLongPress={longPress}
           delayLongPress={280}
           disabled={floating}
@@ -202,6 +284,19 @@ export function DMBubble({ message, isOwn, isFirst, isLast, avatarUrl, avatarNam
           {showMeta ? metaInline : null}
         </Pressable>
       )}
+      {showChips && (
+        <Pressable
+          onPress={onReactionsPress}
+          hitSlop={6}
+          style={[styles.chips, isOwn ? { left: -4 } : { right: -4 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Reactions ${groups.map(g => g.count > 1 ? `${g.emoji} ${g.count}` : g.emoji).join(', ')}. Tap to see who reacted.`}
+        >
+          {groups.map(g => <ReactionChip key={g.emoji} {...g} animate={mounted.current} isDark={isDark} />)}
+        </Pressable>
+      )}
+      {burst > 0 && <HeartBurst key={burst} onDone={() => setBurst(0)} />}
+      </View>
     </View>
   );
   const seen = isOwn && !floating && seenAt !== undefined && seenAt !== null;
@@ -235,7 +330,20 @@ const styles = StyleSheet.create({
   rowOther: { justifyContent: 'flex-start' },
   avatarSlot: { width: 28, marginRight: 6, alignItems: 'flex-end' },
 
-  bubble: { maxWidth: '78%', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, borderRadius: 20 },
+  col: { maxWidth: '78%' },
+  colChips: { marginBottom: 13 },
+  chips: { position: 'absolute', bottom: -15, flexDirection: 'row', gap: 3 },
+  chip: {
+    height: 24, minWidth: 30, paddingHorizontal: 7, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3,
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+  },
+  chipEmoji: { fontSize: 13.5, lineHeight: 17 },
+  chipCount: { fontSize: 12.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  burstWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  burst: { fontSize: 46, lineHeight: 56 },
+
+  bubble: { maxWidth: '100%', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, borderRadius: 20 },
   bubbleFloating: { maxWidth: '100%' },
   mediaBubble: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, overflow: 'hidden' },
   text: { fontSize: 16.5, lineHeight: 21, letterSpacing: -0.2 },
@@ -250,7 +358,7 @@ const styles = StyleSheet.create({
   replyName: { fontSize: 12.5, fontWeight: '700', marginBottom: 1 },
   replyText: { fontSize: 13.5, lineHeight: 17 },
 
-  emojiWrap: { maxWidth: '78%' },
+  emojiWrap: { maxWidth: '100%' },
   emojiMeta: { flexDirection: 'row', alignItems: 'center', borderRadius: 9, paddingHorizontal: 7, paddingVertical: 2, marginTop: -2 },
   emoji: { fontSize: 44, lineHeight: 54 },
 });

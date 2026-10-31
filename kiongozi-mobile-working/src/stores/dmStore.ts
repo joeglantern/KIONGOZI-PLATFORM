@@ -60,6 +60,30 @@ export interface DMMessage {
   /** The server refused it: shown as 'Not sent · Tap to retry' */
   _failed?: boolean;
   _edited?: boolean;
+  /** One per person: who reacted with what */
+  reactions?: DMReaction[];
+}
+
+export type DMReaction = { user_id: string; emoji: string };
+
+/** Set (emoji) or clear (null) one person's reaction on a message list */
+function withReaction(list: DMMessage[], messageId: string, userId: string, emoji: string | null): DMMessage[] {
+  return list.map(m => {
+    if (m.id !== messageId) return m;
+    const rest = (m.reactions || []).filter(r => r.user_id !== userId);
+    return { ...m, reactions: emoji ? [...rest, { user_id: userId, emoji }] : rest };
+  });
+}
+
+// My reactions still on their way to the server: a refresh that lands meanwhile keeps them
+const pendingReacts: Record<string, { userId: string; emoji: string | null; seq: number }> = {};
+let reactSeq = 0;
+function keepPending(list: DMMessage[]): DMMessage[] {
+  let out = list;
+  for (const [id, p] of Object.entries(pendingReacts)) {
+    if (out.some(m => m.id === id)) out = withReaction(out, id, p.userId, p.emoji);
+  }
+  return out;
 }
 
 export interface DMConversation {
@@ -98,6 +122,10 @@ interface DMState {
   markMessageFailed: (conversationId: string, id: string) => void;
   unsendMessage: (conversationId: string, messageId: string) => Promise<void>;
   updateMessageContent: (conversationId: string, messageId: string, content: string) => Promise<void>;
+  /** Live or local: set (emoji) or clear (null) someone's reaction */
+  applyReaction: (conversationId: string, messageId: string, userId: string, emoji: string | null) => void;
+  /** Mine: same emoji again removes it. Shows at once, rolls back with a toast if the server says no */
+  reactToMessage: (conversationId: string, messageId: string, myId: string, emoji: string | null) => Promise<void>;
   markRead: (conversationId: string) => void;
   archiveConversation: (id: string) => Promise<void>;
   unarchiveConversation: (id: string) => Promise<void>;
@@ -171,13 +199,13 @@ export const useDMStore = create<DMState>((set, get) => ({
         set(s => ({
           messages: {
             ...s.messages,
-            [conversationId]: refresh
+            [conversationId]: keepPending(refresh
               ? withQueued(conversationId, [
                   ...(res.data as DMMessage[]),
                   // keep messages that failed to send so they can be retried
                   ...(s.messages[conversationId] || []).filter(m => m._failed),
                 ])
-              : [...(res.data as DMMessage[]), ...(s.messages[conversationId] || [])]
+              : [...(res.data as DMMessage[]), ...(s.messages[conversationId] || [])])
           },
           messageCursors: { ...s.messageCursors, [conversationId]: (res as any).nextCursor || null }
         }));
@@ -274,6 +302,34 @@ export const useDMStore = create<DMState>((set, get) => ({
       }));
     }
     toast("Couldn't edit", { kind: 'error' });
+  },
+
+  applyReaction: (conversationId, messageId, userId, emoji) => {
+    const list = get().messages[conversationId];
+    if (!list?.some(m => m.id === messageId)) return;
+    // A live echo of an older tap of mine never undoes the one still on its way
+    const p = pendingReacts[messageId];
+    if (p && p.userId === userId && p.emoji !== emoji) return;
+    set(s => ({ messages: { ...s.messages, [conversationId]: withReaction(s.messages[conversationId] || [], messageId, userId, emoji) } }));
+    persistMsgs(conversationId);
+  },
+
+  reactToMessage: async (conversationId, messageId, myId, emoji) => {
+    const msg = (get().messages[conversationId] || []).find(m => m.id === messageId);
+    if (!msg || msg._pending || msg._failed) return;
+    const before = msg.reactions?.find(r => r.user_id === myId)?.emoji ?? null;
+    const next = emoji && emoji !== before ? emoji : null;
+    if (next === before) return;
+    const seq = ++reactSeq;
+    pendingReacts[messageId] = { userId: myId, emoji: next, seq };
+    get().applyReaction(conversationId, messageId, myId, next);
+    const r: any = await (next ? apiClient.reactDMMessage(messageId, next) : apiClient.unreactDMMessage(messageId)).catch(() => null);
+    // A newer tap on the same message owns the outcome now
+    if (pendingReacts[messageId]?.seq !== seq) return;
+    delete pendingReacts[messageId];
+    if (r?.success) return;
+    get().applyReaction(conversationId, messageId, myId, before);
+    toast("Couldn't react", { kind: 'error' });
   },
 
   // Read: the badge clears at once; the server is told in the background

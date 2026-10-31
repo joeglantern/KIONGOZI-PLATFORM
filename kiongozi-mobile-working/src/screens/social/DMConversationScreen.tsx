@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { VoiceRecorder, canRecordVoice } from '../../components/social/VoiceNote';
 import { ChatSkeleton } from '../../components/social/Skeleton';
-import { MessageMenu } from '../../components/social/MessageMenu';
+import { MessageMenu, QUICK_REACTIONS } from '../../components/social/MessageMenu';
 import { SelectTextSheet } from '../../components/social/SelectTextSheet';
 import type { BubbleRect } from '../../components/social/DMBubble';
 import * as Clipboard from 'expo-clipboard';
@@ -23,6 +23,7 @@ import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
 import { useDMStore, DMMessage, clearTyping } from '../../stores/dmStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 import apiClient from '../../utils/apiClient';
 import { supabase } from '../../utils/supabaseClient';
 import { useTheme } from '../../hooks/useTheme';
@@ -55,6 +56,16 @@ function dayLabel(dateStr: string): string {
     : `${MONTHS[d.getMonth()]} ${d.getDate()}${d.getFullYear() !== new Date().getFullYear() ? `, ${d.getFullYear()}` : ''}`;
   return `${name.toUpperCase()} ${formatTime(dateStr).replace(/^0/, '')}`;
 }
+
+// More reactions behind the "+" in the long-press pill
+const MORE_EMOJI = [
+  '👍', '👎', '🙏', '💯', '🎉', '🥳', '😍', '🥰',
+  '😘', '😊', '🤣', '😅', '😭', '🥺', '😡', '🤯',
+  '😎', '🤔', '🙌', '💪', '👀', '✅', '💚', '🤝',
+];
+
+/** Messages that exist on the server can take a reaction */
+const canReact = (m: DMMessage) => !m._pending && !m._failed && !m.id.startsWith('temp_');
 
 // ─── List item types ──────────────────────────────────────────────────────────
 
@@ -133,6 +144,9 @@ export default function DMConversationScreen() {
   const [menu, setMenu] = useState<{ message: DMMessage; isOwn: boolean; rect: BubbleRect } | null>(null);
   const [selectText, setSelectText] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<DMMessage | null>(null);
+  // Reactions: the "+" grid, and who reacted (by id, so it stays live while open)
+  const [moreEmojiFor, setMoreEmojiFor] = useState<DMMessage | null>(null);
+  const [whoForId, setWhoForId] = useState<string | null>(null);
   // Header ⋯: View profile / Mute / Block / Report
   const [moreSheet, setMoreSheet] = useState(false);
   const [blockSheet, setBlockSheet] = useState(false);
@@ -212,6 +226,18 @@ export default function DMConversationScreen() {
 
   const conversationMessages = messages[conversationId] || [];
 
+  // Reactions: mine shows at once; same emoji again removes it (see dmStore.reactToMessage)
+  const react = useCallback((m: DMMessage, emoji: string | null) => {
+    if (!user?.id || !canReact(m)) return;
+    useDMStore.getState().reactToMessage(conversationId, m.id, user.id, emoji);
+  }, [conversationId, user?.id]);
+  /** Double-tap is always a heart, never takes one away (Instagram) */
+  const heart = useCallback((m: DMMessage) => {
+    const cur = (useDMStore.getState().messages[conversationId] || []).find(x => x.id === m.id);
+    if (cur?.reactions?.some(r => r.user_id === user?.id && r.emoji === '❤️')) return;
+    react(m, '❤️');
+  }, [conversationId, user?.id, react]);
+
   const messageMap = useMemo(() => {
     const map: Record<string, DMMessage> = {};
     for (const m of conversationMessages) map[m.id] = m;
@@ -287,6 +313,10 @@ export default function DMConversationScreen() {
           if (cur) useDMStore.getState().replaceMessage(conversationId, msg.id, { ...cur, ...msg, sender: cur.sender });
         }
       )
+      .on('broadcast', { event: 'reaction' }, ({ payload }: any) => {
+        if (!payload?.message_id || !payload.user_id) return;
+        useDMStore.getState().applyReaction(conversationId, String(payload.message_id), String(payload.user_id), payload.emoji || null);
+      })
       .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
         if (!payload || payload.user_id === user.id) return;
         if (typingTimer.current) clearTimeout(typingTimer.current);
@@ -455,6 +485,9 @@ export default function DMConversationScreen() {
         onLongPress={(rect) => openContextMenu(item.message, isOwn, rect)}
         onRetry={item.message._failed ? () => retryMessage(item.message) : undefined}
         seenAt={item.message.id === lastSeenMineId ? (item.message.read_at || '') : undefined}
+        myId={user?.id}
+        onDoubleTap={canReact(item.message) ? () => heart(item.message) : undefined}
+        onReactionsPress={() => setWhoForId(item.message.id)}
         replyPreview={repliedTo ? {
           senderName: repliedTo.sender_id === user?.id ? 'You' : (participantName || 'Them'),
           content: repliedTo.content || (repliedTo.media_url ? '📷 Photo' : 'Message'),
@@ -462,7 +495,28 @@ export default function DMConversationScreen() {
       />
       </SwipeToReply>
     );
-  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap, isBot, isDark, retryMessage, lastSeenMineId]);
+  }, [user?.id, participantAvatar, participantName, participantUsername, styles, openContextMenu, messageMap, isBot, isDark, retryMessage, lastSeenMineId, heart]);
+
+  // Who reacted: names and photos from the chat's people (me from my profile)
+  const me: any = useProfileStore(s => s.currentUserProfile);
+  const people = useDMStore(s => s.conversations.find(c => c.id === conversationId)?.participants);
+  const whoMessage = whoForId ? messageMap[whoForId] : undefined;
+  const whoRows = useMemo(() => {
+    const list = whoMessage?.reactions || [];
+    return list
+      .map(r => {
+        const mine = r.user_id === user?.id;
+        const p = people?.find(x => x.id === r.user_id);
+        const isPeer = r.user_id === participantId;
+        const name: string = mine ? 'You' : (p?.full_name || p?.username || (isPeer ? participantName || participantUsername : '') || 'Someone');
+        const avatar: string | undefined = mine ? me?.avatar_url : (p?.avatar_url || (isPeer ? participantAvatar : undefined));
+        const avatarName: string | undefined = mine ? (me?.full_name || me?.username) : name;
+        return { ...r, mine, name, avatar, avatarName };
+      })
+      .sort((a, b) => Number(b.mine) - Number(a.mine));
+  }, [whoMessage, people, user?.id, me, participantId, participantName, participantUsername, participantAvatar]);
+  // The last reaction went (theirs removed live, or mine): nothing left to show
+  useEffect(() => { if (whoForId && !whoRows.length) setWhoForId(null); }, [whoForId, whoRows.length]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -689,6 +743,11 @@ export default function DMConversationScreen() {
           rect={menu.rect}
           isOwn={menu.isOwn}
           onClose={() => setMenu(null)}
+          reactions={canReact(menu.message) ? {
+            mine: menu.message.reactions?.find(r => r.user_id === user?.id)?.emoji ?? null,
+            onPick: (e) => react(menu.message, e),
+            onMore: () => setMoreEmojiFor(menu.message),
+          } : undefined}
           preview={
             <DMBubble
               floating
@@ -726,6 +785,56 @@ export default function DMConversationScreen() {
       )}
 
       <SelectTextSheet text={selectText} onClose={() => setSelectText(null)} />
+
+      <BottomSheet visible={!!moreEmojiFor} onClose={() => setMoreEmojiFor(null)} title="React" actions={[]}>
+        <View style={styles.emojiGrid}>
+          {[...QUICK_REACTIONS, ...MORE_EMOJI].map(e => {
+            const on = !!moreEmojiFor?.reactions?.some(r => r.user_id === user?.id && r.emoji === e);
+            return (
+              <Pressable
+                key={e}
+                onPress={() => {
+                  const m = moreEmojiFor;
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                  setMoreEmojiFor(null);
+                  if (m) react(m, e);
+                }}
+                style={({ pressed }) => [styles.emojiCell, on && styles.emojiCellOn, pressed && { transform: [{ scale: 1.15 }] }]}
+                accessibilityRole="button"
+                accessibilityLabel={on ? `Remove ${e}` : `React ${e}`}
+              >
+                <Text style={styles.emojiCellText}>{e}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </BottomSheet>
+
+      <BottomSheet visible={!!whoForId && whoRows.length > 0} onClose={() => setWhoForId(null)} title="Reactions" actions={[]}>
+        <View style={{ paddingBottom: 4 }}>
+          {whoRows.map(r => (
+            <Pressable
+              key={r.user_id}
+              disabled={!r.mine}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setWhoForId(null);
+                if (whoMessage) react(whoMessage, null);
+              }}
+              style={({ pressed }) => [styles.whoRow, pressed && { backgroundColor: T.surface2 }]}
+              accessibilityRole={r.mine ? 'button' : undefined}
+              accessibilityLabel={r.mine ? `Your reaction ${r.emoji}. Tap to remove.` : `${r.name} reacted ${r.emoji}`}
+            >
+              <UserAvatar avatarUrl={r.avatar} size={38} name={r.avatarName} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.whoName} numberOfLines={1}>{r.name}</Text>
+                {r.mine ? <Text style={styles.whoSub}>Tap to remove</Text> : null}
+              </View>
+              <Text style={styles.whoEmoji}>{r.emoji}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </BottomSheet>
 
       <BottomSheet
         visible={moreSheet}
@@ -795,6 +904,15 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     messageList: { paddingVertical: 12, paddingBottom: 4 },
 
     dateSep: { alignItems: 'center', marginTop: 16, marginBottom: 6 },
+
+    emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: 8, justifyContent: 'center' },
+    emojiCell: { width: 46, height: 46, margin: 2, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+    emojiCellOn: { backgroundColor: T.accent + '33' },
+    emojiCellText: { fontSize: 27, lineHeight: 34 },
+    whoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 9 },
+    whoName: { fontSize: 16, fontWeight: '600', color: T.text },
+    whoSub: { fontSize: 13, color: T.textMuted, marginTop: 1 },
+    whoEmoji: { fontSize: 26, lineHeight: 32 },
     dateLabel: { fontSize: 12, color: T.textMuted, fontWeight: '600' },
 
     empty: { alignItems: 'center', marginTop: 90, gap: 6 },
