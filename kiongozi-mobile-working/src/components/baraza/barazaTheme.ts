@@ -15,6 +15,10 @@ export interface BarazaTheme {
   tile?: any;
   tileOpacity?: number;
   cover?: any;
+  /** a soft top-to-bottom wash under everything (the default room) */
+  gradient?: [string, string, string];
+  /** a radial-ish glow laid over the top of the room (the night room) */
+  sky?: string;
   ink: string;          // main text
   sub: string;          // secondary text
   faint: string;        // hints, labels
@@ -28,7 +32,6 @@ export interface BarazaTheme {
   glow: string;         // tint for the stick's light
 }
 
-const PAPER = require('../../../assets/baraza/tile_paper.jpg');
 const NIGHT = require('../../../assets/baraza/tile_night.jpg');
 const KANGA = require('../../../assets/baraza/tile_kanga.jpg');
 const ACACIA = require('../../../assets/baraza/bg_acacia.jpg');
@@ -36,14 +39,14 @@ const ACACIA = require('../../../assets/baraza/bg_acacia.jpg');
 export const BARAZA_THEMES: Record<BarazaThemeId, BarazaTheme> = {
   mchana: {
     id: 'mchana', name: 'Mchana', blurb: 'Clean daylight', dark: false,
-    bg: '#FFFFFF', tile: PAPER, tileOpacity: 0.55,
+    bg: '#FFFFFF', gradient: ['#FFFFFF', '#FBF7F1', '#F6EEDC'],
     ink: '#16130F', sub: '#5E574F', faint: '#8F877D', accent: '#E9A23B', accentInk: '#1C1408',
     soft: '#F3EFE8', line: 'rgba(22,19,15,0.10)', card: '#FFFFFF',
     danger: '#D9503A', dangerSoft: 'rgba(217,80,58,0.10)', glow: '#FFC65C',
   },
   usiku: {
     id: 'usiku', name: 'Usiku', blurb: 'Under the stars', dark: true,
-    bg: '#141A33', tile: NIGHT, tileOpacity: 1,
+    bg: '#141A33', tile: NIGHT, tileOpacity: 1, sky: '#243055',
     ink: '#F4F1EA', sub: 'rgba(244,241,234,0.68)', faint: 'rgba(244,241,234,0.45)', accent: '#F2B544', accentInk: '#1A1206',
     soft: 'rgba(255,255,255,0.09)', line: 'rgba(255,255,255,0.13)', card: 'rgba(255,255,255,0.07)',
     danger: '#FF8A6B', dangerSoft: 'rgba(255,138,107,0.16)', glow: '#FFD27A',

@@ -1,6 +1,7 @@
 // The way into Baraza from Explore, as an App Store "Today" card: a floating 3D island with six
-// stools around the talking stick. When barazas are live, the people in the biggest one sit on the
-// stools and the frosted strip at the bottom becomes Join; the other live ones list underneath.
+// stools around the talking stick. When barazas are live, the biggest one's stools fill with the
+// host, whoever has the stick and the hands up (in line order), and the frosted strip at the bottom
+// becomes Join; the other live ones list underneath.
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Image, useWindowDimensions } from 'react-native';
 import Animated, {
@@ -52,9 +53,9 @@ export function BarazaStrip() {
             <Pressable key={b.id} onPress={() => open(b)} accessibilityRole="button"
               accessibilityLabel={`Join ${b.title}, ${b.count} listening`}
               style={({ pressed }) => [styles.row, i < rest.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border }, pressed && { opacity: 0.6 }]}>
-              <View style={styles.rowArt}>
+              <LinearGradient colors={['#C9C6F2', '#FFD9A8']} start={{ x: 0.33, y: 0 }} end={{ x: 0.67, y: 1 }} style={styles.rowArt}>
                 <Image source={ART.stool} style={{ width: 28, height: 29 }} />
-              </View>
+              </LinearGradient>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowTitle, { color: T.text }]} numberOfLines={1}>{b.title}</Text>
                 <Text style={[styles.rowSub, { color: T.textSub }]} numberOfLines={1}>@{b.host?.username} · {b.count} listening</Text>
@@ -98,8 +99,10 @@ function TodayCard({ top, onPress }: { top: LiveBaraza | null; onPress: () => vo
   const stickTop = hy - frameH * ISLAND.restBottom + 4;
   const glow = IW * 0.22;
 
-  const faces: BarazaPerson[] = top?.faces?.length ? top.faces : top ? [top.speaker, top.host].filter(Boolean) as BarazaPerson[] : [];
-  const taken = top ? Math.min(SEATS, Math.max(faces.length, top.count)) : 0;
+  // The stools are the host, whoever has the stick and the hands up (the server sends them in that order)
+  const faces: BarazaPerson[] = top?.faces?.length ? top.faces.slice(0, SEATS)
+    : top ? [top.host, top.speaker].filter((p, i, a): p is BarazaPerson => !!p && a.findIndex(q => q?.id === p.id) === i) : [];
+  const taken = faces.length;
   const AV = Math.max(26, IW * 0.105);
 
   return (
@@ -110,7 +113,7 @@ function TodayCard({ top, onPress }: { top: LiveBaraza | null; onPress: () => vo
         colors={top ? ['#8F86E0', '#C7A9E4', '#F9C49B', '#FFD8AE'] : ['#B9B4F0', '#DCC7EC', '#FBD3B0', '#FFE2BF']}
         locations={[0, 0.42, 0.8, 1]} style={StyleSheet.absoluteFill} />
       <Animated.Image source={ART.cloud} style={[{ position: 'absolute', left: -12, top: H * 0.3, width: 92, height: 53, opacity: 0.92 }, cloudA]} />
-      <Animated.Image source={ART.cloud} style={[{ position: 'absolute', right: -8, top: H * 0.22, width: 70, height: 40, opacity: 0.82 }, cloudB]} />
+      {!top ? <Animated.Image source={ART.cloud} style={[{ position: 'absolute', right: -8, top: H * 0.22, width: 70, height: 40, opacity: 0.82 }, cloudB]} /> : null}
 
       <Animated.View style={[{ position: 'absolute', left, top: topY, width: IW, height: IH }, float]}>
         <View style={[styles.islandGlow, { left: IW * 0.2, right: IW * 0.2, bottom: 0, height: IH * 0.18, borderRadius: IW }]} />
@@ -225,7 +228,7 @@ const styles = StyleSheet.create({
   moreTitle: { flex: 1, fontSize: 22, fontWeight: '700', letterSpacing: 0.35 },
   moreLink: { fontSize: 17, color: '#007AFF' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
-  rowArt: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#E9DDF3', alignItems: 'center', justifyContent: 'center' },
+  rowArt: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   rowTitle: { fontSize: 15, fontWeight: '600', letterSpacing: -0.24 },
   rowSub: { fontSize: 13, marginTop: 1 },
   pill: { height: 30, borderRadius: 15, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },

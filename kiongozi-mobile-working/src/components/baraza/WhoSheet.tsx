@@ -70,7 +70,7 @@ export function WhoSheet({ visible, onClose, state }: { visible: boolean; onClos
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       {visible && (
         <>
-          <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(160)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.38)' }]}>
+          <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(160)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,16,10,0.45)' }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
           </Animated.View>
           <Animated.View entering={SlideInDown.springify().damping(19).stiffness(170)} exiting={SlideOutDown.duration(200)}
@@ -102,16 +102,11 @@ export function WhoSheet({ visible, onClose, state }: { visible: boolean; onClos
                 {/* The map */}
                 <KenyaMap t={t} places={places} active={filter} onPin={c => { Haptics.selectionAsync().catch(() => {}); setFilter(f => (f === c ? null : c)); }} />
                 {filter ? (
-                  <Animated.View entering={FadeIn} style={s.filterRow}>
-                    <Pressable onPress={() => setFilter(null)} style={[s.filterChip, { backgroundColor: t.accent }]}>
-                      <Text style={[s.filterText, { color: t.accentInk }]}>Listening from {filter}</Text>
-                      <Ionicons name="close" size={15} color={t.accentInk} />
-                    </Pressable>
-                  </Animated.View>
+                  <Animated.Text key="again" entering={FadeIn} style={[s.mapHint, { color: t.faint }]}>Tap the pin again to show everyone.</Animated.Text>
                 ) : places.length === 0 ? (
                   <Text style={[s.mapHint, { color: t.faint }]}>Nobody has shared where they're listening from yet.</Text>
                 ) : (
-                  <Text style={[s.mapHint, { color: t.faint }]}>Tap a pin to see who's listening from there.</Text>
+                  <Text style={[s.mapHint, { color: t.faint }]}>Tap a pin to see who is listening from there.</Text>
                 )}
 
                 {/* You */}
@@ -123,7 +118,7 @@ export function WhoSheet({ visible, onClose, state }: { visible: boolean; onClos
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[s.youTitle, { color: t.ink }]}>{myCounty ? `You're listening from ${myCounty}` : 'Where are you listening from?'}</Text>
-                      <Text style={[s.youSub, { color: t.sub }]}>{myCounty ? 'Everyone here sees your county. Tap to change or hide it.' : 'Optional. Only your county shows, never your exact location.'}</Text>
+                      <Text style={[s.youSub, { color: t.sub }]}>{myCounty ? 'Only your county shows, never your exact location. Tap to change or hide it.' : 'Optional. Only your county shows, never your exact location.'}</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={t.faint} />
                   </Pressable>
@@ -141,7 +136,7 @@ export function WhoSheet({ visible, onClose, state }: { visible: boolean; onClos
                   </Section>
                 )}
                 {groups.rest.length > 0 && (
-                  <Section t={t} title="Listening">
+                  <Section t={t} title={filter ? `Listening from ${filter}` : 'Listening'}>
                     {groups.rest.map(p => <Row key={p.user_id} p={p} t={t} me={p.user_id === meId}/>)}
                   </Section>
                 )}
@@ -179,7 +174,8 @@ function KenyaMap({ t, places, active, onPin }: { t: BarazaTheme; places: { coun
   const float = useAnimatedStyle(() => ({ transform: [{ translateY: -3 + f.value * 6 }] }));
   return (
     <View style={[s.mapWrap, { height: Hm + 16 }]}>
-      <View style={[s.mapGlow, { width: W * 1.15, height: W * 1.15, borderRadius: W, backgroundColor: t.glow, opacity: t.dark ? 0.12 : 0.16 }]} />
+      {/* a soft warm glow behind the map (the painted glow, tinted for the room) */}
+      <Image source={ART.glow} fadeDuration={0} style={[s.mapGlow, { width: W * 1.15, height: W * 1.15, tintColor: t.glow, opacity: t.dark ? 0.22 : 0.34 }]} />
       <Animated.View style={[{ width: W, height: Hm }, float]}>
         <Image source={MAP} style={{ width: W, height: Hm, opacity: t.dark ? 0.92 : 1 }} resizeMode="contain" />
         {places.map((p, i) => {
@@ -333,9 +329,6 @@ const s = StyleSheet.create({
   mapWrap: { alignItems: 'center', justifyContent: 'center', marginTop: 18 },
   mapGlow: { position: 'absolute' },
   mapHint: { textAlign: 'center', fontSize: 13, marginTop: 6, paddingHorizontal: 24 },
-  filterRow: { alignItems: 'center', marginTop: 8 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, borderRadius: 16, paddingHorizontal: 14 },
-  filterText: { fontSize: 13.5, fontWeight: '700' },
   pinCount: { position: 'absolute', right: -6, top: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#16130F', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   pinCountText: { color: '#fff', fontSize: 10.5, fontWeight: '800' },
   you: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 20, marginTop: 18, borderRadius: 20, padding: 14 },

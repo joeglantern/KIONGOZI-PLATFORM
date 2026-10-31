@@ -3,8 +3,9 @@
 // everyone else sits on stools in an arc below, hands up are a numbered queue, and one floating
 // dock at the bottom holds everything you can do.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, AppState, useWindowDimensions, ActivityIndicator, Image, Modal } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeInUp, FadeOut, ZoomIn, LinearTransition, SlideInDown, SlideOutDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat, withDelay, Easing, interpolate } from 'react-native-reanimated';
+import { View, Text, StyleSheet, Pressable, AppState, useWindowDimensions, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeInUp, FadeOut, ZoomIn, LinearTransition, SlideInDown, SlideOutDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat, withDelay, Easing, interpolate, runOnJS } from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,10 +59,10 @@ export function BarazaRoom() {
   else body = <View style={styles.center}><ActivityIndicator color={t.accent} /></View>;
 
   return (
-    <View style={StyleSheet.absoluteFill}>
+    <GestureHandlerRootView style={StyleSheet.absoluteFill}>
       <TreeShade cy={insets.top + Math.min(H * 0.3, 260)} />
       <View style={{ flex: 1, width: W }}>{body}</View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -190,9 +191,16 @@ function Live({ state }: { state: BarazaState }) {
   const [nowStarted, setNowStarted] = useState<number | null>(null);
   useEffect(() => { setNowStarted(now ? Date.now() : null); }, [now?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reactions from everyone else arrive as broadcasts on the room's channel
+  const chRef = useRef<any>(null);
+  const onReact = useRef<(emoji: string) => void>(() => {});
   useEffect(() => {
     const ch = supabase
       .channel(`baraza-${room.id}`)
+      .on('broadcast' as any, { event: 'react' }, (msg: any) => {
+        const p = msg?.payload;
+        if (p && typeof p.emoji === 'string' && REACTIONS.includes(p.emoji) && p.user_id !== meId) onReact.current(p.emoji);
+      })
       .on('postgres_changes' as any, { event: 'UPDATE', schema: 'public', table: 'baraza_rooms', filter: `id=eq.${room.id}` }, () => softRefresh())
       .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'baraza_segments', filter: `room_id=eq.${room.id}` },
         (payload: any) => { if (payload?.new) take([payload.new as Seg]); })
@@ -202,8 +210,9 @@ function Live({ state }: { state: BarazaState }) {
         setSubscribed(status === 'SUBSCRIBED');
         if (status === 'SUBSCRIBED') { fetchSegments(); softRefresh(); }
       });
-    return () => { supabase.removeChannel(ch); clearTimeout(refreshTimer.current); };
-  }, [room.id, take, fetchSegments, softRefresh]);
+    chRef.current = ch;
+    return () => { chRef.current = null; supabase.removeChannel(ch); clearTimeout(refreshTimer.current); };
+  }, [room.id, take, fetchSegments, softRefresh, meId]);
 
   // Heartbeat (keeps you counted as here) and a safety net if realtime drops
   useEffect(() => {
@@ -261,8 +270,10 @@ function Live({ state }: { state: BarazaState }) {
 
   useEffect(() => () => { recRef.current?.stop(); }, []);
 
-  // ── the stick arriving is a moment: felt, lit, and showered ──
+  // ── the stick arriving is a moment: felt, lit, and showered. The mic waits until you tap
+  // "Start talking", and the card stays up until then. ──
   const [moment, setMoment] = useState(0);
+  const [awaitStart, setAwaitStart] = useState(false);
   const momentTimer = useRef<any>(null);
   const pool = useSharedValue(0);
   const wasHolding = useRef(holding);
@@ -270,15 +281,24 @@ function Live({ state }: { state: BarazaState }) {
     if (holding && !wasHolding.current) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 160);
-      setMicOn(true);
+      setMicOn(false);
+      setAwaitStart(true);
       setMoment(m => m + 1);
       pool.value = withSequence(withTiming(1, { duration: 260 }), withDelay(1300, withTiming(0, { duration: 900 })));
       clearTimeout(momentTimer.current);
-      momentTimer.current = setTimeout(() => setMoment(0), 2200);
+      momentTimer.current = setTimeout(() => setMoment(0), 2200); // the confetti only
     }
+    if (!holding && wasHolding.current) setAwaitStart(false);
     wasHolding.current = holding;
   }, [holding, pool]);
   useEffect(() => () => clearTimeout(momentTimer.current), []);
+  // Turning the mic on any other way also ends the wait
+  useEffect(() => { if (micOn) setAwaitStart(false); }, [micOn]);
+  const startTalking = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setAwaitStart(false);
+    setMicOn(true);
+  };
 
   // ── turn clock ──
   const [, setTick] = useState(0);
@@ -359,6 +379,19 @@ function Live({ state }: { state: BarazaState }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     store().pass(id);
   };
+  // Host: pass in one step, with Undo in case it was the wrong person
+  const selfPassed = useRef<string | null>(null);
+  const passWithUndo = (id: string) => {
+    if (id === room.holder_id) return;
+    const prev = room.holder_id || room.host_id;
+    const who = byId.get(id);
+    selfPassed.current = id;
+    passTo(id);
+    toast(`Stick passed to @${who?.username || 'them'}`, {
+      kind: 'success',
+      action: { label: 'Undo', onPress: () => { Haptics.selectionAsync().catch(() => {}); store().pass(prev); } },
+    });
+  };
   const handBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     store().pass();
@@ -408,6 +441,11 @@ function Live({ state }: { state: BarazaState }) {
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
+  // A tap on a raised hand (host) passes the stick; anything else opens the person's menu
+  const tapSeat = (p: BarazaState['people'][number]) => {
+    if (isHost && p.hand_raised_at && p.user_id !== room.holder_id && p.user_id !== meId) { passWithUndo(p.user_id); return; }
+    personMenu(p.user_id);
+  };
   const personMenu = (id: string) => {
     const p = byId.get(id);
     if (!p || id === meId) return;
@@ -449,17 +487,26 @@ function Live({ state }: { state: BarazaState }) {
   useEffect(() => {
     if (firstHolder.current) { firstHolder.current = false; return; }
     if (!holder) return;
+    // the host who just passed it already has a toast with Undo
+    if (selfPassed.current === holder.id) { selfPassed.current = null; return; }
     setPassedTo(holder);
     const h = setTimeout(() => setPassedTo(null), 2200);
     return () => clearTimeout(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.holder_id]);
 
-  // ── reactions: on this phone only for now ──
+  // ── reactions: shown here at once and sent to everyone on the room's channel ──
   const [reactOpen, setReactOpen] = useState(false);
-  const [floats, setFloats] = useState<{ id: number; glyph: string; x: number }[]>([]);
+  const [floats, setFloats] = useState<{ id: number; glyph: string; x: number; drift: number }[]>([]);
   const floatId = useRef(0);
   const reactClose = useRef<any>(null);
+  const lastSent = useRef(0);
+  const addFloat = (glyph: string) => {
+    const id = ++floatId.current;
+    setFloats(f => [...f.slice(-11), { id, glyph, x: Math.random() * 26, drift: (Math.random() - 0.3) * 30 }]);
+    setTimeout(() => setFloats(f => f.filter(x => x.id !== id)), 1900);
+  };
+  onReact.current = addFloat;
   const toggleReact = () => {
     Haptics.selectionAsync().catch(() => {});
     setReactOpen(o => !o);
@@ -468,9 +515,13 @@ function Live({ state }: { state: BarazaState }) {
   };
   const react = (glyph: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const id = ++floatId.current;
-    setFloats(f => [...f.slice(-11), { id, glyph, x: W * 0.2 + Math.random() * W * 0.6 }]);
-    setTimeout(() => setFloats(f => f.filter(x => x.id !== id)), 1700);
+    addFloat(glyph);
+    // a fast tapper still shows every tap here, but sends at most about four a second
+    const nowMs = Date.now();
+    if (nowMs - lastSent.current > 240) {
+      lastSent.current = nowMs;
+      Promise.resolve(chRef.current?.send({ type: 'broadcast', event: 'react', payload: { emoji: glyph, user_id: meId } })).catch(() => {});
+    }
     clearTimeout(reactClose.current);
     reactClose.current = setTimeout(() => setReactOpen(false), 4000);
   };
@@ -499,30 +550,107 @@ function Live({ state }: { state: BarazaState }) {
   const hoopCy = Math.round(DAIS_H * 0.47 - AV / 2);        // hoop centre, measured from the dais top
   const over = Math.max(0, HOOP / 2 - hoopCy) + 8;            // how far the hoop rises above the dais
   const stageH = over + DAIS_H + 58;
-  const POOL = Math.round(W * 1.4);
+  // the pool of light: a squashed ellipse sitting on the dais top
+  const POOL_W = Math.round(W * 0.87), POOL_H = Math.round(POOL_W * 0.44);
   const emptyW = Math.round(DAIS_W * 0.62), emptyH = Math.round(emptyW * 512 / 720);
   const dockBottom = insets.bottom + 14;
-  const arcN = Math.min(seated.length, 9);
+  // Up to nine on the arc; past that, eight and a "+N" circle at the end that opens the people sheet
+  const arcN = seated.length > 9 ? 8 : seated.length;
   const extra = seated.length - arcN;
   const shown = seated.slice(0, arcN);
+  const slots = arcN + (extra > 0 ? 1 : 0);
   const arcDepth = Math.round(40 * k); // how deep the arc of stools bows
   const late = left !== null && left < 10;
+  // where slot i sits: the middle stool is highest, the ends lowest
+  const slotXY = (i: number) => {
+    const tt = slots === 1 ? 0.5 : i / (slots - 1);
+    const a = Math.PI * (0.1 + 0.8 * tt);
+    return { x: W / 2 - (W / 2 - 40) * Math.cos(a), y: arcDepth * (1 - Math.sin(a)) };
+  };
 
   const poolStyle = useAnimatedStyle(() => ({
-    opacity: (t.dark ? 0.42 : 0.26) + pool.value * 0.5,
-    transform: [{ scale: 1 + pool.value * 0.18 }],
+    opacity: (t.dark ? 0.45 : 0.3) + pool.value * 0.4,
+    transform: [{ scale: 1 + pool.value * 0.12 }],
   }));
 
-  const speakerName = holding ? 'You have the stick' : holder ? (holder.full_name || `@${holder.username}`) : 'The stick is waiting';
-  const speakerSub = !holder ? 'The host picks who speaks first'
-    : left !== null ? `${holding ? '' : 'Has the stick · '}${mmss(left)} left${holding && !micOn ? ' · mic off' : ''}`
-    : room.holder_id === room.host_id ? (isHost ? `Your turn as host · no clock${!micOn ? ' · mic off' : ''}` : 'Host is speaking · no clock')
+  // One line under the speaker: "@user · 1:24 left"
+  const speakerWho = holding ? 'Your turn' : holder ? `@${holder.username}` : 'The stick is waiting';
+  const speakerTail = !holder ? 'The host picks who speaks first'
+    : left !== null ? `${mmss(left)} left`
+    : room.holder_id === room.host_id ? 'no clock'
     : '';
+  const micNote = holding && !micOn && !awaitStart ? ' · mic off' : '';
+  const speakerLine = (
+    <Text style={[styles.speakerLine, { color: t.ink }]} numberOfLines={1}
+      accessibilityLabel={`${speakerWho}${speakerTail ? `, ${speakerTail}` : ''}${micNote ? ', mic off' : ''}`}>
+      {speakerWho}
+      {speakerTail || micNote ? <Text style={[styles.speakerTail, { color: late ? t.danger : t.faint }]}>{speakerTail ? ` · ${speakerTail}` : ''}{micNote}</Text> : null}
+    </Text>
+  );
+
+  // ── host: drag the stick onto someone to pass it ──
+  const [headerH, setHeaderH] = useState(insets.top + 62);
+  const [arcTop, setArcTop] = useState(0);
+  const [hot, setHot] = useState<string | null>(null);
+  const seatIds = useRef<string[]>([]);
+  seatIds.current = shown.map(p => p.user_id);
+  const seatPts = useSharedValue<number[]>([]);
+  const hotIdx = useSharedValue(-1);
+  const dragX = useSharedValue(0);
+  const dragY = useSharedValue(0);
+  const lift = useSharedValue(0);
+  const seatKey = seatIds.current.join(',');
+  useEffect(() => {
+    // seat centres in the room's coordinates (the room fills the screen)
+    const pts: number[] = [];
+    seatIds.current.forEach((_, i) => { const { x, y } = slotXY(i); pts.push(x, headerH + arcTop + y + SEAT_BOX / 2); });
+    seatPts.value = pts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seatKey, headerH, arcTop, W, arcDepth, slots]);
+  const canDrag = isHost && !!holder && !lyricsFull;
+  const onHover = (i: number) => {
+    const id = i >= 0 ? seatIds.current[i] ?? null : null;
+    setHot(id);
+    if (id) Haptics.selectionAsync().catch(() => {});
+  };
+  const onDrop = (i: number) => { const id = seatIds.current[i]; if (id) passWithUndo(id); };
+  const drag = Gesture.Pan()
+    .enabled(canDrag)
+    .minDistance(8)
+    .onStart(() => { lift.value = withTiming(1, { duration: 120 }); })
+    .onUpdate(e => {
+      dragX.value = e.translationX;
+      dragY.value = e.translationY;
+      const pts = seatPts.value;
+      let best = -1, bd = 46 * 46;
+      for (let j = 0; j + 1 < pts.length; j += 2) {
+        const dx = pts[j] - e.absoluteX, dy = pts[j + 1] - e.absoluteY;
+        const d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = j / 2; }
+      }
+      if (best !== hotIdx.value) { hotIdx.value = best; runOnJS(onHover)(best); }
+    })
+    .onEnd(() => { if (hotIdx.value >= 0) runOnJS(onDrop)(hotIdx.value); })
+    .onFinalize(() => {
+      if (hotIdx.value !== -1) { hotIdx.value = -1; runOnJS(onHover)(-1); }
+      dragX.value = withSpring(0, { damping: 14 });
+      dragY.value = withSpring(0, { damping: 14 });
+      lift.value = withTiming(0, { duration: 180 });
+    });
+  const dragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: dragX.value }, { translateY: dragY.value }, { scale: 1 + lift.value * 0.08 }],
+  }));
+
+  // Reactions rise from the speaker's right side
+  const floatAnchor = lyricsFull
+    ? { x: W / 2 + 46, y: headerH + 12 + 40 }
+    : holder ? { x: W / 2 + AV / 2 - 10, y: headerH + over + hoopCy - 6 } : { x: W / 2 + 20, y: headerH + over + DAIS_H * 0.3 };
 
   // ── the dock's main action ──
-  type Main = { label: string; onPress: () => void; icon: 'hand' | 'stick' | 'undo'; disabled?: boolean; fill?: number; a11y?: string };
-  let main: Main;
-  if (holding) {
+  let main: MainSpec;
+  if (holding && awaitStart) {
+    main = { label: 'Start talking', onPress: startTalking, icon: 'mic', tone: 'ink', a11y: 'Start talking. Turns your mic on' };
+  } else if (holding) {
     if (isHost) main = nextUp
       ? { label: `Pass to @${nextUp.username}`, onPress: passNext, icon: 'stick', a11y: `Pass the stick to ${nextUp.username}` }
       : { label: 'No hands yet', onPress: passNext, icon: 'stick', disabled: true, a11y: 'Nobody has raised a hand' };
@@ -534,18 +662,18 @@ function Live({ state }: { state: BarazaState }) {
   } else if (state.me?.hand_raised_at) {
     main = {
       label: myPos ? `Hand up · ${ordinal(myPos)} in line` : 'Lower hand', onPress: tapHand, icon: 'hand', a11y: 'Lower your hand',
-      fill: myPos === 1 ? 0.9 : myPos === 2 ? 0.6 : myPos === 3 ? 0.35 : myPos ? 0.2 : 0,
+      fill: myPos === 1 ? 0.9 : myPos === 2 ? 0.35 : myPos === 3 ? 0.2 : myPos ? 0.12 : 0,
+      tone: t.dark ? 'glass' : 'accent',
     };
   } else {
-    main = { label: 'Hand up', onPress: tapHand, icon: 'hand', a11y: 'Raise your hand to speak' };
+    main = { label: 'Hand up', onPress: tapHand, icon: 'hand', a11y: 'Raise your hand to speak', tone: t.dark ? 'glass' : 'accent' };
   }
 
   const sheetRows: SheetRow[] = [
-    ...(room.holder_id && room.holder_id !== meId ? [{ label: 'Take the stick back', icon: 'arrow-undo-outline' as const, onPress: takeBack }] : []),
     { label: 'Turn length', sub: `${room.turn_seconds / 60} minute${room.turn_seconds === 60 ? '' : 's'} each`, icon: 'timer-outline', onPress: turnMenu },
     { label: 'Leave for now', sub: 'Ends on its own after 5 minutes away', icon: 'exit-outline', onPress: () => store().close() },
-    { label: 'End baraza', sub: 'Everyone leaves and the minutes are written', icon: 'stop-circle-outline', danger: true, onPress: end },
   ];
+  const handsUp = state.queue.map(id => byId.get(id)).filter((p): p is BarazaPerson => !!p);
 
   const lyrics = (
     <LyricCaptions lines={lyricLines} liveSeq={liveSeq} startedAt={nowStarted} pending={pending} hint={hint} level={level}
@@ -555,7 +683,7 @@ function Live({ state }: { state: BarazaState }) {
   return (
     <View style={{ flex: 1 }}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]} onLayout={e => setHeaderH(e.nativeEvent.layout.height)}>
         <Pressable onPress={leave} style={[styles.round, { backgroundColor: t.soft }]} hitSlop={8} accessibilityLabel="Leave">
           <Ionicons name="chevron-down" size={22} color={t.ink} />
         </Pressable>
@@ -591,45 +719,47 @@ function Live({ state }: { state: BarazaState }) {
       </View>
 
       {lyricsFull ? (
-        /* Transcript open: the circle folds into one row and the words take the stage */
+        /* Transcript open: a compact speaker with the stick, and the words take the stage */
         <Animated.View key="full" entering={FadeInDown.springify().damping(18)} exiting={FadeOut.duration(160)} style={{ flex: 1, paddingBottom: dockBottom + DOCK_H + 16 }}>
-          <Pressable onPress={openWho} style={styles.faceRow} accessibilityRole="button" accessibilityLabel="See who's here">
+          <Pressable onPress={openWho} style={styles.compact} accessibilityRole="button" accessibilityLabel="See who's here">
             {holder ? (
-              <View style={[styles.faceHolder, { borderColor: t.accent }]}>
-                <UserAvatar avatarUrl={holder.avatar_url ?? undefined} name={holder.full_name || holder.username} size={28} />
+              <View style={{ width: 104, height: 104 }}>
+                <View style={[styles.compactFrame, { backgroundColor: t.dark ? '#1B2140' : '#FFFFFF', shadowColor: t.dark ? t.accent : '#6B4A1F', shadowOpacity: t.dark ? 0.45 : 0.16 }]}>
+                  <UserAvatar avatarUrl={holder.avatar_url ?? undefined} name={holder.full_name || holder.username} size={96} />
+                </View>
+                <View style={{ position: 'absolute', left: 92, top: -6 }} pointerEvents="none"><PaintedStick height={78} tilt={-24} /></View>
               </View>
-            ) : null}
-            {seated.slice(0, 9).map(p => (
-              <View key={p.user_id} style={[styles.face, { borderColor: t.bg }]}>
-                <UserAvatar avatarUrl={p.profile?.avatar_url ?? undefined} name={p.profile?.full_name || p.profile?.username} size={28} />
-              </View>
-            ))}
-            {seated.length > 9 ? <Text style={[styles.faceMore, { color: t.sub }]}>+{seated.length - 9}</Text> : null}
-            <Text style={[styles.faceName, { color: t.sub }]} numberOfLines={1}>
-              {holder ? `${holder.full_name || `@${holder.username}`} has the stick${left !== null ? ` · ${mmss(left)}` : ''}` : 'The stick is waiting'}
-            </Text>
+            ) : (
+              <Image source={ART.empty} resizeMode="contain" style={{ width: 120, height: 86 }} fadeDuration={0} />
+            )}
+            <View style={{ marginTop: 10, paddingHorizontal: 24, maxWidth: '100%' }}>{speakerLine}</View>
           </Pressable>
           {lyrics}
         </Animated.View>
       ) : (
         <Animated.View key="room" entering={FadeInUp.springify().damping(18)} style={{ flex: 1 }} pointerEvents="box-none">
           {/* The stage: a pool of light, the dais, and whoever holds the stick inside the bead hoop */}
-          <View style={{ height: stageH, alignItems: 'center', overflow: 'visible' }} pointerEvents="box-none">
-            {/* the light pool may be taller than the stage: never clip it or it ends in a hard band */}
-            <View pointerEvents="none" style={{ position: 'absolute', width: POOL, height: POOL, left: W / 2 - POOL / 2, top: over + hoopCy + 30 - POOL / 2, overflow: 'visible' }}>
-              <Animated.Image source={ART.glow} fadeDuration={0} style={[{ width: POOL, height: POOL, tintColor: t.glow }, poolStyle]} />
+          <View style={{ height: stageH, alignItems: 'center', overflow: 'visible', zIndex: 3 }} pointerEvents="box-none">
+            {/* a warm pool of light lying on the dais top */}
+            <View pointerEvents="none" style={{ position: 'absolute', width: POOL_W, height: POOL_H, left: W / 2 - POOL_W / 2, top: over, overflow: 'visible' }}>
+              <Animated.Image source={ART.glow} fadeDuration={0} resizeMode="stretch" style={[{ width: POOL_W, height: POOL_H, tintColor: t.accent }, poolStyle]} />
             </View>
             <Image source={ART.dais} fadeDuration={0} resizeMode="contain" style={{ position: 'absolute', top: over, width: DAIS_W, height: DAIS_H }} />
             {holder ? (
               <Animated.View style={[{ position: 'absolute', top: over + hoopCy - HOOP / 2, width: HOOP, height: HOOP, alignItems: 'center', justifyContent: 'center' }, swapStyle]}>
                 <BeadHoop size={HOOP} progress={progress} t={t} late={late} />
                 <Pressable onPress={() => personMenu(holder.id)} accessibilityLabel={`${holder.username} has the stick`}
-                  style={[styles.speakerFrame, { backgroundColor: t.dark ? 'rgba(255,255,255,0.92)' : '#FFFFFF', shadowColor: t.dark ? '#000' : '#6B4A1F' }]}>
+                  style={[styles.speakerFrame, t.dark
+                    ? { backgroundColor: '#1B2140', shadowColor: t.accent, shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: 0 } }
+                    : { backgroundColor: '#FFFFFF', shadowColor: '#6B4A1F' }]}>
                   <UserAvatar avatarUrl={holder.avatar_url ?? undefined} name={holder.full_name || holder.username} size={AV - 10} />
                 </Pressable>
-                <View style={{ position: 'absolute', right: -27 * k, bottom: -40 * k }} pointerEvents="box-none">
-                  <TalkingStick height={STICK_H} level={level} holderKey={room.holder_id} t={t} late={late} />
-                </View>
+                <GestureDetector gesture={drag}>
+                  <Animated.View style={[{ position: 'absolute', right: -27 * k, bottom: -40 * k }, dragStyle]} pointerEvents="box-none"
+                    accessibilityHint={canDrag ? 'Drag the stick onto someone to pass it to them' : undefined}>
+                    <TalkingStick height={STICK_H} level={level} holderKey={room.holder_id} t={t} late={late} />
+                  </Animated.View>
+                </GestureDetector>
               </Animated.View>
             ) : (
               <Animated.Image entering={FadeIn.duration(300)} source={ART.empty} resizeMode="contain"
@@ -637,17 +767,16 @@ function Live({ state }: { state: BarazaState }) {
             )}
             {moment ? <ConfettiBurst key={moment} ox={W / 2} oy={over + hoopCy + AV / 2} spread={W * 0.42} /> : null}
             <View style={{ position: 'absolute', top: over + DAIS_H + 2, left: 24, right: 24, alignItems: 'center' }} pointerEvents="none">
-              {moment ? (
+              {awaitStart ? (
                 <Animated.View key="moment" entering={ZoomIn.springify().damping(12)} exiting={FadeOut.duration(300)} style={{ alignItems: 'center' }}>
                   <Text style={[styles.momentTitle, { color: t.ink }]}>The stick is yours</Text>
                   <Text style={[styles.momentSub, { color: t.sub }]} numberOfLines={2}>
-                    Everyone hears you about {DELAY_WORDS} later. {isHost ? 'There is no clock on your turn.' : `You have ${room.turn_seconds / 60} minute${room.turn_seconds === 60 ? '' : 's'}.`}
+                    Everyone hears you about {DELAY_WORDS} later. {left === null ? 'There is no clock on your turn.' : `You have ${room.turn_seconds / 60} minute${room.turn_seconds === 60 ? '' : 's'}.`}
                   </Text>
                 </Animated.View>
               ) : (
-                <Animated.View key="name" entering={FadeIn.duration(240)} style={{ alignItems: 'center' }}>
-                  <Text style={[styles.speakerName, { color: t.ink }]} numberOfLines={1}>{speakerName}</Text>
-                  <Text style={[styles.speakerSub, { color: late ? t.danger : t.sub }]} numberOfLines={1}>{speakerSub}</Text>
+                <Animated.View key="name" entering={FadeIn.duration(240)} style={{ alignItems: 'center', maxWidth: '100%' }}>
+                  {speakerLine}
                 </Animated.View>
               )}
             </View>
@@ -660,19 +789,30 @@ function Live({ state }: { state: BarazaState }) {
           {lyrics}
 
           {/* Everyone else, on stools in an arc */}
-          <View style={{ height: arcDepth + SEAT_BLOCK + 16, marginTop: 6 }} pointerEvents="box-none">
+          <View style={{ height: arcDepth + SEAT_BLOCK + 16, marginTop: 6 }} pointerEvents="box-none"
+            onLayout={e => setArcTop(e.nativeEvent.layout.y)}>
             {shown.map((p, i) => {
-              const tt = arcN === 1 ? 0.5 : i / (arcN - 1);
-              const a = Math.PI * (0.1 + 0.8 * tt);
-              const x = W / 2 - (W / 2 - 40) * Math.cos(a);
-              const y = arcDepth * Math.sin(a);
+              const { x, y } = slotXY(i);
               return (
                 <Animated.View key={p.user_id} entering={ZoomIn.delay(i * 30).springify().damping(13)} exiting={FadeOut}
                   layout={LinearTransition.springify().damping(16)} style={{ position: 'absolute', left: x - (SEAT_W + 16) / 2, top: y }}>
-                  <Seat p={p} i={i} pos={queuePos(p.user_id)} t={t} onPress={() => personMenu(p.user_id)} />
+                  <Seat p={p} i={i} pos={queuePos(p.user_id)} t={t} hot={hot === p.user_id}
+                    onPress={() => tapSeat(p)} onLongPress={() => personMenu(p.user_id)} />
                 </Animated.View>
               );
             })}
+            {extra > 0 ? (() => {
+              const { x, y } = slotXY(slots - 1);
+              return (
+                <Animated.View key="more" entering={ZoomIn.springify().damping(13)} layout={LinearTransition.springify().damping(16)}
+                  style={{ position: 'absolute', left: x - 22, top: y + (SEAT_BOX - 44) / 2 }}>
+                  <Pressable onPress={openWho} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${extra} more. See who's here`}
+                    style={({ pressed }) => [styles.moreSeat, { backgroundColor: t.soft }, pressed && { transform: [{ scale: 0.94 }] }]}>
+                    <Text style={[styles.moreSeatText, { color: t.sub }]}>+{extra}</Text>
+                  </Pressable>
+                </Animated.View>
+              );
+            })() : null}
             {seated.length === 0 ? (
               <Animated.View entering={FadeIn.delay(400)} style={styles.emptyCrowd}>
                 <Image source={ART.seat} style={{ width: 40, height: Math.round(40 * SEAT_RATIO), opacity: 0.8 }} fadeDuration={0} />
@@ -680,16 +820,16 @@ function Live({ state }: { state: BarazaState }) {
               </Animated.View>
             ) : null}
           </View>
-          {seated.length > 0 ? (
+          {seated.length > 0 && extra === 0 ? (
             <Pressable onPress={openWho} hitSlop={10} style={{ alignSelf: 'center', marginTop: 2 }} accessibilityRole="button" accessibilityLabel="See who's here">
-              <Text style={{ color: t.sub, fontSize: 13, fontWeight: '700' }}>{extra > 0 ? `+${extra} · ` : ''}See who's here</Text>
+              <Text style={{ color: t.sub, fontSize: 13, fontWeight: '600' }}>See who's here</Text>
             </Pressable>
           ) : null}
         </Animated.View>
       )}
 
-      {/* Floating reactions drift up past the speaker */}
-      {floats.map(f => <FloatingReaction key={f.id} glyph={f.glyph} x={f.x} bottom={dockBottom + DOCK_H + 20} rise={H * 0.62} />)}
+      {/* Reactions (yours and everyone's) rise from the speaker's right side */}
+      {floats.map(f => <FloatingReaction key={f.id} glyph={f.glyph} x={floatAnchor.x + f.x} top={floatAnchor.y} drift={f.drift} rise={Math.min(220, H * 0.26)} />)}
 
       {/* Above the dock: the reaction strip, "passed to" pill and any problem */}
       <View style={[styles.aboveDock, { bottom: dockBottom + DOCK_H + 10 }]} pointerEvents="box-none">
@@ -704,10 +844,11 @@ function Live({ state }: { state: BarazaState }) {
         ) : null}
         {reactOpen ? (
           <Animated.View entering={FadeInDown.springify().damping(16)} exiting={FadeOut.duration(140)}
-            style={[styles.strip, { backgroundColor: t.card, borderColor: t.line, shadowColor: t.dark ? '#000' : '#5A3E12' }]}>
+            style={[styles.strip, { backgroundColor: t.dark ? '#1B2140' : '#F6EEDC', shadowColor: t.dark ? '#000' : '#5A3E12' }]}>
+            {t.dark ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: t.soft, borderRadius: 26 }]} /> : null}
             {REACTIONS.map(r => (
-              <Pressable key={r} onPress={() => react(r)} accessibilityRole="button" accessibilityLabel={`React ${r}`}
-                style={({ pressed }) => [styles.reactChip, { backgroundColor: t.soft }, pressed && { transform: [{ scale: 0.88 }] }]}>
+              <Pressable key={r} onPress={() => react(r)} hitSlop={4} accessibilityRole="button" accessibilityLabel={`React ${r}`}
+                style={({ pressed }) => [styles.reactBtn, pressed && { transform: [{ scale: 0.82 }] }]}>
                 <Text style={styles.reactGlyph}>{r}</Text>
               </Pressable>
             ))}
@@ -744,45 +885,55 @@ function Live({ state }: { state: BarazaState }) {
 
       <ThemeSheet visible={themeOpen} onClose={() => setThemeOpen(false)} />
       <WhoSheet visible={whoOpen} onClose={() => setWhoOpen(false)} state={state} />
-      {isHost ? <DockSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} rows={sheetRows} t={t} /> : null}
+      {isHost ? (
+        <DockSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} rows={sheetRows} t={t} hands={handsUp}
+          onPass={id => passWithUndo(id)} onTakeBack={room.holder_id && room.holder_id !== meId ? takeBack : null} onEnd={end} />
+      ) : null}
     </View>
   );
 }
 
 /** A listener on a stool: avatar sitting on the seat, a tiny label under, badges for the queue. */
-function Seat({ p, i, pos, t, onPress }: { p: BarazaState['people'][number]; i: number; pos: number; t: BarazaTheme; onPress: () => void }) {
+function Seat({ p, i, pos, t, hot, onPress, onLongPress }: {
+  p: BarazaState['people'][number]; i: number; pos: number; t: BarazaTheme; hot?: boolean; onPress: () => void; onLongPress: () => void;
+}) {
   const bob = useSharedValue(0);
+  const grow = useSharedValue(0);
   useEffect(() => {
     bob.value = withDelay((i % 5) * 190, withRepeat(withTiming(1, { duration: 1500 + (i % 3) * 160, easing: Easing.inOut(Easing.sin) }), -1, true));
   }, [bob, i]);
-  const st = useAnimatedStyle(() => ({ transform: [{ translateY: -bob.value * 3 }] }));
+  // the stick being dragged over this seat
+  useEffect(() => { grow.value = withSpring(hot ? 1 : 0, { damping: 12, stiffness: 220 }); }, [hot, grow]);
+  const st = useAnimatedStyle(() => ({ transform: [{ translateY: -bob.value * 3 - grow.value * 4 }, { scale: 1 + grow.value * 0.14 }] }));
   const host = p.role === 'host';
   const label = pos ? (pos === 1 ? 'next up' : `${ordinal(pos)} in line`) : host ? 'host' : p.from || '';
   const showPin = !!p.from && !pos && !host;
+  const ring = pos ? t.accent : hot ? t.accent : t.dark ? 'rgba(255,255,255,0.92)' : '#FFFFFF';
+  const badgeEdge = t.dark ? '#1B2140' : '#FFFFFF';
   return (
     <Animated.View style={st}>
-      <Pressable onPress={onPress} style={{ width: SEAT_W + 16, alignItems: 'center' }}
+      <Pressable onPress={onPress} onLongPress={onLongPress} delayLongPress={350} style={{ width: SEAT_W + 16, alignItems: 'center' }}
         accessibilityRole="button" accessibilityLabel={`@${p.profile?.username}${pos ? `, hand up, number ${pos}` : host ? ', host' : ''}${p.from ? `, from ${p.from}` : ''}`}>
         <View style={{ width: SEAT_W + 16, height: SEAT_BLOCK, alignItems: 'center' }}>
           <Image source={ART.seat} fadeDuration={0} style={{ position: 'absolute', top: SEAT_BOX - 16, width: SEAT_W, height: SEAT_H }} />
-          <View style={[styles.seatAvatar, { backgroundColor: t.dark ? 'rgba(255,255,255,0.92)' : '#FFFFFF', shadowColor: t.dark ? '#000' : '#5A3E12' }]}>
+          <View style={[styles.seatAvatar, { backgroundColor: ring, shadowColor: t.dark ? '#000' : '#5A3E12' }]}>
             <UserAvatar avatarUrl={p.profile?.avatar_url ?? undefined} name={p.profile?.full_name || p.profile?.username} size={SEAT_AV} />
           </View>
           {pos ? (
-            <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.numBadge, { backgroundColor: t.accent, borderColor: t.bg }]}>
+            <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.numBadge, { backgroundColor: t.accent, borderColor: badgeEdge }]}>
               <Text style={[styles.numText, { color: t.accentInk }]}>{pos}</Text>
             </Animated.View>
           ) : null}
           {p.hand_raised_at ? (
             <Animated.View entering={ZoomIn.springify().damping(9)} style={styles.handBadge}>
-              <HandMark size={20} wave />
+              <HandMark size={16} loop />
             </Animated.View>
           ) : null}
         </View>
         {label ? (
           <View style={styles.seatLabelRow}>
             {showPin ? <Image source={ART.pin} style={{ width: 10, height: 10 }} fadeDuration={0} /> : null}
-            <Text style={[styles.seatLabel, { color: pos ? t.accent : t.sub }]} numberOfLines={1}>{label}</Text>
+            <Text style={[styles.seatLabel, { color: t.sub }]} numberOfLines={1}>{label}</Text>
           </View>
         ) : null}
       </Pressable>
@@ -790,8 +941,17 @@ function Seat({ p, i, pos, t, onPress }: { p: BarazaState['people'][number]; i: 
   );
 }
 
+type MainSpec = {
+  label: string; onPress: () => void; icon: 'hand' | 'stick' | 'undo' | 'mic'; disabled?: boolean; fill?: number; a11y?: string;
+  /** accent (amber), ink (dark, "Start talking"), glass (see-through on the night room) */
+  tone?: 'accent' | 'ink' | 'glass';
+};
+
 /** The dock's middle button: amber, with a translucent fill showing your place in the line. */
-function MainButton({ spec, t }: { spec: { label: string; onPress: () => void; icon: 'hand' | 'stick' | 'undo'; disabled?: boolean; fill?: number; a11y?: string }; t: BarazaTheme }) {
+function MainButton({ spec, t }: { spec: MainSpec; t: BarazaTheme }) {
+  const tone = spec.tone || 'accent';
+  const bg = tone === 'ink' ? t.ink : tone === 'glass' ? 'rgba(255,255,255,0.1)' : t.accent;
+  const fg = tone === 'ink' ? t.bg : tone === 'glass' ? t.accent : t.accentInk;
   const fill = useSharedValue(spec.fill ?? 0);
   useEffect(() => { fill.value = withSpring(spec.fill ?? 0, { damping: 16, stiffness: 120 }); }, [spec.fill, fill]);
   const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
@@ -801,38 +961,48 @@ function MainButton({ spec, t }: { spec: { label: string; onPress: () => void; i
     <Animated.View style={[{ flex: 1 }, pressStyle]}>
       <Pressable onPress={spec.onPress} disabled={spec.disabled} accessibilityRole="button" accessibilityLabel={spec.a11y || spec.label}
         onPressIn={() => { press.value = withTiming(0.96, { duration: 80 }); }} onPressOut={() => { press.value = withSpring(1, { damping: 12 }); }}
-        style={[styles.main, { backgroundColor: t.accent, opacity: spec.disabled ? 0.45 : 1, shadowColor: t.accent }]}>
-        <Animated.View pointerEvents="none" style={[styles.mainFill, fillStyle]} />
+        style={[styles.main, { backgroundColor: bg, opacity: spec.disabled ? 0.45 : 1, shadowColor: tone === 'ink' ? '#000' : t.accent },
+          tone === 'glass' && { shadowOpacity: 0, elevation: 0 }, tone === 'ink' && { shadowOpacity: 0.18 }]}>
+        <Animated.View pointerEvents="none" style={[styles.mainFill, tone === 'glass' && { backgroundColor: 'rgba(242,181,68,0.18)' }, fillStyle]} />
         {spec.icon === 'hand' ? <Image source={ART.handBtn} style={{ width: 24, height: 24 }} fadeDuration={0} resizeMode="contain" />
           : spec.icon === 'stick' ? <PaintedStick height={28} tilt={-32} />
-          : <Ionicons name="arrow-undo" size={19} color={t.accentInk} />}
-        <Text style={[styles.mainText, { color: t.accentInk }]} numberOfLines={1}>{spec.label}</Text>
+          : spec.icon === 'mic' ? <Ionicons name="mic" size={19} color={fg} />
+          : <Ionicons name="arrow-undo" size={19} color={fg} />}
+        <Text style={[styles.mainText, { color: fg }]} numberOfLines={1}>{spec.label}</Text>
       </Pressable>
     </Animated.View>
   );
 }
 
-/** One reaction drifting up the room and fading. */
-function FloatingReaction({ glyph, x, bottom, rise }: { glyph: string; x: number; bottom: number; rise: number }) {
+/** One reaction rising from beside the speaker, shrinking a little and fading as it goes. */
+function FloatingReaction({ glyph, x, top, drift, rise }: { glyph: string; x: number; top: number; drift: number; rise: number }) {
   const p = useSharedValue(0);
-  useEffect(() => { p.value = withTiming(1, { duration: 1500, easing: Easing.out(Easing.quad) }); }, [p]);
+  useEffect(() => { p.value = withTiming(1, { duration: 1700, easing: Easing.out(Easing.quad) }); }, [p]);
   const st = useAnimatedStyle(() => ({
-    opacity: interpolate(p.value, [0, 0.08, 0.7, 1], [0, 1, 1, 0]),
+    opacity: interpolate(p.value, [0, 0.06, 0.55, 1], [0, 0.95, 0.75, 0]),
     transform: [
       { translateY: -p.value * rise },
-      { translateX: Math.sin(p.value * Math.PI * 2.2) * 16 },
-      { scale: 0.8 + p.value * 0.7 },
+      { translateX: p.value * drift + Math.sin(p.value * Math.PI * 2) * 6 },
+      { scale: 1.1 - p.value * 0.5 },
     ],
   }));
-  return <Animated.Text pointerEvents="none" style={[{ position: 'absolute', left: x, bottom, fontSize: 30 }, st]}>{glyph}</Animated.Text>;
+  return <Animated.Text pointerEvents="none" style={[{ position: 'absolute', left: x, top: top - 14, fontSize: 24, zIndex: 5 }, st]}>{glyph}</Animated.Text>;
 }
 
 type SheetRow = { label: string; sub?: string; icon: keyof typeof Ionicons.glyphMap; danger?: boolean; onPress: () => void };
 
-/** The host's extra actions, from the dock's small ⋯ button. */
-function DockSheet({ visible, onClose, rows, t }: { visible: boolean; onClose: () => void; rows: SheetRow[]; t: BarazaTheme }) {
+/** The host's panel, from the dock's small ⋯ button: the hands up in line (pass to any of them),
+ * the room settings, and Take it back / End baraza. */
+function DockSheet({ visible, onClose, rows, t, hands, onPass, onTakeBack, onEnd }: {
+  visible: boolean; onClose: () => void; rows: SheetRow[]; t: BarazaTheme;
+  hands: BarazaPerson[]; onPass: (id: string) => void; onTakeBack: (() => void) | null; onEnd: () => void;
+}) {
   const insets = useSafeAreaInsets();
-  const run = (r: SheetRow) => { onClose(); setTimeout(r.onPress, 260); };
+  const later = (fn: () => void) => { onClose(); setTimeout(fn, 260); };
+  const run = (r: SheetRow) => later(r.onPress);
+  const firstBg = t.dark ? 'rgba(242,181,68,0.12)' : '#FFF6E3';
+  const rowBg = t.dark ? t.soft : '#F7F7F9';
+  const numBg = t.dark ? 'rgba(255,255,255,0.14)' : '#E5E5EA';
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       {visible && (
@@ -843,6 +1013,27 @@ function DockSheet({ visible, onClose, rows, t }: { visible: boolean; onClose: (
           <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown.duration(180)}
             style={[styles.sheet, { backgroundColor: t.dark ? '#1B2140' : '#FFFFFF', paddingBottom: insets.bottom + 14 }]}>
             <View style={[styles.grab, { backgroundColor: t.line }]} />
+            <Text style={[styles.handsTitle, { color: t.ink }]}>Hands up</Text>
+            {hands.length ? (
+              <ScrollView style={{ maxHeight: 248 }} contentContainerStyle={{ gap: 10, paddingBottom: 2 }} showsVerticalScrollIndicator={false}>
+                {hands.map((p, i) => (
+                  <View key={p.id} style={[styles.handRow, i === 0 ? { backgroundColor: firstBg, borderColor: t.accent, borderWidth: 1.5 } : { backgroundColor: rowBg }]}>
+                    <View style={[styles.handNum, { backgroundColor: i === 0 ? t.accent : numBg }]}>
+                      <Text style={[styles.handNumText, { color: i === 0 ? t.accentInk : t.ink }]}>{i + 1}</Text>
+                    </View>
+                    <UserAvatar avatarUrl={p.avatar_url ?? undefined} name={p.full_name || p.username} size={36} />
+                    <Text style={[styles.handName, { color: t.ink }]} numberOfLines={1}>@{p.username}</Text>
+                    <Pressable onPress={() => { onClose(); onPass(p.id); }} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Pass the stick to ${p.username}`}
+                      style={({ pressed }) => [styles.handPass, { backgroundColor: t.ink }, pressed && { transform: [{ scale: 0.94 }] }]}>
+                      <Text style={[styles.handPassText, { color: t.bg }]}>Pass</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={[styles.handsEmpty, { color: t.sub }]}>No hands up yet. When someone raises a hand they line up here.</Text>
+            )}
+            <View style={[styles.sheetLine, { backgroundColor: t.line }]} />
             {rows.map(r => (
               <Pressable key={r.label} onPress={() => run(r)} accessibilityRole="button" accessibilityLabel={r.label}
                 style={({ pressed }) => [styles.sheetRow, pressed && { backgroundColor: t.soft }]}>
@@ -856,6 +1047,18 @@ function DockSheet({ visible, onClose, rows, t }: { visible: boolean; onClose: (
                 <Ionicons name="chevron-forward" size={16} color={t.faint} />
               </Pressable>
             ))}
+            <View style={styles.sheetFoot}>
+              {onTakeBack ? (
+                <Pressable onPress={() => later(onTakeBack)} accessibilityRole="button" accessibilityLabel="Take the stick back"
+                  style={({ pressed }) => [styles.footBtn, { backgroundColor: t.dark ? t.soft : '#F6EEDC' }, pressed && { transform: [{ scale: 0.97 }] }]}>
+                  <Text style={[styles.footText, { color: t.ink }]}>Take it back</Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={() => later(onEnd)} accessibilityRole="button" accessibilityLabel="End baraza"
+                style={({ pressed }) => [styles.footBtn, { backgroundColor: t.dangerSoft }, pressed && { transform: [{ scale: 0.97 }] }]}>
+                <Text style={[styles.footText, { color: t.danger }]}>End baraza</Text>
+              </Pressable>
+            </View>
           </Animated.View>
         </>
       )}
@@ -906,7 +1109,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   round: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
-  title: { fontSize: 18, fontWeight: '800', letterSpacing: 0.35 },
+  title: { fontSize: 17, fontWeight: '700', letterSpacing: -0.4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 6 },
   metaChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingLeft: 5, paddingRight: 9, borderRadius: 12 },
   metaIcon: { width: 17, height: 17 },
@@ -915,26 +1118,28 @@ const styles = StyleSheet.create({
 
   // stage
   speakerFrame: { borderRadius: 999, padding: 5, shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
-  speakerName: { fontSize: 22, fontWeight: '800', letterSpacing: 0.35, maxWidth: '100%' },
-  speakerSub: { fontSize: 13, fontWeight: '600', marginTop: 2, fontVariant: ['tabular-nums'] },
-  momentTitle: { fontSize: 24, fontWeight: '800', letterSpacing: 0.35 },
-  momentSub: { fontSize: 13, lineHeight: 17, textAlign: 'center', marginTop: 3 },
+  speakerLine: { fontSize: 15, fontWeight: '700', letterSpacing: -0.24, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  speakerTail: { fontWeight: '500' },
+  momentTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
+  momentSub: { fontSize: 13.5, lineHeight: 18, textAlign: 'center', marginTop: 4 },
   capWho: { fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 2 },
 
-  // transcript open
-  faceRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, height: 50 },
-  faceHolder: { borderRadius: 18, borderWidth: 2, padding: 1, marginRight: 6 },
-  face: { borderRadius: 16, borderWidth: 2, marginLeft: -8 },
-  faceMore: { fontSize: 12, fontWeight: '700', marginLeft: 6 },
-  faceName: { flex: 1, fontSize: 12.5, fontWeight: '600', marginLeft: 10, textAlign: 'right' },
+  // transcript open: a compact speaker above the words
+  compact: { alignItems: 'center', paddingTop: 12 },
+  compactFrame: { width: 104, height: 104, borderRadius: 52, padding: 4, shadowRadius: 22, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
 
   // circle
   seatAvatar: { position: 'absolute', top: 0, width: SEAT_BOX, height: SEAT_BOX, borderRadius: SEAT_BOX / 2, padding: 2.5, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  numBadge: { position: 'absolute', top: -4, right: 2, width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  numBadge: { position: 'absolute', top: -6, left: (SEAT_W + 16 - SEAT_BOX) / 2 - 6, width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   numText: { fontSize: 11, fontWeight: '800' },
-  handBadge: { position: 'absolute', top: -8, left: 0 },
+  handBadge: {
+    position: 'absolute', top: -12, right: (SEAT_W + 16 - SEAT_BOX) / 2 - 10, width: 26, height: 26, borderRadius: 13, backgroundColor: '#FFFFFF',
+    alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4,
+  },
   seatLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2, maxWidth: SEAT_W + 24 },
-  seatLabel: { fontSize: 10, fontWeight: '700' },
+  seatLabel: { fontSize: 11, fontWeight: '500' },
+  moreSeat: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  moreSeatText: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   emptyCrowd: { alignItems: 'center', gap: 8, paddingHorizontal: 48, marginTop: 10 },
   emptyText: { fontSize: 13.5, lineHeight: 19, textAlign: 'center' },
 
@@ -942,9 +1147,9 @@ const styles = StyleSheet.create({
   aboveDock: { position: 'absolute', left: 16, right: 16, alignItems: 'center', gap: 8 },
   passPill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 7, paddingRight: 14, height: 40, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 6, maxWidth: '90%' },
   passText: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
-  strip: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 6, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, shadowOpacity: 0.16, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
-  reactChip: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  reactGlyph: { fontSize: 22 },
+  strip: { alignSelf: 'stretch', height: 52, borderRadius: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 6, shadowOpacity: 0.14, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+  reactBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  reactGlyph: { fontSize: 24 },
   err: { fontSize: 13, textAlign: 'center', paddingHorizontal: 20 },
 
   // the dock
@@ -953,7 +1158,7 @@ const styles = StyleSheet.create({
   dockMore: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   main: { height: 48, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 14, overflow: 'hidden', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
   mainFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.35)' },
-  mainText: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  mainText: { fontSize: 16, fontWeight: '700', flexShrink: 1 },
 
   // host sheet
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 12, paddingTop: 10 },
@@ -962,6 +1167,18 @@ const styles = StyleSheet.create({
   sheetIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   sheetLabel: { fontSize: 16, fontWeight: '600' },
   sheetSub: { fontSize: 12.5, marginTop: 1 },
+  handsTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.4, paddingHorizontal: 8, marginBottom: 10 },
+  handsEmpty: { fontSize: 14, lineHeight: 19, paddingHorizontal: 8, paddingBottom: 4 },
+  handRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 16 },
+  handNum: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  handNumText: { fontSize: 12, fontWeight: '800' },
+  handName: { flex: 1, fontSize: 15, fontWeight: '700' },
+  handPass: { height: 30, paddingHorizontal: 12, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  handPassText: { fontSize: 13, fontWeight: '700' },
+  sheetLine: { height: StyleSheet.hairlineWidth, marginVertical: 12, marginHorizontal: 8 },
+  sheetFoot: { flexDirection: 'row', gap: 8, paddingHorizontal: 4, marginTop: 12 },
+  footBtn: { flex: 1, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  footText: { fontSize: 14, fontWeight: '700' },
 
   consentWrap: { flex: 1, paddingHorizontal: 16 },
   consentTitle: { fontSize: 24, fontWeight: '800', letterSpacing: 0.35, textAlign: 'center', marginTop: 22 },

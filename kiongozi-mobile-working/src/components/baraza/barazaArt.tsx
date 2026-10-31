@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarazaTheme, BARAZA_THEMES, THEME_ORDER, useBarazaTheme } from './barazaTheme';
 
@@ -60,8 +61,10 @@ export function Backdrop({ t }: { t: BarazaTheme }) {
   const { width, height } = useWindowDimensions();
   const TILE = 256;
   const cols = Math.ceil(width / TILE), rows = Math.ceil(height / TILE);
+  const SKY = Math.round(Math.max(width, height) * 1.25);
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: t.bg }]} pointerEvents="none">
+      {t.gradient ? <LinearGradient colors={t.gradient} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} /> : null}
       {t.cover ? (
         <Image source={t.cover} style={StyleSheet.absoluteFill} resizeMode="cover" fadeDuration={0} />
       ) : t.tile ? (
@@ -71,6 +74,11 @@ export function Backdrop({ t }: { t: BarazaTheme }) {
             <Image key={i} source={t.tile} style={{ width: TILE, height: TILE }} fadeDuration={0} />
           ))}
         </View>
+      ) : null}
+      {t.sky ? (
+        // a glow sitting high in the sky, fading out to the night colour
+        <Image source={ART.glow} fadeDuration={0} resizeMode="stretch"
+          style={{ position: 'absolute', width: SKY, height: SKY, left: width / 2 - SKY / 2, top: height * 0.25 - SKY / 2, tintColor: t.sky, opacity: 0.9 }} />
       ) : null}
     </View>
   );
@@ -291,8 +299,7 @@ export const ISLAND = {
 /**
  * The bead hoop as the turn clock. `progress` is how much of the turn has gone (0..1): a veil in
  * the room colour sweeps clockwise from twelve o'clock so the beads fade as the turn runs. Done
- * with two rotating half-rings behind half-width clips (no SVG). null = untimed: the whole hoop
- * breathes.
+ * with two rotating half-rings behind half-width clips (no SVG). It always breathes a little.
  */
 export function BeadHoop({ size, progress, t, late }: { size: number; progress: number | null; t: BarazaTheme; late?: boolean }) {
   const R = size / 2;
@@ -305,9 +312,7 @@ export function BeadHoop({ size, progress, t, late }: { size: number; progress: 
     p.value = timed ? withTiming(progress!, { duration: 520, easing: Easing.linear }) : withTiming(0, { duration: 200 });
   }, [progress, timed, p]);
   useEffect(() => {
-    breathe.value = timed
-      ? withTiming(0, { duration: 240 })
-      : withRepeat(withTiming(1, { duration: 1700, easing: Easing.inOut(Easing.sin) }), -1, true);
+    breathe.value = withRepeat(withTiming(1, { duration: timed ? 2200 : 1700, easing: Easing.inOut(Easing.sin) }), -1, true);
   }, [timed, breathe]);
   useEffect(() => {
     pulse.value = late
@@ -390,15 +395,23 @@ export function ConfettiBurst({ n = 18, ox, oy, spread }: { n?: number; ox: numb
   );
 }
 
-/** A painted raised hand, used on the button and in the queue. */
-export function HandMark({ size = 22, wave = false }: { size?: number; wave?: boolean }) {
+/** A painted raised hand, used on the button and in the queue. `wave` waves once; `loop` keeps waving. */
+export function HandMark({ size = 22, wave = false, loop = false }: { size?: number; wave?: boolean; loop?: boolean }) {
   const r = useSharedValue(0);
   useEffect(() => {
+    if (loop) {
+      // a slow, steady wave from -8 to 10 degrees while the hand stays up
+      r.value = withRepeat(withSequence(
+        withTiming(10 / 18, { duration: 550, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-8 / 18, { duration: 550, easing: Easing.inOut(Easing.sin) }),
+      ), -1, false);
+      return;
+    }
     r.value = wave
       ? withSequence(withTiming(1, { duration: 140 }), withTiming(-1, { duration: 160 }), withTiming(0.6, { duration: 140 }), withSpring(0))
       : 0;
-  }, [wave, r]);
-  const st = useAnimatedStyle(() => ({ transform: [{ rotate: `${r.value * 18}deg` }] }));
+  }, [wave, loop, r]);
+  const st = useAnimatedStyle(() => ({ transform: [{ translateY: size * 0.4 }, { rotate: `${r.value * 18}deg` }, { translateY: -size * 0.4 }] }));
   return <Animated.Image source={ART.hand} fadeDuration={0} style={[{ width: size, height: size }, st]} resizeMode="contain" />;
 }
 
@@ -428,6 +441,7 @@ export function ThemeSheet({ visible, onClose }: { visible: boolean; onClose: ()
                     onPress={() => { Haptics.selectionAsync().catch(() => {}); useBarazaTheme.getState().set(id); }}
                     style={({ pressed }) => [sheet.card, { borderColor: on ? th.accent : t.line, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
                     <View style={[sheet.swatch, { backgroundColor: th.bg }]}>
+                      {th.gradient ? <LinearGradient colors={th.gradient} style={StyleSheet.absoluteFill} /> : null}
                       {th.cover ? <Image source={th.cover} style={StyleSheet.absoluteFill} resizeMode="cover" />
                         : th.tile ? <Image source={th.tile} style={[StyleSheet.absoluteFill, { opacity: th.tileOpacity }]} resizeMode="cover" /> : null}
                       <View style={sheet.swatchStick}><PaintedStick height={52} /></View>

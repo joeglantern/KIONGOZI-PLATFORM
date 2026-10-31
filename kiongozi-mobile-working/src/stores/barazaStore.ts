@@ -19,7 +19,7 @@ export interface LiveBaraza {
   host: BarazaPerson | null;
   speaker: BarazaPerson | null;
   count: number;
-  /** up to six people in the room, for the stools on the Explore card */
+  /** the Explore card stools (six at most): host first, then the stick holder, then hands up in line order */
   faces?: BarazaPerson[];
 }
 

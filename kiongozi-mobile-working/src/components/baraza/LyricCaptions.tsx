@@ -1,7 +1,7 @@
 // Captions as lyrics: the words are the surface. No box. The line being said now is big and bright,
 // the one or two lines already said sit dimmed above it, and a dim "…" below means the next chunk
 // is on its way. Each new line slides in from below while the old ones move up and fade.
-// MINI sits under the speaker; FULL takes the stage (tap the chip or swipe up).
+// MINI sits under the speaker; FULL takes the stage (tap the words or the chip, or swipe up).
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, {
@@ -17,20 +17,21 @@ import { BarazaTheme } from './barazaTheme';
 /** One chunk's words. `words` are [startMs, endMs, word] from the chunk's start (optional). */
 export type LyricLine = { seq: number; text: string; durationMs: number; words?: [number, number, string][] };
 
+const EASE_IN = Easing.bezier(0.2, 0.9, 0.3, 1);
 const enterLine = () => {
   'worklet';
   return {
     initialValues: { opacity: 0, transform: [{ translateY: 22 }] },
     animations: {
-      opacity: withTiming(1, { duration: 550, easing: Easing.out(Easing.cubic) }),
-      transform: [{ translateY: withTiming(0, { duration: 550, easing: Easing.out(Easing.cubic) }) }],
+      opacity: withTiming(1, { duration: 550, easing: EASE_IN }),
+      transform: [{ translateY: withTiming(0, { duration: 550, easing: EASE_IN }) }],
     },
   };
 };
 
 const SIZE = {
-  mini: { prev: { fontSize: 14, lineHeight: 19, fontWeight: '600' as const, letterSpacing: -0.1 }, live: { fontSize: 19, lineHeight: 24, fontWeight: '800' as const, letterSpacing: -0.3 }, gap: 4 },
-  full: { prev: { fontSize: 26, lineHeight: 32, fontWeight: '700' as const, letterSpacing: -0.4 }, live: { fontSize: 30, lineHeight: 36, fontWeight: '800' as const, letterSpacing: -0.6 }, gap: 10 },
+  mini: { prev: { fontSize: 14, lineHeight: 19, fontWeight: '600' as const, letterSpacing: -0.1 }, live: { fontSize: 19, lineHeight: 24, fontWeight: '800' as const, letterSpacing: -0.4 }, gap: 6, fade: 18 },
+  full: { prev: { fontSize: 26, lineHeight: 32, fontWeight: '700' as const, letterSpacing: -0.5 }, live: { fontSize: 30, lineHeight: 36, fontWeight: '800' as const, letterSpacing: -0.6 }, gap: 22, fade: 64 },
 };
 
 /** A word that lights up at its moment in the chunk. */
@@ -79,6 +80,13 @@ export function LyricCaptions({ lines, liveSeq, startedAt, pending, hint, level,
       'worklet';
       if ((!full && e.translationY < -40) || (full && e.translationY > 40)) runOnJS(toggle)();
     });
+  // a tap on the words opens or folds the transcript too
+  const tap = Gesture.Tap().maxDuration(350).onEnd((_e, ok) => { 'worklet'; if (ok) runOnJS(toggle)(); });
+  const gesture = Gesture.Exclusive(pan, tap);
+  // said lines sit a little brighter on the night room so they still read
+  const dimNear = t.dark ? 0.3 : 0.4;
+  const dimFar = t.dark ? 0.18 : 0.22;
+  const align = full ? 'left' as const : 'center' as const;
 
   const liveStyle = [
     styles.line, S.live, { color: t.ink },
@@ -87,20 +95,22 @@ export function LyricCaptions({ lines, liveSeq, startedAt, pending, hint, level,
   const timed = !!live?.words?.length && startedAt !== null && liveSeq === live?.seq;
 
   return (
-    <GestureDetector gesture={pan}>
-      <View style={[styles.wrap, full && styles.wrapFull]} accessibilityRole="text" accessibilityLabel={live ? `Captions: ${live.text}` : hint || 'Captions'}>
-        <View style={[styles.column, { gap: S.gap }, full && { justifyContent: 'center', flex: 1 }]}>
+    <View style={[styles.wrap, full && styles.wrapFull]}>
+      <GestureDetector gesture={gesture}>
+      <View style={[styles.area, full && { flex: 1 }]} accessibilityRole="text" accessibilityLabel={live ? `Captions: ${live.text}` : hint || 'Captions'}
+        accessibilityHint={full ? 'Tap to fold the transcript' : 'Tap to open the transcript'}>
+        <View style={[styles.column, { gap: S.gap }, full && { justifyContent: 'center', flex: 1, alignItems: 'stretch' }]}>
           {!lines.length ? (
             hint ? (
               <Animated.Text key="hint" entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)}
-                style={[styles.line, S.prev, { color: t.ink, opacity: 0.4, fontWeight: '600' }]}>{hint}</Animated.Text>
+                style={[styles.line, S.prev, { color: t.ink, opacity: 0.4, fontWeight: '600', textAlign: align }]}>{hint}</Animated.Text>
             ) : null
           ) : (
             <>
               {/* one keyed wrapper per line, so a line that was live slides up into its dimmed place */}
               {prev.map((l, i) => (
                 <Animated.View key={l.seq} layout={LinearTransition.duration(420).easing(Easing.out(Easing.cubic))} exiting={FadeOut.duration(200)}>
-                  <Text style={[styles.line, S.prev, { color: t.ink, opacity: prev.length === 2 && i === 0 ? 0.22 : 0.4 }]} numberOfLines={full ? 3 : 1}>
+                  <Text style={[styles.line, S.prev, { color: t.ink, opacity: prev.length === 2 && i === 0 ? dimFar : dimNear, textAlign: align }]} numberOfLines={full ? 3 : 1}>
                     {l.text}
                   </Text>
                 </Animated.View>
@@ -108,46 +118,48 @@ export function LyricCaptions({ lines, liveSeq, startedAt, pending, hint, level,
               {live ? (
                 <Animated.View key={live.seq} entering={enterLine} layout={LinearTransition.duration(420).easing(Easing.out(Easing.cubic))} style={breath}>
                   {timed ? (
-                    <View style={styles.words}>
+                    <View style={[styles.words, full && { justifyContent: 'flex-start' }]}>
                       {live.words!.map((w, i) => <Word key={`${live.seq}-${i}`} word={w[2]} start={w[0]} clock={clock} style={liveStyle} />)}
                     </View>
                   ) : (
-                    <Text style={liveStyle} numberOfLines={full ? 6 : 3}>{live.text}</Text>
+                    <Text style={[liveStyle, { textAlign: align }]} numberOfLines={full ? 6 : 3}>{live.text}</Text>
                   )}
                 </Animated.View>
               ) : null}
               {pending ? (
                 <Animated.Text key="pending" entering={FadeIn.duration(300)} exiting={FadeOut.duration(160)}
-                  layout={LinearTransition.duration(420)} style={[styles.line, S.live, { color: t.ink, opacity: 0.14 }]}>…</Animated.Text>
+                  layout={LinearTransition.duration(420)} style={[styles.line, S.prev, { color: t.ink, opacity: t.dark ? 0.18 : 0.14, textAlign: align }]}>…</Animated.Text>
               ) : null}
             </>
           )}
         </View>
         {!t.cover ? (
           <>
-            <LinearGradient pointerEvents="none" colors={[t.bg, 'transparent']} style={[styles.fade, { top: 0 }]} />
-            <LinearGradient pointerEvents="none" colors={['transparent', t.bg]} style={[styles.fade, { bottom: showChip ? 34 : 0 }]} />
+            <LinearGradient pointerEvents="none" colors={[t.bg, 'transparent']} style={[styles.fade, { top: 0, height: S.fade }]} />
+            <LinearGradient pointerEvents="none" colors={['transparent', t.bg]} style={[styles.fade, { bottom: 0, height: S.fade }]} />
           </>
         ) : null}
+      </View>
+      </GestureDetector>
         {showChip ? (
           <Pressable onPress={toggle} hitSlop={8} accessibilityRole="button" accessibilityLabel={full ? 'Back to the room' : 'Open the transcript'}
             style={({ pressed }) => [styles.chip, { backgroundColor: t.soft }, pressed && { transform: [{ scale: 0.95 }] }]}>
-            <Text style={[styles.chipText, { color: t.sub }]}>{full ? 'Done' : 'Transcript'}</Text>
-            <Ionicons name={full ? 'chevron-up' : 'chevron-down'} size={13} color={t.sub} />
+            <Text style={[styles.chipText, { color: t.ink }]}>{full ? 'Done' : 'Transcript'}</Text>
+            <Ionicons name={full ? 'chevron-up' : 'chevron-down'} size={13} color={t.ink} />
           </Pressable>
         ) : null}
-      </View>
-    </GestureDetector>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 6 },
   wrapFull: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
+  area: { alignSelf: 'stretch' },
   column: { alignItems: 'center', alignSelf: 'stretch', minHeight: 48, justifyContent: 'flex-end' },
   line: { textAlign: 'center' },
   words: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  fade: { position: 'absolute', left: 0, right: 0, height: 16 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 26, paddingLeft: 11, paddingRight: 8, borderRadius: 13, marginTop: 8 },
-  chipText: { fontSize: 12.5, fontWeight: '700' },
+  fade: { position: 'absolute', left: 0, right: 0 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingLeft: 10, paddingRight: 8, borderRadius: 13, marginTop: 10 },
+  chipText: { fontSize: 12, fontWeight: '700' },
 });
