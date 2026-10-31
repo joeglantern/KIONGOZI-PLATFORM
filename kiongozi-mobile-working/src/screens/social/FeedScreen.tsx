@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TAB_LIST_INSET } from '../../navigation/tabInset';
+import { TAB_INSET, TAB_LIST_INSET } from '../../navigation/tabInset';
 import { noteFeedScroll } from '../../utils/breakReminder';
 import { deletePostWithUndo } from '../../utils/deletePost';
 import {
   View, Text, StyleSheet, RefreshControl, ActivityIndicator,
-  TouchableOpacity, ScrollView, useWindowDimensions, Image, Modal, Animated, FlatList, Platform,
+  TouchableOpacity, ScrollView, useWindowDimensions, Image, Modal, Animated, FlatList, Platform, Keyboard, Pressable,
 } from 'react-native';
 import CreatePostScreen from './CreatePostScreen';
 
@@ -13,6 +13,7 @@ import { useDMStore } from '../../stores/dmStore';
 import { PostCard } from '../../components/social/PostCard';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../utils/supabaseClient';
 import apiClient from '../../utils/apiClient';
 import { EditPostModal } from '../../components/social/EditPostModal';
@@ -55,10 +56,15 @@ export default function FeedScreen() {
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'user'; id: string; displayName: string } | null>(null);
   const insets = useSafeAreaInsets();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  // Logo bar: 16 pad + logo + [centred mini story stack ≈106 wide] + icons (2×44 + 4 gap) + 16 pad.
-  // The stack must clear the logo: logoRight ≤ W/2 − 53 − 4 → logoW ≤ W/2 − 73 (120 @≥390, ~84 @320).
-  const LOGO_W = Math.round(Math.min(120, Math.max(80, SCREEN_WIDTH / 2 - 76)));
+  // Logo bar: 16 pad + 34 logo + [centred mini story stack ≈106 wide] + icons (2×44 + 4 gap) + 16 pad.
+  const LOGO_W = 34;
   const STACK_INSET = Math.max(16 + LOGO_W, 16 + 92) + 2;
+  // County chip: shown when the profile says where you are. The feed's posts carry only
+  // id/name/handle/avatar for their authors (no county), so there is nothing to filter by yet:
+  // the chip is shown disabled until the API adds a county to post authors.
+  const me = useProfileStore(s => s.currentUserProfile) as any;
+  const myCounty: string | null = (me?.county || me?.location || '').toString().trim() || null;
+  const COUNTY_FILTER_READY = false;
   const [forYouError, setForYouError] = useState<string | null>(null);
 
   const {
@@ -116,7 +122,8 @@ export default function FeedScreen() {
   };
 
   const handlePostPress = useCallback((post: Post) => {
-    const targetId = (post.repost_of_id && post.repost_of?.id) ? post.repost_of.id : post.id;
+    // A plain repost opens the original; a quote (a repost with its own text) opens itself
+    const targetId = (post.repost_of_id && post.repost_of?.id && !post.content?.trim()) ? post.repost_of.id : post.id;
     navigation.navigate('PostDetail', { postId: targetId });
   }, [navigation]);
 
@@ -232,7 +239,7 @@ export default function FeedScreen() {
   // away under the logo bar (tabs ride up and stay pinned) while a mini avatar stack rises
   // into the bar. All driven on the native thread from the active list's scroll position.
   const [railH, setRailH] = useState(118);
-  const [topH, setTopH] = useState(() => insets.top + 6 + 44);   // status bar + logo row
+  const [topH, setTopH] = useState(() => insets.top + 52);   // status bar + logo row
   const [tabsH, setTabsH] = useState(58);
   const headerH = topH + railH + tabsH;
   const scrollYs = useRef([new Animated.Value(0), new Animated.Value(0)]).current;
@@ -247,10 +254,32 @@ export default function FeedScreen() {
     const f = value > railRef.current * 0.6;
     setFolded(prev => (prev === f ? prev : f));
   };
+  // Compose button: slips away while the keyboard is up or the reader is flicking down fast,
+  // and comes back on the first scroll up
+  const fabShown = useRef(new Animated.Value(1)).current;
+  const fabState = useRef({ shown: true, kb: false, scrollHidden: false });
+  const setFab = (shown: boolean) => {
+    if (fabState.current.shown === shown) return;
+    fabState.current.shown = shown;
+    Animated.spring(fabShown, { toValue: shown ? 1 : 0, useNativeDriver: true, damping: 18, stiffness: 220 }).start();
+  };
+  const syncFab = () => setFab(!fabState.current.kb && !fabState.current.scrollHidden);
   useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => { fabState.current.kb = true; syncFab(); });
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => { fabState.current.kb = false; syncFab(); });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  useEffect(() => {
+    const lastY = [0, 0];
     const ids = scrollYs.map((v, i) => v.addListener(({ value }) => {
       offsets.current[i] = value;
-      if (i === activeRef.current) checkFolded(value);
+      if (i === activeRef.current) {
+        checkFolded(value);
+        const dy = value - lastY[i];
+        if (dy > 14 && value > 160) { fabState.current.scrollHidden = true; syncFab(); }
+        else if (dy < -2 || value <= 160) { fabState.current.scrollHidden = false; syncFab(); }
+      }
+      lastY[i] = value;
     }));
     return () => scrollYs.forEach((v, i) => v.removeListener(ids[i]));
   }, []);
@@ -516,29 +545,35 @@ export default function FeedScreen() {
           >
             <Text style={[styles.tabLabel, activeTab === 1 ? styles.tabLabelOn : styles.tabLabelOff]} numberOfLines={1} maxFontSizeMultiplier={1.3}>Following</Text>
           </TouchableOpacity>
+          {myCounty && (
+            // Disabled until post authors carry a county (see COUNTY_FILTER_READY above)
+            <TouchableOpacity
+              style={[styles.tabPill, styles.countyPill, !COUNTY_FILTER_READY && styles.countyPillOff]}
+              disabled={!COUNTY_FILTER_READY}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: false, disabled: !COUNTY_FILTER_READY }}
+              accessibilityLabel={`${myCounty} posts`}
+            >
+              <Image source={require('../../../assets/baraza/pin.png')} style={styles.countyPin} resizeMode="contain" />
+              <Text style={[styles.tabLabel, styles.tabLabelOff]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{myCounty}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Logo bar: drawn last so the folding rail slides underneath it */}
         <Animated.View
-          style={[styles.topBar, { paddingTop: insets.top + 6, transform: [{ translateY: barHold }] }]}
+          style={[styles.topBar, { paddingTop: insets.top, transform: [{ translateY: barHold }] }]}
           onLayout={e => setTopH(Math.round(e.nativeEvent.layout.height))}
         >
           <View style={styles.headerRow}>
-            <Image source={require('../../../assets/kchat-logo.png')} style={[styles.headerLogo, { width: LOGO_W, height: Math.round(LOGO_W * 0.35) }]} resizeMode="contain" />
+            <Image source={require('../../../assets/kchat-logo.png')} style={styles.headerLogo} resizeMode="contain" accessibilityLabel="KChat" />
             <View style={styles.headerIcons}>
-              {/* Search & trending live here now that the tab is Mitaa */}
+              {/* Search & trending live here now that the tab is Mitaa; the compose button is the floating one */}
               <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('Search')} accessibilityRole="button" accessibilityLabel="Search and trending">
-                <Ionicons name="search" size={24} color={T.text} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIconBtn} onPress={() => setCreatePostVisible(true)} accessibilityRole="button" accessibilityLabel="New post">
-                {/* Rounded square with a plus (design: 18×18 rect rx6, 8px plus, 1.8 stroke) */}
-                <View style={styles.newPostBox}>
-                  <View style={styles.newPostH} />
-                  <View style={styles.newPostV} />
-                </View>
+                <Ionicons name="search-outline" size={22} color={T.text} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation.navigate('DMList')} accessibilityRole="button" accessibilityLabel={unreadDMs > 0 ? `Messages, ${unreadDMs} unread` : 'Messages'}>
-                <Ionicons name="paper-plane-outline" size={24} color={T.text} />
+                <Ionicons name="arrow-redo-outline" size={22} color={T.text} />
                 {unreadDMs > 0 && (
                   <View style={styles.iconBadge}>
                     <Text style={styles.iconBadgeText} maxFontSizeMultiplier={1.15}>{unreadDMs > 99 ? '99+' : String(unreadDMs)}</Text>
@@ -549,7 +584,7 @@ export default function FeedScreen() {
           </View>
           {/* Mini story stack rises into the bar as the rail folds */}
           <Animated.View
-            style={[styles.stackSlot, { top: insets.top + 6, left: STACK_INSET, right: STACK_INSET, opacity: stackIn, transform: [{ translateY: stackRise }, { scale: stackScale }] }]}
+            style={[styles.stackSlot, { top: insets.top, left: STACK_INSET, right: STACK_INSET, opacity: stackIn, transform: [{ translateY: stackRise }, { scale: stackScale }] }]}
             pointerEvents={folded ? 'box-none' : 'none'}
           >
             <StoryStack />
@@ -559,6 +594,21 @@ export default function FeedScreen() {
 
       {/* Sits just under the pinned tabs */}
       <FeedPill state={pillState} top={(folded ? topH + tabsH : headerH) + 10} onPress={showIncoming} />
+
+      {/* Compose: a green round button above the tab bar */}
+      <Animated.View
+        pointerEvents="box-none"
+        style={[styles.fabWrap, { bottom: TAB_INSET + 24, opacity: fabShown, transform: [{ translateY: fabShown.interpolate({ inputRange: [0, 1], outputRange: [TAB_INSET + 24 + 72, 0] }) }, { scale: fabShown.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}
+      >
+        <Pressable
+          style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setCreatePostVisible(true); }}
+          accessibilityRole="button"
+          accessibilityLabel="New post"
+        >
+          <Ionicons name="add" size={24} color="#fff" />
+        </Pressable>
+      </Animated.View>
 
       <ReportModal target={reportTarget} onClose={() => setReportTarget(null)} />
 
@@ -591,27 +641,22 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       position: 'absolute', top: 0, left: 0, right: 0,
       backgroundColor: T.bg,
     },
+    // Logo bar: 52 tall under the status bar (96 on the design's 44pt status bar)
     topBar: {
       position: 'absolute', top: 0, left: 0, right: 0,
       paddingTop: 52, paddingHorizontal: 16, paddingBottom: 0,
       backgroundColor: T.bg, zIndex: 2,
     },
-    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    headerRow: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     stackSlot: {
       position: 'absolute', left: 0, right: 0, top: 52, bottom: 0,
       alignItems: 'center', justifyContent: 'center', overflow: 'visible',
     },
     headerLogo: {
-      width: 120, height: 42, flexShrink: 0,
+      width: 34, height: 34, flexShrink: 0,
     },
     headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     headerIconBtn: { position: 'relative', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-    newPostBox: {
-      width: 18, height: 18, borderRadius: 6, borderWidth: 1.8, borderColor: T.text,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    newPostH: { position: 'absolute', width: 8, height: 1.8, borderRadius: 0.9, backgroundColor: T.text },
-    newPostV: { position: 'absolute', width: 1.8, height: 8, borderRadius: 0.9, backgroundColor: T.text },
     iconBadge: {
       position: 'absolute', top: 8, right: 7,
       minWidth: 16, height: 16, borderRadius: 8,
@@ -620,16 +665,28 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       paddingHorizontal: 4,
     },
     iconBadgeText: { color: '#fff', fontSize: 10, fontWeight: '600', lineHeight: 12, includeFontPadding: false },
-    // Left-aligned pills: active is solid (white on black in dark), inactive a quiet chip
+    // Filter chips: the selected one is solid (text colour on background), the rest quiet pills
     tabs: {
-      flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 10, backgroundColor: T.bg,
-      borderBottomWidth: 1, borderBottomColor: isDark ? '#1C1C1E' : T.borderLight,
+      flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 2, paddingBottom: 10, backgroundColor: T.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.border,
     },
-    tabPill: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: isDark ? '#1C1C1E' : T.surface },
+    tabPill: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: isDark ? '#1C1C1E' : T.surface, alignItems: 'center', justifyContent: 'center' },
     tabPillOn: { backgroundColor: T.text },
     tabLabel: { fontSize: 14, fontWeight: '600' },
     tabLabelOn: { color: T.bg },
     tabLabelOff: { color: isDark ? '#AEAEB2' : T.textSub },
+    countyPill: { flexDirection: 'row', gap: 6, paddingLeft: 12, flexShrink: 1 },
+    countyPillOff: { opacity: 0.45 },
+    countyPin: { width: 14, height: 14 },
+    // Compose button
+    fabWrap: { position: 'absolute', right: 16 },
+    fab: {
+      width: 56, height: 56, borderRadius: 28, backgroundColor: T.accent,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: T.accent, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
+      elevation: 8,
+    },
+    fabPressed: { transform: [{ scale: 0.94 }], opacity: 0.9 },
     empty: { padding: 32, alignItems: 'center' },
     emptyText: { fontSize: 17, fontWeight: '600', color: T.textSub, marginBottom: 8, textAlign: 'center' },
     emptySubtext: { fontSize: 14, color: T.textMuted, textAlign: 'center' },

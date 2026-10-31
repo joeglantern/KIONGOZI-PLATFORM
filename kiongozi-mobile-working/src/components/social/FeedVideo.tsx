@@ -11,6 +11,12 @@ import {
   nextVideoId, registerVideo, setVideoEnabled, isMuted, setMuted, onMuteChange, getPosition, setPosition,
 } from './videoPlayback';
 
+const fmtViews = (n: number) =>
+  n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
+  : n >= 1e4 ? `${Math.round(n / 1e3)}K`
+  : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K`
+  : String(n);
+
 const fmt = (s: number) => {
   const t = Math.max(0, Math.round(s));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
@@ -29,13 +35,15 @@ function useScreenFocused() {
 }
 
 export function FeedVideo({
-  url, thumbnailUrl, width, height, durationSeconds, onPress, onWatched,
+  url, thumbnailUrl, width, height, durationSeconds, views = 0, onPress, onWatched,
 }: {
   url: string;
   thumbnailUrl?: string | null;
   width?: number | null;
   height?: number | null;
   durationSeconds?: number | null;
+  /** Shown as "1.2K views" in a pill at the bottom right when above 0 (the card keeps the count) */
+  views?: number;
   onPress: () => void;
   onWatched?: () => void;
 }) {
@@ -118,9 +126,16 @@ export function FeedVideo({
           </View>
         </View>
       )}
+      {/* Bottom left: play glyph + duration (time left once it plays). Bottom right: views. */}
       {left != null && left > 0 && (
         <View style={[styles.pill, styles.timePill]} pointerEvents="none">
-          <Text style={styles.pillText}>{fmt(left)}</Text>
+          <Ionicons name="play" size={10} color="#fff" />
+          <Text style={styles.pillText} maxFontSizeMultiplier={1.2}>{fmt(left)}</Text>
+        </View>
+      )}
+      {views > 0 && (
+        <View style={[styles.pill, styles.viewsPill]} pointerEvents="none" accessible accessibilityLabel={`${views} views`}>
+          <Text style={styles.pillText} maxFontSizeMultiplier={1.2}>{fmtViews(views)} views</Text>
         </View>
       )}
       <TouchableOpacity
@@ -136,7 +151,7 @@ export function FeedVideo({
 }
 
 const styles = StyleSheet.create({
-  box: { width: '100%', borderRadius: 16, overflow: 'hidden', marginTop: 4 },
+  box: { width: '100%', borderRadius: 16, overflow: 'hidden' },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   playBadge: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(0,0,0,0.45)',
@@ -145,8 +160,11 @@ const styles = StyleSheet.create({
   pill: {
     position: 'absolute', bottom: 10, backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   timePill: { left: 10 },
-  mutePill: { right: 10, paddingHorizontal: 7, paddingVertical: 6, borderRadius: 16 },
+  viewsPill: { right: 10 },
+  // The mute toggle moves to the top right so the views pill has the bottom corner
+  mutePill: { top: 10, bottom: undefined, right: 10, paddingHorizontal: 7, paddingVertical: 6, borderRadius: 16 },
   pillText: { color: '#fff', fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
 });
