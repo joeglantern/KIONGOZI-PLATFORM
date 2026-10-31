@@ -13,6 +13,7 @@ import apiClient from '../../utils/apiClient';
 import { toast } from '../../utils/alert';
 import { useAuthStore } from '../../stores/authStore';
 import { useBarazaStore, barazaApi, BarazaState, BarazaPerson } from '../../stores/barazaStore';
+import { appAlert } from '../../utils/alert';
 import { UserAvatar } from '../social/UserAvatar';
 import { audioAvailable, TurnRecorder, SegmentPlayer, PlayableSegment, uploadChunk, askMic, setRoomAudioMode, DELAY_LABEL } from './barazaAudio';
 import { Stick, BeadRing, TreeShade, PillButton, mmss } from './barazaUi';
@@ -230,7 +231,7 @@ function Live({ state }: { state: BarazaState }) {
     let cancelled = false;
     (async () => {
       if (!(await askMic())) {
-        Alert.alert('Microphone needed', 'Allow KChat to use the microphone in Settings to speak in a baraza.');
+        appAlert('Microphone needed', 'Allow KChat to use the microphone in Settings to speak in a baraza.');
         setMicOn(false);
         return;
       }
@@ -251,7 +252,7 @@ function Live({ state }: { state: BarazaState }) {
       recRef.current = rec;
       try { await rec.start(); } catch {
         recRef.current = null;
-        Alert.alert('Microphone busy', 'Could not start recording. Close other apps using the mic and try again.');
+        appAlert('Microphone busy', 'Could not start recording. Close other apps using the mic and try again.');
         setMicOn(false);
       }
     })();
@@ -367,14 +368,14 @@ function Live({ state }: { state: BarazaState }) {
     store().pass(room.host_id);
   };
   const end = () => {
-    Alert.alert('End the baraza?', 'Everyone leaves, and the minutes are written and posted from your account.', [
+    appAlert('End the baraza?', 'Everyone leaves. The minutes are written for you, and you choose whether to post them.', [
       { text: 'Keep going', style: 'cancel' },
       { text: 'End and write minutes', style: 'destructive', onPress: () => { recRef.current?.stop(); store().end(); } },
     ]);
   };
   const leave = () => {
     if (isHost) {
-      Alert.alert('Leave the baraza?', 'If you are away for 5 minutes it ends on its own. You can also end it now.', [
+      appAlert('Leave the baraza?', 'If you are away for 5 minutes it ends on its own. You can also end it now.', [
         { text: 'Stay', style: 'cancel' },
         { text: 'Leave for now', onPress: () => store().close() },
         { text: 'End it', style: 'destructive', onPress: end },
@@ -385,7 +386,7 @@ function Live({ state }: { state: BarazaState }) {
     store().leave();
   };
   const turnMenu = () => {
-    Alert.alert('Turn length', 'How long each person holds the stick (from the next turn).', [
+    appAlert('Turn length', 'How long each person holds the stick (from the next turn).', [
       ...[60, 120, 180].map(s => ({ text: `${s / 60} minute${s === 60 ? '' : 's'}${room.turn_seconds === s ? ' ✓' : ''}`, onPress: () => store().setTurn(s) })),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
@@ -399,7 +400,7 @@ function Live({ state }: { state: BarazaState }) {
         if (!r?.success && !/already reported/i.test(r?.error || '')) toast("Couldn't send the report", { kind: 'error' });
       });
     };
-    Alert.alert(`Report @${p.username}`, 'What is wrong?', [
+    appAlert(`Report @${p.username}`, 'What is wrong?', [
       { text: 'Harassment', onPress: () => send('harassment') },
       { text: 'Hate speech', onPress: () => send('hate_speech') },
       { text: 'Spam', onPress: () => send('spam') },
@@ -416,7 +417,7 @@ function Live({ state }: { state: BarazaState }) {
       if (room.holder_id !== id) opts.push({ text: 'Pass the stick', onPress: () => passTo(id) });
       else opts.push({ text: 'Take the stick back', onPress: takeBack });
       opts.push({
-        text: 'Remove from baraza', style: 'destructive', onPress: () => Alert.alert(`Remove @${p.username}?`, 'They will not be able to come back to this baraza.', [
+        text: 'Remove from baraza', style: 'destructive', onPress: () => appAlert(`Remove @${p.username}?`, 'They will not be able to come back to this baraza.', [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Remove', style: 'destructive', onPress: () => store().remove(id) },
         ]),
@@ -424,7 +425,7 @@ function Live({ state }: { state: BarazaState }) {
     }
     opts.push({ text: 'Report', onPress: () => report(p) });
     opts.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert(p.full_name || `@${p.username}`, `@${p.username}`, opts);
+    appAlert(p.full_name || `@${p.username}`, `@${p.username}`, opts);
   };
 
   // ── live level for the stick: your mic while you hold it; otherwise the voice now playing ──
@@ -508,7 +509,7 @@ function Live({ state }: { state: BarazaState }) {
   const late = left !== null && left < 10;
 
   const poolStyle = useAnimatedStyle(() => ({
-    opacity: (t.dark ? 0.5 : 0.34) + pool.value * 0.5,
+    opacity: (t.dark ? 0.42 : 0.26) + pool.value * 0.5,
     transform: [{ scale: 1 + pool.value * 0.18 }],
   }));
 
@@ -613,8 +614,9 @@ function Live({ state }: { state: BarazaState }) {
       ) : (
         <Animated.View key="room" entering={FadeInUp.springify().damping(18)} style={{ flex: 1 }} pointerEvents="box-none">
           {/* The stage: a pool of light, the dais, and whoever holds the stick inside the bead hoop */}
-          <View style={{ height: stageH, alignItems: 'center' }} pointerEvents="box-none">
-            <View pointerEvents="none" style={{ position: 'absolute', width: POOL, height: POOL, left: W / 2 - POOL / 2, top: over + hoopCy + 30 - POOL / 2 }}>
+          <View style={{ height: stageH, alignItems: 'center', overflow: 'visible' }} pointerEvents="box-none">
+            {/* the light pool may be taller than the stage: never clip it or it ends in a hard band */}
+            <View pointerEvents="none" style={{ position: 'absolute', width: POOL, height: POOL, left: W / 2 - POOL / 2, top: over + hoopCy + 30 - POOL / 2, overflow: 'visible' }}>
               <Animated.Image source={ART.glow} fadeDuration={0} style={[{ width: POOL, height: POOL, tintColor: t.glow }, poolStyle]} />
             </View>
             <Image source={ART.dais} fadeDuration={0} resizeMode="contain" style={{ position: 'absolute', top: over, width: DAIS_W, height: DAIS_H }} />

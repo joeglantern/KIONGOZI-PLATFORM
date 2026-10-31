@@ -93,7 +93,7 @@ export function LyricCaptions({ lines, liveSeq, startedAt, pending, hint, level,
           {!lines.length ? (
             hint ? (
               <Animated.Text key="hint" entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)}
-                style={[styles.line, S.live, { color: t.ink, opacity: 0.4, fontWeight: '600' }]}>{hint}</Animated.Text>
+                style={[styles.line, S.prev, { color: t.ink, opacity: 0.4, fontWeight: '600' }]}>{hint}</Animated.Text>
             ) : null
           ) : (
             <>
