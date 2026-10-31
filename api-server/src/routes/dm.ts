@@ -219,7 +219,8 @@ router.get('/conversations/:id', authenticateToken, async (req: Request, res: Re
       .from('dm_messages')
       .select(`
         *,
-        sender:sender_id (id, full_name, username, avatar_url, is_bot)
+        sender:sender_id (id, full_name, username, avatar_url, is_bot),
+        reactions:dm_message_reactions (user_id, emoji)
       `)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
@@ -441,6 +442,54 @@ router.post('/conversations/:id', authenticateToken, async (req: Request, res: R
 });
 
 // DELETE /api/v1/dm/conversations/:id — Leave conversation (removes user from participants)
+// Reactions: PUT sets or changes mine, DELETE removes it. Members only. Live via the chat's broadcast channel.
+async function reactionTarget(messageId: string, userId: string) {
+  const { data: msg } = await supabaseServiceClient.from('dm_messages').select('id, conversation_id').eq('id', messageId).maybeSingle();
+  if (!msg) return null;
+  const { data: part } = await supabaseServiceClient.from('dm_participants').select('user_id')
+    .eq('conversation_id', msg.conversation_id).eq('user_id', userId).maybeSingle();
+  return part ? msg : null;
+}
+async function broadcastReaction(conversationId: string, payload: any) {
+  try {
+    const ch = supabaseServiceClient.channel(`dm-conv-${conversationId}`);
+    await ch.send({ type: 'broadcast', event: 'reaction', payload });
+    await supabaseServiceClient.removeChannel(ch);
+  } catch {}
+}
+
+router.put('/messages/:id/reaction', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const emoji = String(req.body?.emoji || '').trim();
+    if (!emoji || emoji.length > 16) { res.status(400).json({ success: false, error: 'Pick a reaction' }); return; }
+    const msg = await reactionTarget(req.params.id, userId);
+    if (!msg) { res.status(403).json({ success: false, error: 'Not a participant in this conversation' }); return; }
+    const { error } = await supabaseServiceClient.from('dm_message_reactions')
+      .upsert({ message_id: msg.id, user_id: userId, emoji }, { onConflict: 'message_id,user_id' });
+    if (error) { res.status(500).json({ success: false, error: 'Could not react' }); return; }
+    broadcastReaction(msg.conversation_id, { message_id: msg.id, user_id: userId, emoji });
+    res.json({ success: true, data: { message_id: msg.id, emoji } });
+  } catch (err) {
+    console.error('DM reaction error:', err);
+    res.status(500).json({ success: false, error: 'Could not react' });
+  }
+});
+
+router.delete('/messages/:id/reaction', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const msg = await reactionTarget(req.params.id, userId);
+    if (!msg) { res.status(403).json({ success: false, error: 'Not a participant in this conversation' }); return; }
+    await supabaseServiceClient.from('dm_message_reactions').delete().eq('message_id', msg.id).eq('user_id', userId);
+    broadcastReaction(msg.conversation_id, { message_id: msg.id, user_id: userId, emoji: null });
+    res.json({ success: true, data: { message_id: msg.id, emoji: null } });
+  } catch (err) {
+    console.error('DM unreact error:', err);
+    res.status(500).json({ success: false, error: 'Could not remove the reaction' });
+  }
+});
+
 router.delete('/conversations/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
