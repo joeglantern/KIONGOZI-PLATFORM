@@ -324,20 +324,22 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]} onLayout={onHeaderLayout}>
-        <View style={styles.headerRow}>
-          {navigation.canGoBack() && (
-            <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={{ marginRight: 6 }} accessibilityLabel="Back">
-              <Ionicons name="chevron-back" size={26} color={T.text} />
+      <View style={[styles.header, { paddingTop: insets.top }]} onLayout={onHeaderLayout}>
+        {/* iOS pattern: a 44pt nav row (back + action), then the large title flush left under it */}
+        <View style={styles.navRow}>
+          {navigation.canGoBack() ? (
+            <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]} accessibilityRole="button" accessibilityLabel="Back">
+              <Ionicons name="chevron-back" size={28} color={T.accentDeep || T.accent} style={{ marginLeft: -8 }} />
+              <Text style={[styles.backLabel, { color: T.accentDeep || T.accent }]} maxFontSizeMultiplier={1.2}>Home</Text>
             </Pressable>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={styles.dateLine} maxFontSizeMultiplier={1.3}>{todayLabel()}</Text>
-            <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
-          </View>
-          <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('FindFriends')} accessibilityLabel="Find friends">
+          ) : <View />}
+          <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('FindFriends')} accessibilityRole="button" accessibilityLabel="Find friends">
             <Ionicons name="person-add-outline" size={18} color={T.text} />
           </Pressable>
+        </View>
+        <View>
+          <Text style={styles.dateLine} maxFontSizeMultiplier={1.3}>{todayLabel()}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
         </View>
         <View style={styles.searchRow}>
           <View style={styles.searchBar}>
@@ -508,8 +510,10 @@ export default function ExploreScreen() {
 function makeStyles(T: Theme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
-    header: { paddingHorizontal: 20, paddingBottom: 10, backgroundColor: T.bg, gap: 10 },
-    headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 2 },
+    header: { paddingHorizontal: 20, paddingBottom: 10, backgroundColor: T.bg, gap: 6 },
+    navRow: { height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    backBtn: { flexDirection: 'row', alignItems: 'center', height: 44, paddingRight: 8 },
+    backLabel: { fontSize: 17, letterSpacing: -0.41, marginLeft: -2 },
     headerTitle: { fontSize: 34, lineHeight: 41, color: T.text, letterSpacing: 0.37, fontWeight: '800' },
     dateLine: { fontSize: 13, fontWeight: '600', color: T.textSub, letterSpacing: -0.08, textTransform: 'uppercase' },
     iconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },

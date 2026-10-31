@@ -1,4 +1,4 @@
-// Activity: notifications grouped like modern apps ("mercy na wengine 12 walipenda post yako"),
+// Activity: notifications grouped like modern apps ("mercy and 12 others liked your post"),
 // split into New / Today / This week / Earlier, with filter chips, post previews and Follow back.
 // Follow requests live in a pinned card at the top (and their own screen), not in the feed.
 import React, { useEffect, useMemo, useState } from 'react';
@@ -51,13 +51,13 @@ const BADGE: Record<string, { icon: keyof typeof Ionicons.glyphMap; bg: string; 
 
 // What each type says after the person's name (single / grouped)
 const ACTION: Record<string, [string, string]> = {
-  like: ['alipenda post yako', 'walipenda post yako'],
-  repost: ['alishiriki post yako', 'walishiriki post yako'],
-  comment: ['alijibu', 'walijibu'],
-  mention: ['alikutaja kwenye post', 'walikutaja kwenye post'],
-  follow: ['alianza kukufuata', 'walianza kukufuata'],
-  follow_request: ['anataka kukufuata', 'wanataka kukufuata'],
-  dm: ['amekutumia ujumbe', 'wamekutumia ujumbe'],
+  like: ['liked your post', 'liked your post'],
+  repost: ['reposted your post', 'reposted your post'],
+  comment: ['replied', 'replied'],
+  mention: ['mentioned you in a post', 'mentioned you in a post'],
+  follow: ['started following you', 'started following you'],
+  follow_request: ['wants to follow you', 'want to follow you'],
+  dm: ['sent you a message', 'sent you messages'],
 };
 
 // Title of the "who did this" sheet per kind
@@ -259,9 +259,9 @@ function NotificationRow({ row, onPress, onOthers, onRemove, T }: {
               <Text style={rowStyles.name}>{name}</Text>
               {others > 0 && (
                 <>
-                  <Text>{' na '}</Text>
+                  <Text>{' and '}</Text>
                   <Text onPress={onOthers} style={[rowStyles.others, { color: T.text }]} accessibilityRole="button" accessibilityLabel={`See all ${others + 1} people`}>
-                    {`wengine ${others}`}
+                    {`${others} ${others === 1 ? 'other' : 'others'}`}
                   </Text>
                 </>
               )}
