@@ -2,7 +2,7 @@
 // stop-motion boil, the big number on a torn strip, and one brush mark at most per slide. Laid out on a
 // 390 x 844 board and scaled to the phone. Only interactive pieces take touches; everything else lets taps
 // fall through to the story's tap layer.
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, Image, Pressable, StyleSheet, ActivityIndicator, TextStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -152,12 +152,19 @@ function Avatar({ uri, size, name, radius }: { uri?: string | null; size: number
 
 /** A piece of torn cream paper with something on it (post, photo), slapped down at an angle */
 function PaperCard({ children, style, rot = -3, delay, reduce, tint, h }: { children: React.ReactNode; style?: any; rot?: number; delay: number; reduce: boolean; tint?: string; h?: number }) {
+  // Measured, then the paper drawn at exactly that size (Android draws a bundled image at its own pixel size with absoluteFill)
+  const [sz, setSz] = useState<{ w: number; h: number } | null>(null);
   return (
     <Animated.View entering={slap(delay, reduce, rot)} style={[style, { transform: [{ rotate: `${rot}deg` }] }]} pointerEvents="box-none">
       <Boil reduce={reduce} amp={0.5} drift={2} style={h ? { height: h } : null}>
-        <View style={h ? { height: h, overflow: 'visible' } : null} pointerEvents="box-none">
-          <Image source={PAPER.patch} style={[StyleSheet.absoluteFill, { left: 6, top: 9, right: -6, bottom: -9, tintColor: INK, opacity: 0.2 }]} resizeMode="stretch" fadeDuration={0} />
-          <Image source={PAPER.patch} style={[StyleSheet.absoluteFill, tint ? { tintColor: tint } : null]} resizeMode="stretch" fadeDuration={0} />
+        <View style={h ? { height: h } : null} pointerEvents="box-none"
+          onLayout={e => { const { width, height } = e.nativeEvent.layout; if (!sz || Math.abs(sz.w - width) > 1 || Math.abs(sz.h - height) > 1) setSz({ w: width, h: height }); }}>
+          {sz ? (
+            <>
+              <Image source={PAPER.patch} style={{ position: 'absolute', left: 6, top: 9, width: sz.w, height: sz.h, tintColor: INK, opacity: 0.2 }} resizeMode="stretch" fadeDuration={0} />
+              <Image source={PAPER.patch} style={[{ position: 'absolute', left: 0, top: 0, width: sz.w, height: sz.h }, tint ? { tintColor: tint } : null]} resizeMode="stretch" fadeDuration={0} />
+            </>
+          ) : null}
           {children}
         </View>
       </Boil>

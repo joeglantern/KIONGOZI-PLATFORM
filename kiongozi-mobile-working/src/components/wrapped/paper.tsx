@@ -3,7 +3,7 @@
 // The shadow under each cutout is the same picture tinted ink and nudged down-right, so it follows the
 // paper's real edge (Android elevation would draw a box). Reduce motion keeps fades and drops the boil.
 import React, { useEffect } from 'react';
-import { View, Image, StyleSheet, ImageSourcePropType, StyleProp, ViewStyle } from 'react-native';
+import { View, Image, StyleSheet, ImageSourcePropType, StyleProp, ViewStyle, useWindowDimensions } from 'react-native';
 import Animated, {
   FadeIn, useSharedValue, useAnimatedStyle, withDelay, withTiming, withRepeat, withSequence, withSpring, Easing, cancelAnimation,
 } from 'react-native-reanimated';
@@ -172,9 +172,10 @@ export function BrushMark({ source, w, h, x, y, delay, reduce, rot = 0, opacity 
 
 /** Fine paper grain over the whole slide so flat colour reads as card, not screen */
 export function Grain({ opacity = 0.55 }: { opacity?: number }) {
+  const { width, height } = useWindowDimensions();
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Image source={PAPER.grain} style={[StyleSheet.absoluteFill, { opacity }]} resizeMode="cover" fadeDuration={0} />
+      <Image source={PAPER.grain} style={{ position: 'absolute', left: 0, top: 0, width, height, opacity }} resizeMode="cover" fadeDuration={0} />
     </View>
   );
 }
