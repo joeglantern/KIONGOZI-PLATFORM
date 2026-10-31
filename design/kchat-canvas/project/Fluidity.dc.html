@@ -1,0 +1,109 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Feel and fluidity</title><script src="./support.js"></script></head><body><x-dc><helmet><style>body{margin:0}
+.ph{width:390px;height:844px;border-radius:44px;overflow:hidden;position:relative;background:#fff;box-shadow:0 30px 60px rgba(0,0,0,.18);font-family:-apple-system,system-ui,sans-serif;color:#16130F}
+.col{display:flex;flex-direction:column;gap:10px}
+.cap{font-size:15px;font-weight:700}
+.sub{font-size:13px;color:#6B6258;max-width:390px;min-height:72px;line-height:1.4}
+.av{border-radius:50%;flex:none;background:linear-gradient(135deg,#C9A27E,#7A4E2D)}
+.post{display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid #EFEFF4}
+.nm{font-size:15.5px;font-weight:700}
+.mt{font-size:15.5px;color:#6E6E73}
+.tx{font-size:16px;line-height:1.35;margin-top:2px}
+.ln{height:10px;border-radius:5px;background:#F2F2F7;margin-top:8px}
+.chip{height:32px;padding:0 14px;border-radius:16px;display:flex;align-items:center;font-size:14px;font-weight:600;background:#F2F2F7}
+.chip.on{background:#16130F;color:#fff}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;padding:8px 0 34px;box-shadow:0 -4px 20px rgba(0,0,0,.12)}
+.handle{width:36px;height:5px;border-radius:3px;background:#D1D1D6;margin:0 auto 10px}
+.hrow{padding:12px 20px;border-top:1px solid #F2F2F7}
+.lbl{font-size:12.5px;font-weight:600;color:#8E8E93;text-transform:uppercase;letter-spacing:.2px}
+.tbl{width:390px;border-radius:16px;background:#fff;overflow:hidden;font-size:15px}
+.tbl div{display:flex;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid #F2F2F7}
+.tbl b{font-weight:600;flex:none}
+.tbl span{color:#6E6E73;text-align:right}
+</style></helmet>
+<div style="width:2300px;height:1080px;box-sizing:border-box;background:#EFEBE4;padding:44px;font-family:-apple-system,system-ui,sans-serif;color:#16130F">
+<div style="font-size:28px;font-weight:800">Feel and fluidity</div>
+<div style="font-size:15px;color:#6B6258;margin-top:6px;max-width:1600px">Things people feel without noticing. A calm "You're all caught up" line in Following, tab re-taps that scroll to the top then refresh on every main list, Reduce Motion honoured everywhere (fades instead of movement, loops stand still), an honest "Edited" label with the history one tap away, and one haptic vocabulary. Nothing bounces: the caught-up row fades in at 220ms, the history sheet glides up on the app's ease-out.</div>
+<div style="display:flex;gap:30px;margin-top:28px">
+
+<!-- 1 Caught up -->
+<div class="col"><div class="cap">1 · You're all caught up</div><div class="sub">In Following, after the last post you hadn't seen since your last visit. A check in a soft green circle, two calm lines, then "Older posts" and the feed carries on. Only shows when there were new posts and older ones below them.</div>
+<div class="ph">
+ <div style="padding:58px 16px 8px;display:flex;justify-content:space-between;align-items:center"><div style="width:34px;height:34px;border-radius:9px;background:#5CB85C"></div><div style="display:flex;gap:18px;color:#16130F;font-size:20px">&#x2315; &#x27A6;</div></div>
+ <div style="display:flex;gap:8px;padding:2px 16px 10px;border-bottom:1px solid #EFEFF4"><div class="chip">For You</div><div class="chip on">Following</div></div>
+ <div class="post"><div class="av" style="width:40px;height:40px"></div><div style="flex:1"><div><span class="nm">Brian Otieno</span> <span class="mt">@brayo · 2h</span></div><div class="tx">Matatu ya saa kumi na mbili imejaa tena. Who else is stuck at Kencom?</div></div></div>
+ <div class="post"><div class="av" style="width:40px;height:40px;background:linear-gradient(135deg,#8FB5D9,#2E5B88)"></div><div style="flex:1"><div><span class="nm">Achieng</span> <span class="mt">@achi · 5h</span></div><div class="tx">Finished my first 10K this morning. Legs are not speaking to me.</div></div></div>
+ <div style="padding:30px 24px 22px;display:flex;flex-direction:column;align-items:center;text-align:center">
+  <div style="width:56px;height:56px;border-radius:28px;border:1.5px solid rgba(92,184,92,.45);background:rgba(92,184,92,.10);display:flex;align-items:center;justify-content:center;color:#3E9B3E;font-size:26px;font-weight:700">&#x2713;</div>
+  <div style="font-size:17px;font-weight:700;margin-top:12px">You're all caught up</div>
+  <div style="font-size:14px;color:#6E6E73;margin-top:4px">You've seen all new posts from the past 3 days.</div>
+ </div>
+ <div style="display:flex;align-items:center;gap:10px;padding:0 16px 6px"><div style="flex:1;height:1px;background:#E5E5EA"></div><div class="lbl">Older posts</div><div style="flex:1;height:1px;background:#E5E5EA"></div></div>
+ <div class="post"><div class="av" style="width:40px;height:40px;background:linear-gradient(135deg,#E3B7A0,#9B5A3C)"></div><div style="flex:1"><div><span class="nm">Wanjiru Kamau</span> <span class="mt">@wanjiru · 4d</span></div><div class="ln" style="width:92%"></div><div class="ln" style="width:70%"></div></div></div>
+</div></div>
+
+<!-- 2 Tab re-tap -->
+<div class="col"><div class="cap">2 · Tap the tab again</div><div class="sub">Every main list behaves the same: Home, Mitaa, Activity, Profile and Explore. First tap glides to the top, a second tap at the top refreshes with the KChat bubble. Deeper screens (a chat, a post) pop back to the list as usual.</div>
+<div class="ph">
+ <div style="padding:58px 20px 6px"><div style="font-size:34px;font-weight:800">Activity</div></div>
+ <div style="display:flex;justify-content:center;margin-top:6px"><div style="width:44px;height:28px;border-radius:14px;background:#F2F2F7;display:flex;align-items:center;justify-content:center;gap:4px"><i style="width:6px;height:6px;border-radius:3px;background:#5CB85C"></i><i style="width:6px;height:6px;border-radius:3px;background:#5CB85C;opacity:.6"></i><i style="width:6px;height:6px;border-radius:3px;background:#5CB85C;opacity:.3"></i></div></div>
+ <div style="padding:6px 16px"><div class="lbl" style="margin:10px 0 8px">Today</div>
+  <div style="display:flex;gap:12px;align-items:center;padding:8px 0"><div class="av" style="width:44px;height:44px"></div><div style="flex:1;font-size:15px"><b>Kevo</b> and 12 others liked your post</div><div class="mt" style="font-size:13px">1h</div></div>
+  <div style="display:flex;gap:12px;align-items:center;padding:8px 0"><div class="av" style="width:44px;height:44px;background:linear-gradient(135deg,#8FB5D9,#2E5B88)"></div><div style="flex:1;font-size:15px"><b>Achieng</b> started following you</div><div style="height:30px;padding:0 14px;border-radius:15px;background:#16130F;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center">Follow</div></div>
+ </div>
+ <div style="position:absolute;left:24px;right:24px;bottom:112px;font-size:12.5px;color:#6E6E73;text-align:center">Tap 1: glide to the top &nbsp;·&nbsp; Tap 2 at the top: refresh</div>
+ <div style="position:absolute;left:16px;right:16px;bottom:30px;height:64px;border-radius:32px;background:rgba(245,245,247,.95);display:flex;justify-content:space-around;align-items:center;font-size:12px;color:#8E8E93">
+  <div>Home</div><div>Mitaa</div><div>Kiongozi</div><div style="color:#16130F;font-weight:700">Activity</div><div>Profile</div>
+ </div>
+</div></div>
+
+<!-- 3 Edited -->
+<div class="col"><div class="cap">3 · Edited, and its history</div><div class="sub">Posts changed after posting say "Edited" beside the time, in the feed and on the post. Tap it for the history: the current version first, older ones below with when they were written. Plain and honest, no badge.</div>
+<div class="ph" style="background:#F7F7F9">
+ <div style="background:#fff">
+ <div style="height:96px"></div>
+ <div class="post" style="border:none"><div class="av" style="width:40px;height:40px"></div><div style="flex:1"><div><span class="nm">Brian Otieno</span> <span class="mt">@brayo · 2h · Edited</span></div><div class="tx">Matatu ya saa kumi na mbili imejaa tena. Who else is stuck at Kencom? Tukutane Archives.</div></div></div>
+ </div>
+ <div style="position:absolute;inset:0;background:rgba(0,0,0,.4)"></div>
+ <div class="sheet">
+  <div class="handle"></div>
+  <div style="padding:2px 20px 10px"><div style="font-size:17px;font-weight:700">Edit history</div><div style="font-size:13px;color:#8E8E93;margin-top:2px">Posts can be edited for 1 hour after posting.</div></div>
+  <div class="hrow"><div class="lbl">Current version · 6:14 PM</div><div class="tx" style="margin-top:6px">Matatu ya saa kumi na mbili imejaa tena. Who else is stuck at Kencom? Tukutane Archives.</div></div>
+  <div class="hrow"><div class="lbl">Original · 6:02 PM</div><div class="tx" style="margin-top:6px;color:#6E6E73">Matatu ya saa kumi na mbili imejaa tena. Who else is stuck at Kencom?</div></div>
+ </div>
+</div></div>
+
+<!-- 4 Edit window -->
+<div class="col"><div class="cap">4 · Editing, with the hour shown</div><div class="sub">The edit sheet says how long is left, quietly. After the hour, the text locks and the line says why; who can see the post can still be changed.</div>
+<div class="ph">
+ <div style="padding:20px 16px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EFEFF4;margin-top:40px"><span style="font-size:22px;color:#6E6E73">&#x2715;</span><div style="font-size:17px;font-weight:700">Edit post</div><div style="height:32px;padding:0 18px;border-radius:16px;background:#5CB85C;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center">Save</div></div>
+ <div style="padding:10px 16px 0;font-size:13px;color:#8E8E93">You can edit for 1 hour after posting. 42 min left.</div>
+ <div style="padding:12px 16px;font-size:16px;line-height:1.5">Matatu ya saa kumi na mbili imejaa tena. Who else is stuck at Kencom? Tukutane Archives.</div>
+ <div style="position:absolute;left:0;right:0;bottom:330px;padding:12px 16px;border-top:1px solid #EFEFF4;display:flex;gap:8px;align-items:center;font-size:13px;color:#8E8E93">Visible to: <span class="chip" style="height:26px;background:#5CB85C;color:#fff">Everyone</span><span class="chip" style="height:26px">Followers</span><span style="margin-left:auto">193</span></div>
+ <div style="position:absolute;left:0;right:0;bottom:0;height:320px;background:#D1D3D9"></div>
+</div></div>
+
+<!-- 5 Motion + haptics -->
+<div class="col"><div class="cap">5 · Reduce Motion and one haptic language</div><div class="sub">With Reduce Motion on (the phone's own setting): entrances fade without rising, sheets fade in place, ambient loops (Baraza, waving hand, stick, shimmer, paper boil) stand still on a good frame, confetti is skipped. Off, nothing changes.</div>
+<div class="col" style="gap:16px">
+ <div class="tbl">
+  <div><b>Entrance</b><span>fade with 12px rise, becomes fade only</span></div>
+  <div><b>Sheet</b><span>glides up, becomes fade in place</span></div>
+  <div><b>Ambient loops</b><span>run, become a still frame</span></div>
+  <div><b>Confetti</b><span>plays, is skipped</span></div>
+ </div>
+ <div class="tbl">
+  <div><b>Tap</b><span>selection tick: tabs, chips, open, share, pin</span></div>
+  <div><b>Like</b><span>light impact: like, repost, follow, send, vote</span></div>
+  <div><b>Success</b><span>success: posted, edit saved, request accepted</span></div>
+  <div><b>Destructive</b><span>warning: delete, block, remove</span></div>
+ </div>
+ <div style="font-size:12.5px;color:#8E8E93;max-width:390px;line-height:1.4">Explore: every tappable has a spoken label (trends, people, show more, cancel, clear all, recent searches, results).</div>
+</div></div>
+
+</div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2300,"height":1080}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>
