@@ -192,7 +192,7 @@ function PreviewCard({ title }: { title: string }) {
       </View>
       <Image source={ART.island} style={{ width: W, height: W * 0.5, marginTop: 8 }} resizeMode="contain" fadeDuration={0} />
       <View style={styles.cardStrip}>
-        <UserAvatar avatarUrl={me?.avatar_url || me?.user_metadata?.avatar_url} size={34} name={me?.full_name || me?.username} />
+        <UserAvatar avatarUrl={me.avatar_url} size={34} name={me?.full_name || me?.username} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: '#16130F' }} numberOfLines={1}>You have the stick</Text>
           <Text style={{ fontSize: 12.5, color: '#5E574F' }}>Starting now</Text>
