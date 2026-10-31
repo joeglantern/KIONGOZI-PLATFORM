@@ -203,7 +203,7 @@ export async function renderQrCardArt(u: {
       h('div', abs(c.x, c.y, { width: c.size, height: c.size, borderRadius: c.radius, backgroundColor: CARD }),
         h('div', abs(inset, inset), code(L.qr, CARD)),
       ),
-      img(scrib.uri, sw, 58, { position: 'absolute', left: (W - sw) / 2, top: L.name + Math.round(nSize * 0.86) }),
+      img(scrib.uri, sw, 30, { position: 'absolute', left: (W - sw) / 2, top: L.name + Math.round(nSize * 1.04) }),
       h('div', abs(40, L.name, { width: W - 80, justifyContent: 'center', fontSize: nSize, fontWeight: 700, color: t.text, letterSpacing: -3, lineHeight: 1 }), name),
       h('div', abs(40, L.handle, { width: W - 80, justifyContent: 'center', fontSize: 44, fontWeight: 700, color: t.text, opacity: 0.86 }), handle),
       h('div', abs(0, L.foot, { width: W, justifyContent: 'center' }), mark(t.text)),

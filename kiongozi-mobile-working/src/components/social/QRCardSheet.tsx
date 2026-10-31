@@ -169,7 +169,7 @@ export function QrCardArt({ card, theme, style, width }: { card: CardData | null
           <View style={abs(inset, inset)}>{code(L.qr, QR_CARD)}</View>
         </View>
         <Image source={PAPER.scribble} resizeMode="stretch" fadeDuration={0}
-          style={[abs((BOARD_W - sw) / 2, L.name + Math.round(nSize * 0.86)), { width: sw * k, height: 58 * k, tintColor: t.brush }]} />
+          style={[abs((BOARD_W - sw) / 2, L.name + Math.round(nSize * 1.04)), { width: sw * k, height: 30 * k, tintColor: t.brush }]} />
         <Text numberOfLines={1} style={[abs(40, L.name), { width: (BOARD_W - 80) * k, textAlign: 'center', fontFamily: FONT, fontSize: nSize * k, lineHeight: nSize * 1.08 * k, color: t.text, letterSpacing: -3 * k }]}>{name}</Text>
         <Text numberOfLines={1} style={[abs(40, L.handle), { width: (BOARD_W - 80) * k, textAlign: 'center', fontFamily: FONT, fontSize: 44 * k, color: t.text, opacity: 0.86 }]}>{handle}</Text>
         <View style={[abs(0, L.foot), { width: width, alignItems: 'center' }]}><Mark k={k} color={t.text} /></View>
