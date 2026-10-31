@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   round: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
-  title: { fontSize: 18, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.3 },
+  title: { fontSize: 18, fontWeight: '800', letterSpacing: 0.35 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 6 },
   metaChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingLeft: 5, paddingRight: 9, borderRadius: 12 },
   metaIcon: { width: 17, height: 17 },
@@ -915,9 +915,9 @@ const styles = StyleSheet.create({
 
   // stage
   speakerFrame: { borderRadius: 999, padding: 5, shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
-  speakerName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, maxWidth: '100%' },
+  speakerName: { fontSize: 22, fontWeight: '800', letterSpacing: 0.35, maxWidth: '100%' },
   speakerSub: { fontSize: 13, fontWeight: '600', marginTop: 2, fontVariant: ['tabular-nums'] },
-  momentTitle: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
+  momentTitle: { fontSize: 24, fontWeight: '800', letterSpacing: 0.35 },
   momentSub: { fontSize: 13, lineHeight: 17, textAlign: 'center', marginTop: 3 },
   capWho: { fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 2 },
 
@@ -964,7 +964,7 @@ const styles = StyleSheet.create({
   sheetSub: { fontSize: 12.5, marginTop: 1 },
 
   consentWrap: { flex: 1, paddingHorizontal: 16 },
-  consentTitle: { fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.5, textAlign: 'center', marginTop: 22 },
+  consentTitle: { fontSize: 24, fontWeight: '800', letterSpacing: 0.35, textAlign: 'center', marginTop: 22 },
   consentSub: { fontSize: 14, marginTop: 6 },
   notice: { flexDirection: 'row', gap: 12, marginTop: 28, padding: 16, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
   recDot: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },

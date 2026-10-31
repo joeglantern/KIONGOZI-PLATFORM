@@ -452,7 +452,7 @@ export function ThemeSheet({ visible, onClose }: { visible: boolean; onClose: ()
 const sheet = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 18, paddingTop: 10 },
   grab: { alignSelf: 'center', width: 38, height: 5, borderRadius: 3, marginBottom: 14 },
-  title: { fontSize: 20, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.3 },
+  title: { fontSize: 20, fontWeight: '800', letterSpacing: 0.35 },
   sub: { fontSize: 13.5, marginTop: 3, marginBottom: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   card: { width: '47.8%', borderRadius: 20, borderWidth: 2, padding: 8 },

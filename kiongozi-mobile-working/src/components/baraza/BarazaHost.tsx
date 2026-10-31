@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 10, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
   grab: { alignSelf: 'center', width: 38, height: 5, borderRadius: 3, marginBottom: 16 },
   headRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  h1: { fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.4 },
+  h1: { fontSize: 22, fontWeight: '800', letterSpacing: 0.35 },
   h2: { fontSize: 13.5, marginTop: 2 },
   label: { fontSize: 13, fontWeight: '600', marginTop: 18, marginBottom: 8 },
   input: { fontSize: 17, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13 },
