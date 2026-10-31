@@ -359,4 +359,61 @@ router.get('/following/:userId', async (req: Request, res: Response): Promise<vo
   }
 });
 
+// GET /api/v1/social/users/:userId/mutuals
+// "Followed by @a and @b": up to 3 people the viewer follows who also follow this user, plus the total.
+router.get('/users/:userId/mutuals', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const viewerId = req.user!.id;
+    const { userId } = req.params;
+    if (viewerId === userId) {
+      res.json({ success: true, data: { users: [], total: 0 } });
+      return;
+    }
+
+    const { data: mine, error: mineError } = await supabaseServiceClient
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', viewerId)
+      .limit(5000);
+    if (mineError) {
+      res.status(500).json({ success: false, error: 'Failed to fetch mutuals' });
+      return;
+    }
+
+    const ids = (mine || []).map((r: any) => r.following_id).filter((id: string) => id && id !== userId);
+    let total = 0;
+    const sample: string[] = [];
+    // Chunk the IN list so long follow lists stay inside URL limits
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200);
+      const { data, count, error } = await supabaseServiceClient
+        .from('follows')
+        .select('follower_id', { count: 'exact' })
+        .eq('following_id', userId)
+        .in('follower_id', chunk)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      if (error) {
+        res.status(500).json({ success: false, error: 'Failed to fetch mutuals' });
+        return;
+      }
+      total += count || 0;
+      for (const r of data || []) if (sample.length < 3) sample.push((r as any).follower_id);
+    }
+
+    let users: any[] = [];
+    if (sample.length) {
+      const { data: profiles } = await supabaseServiceClient
+        .from('profiles')
+        .select('id, full_name, username, avatar_url, is_verified')
+        .in('id', sample);
+      users = sample.map(id => (profiles || []).find((p: any) => p.id === id)).filter(Boolean);
+    }
+
+    res.json({ success: true, data: { users, total } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch mutuals' });
+  }
+});
+
 export default router;

@@ -973,6 +973,13 @@ class ApiClient {
     return this.request(`/api/v1/social/following/${userId}`, { method: 'GET' });
   }
 
+  /** "Followed by": up to 3 people you follow who follow this user, plus how many in total */
+  async getMutuals(userId: string) {
+    return this.request<{ users: { id: string; full_name?: string; username: string; avatar_url?: string; is_verified?: boolean }[]; total: number }>(
+      `/api/v1/social/users/${userId}/mutuals`, { method: 'GET' },
+    );
+  }
+
   /** Get "For You" scored feed (offset-based pagination) */
   async getForYouFeed(offset = 0) {
     return this.request(`/api/v1/social/for-you?offset=${offset}`, { method: 'GET' });

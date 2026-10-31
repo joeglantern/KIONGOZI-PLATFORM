@@ -1,15 +1,14 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { deletePostWithUndo, hideFromList } from '../../utils/deletePost';
 import {
   View, Text, StyleSheet, Pressable,
-  Image, ActivityIndicator, FlatList, Share,
+  ActivityIndicator, Animated, Share,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { ProfileStoryAvatar } from '../../components/stories/ProfileStoryAvatar';
-import { VerifiedBadge } from '../../components/social/VerifiedBadge';
+import { ProfileHeader, ProfileChrome, Mutuals } from '../../components/social/ProfileHeader';
 import { PostCard } from '../../components/social/PostCard';
 import { useProfileStore } from '../../stores/profileStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -27,27 +26,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'posts', label: 'Posts' },
   { key: 'reposts', label: 'Reposts' },
 ];
-const BANNER_HEIGHT = 150;
-const RING = 4;
-const AVATAR_TOTAL = 88; // includes the 4px ring
-const AVATAR_SIZE = AVATAR_TOTAL - RING * 2;
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-function formatCount(n?: number | null) {
-  const v = typeof n === 'number' && isFinite(n) ? n : 0;
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-  if (v >= 10_000) return `${Math.floor(v / 1000)}K`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}K`;
-  return String(v);
-}
-
-function formatJoined(iso?: string) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return `Joined ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-}
-
 export default function PublicProfileScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -74,6 +52,27 @@ export default function PublicProfileScreen() {
   const [unblockConfirmSheet, setUnblockConfirmSheet] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('posts');
   const { deletePost: deleteFromStore } = useSocialStore();
+  const [tabsY, setTabsY] = useState(0);
+  const [mutuals, setMutuals] = useState<Mutuals | null>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const onScroll = useMemo(
+    () => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
+    [scrollY],
+  );
+
+  // "Followed by": people you follow who follow them. Shows nothing if the API doesn't have it yet.
+  const mutualsFor = profile && user?.id && profile.id !== user.id && !profile.isBlockedBy ? profile.id : null;
+  useEffect(() => {
+    setMutuals(null);
+    if (!mutualsFor) return;
+    let live = true;
+    apiClient.getMutuals(mutualsFor)
+      .then((r: any) => {
+        if (live && r?.success && r.data && r.data.total > 0 && Array.isArray(r.data.users) && r.data.users.length) setMutuals(r.data);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [mutualsFor]);
 
   useEffect(() => {
     loadProfile();
@@ -371,8 +370,6 @@ export default function PublicProfileScreen() {
 
   const isPending = profile?.followRequestStatus === 'pending';
   const isLocked = !!(profile?.is_private && !profile?.isFollowing && !isOwnProfile);
-  const hasBanner = !!profile?.banner_url;
-  const joined = formatJoined(profile?.created_at);
   const displayPosts = activeTab === 'reposts'
     ? posts.filter(p => p.repost_of_id && p.repost_of)
     : posts;
@@ -385,131 +382,30 @@ export default function PublicProfileScreen() {
   };
   const followIsPrimary = !profile?.isFollowing && !isPending;
 
+  const openFollowList = (initialTab: 'followers' | 'following') =>
+    navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab });
+
   const ListHeader = (
-    <View>
-      {/* Cover — banner image, or a flat placeholder so the avatar always overlaps it */}
-      {hasBanner ? (
-        <Image source={{ uri: profile.banner_url }} style={styles.banner} resizeMode="cover" />
-      ) : (
-        <View style={styles.banner} />
-      )}
-
-      <View style={styles.body}>
-        <View style={[styles.avatarRing, { marginTop: -(AVATAR_TOTAL / 2) }]}>
-          <ProfileStoryAvatar
-            userId={profile?.id}
-            avatarUrl={profile?.avatar_url}
-            size={AVATAR_SIZE}
-            isBot={profile?.is_bot}
-            isVerified={profile?.is_verified}
-            name={profile?.full_name || profile?.username}
-          />
-        </View>
-
-        <View style={styles.nameRow}>
-          <Text style={styles.fullName} numberOfLines={2} maxFontSizeMultiplier={1.3}>{profile?.full_name}</Text>
-          {profile?.is_verified && <VerifiedBadge size={18} />}
-        </View>
-        <View style={styles.handleRow}>
-          <Text style={styles.username} numberOfLines={1}>@{profile?.username}</Text>
-          {profile?.is_private && (
-            <Ionicons name="lock-closed" size={13} color={T.textMuted} />
-          )}
-        </View>
-        {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-
-        {!!joined && (
-          <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={14} color={T.textMuted} />
-            <Text style={styles.metaText}>{joined}</Text>
-          </View>
-        )}
-
-        <View style={styles.statsRow}>
-          {typeof profile?.post_count === 'number' && (
-            <>
-              <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
-                <Text style={styles.statNum}>{formatCount(profile.post_count)}</Text> posts
-              </Text>
-              <Text style={styles.statText} maxFontSizeMultiplier={1.3}>·</Text>
-            </>
-          )}
-          <Pressable
-            hitSlop={8}
-            style={({ pressed }) => pressed && { opacity: 0.6 }}
-            onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'followers' })}
-          >
-            <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
-              <Text style={styles.statNum}>{formatCount(profile?.follower_count)}</Text> followers
-            </Text>
-          </Pressable>
-          <Text style={styles.statText} maxFontSizeMultiplier={1.3}>·</Text>
-          <Pressable
-            hitSlop={8}
-            style={({ pressed }) => pressed && { opacity: 0.6 }}
-            onPress={() => navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab: 'following' })}
-          >
-            <Text style={styles.statText} maxFontSizeMultiplier={1.3}>
-              <Text style={styles.statNum}>{formatCount(profile?.following_count)}</Text> following
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Actions */}
-        <View style={styles.actionRow}>
-          {isOwnProfile ? (
-            <>
-              <Pressable
-                onPress={() => navigation.navigate('EditProfile')}
-                style={({ pressed }) => [styles.actionBtn, styles.actionSecondary, pressed && { opacity: 0.7 }]}
-              >
-                <Text style={styles.actionSecondaryText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Edit profile</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleShareProfile}
-                style={({ pressed }) => [styles.actionBtn, styles.actionSecondary, pressed && { opacity: 0.7 }]}
-              >
-                <Text style={styles.actionSecondaryText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Share profile</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Pressable
-                onPress={handleFollowToggle}
-                style={({ pressed }) => [
-                  styles.actionBtn,
-                  followIsPrimary ? styles.actionPrimary : styles.actionSecondary,
-                  pressed && { opacity: 0.7 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={isPending ? 'Cancel follow request' : getFollowLabel()}
-              >
-                <Text
-                  style={[
-                    followIsPrimary ? styles.actionPrimaryText : styles.actionSecondaryText,
-                    isPending && { color: T.textMuted },
-                  ]}
-                  numberOfLines={1}
-                  maxFontSizeMultiplier={1.3}
-                >
-                  {getFollowLabel()}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={handleMessage}
-                disabled={messageLoading}
-                style={({ pressed }) => [styles.actionBtn, styles.actionSecondary, pressed && { opacity: 0.7 }]}
-              >
-                {messageLoading
-                  ? <ActivityIndicator size="small" color={T.text} />
-                  : <Text style={styles.actionSecondaryText} numberOfLines={1} maxFontSizeMultiplier={1.3}>Message</Text>}
-              </Pressable>
-            </>
-          )}
-        </View>
-      </View>
-
-      {isLocked ? (
+    <ProfileHeader
+      scrollY={scrollY}
+      profile={profile}
+      isOwn={isOwnProfile}
+      onShare={handleShareProfile}
+      onEditProfile={() => navigation.navigate('EditProfile')}
+      follow={isOwnProfile ? undefined : {
+        label: getFollowLabel(),
+        primary: followIsPrimary,
+        pending: isPending,
+        onPress: handleFollowToggle,
+        accessibilityLabel: isPending ? 'Cancel follow request' : getFollowLabel(),
+      }}
+      onMessage={isOwnProfile ? undefined : handleMessage}
+      messageLoading={messageLoading}
+      onOpenFollowList={openFollowList}
+      mutuals={isOwnProfile ? null : mutuals}
+      hasTabs={!isLocked}
+      onTabsLayout={setTabsY}
+      below={isLocked ? (
         <View style={[styles.wall, styles.lockedWall]}>
           <View style={styles.wallIcon}>
             <Ionicons name="lock-closed-outline" size={26} color={T.textMuted} />
@@ -521,41 +417,22 @@ export default function PublicProfileScreen() {
               : 'Follow this account to see their posts.'}
           </Text>
         </View>
-      ) : (
-        <View style={styles.tabBar}>
-          {TABS.map(({ key, label }) => {
-            const on = activeTab === key;
-            return (
-              <Pressable
-                key={key}
-                style={styles.tab}
-                onPress={() => handleTabPress(key)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-              >
-                <View style={styles.tabInner}>
-                  <Text style={[styles.tabLabel, { color: on ? T.text : T.textMuted }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>{label}</Text>
-                  {on && <View style={styles.tabUnderline} />}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-    </View>
+      ) : null}
+    />
   );
 
   return (
     <View style={styles.container}>
-      {renderHeader(profile?.username, !isOwnProfile)}
-
-      <FlatList
+      <Animated.FlatList
         data={isLocked ? [] : displayPosts}
-        keyExtractor={item => item.id}
+        keyExtractor={(item: any) => item.id}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         onEndReached={loadMorePosts}
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        renderItem={({ item }: { item: any }) => (
           <PostCard
             post={item}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
@@ -587,6 +464,19 @@ export default function PublicProfileScreen() {
             </View>
           ) : null
         }
+      />
+
+      <ProfileChrome
+        scrollY={scrollY}
+        insetTop={insets.top}
+        title={profile?.full_name || profile?.username}
+        verified={profile?.is_verified}
+        left={[{ key: 'back', icon: 'chevron-back', label: 'Go back', onPress: () => navigation.goBack() }]}
+        right={isOwnProfile ? [] : [{ key: 'more', icon: 'ellipsis-horizontal', label: 'More options', onPress: handleMoreOptions }]}
+        tabs={isLocked ? undefined : TABS}
+        activeTab={activeTab}
+        onTabPress={handleTabPress}
+        tabsY={tabsY}
       />
 
       {editTarget && (
@@ -680,43 +570,6 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
       flex: 1, textAlign: 'center', marginHorizontal: 8,
       fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: T.text,
     },
-
-    banner: { width: '100%', height: BANNER_HEIGHT, backgroundColor: T.surface2 },
-    body: { paddingHorizontal: 16, paddingBottom: 16 },
-    avatarRing: {
-      alignSelf: 'flex-start', marginBottom: 8,
-      borderWidth: RING, borderColor: T.bg, backgroundColor: T.bg,
-      borderRadius: AVATAR_TOTAL / 2,
-    },
-
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    fullName: { fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.5, color: T.text, flexShrink: 1 },
-    handleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-    username: { color: T.textMuted, fontSize: 15, flexShrink: 1 },
-    bio: { color: T.text, fontSize: 15, lineHeight: 21, marginTop: 10 },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-    metaText: { fontSize: 13, color: T.textMuted },
-
-    statsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 },
-    statText: { fontSize: 15, color: T.textMuted },
-    statNum: { fontWeight: '700', color: T.text },
-
-    actionRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-    // Pair at 320pt: (320 − 32 − 8) / 2 = 140pt each; "Requested"/"Message" @15pt bold ≈ 75pt (≈100pt at 1.3×).
-    actionBtn: { flex: 1, minHeight: 38, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
-    actionPrimary: { backgroundColor: T.text },
-    actionPrimaryText: { color: T.bg, fontWeight: '700', fontSize: 15 },
-    actionSecondary: { borderWidth: 1, borderColor: T.border },
-    actionSecondaryText: { color: T.text, fontWeight: '700', fontSize: 15 },
-
-    tabBar: {
-      flexDirection: 'row', backgroundColor: T.bg,
-      borderBottomWidth: 1, borderBottomColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA',
-    },
-    tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
-    tabInner: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-    tabLabel: { fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold' },
-    tabUnderline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2, backgroundColor: T.text },
 
     emptyState: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 32 },
     wall: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingBottom: 48 },
