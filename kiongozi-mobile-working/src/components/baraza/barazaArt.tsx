@@ -418,6 +418,8 @@ export function HandMark({ size = 22, wave = false, loop = false }: { size?: num
 }
 
 /** The waving hand sheet (Higgsfield wave, keyed and cut): 60 frames at 12 fps, 10 per row. */
+const WAVE_BURST_MS = 1700;
+const WAVE_REST_MS = 480;
 const WAVE = { n: 60, cols: 10, fw: 167, fh: 180, fps: 12, peaks: [{ f: 9, side: -1, x: 0.25 }, { f: 23, side: 1, x: 0.674 }, { f: 38, side: -1, x: 0.259 }, { f: 46, side: 1, x: 0.613 }] };
 
 /**
@@ -430,8 +432,14 @@ export function WavingHand({ height = 44, color = '#E9A23B' }: { height?: number
   const f = useSharedValue(0);
   const rl = useSharedValue(1);   // ripple on the left, 0..1 (1 = done)
   const rr = useSharedValue(1);
+  // Playful and hard to miss: a quick burst (the filmed wave at 3x, ~1.7 s, four swings), then a short
+  // rest on the open palm, again and again
   useEffect(() => {
-    f.value = withRepeat(withTiming(WAVE.n, { duration: (WAVE.n / WAVE.fps) * 1000, easing: Easing.linear }), -1, false);
+    f.value = withRepeat(withSequence(
+      withTiming(0, { duration: 0 }),
+      withTiming(WAVE.n, { duration: WAVE_BURST_MS, easing: Easing.linear }),
+      withTiming(WAVE.n, { duration: WAVE_REST_MS }),
+    ), -1, false);
   }, [f]);
   // fire a ripple the moment the frame reaches a swing peak
   useAnimatedReaction(() => Math.floor(f.value) % WAVE.n, (cur, prev) => {
@@ -439,14 +447,21 @@ export function WavingHand({ height = 44, color = '#E9A23B' }: { height?: number
     for (let i = 0; i < WAVE.peaks.length; i++) {
       const pk = WAVE.peaks[i];
       if (pk.f === cur) {
-        if (pk.side < 0) { rl.value = 0; rl.value = withTiming(1, { duration: 640, easing: Easing.out(Easing.cubic) }); }
-        else { rr.value = 0; rr.value = withTiming(1, { duration: 640, easing: Easing.out(Easing.cubic) }); }
+        if (pk.side < 0) { rl.value = 0; rl.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }); }
+        else { rr.value = 0; rr.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }); }
       }
     }
   });
   const sprite = useAnimatedStyle(() => {
     const i = Math.floor(f.value) % WAVE.n;
     return { transform: [{ translateX: -(i % WAVE.cols) * W }, { translateY: -Math.floor(i / WAVE.cols) * H }] };
+  });
+  // the whole hand tilts with each swing, pivoting at the wrist (four swings per burst, still while resting)
+  const sway = useAnimatedStyle(() => {
+    const ph = (f.value / WAVE.n) * Math.PI * 8;
+    const a = Math.sin(ph) * 9;
+    const hop = Math.abs(Math.sin(ph)) * 1.5;
+    return { transform: [{ translateY: H / 2 - hop }, { rotate: `${a}deg` }, { translateY: -H / 2 }] };
   });
   const arc = (v: SharedValue<number>, side: number, k: number) => useAnimatedStyle(() => {
     const p = Math.min(1, Math.max(0, v.value - k * 0.12) / (1 - k * 0.12));
@@ -468,9 +483,9 @@ export function WavingHand({ height = 44, color = '#E9A23B' }: { height?: number
       <Animated.View style={[ring(-1, A * 0.5), l2]} />
       <Animated.View style={[ring(1, 0), r1]} />
       <Animated.View style={[ring(1, A * 0.5), r2]} />
-      <View style={{ width: W, height: H, overflow: 'hidden' }}>
+      <Animated.View style={[{ width: W, height: H, overflow: 'hidden' }, sway]}>
         <Animated.Image source={ART.handWave} fadeDuration={0} style={[{ width: W * WAVE.cols, height: H * Math.ceil(WAVE.n / WAVE.cols) }, sprite]} />
-      </View>
+      </Animated.View>
     </View>
   );
 }
