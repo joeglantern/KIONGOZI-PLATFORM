@@ -18,7 +18,8 @@ import { appAlert } from '../../utils/alert';
 import { UserAvatar } from '../social/UserAvatar';
 import { audioAvailable, TurnRecorder, SegmentPlayer, PlayableSegment, uploadChunk, askMic, setRoomAudioMode, DELAY_LABEL } from './barazaAudio';
 import { Stick, BeadRing, TreeShade, PillButton, mmss } from './barazaUi';
-import { TalkingStick, HandMark, ThemeSheet, ART, PaintedStick, BeadHoop, ConfettiBurst, DAIS_RATIO, SEAT_RATIO } from './barazaArt';
+import { TalkingStick, HandMark, ThemeSheet, ART, PaintedStick, BeadHoop, ConfettiBurst, DAIS_RATIO, SEAT_RATIO, WavingHand } from './barazaArt';
+import { chime } from './chime';
 import { useBT, BarazaTheme } from './barazaTheme';
 import { BarazaMinutesView } from './BarazaMinutes';
 import { WhoSheet, applyRememberedCounty } from './WhoSheet';
@@ -279,6 +280,7 @@ function Live({ state }: { state: BarazaState }) {
   const wasHolding = useRef(holding);
   useEffect(() => {
     if (holding && !wasHolding.current) {
+      chime('turn');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 160);
       setMicOn(false);
@@ -330,6 +332,17 @@ function Live({ state }: { state: BarazaState }) {
     return m;
   }, [state.people, state.host, state.holder]);
   const queuePos = (id: string) => state.queue.indexOf(id) + 1;
+  const prevQueue = useRef<string[] | null>(null);
+  useEffect(() => {
+    const before = prevQueue.current;
+    prevQueue.current = state.queue;
+    if (!before) return;
+    const fresh = state.queue.filter(id => !before.includes(id) && id !== meId);
+    if (fresh.length && (holding || isHost)) {
+      chime('hand');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+  }, [state.queue.join(',')]);
   const myPos = queuePos(meId);
   const nextUp = state.queue[0] ? byId.get(state.queue[0]) : null;
   const seated = state.people.filter(p => p.user_id !== room.holder_id);
@@ -670,7 +683,6 @@ function Live({ state }: { state: BarazaState }) {
   }
 
   const sheetRows: SheetRow[] = [
-    { label: 'Turn length', sub: `${room.turn_seconds / 60} minute${room.turn_seconds === 60 ? '' : 's'} each`, icon: 'timer-outline', onPress: turnMenu },
     { label: 'Leave for now', sub: 'Ends on its own after 5 minutes away', icon: 'exit-outline', onPress: () => store().close() },
   ];
   const handsUp = state.queue.map(id => byId.get(id)).filter((p): p is BarazaPerson => !!p);
@@ -711,7 +723,7 @@ function Live({ state }: { state: BarazaState }) {
             <Ionicons name="color-palette-outline" size={19} color={t.ink} />
           </Pressable>
           {isHost ? (
-            <Pressable onPress={turnMenu} style={[styles.round, { backgroundColor: t.soft }]} hitSlop={6} accessibilityLabel="Turn length">
+            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setSheetOpen(true); }} style={[styles.round, { backgroundColor: t.soft }]} hitSlop={6} accessibilityLabel="Turn length and host controls">
               <Text style={[styles.turnLen, { color: t.ink }]}>{room.turn_seconds / 60}m</Text>
             </Pressable>
           ) : null}
@@ -887,6 +899,7 @@ function Live({ state }: { state: BarazaState }) {
       <WhoSheet visible={whoOpen} onClose={() => setWhoOpen(false)} state={state} />
       {isHost ? (
         <DockSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} rows={sheetRows} t={t} hands={handsUp}
+          turn={room.turn_seconds} onTurn={s => { Haptics.selectionAsync().catch(() => {}); store().setTurn(s); }}
           onPass={id => passWithUndo(id)} onTakeBack={room.holder_id && room.holder_id !== meId ? takeBack : null} onEnd={end} />
       ) : null}
     </View>
@@ -904,7 +917,10 @@ function Seat({ p, i, pos, t, hot, onPress, onLongPress }: {
   }, [bob, i]);
   // the stick being dragged over this seat
   useEffect(() => { grow.value = withTiming(hot ? 1 : 0, { duration: 200, easing: Easing.out(Easing.cubic) }); }, [hot, grow]);
-  const st = useAnimatedStyle(() => ({ transform: [{ translateY: -bob.value * 3 - grow.value * 4 }, { scale: 1 + grow.value * 0.14 }] }));
+  // a raised hand lifts the whole seat a little so the speaker notices it
+  const lift = useSharedValue(p.hand_raised_at ? 1 : 0);
+  useEffect(() => { lift.value = withTiming(p.hand_raised_at ? 1 : 0, { duration: 320, easing: Easing.bezier(0.2, 0.9, 0.3, 1) }); }, [!!p.hand_raised_at]);
+  const st = useAnimatedStyle(() => ({ transform: [{ translateY: -bob.value * (3 + lift.value * 2) - grow.value * 4 - lift.value * 10 }, { scale: 1 + grow.value * 0.14 + lift.value * 0.04 }] }));
   const host = p.role === 'host';
   const label = pos ? (pos === 1 ? 'next up' : `${ordinal(pos)} in line`) : host ? 'host' : p.from || '';
   const showPin = !!p.from && !pos && !host;
@@ -925,8 +941,8 @@ function Seat({ p, i, pos, t, hot, onPress, onLongPress }: {
             </Animated.View>
           ) : null}
           {p.hand_raised_at ? (
-            <Animated.View entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))} style={styles.handBadge}>
-              <HandMark size={16} loop />
+            <Animated.View entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))} style={styles.handWave} pointerEvents="none">
+              <WavingHand height={40} color={t.accent} />
             </Animated.View>
           ) : null}
         </View>
@@ -993,9 +1009,10 @@ type SheetRow = { label: string; sub?: string; icon: keyof typeof Ionicons.glyph
 
 /** The host's panel, from the dock's small ⋯ button: the hands up in line (pass to any of them),
  * the room settings, and Take it back / End baraza. */
-function DockSheet({ visible, onClose, rows, t, hands, onPass, onTakeBack, onEnd }: {
+function DockSheet({ visible, onClose, rows, t, hands, onPass, onTakeBack, onEnd, turn, onTurn }: {
   visible: boolean; onClose: () => void; rows: SheetRow[]; t: BarazaTheme;
   hands: BarazaPerson[]; onPass: (id: string) => void; onTakeBack: (() => void) | null; onEnd: () => void;
+  turn: number; onTurn: (s: number) => void;
 }) {
   const insets = useSafeAreaInsets();
   const later = (fn: () => void) => { onClose(); setTimeout(fn, 260); };
@@ -1004,15 +1021,30 @@ function DockSheet({ visible, onClose, rows, t, hands, onPass, onTakeBack, onEnd
   const rowBg = t.dark ? t.soft : '#F7F7F9';
   const numBg = t.dark ? 'rgba(255,255,255,0.14)' : '#E5E5EA';
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+    // Drawn in the room itself rather than a second Modal: a Modal opened from inside the room's
+    // Modal never showed on Android, so the host could not reach these controls.
+    <>
       {visible && (
-        <>
+        <View style={[StyleSheet.absoluteFill, { zIndex: 50, elevation: 50 }]}>
           <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(160)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
           </Animated.View>
           <Animated.View entering={SlideInDown.duration(320).easing(Easing.bezier(0.2, 0.9, 0.3, 1))} exiting={SlideOutDown.duration(180)}
             style={[styles.sheet, { backgroundColor: t.dark ? '#1B2140' : '#FFFFFF', paddingBottom: insets.bottom + 14 }]}>
             <View style={[styles.grab, { backgroundColor: t.line }]} />
+            <Text style={[styles.turnTitle, { color: t.sub }]}>EACH TURN WITH THE STICK</Text>
+            <View style={[styles.turnSeg, { backgroundColor: t.soft }]}>
+              {[60, 120, 180].map(sec => {
+                const on = turn === sec;
+                return (
+                  <Pressable key={sec} onPress={() => onTurn(sec)} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                    style={[styles.turnBtn, on && { backgroundColor: t.dark ? 'rgba(255,255,255,0.16)' : '#FFFFFF', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 }]}>
+                    <Text style={[styles.turnBtnText, { color: t.ink }]}>{sec / 60} min</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={[styles.turnNote, { color: t.sub }]}>Starts with the next turn.</Text>
             <Text style={[styles.handsTitle, { color: t.ink }]}>Hands up</Text>
             {hands.length ? (
               <ScrollView style={{ maxHeight: 248 }} contentContainerStyle={{ gap: 10, paddingBottom: 2 }} showsVerticalScrollIndicator={false}>
@@ -1060,9 +1092,9 @@ function DockSheet({ visible, onClose, rows, t, hands, onPass, onTakeBack, onEnd
               </Pressable>
             </View>
           </Animated.View>
-        </>
+        </View>
       )}
-    </Modal>
+    </>
   );
 }
 
@@ -1132,6 +1164,12 @@ const styles = StyleSheet.create({
   seatAvatar: { position: 'absolute', top: 0, width: SEAT_BOX, height: SEAT_BOX, borderRadius: SEAT_BOX / 2, padding: 2.5, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   numBadge: { position: 'absolute', top: -6, left: (SEAT_W + 16 - SEAT_BOX) / 2 - 6, width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   numText: { fontSize: 11, fontWeight: '800' },
+  handWave: { position: 'absolute', top: -34, right: (SEAT_W + 16 - SEAT_BOX) / 2 - 22 },
+  turnTitle: { fontSize: 12.5, fontWeight: '700', letterSpacing: 0.4, marginTop: 2, marginLeft: 4 },
+  turnSeg: { flexDirection: 'row', gap: 4, borderRadius: 14, padding: 4, marginTop: 8 },
+  turnBtn: { flex: 1, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  turnBtnText: { fontSize: 15, fontWeight: '700' },
+  turnNote: { fontSize: 12.5, marginTop: 6, marginLeft: 4, marginBottom: 14 },
   handBadge: {
     position: 'absolute', top: -12, right: (SEAT_W + 16 - SEAT_BOX) / 2 - 10, width: 26, height: 26, borderRadius: 13, backgroundColor: '#FFFFFF',
     alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4,

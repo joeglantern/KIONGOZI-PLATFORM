@@ -13,6 +13,7 @@ import { BarazaMinutesView } from './BarazaMinutes';
 import { audioAvailable } from './barazaAudio';
 import { Stick, PillButton, TreeShade } from './barazaUi';
 import { useBT } from './barazaTheme';
+import { StartFlow } from './StartFlow';
 
 export function BarazaHost() {
   const openId = useBarazaStore(s => s.openId);
@@ -21,7 +22,7 @@ export function BarazaHost() {
   useEffect(() => { setFeedPaused('baraza', !!openId); }, [openId]);
   return (
     <>
-      {startOpen && <StartSheet />}
+      {startOpen && <StartFlow />}
       {openId && (
         <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={() => useBarazaStore.getState().close()}>
           <RoomStatusBar />

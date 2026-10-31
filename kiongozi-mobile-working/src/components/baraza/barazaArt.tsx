@@ -6,7 +6,7 @@ import React, { useEffect, useMemo } from 'react';
 import { View, Text, Image, StyleSheet, Pressable, Modal, useWindowDimensions } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, withDelay,
-  Easing, SharedValue, interpolate, useDerivedValue, Extrapolation, FadeIn, FadeOut, SlideInDown, SlideOutDown,
+  Easing, SharedValue, interpolate, useDerivedValue, Extrapolation, FadeIn, FadeOut, SlideInDown, SlideOutDown, useAnimatedReaction,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,7 @@ export const ART = {
   hand: require('../../../assets/baraza/hand.png'),
   empty: require('../../../assets/baraza/stage_empty.png'),
   stickAnim: require('../../../assets/baraza/stick_anim.webp'),
+  handWave: require('../../../assets/baraza/hand_wave.webp'),
   iconLive: require('../../../assets/baraza/icon_live.png'),
   iconListen: require('../../../assets/baraza/icon_listen.png'),
   iconRecorded: require('../../../assets/baraza/icon_recorded.png'),
@@ -414,6 +415,64 @@ export function HandMark({ size = 22, wave = false, loop = false }: { size?: num
   }, [wave, loop, r]);
   const st = useAnimatedStyle(() => ({ transform: [{ translateY: size * 0.4 }, { rotate: `${r.value * 18}deg` }, { translateY: -size * 0.4 }] }));
   return <Animated.Image source={ART.hand} fadeDuration={0} style={[{ width: size, height: size }, st]} resizeMode="contain" />;
+}
+
+/** The waving hand sheet (Higgsfield wave, keyed and cut): 60 frames at 12 fps, 10 per row. */
+const WAVE = { n: 60, cols: 10, fw: 167, fh: 180, fps: 12, peaks: [{ f: 9, side: -1, x: 0.25 }, { f: 23, side: 1, x: 0.674 }, { f: 38, side: -1, x: 0.259 }, { f: 46, side: 1, x: 0.613 }] };
+
+/**
+ * A raised hand that really waves (a filmed wrist wave, cut out frame by frame) and throws ripples off the
+ * fingertips: at each end of a swing, where the hand stops and turns back, two amber arcs leave the
+ * fingertips on that side, travel outward and fade. Everything runs on the UI thread.
+ */
+export function WavingHand({ height = 44, color = '#E9A23B' }: { height?: number; color?: string }) {
+  const H = height, W = H * (WAVE.fw / WAVE.fh);
+  const f = useSharedValue(0);
+  const rl = useSharedValue(1);   // ripple on the left, 0..1 (1 = done)
+  const rr = useSharedValue(1);
+  useEffect(() => {
+    f.value = withRepeat(withTiming(WAVE.n, { duration: (WAVE.n / WAVE.fps) * 1000, easing: Easing.linear }), -1, false);
+  }, [f]);
+  // fire a ripple the moment the frame reaches a swing peak
+  useAnimatedReaction(() => Math.floor(f.value) % WAVE.n, (cur, prev) => {
+    if (cur === prev) return;
+    for (let i = 0; i < WAVE.peaks.length; i++) {
+      const pk = WAVE.peaks[i];
+      if (pk.f === cur) {
+        if (pk.side < 0) { rl.value = 0; rl.value = withTiming(1, { duration: 640, easing: Easing.out(Easing.cubic) }); }
+        else { rr.value = 0; rr.value = withTiming(1, { duration: 640, easing: Easing.out(Easing.cubic) }); }
+      }
+    }
+  });
+  const sprite = useAnimatedStyle(() => {
+    const i = Math.floor(f.value) % WAVE.n;
+    return { transform: [{ translateX: -(i % WAVE.cols) * W }, { translateY: -Math.floor(i / WAVE.cols) * H }] };
+  });
+  const arc = (v: SharedValue<number>, side: number, k: number) => useAnimatedStyle(() => {
+    const p = Math.min(1, Math.max(0, v.value - k * 0.12) / (1 - k * 0.12));
+    return {
+      opacity: v.value >= 1 ? 0 : (1 - p) * 0.95,
+      transform: [{ translateX: side * (4 + p * H * 0.22) }, { scale: 0.7 + p * 0.6 }],
+    };
+  });
+  const l1 = arc(rl, -1, 0), l2 = arc(rl, -1, 1), r1 = arc(rr, 1, 0), r2 = arc(rr, 1, 1);
+  const A = H * 0.34; // arc box: a ring with only one side drawn
+  const ring = (side: number, extra: number) => ({
+    position: 'absolute' as const, top: H * 0.06 - extra / 2, width: A + extra, height: A + extra, borderRadius: (A + extra) / 2,
+    borderWidth: 2.2, borderColor: 'transparent', [side < 0 ? 'borderLeftColor' : 'borderRightColor']: color,
+    [side < 0 ? 'left' : 'right']: -A * 0.28 - extra / 2,
+  });
+  return (
+    <View style={{ width: W, height: H }} pointerEvents="none">
+      <Animated.View style={[ring(-1, 0), l1]} />
+      <Animated.View style={[ring(-1, A * 0.5), l2]} />
+      <Animated.View style={[ring(1, 0), r1]} />
+      <Animated.View style={[ring(1, A * 0.5), r2]} />
+      <View style={{ width: W, height: H, overflow: 'hidden' }}>
+        <Animated.Image source={ART.handWave} fadeDuration={0} style={[{ width: W * WAVE.cols, height: H * Math.ceil(WAVE.n / WAVE.cols) }, sprite]} />
+      </View>
+    </View>
+  );
 }
 
 /** Pick the room's look. Kept on this phone only. */
