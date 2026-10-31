@@ -1,11 +1,10 @@
 // More branded cards drawn with the same Satori pipeline as the AI share cards (ShareCardService):
 //  - renderMinutesCard: baraza minutes, 4:5 (1080×1350), light sky header with the cloud and the stick
 //  - renderPostShareCard: a post as a dark 9:16 story image (1080×1920)
-//  - renderQrCard: a profile QR card, 4:5, white card on the KChat green
+//  (the profile QR card moved to QrCardService)
 // Layouts follow the ShareCards and Profile boards (board px × 3).
 import fs from 'fs';
 import path from 'path';
-import QRCode from 'qrcode';
 import { h, renderTree, excerpt } from './ShareCardService';
 
 const CARDS = path.join(process.cwd(), 'assets', 'cards');
@@ -201,46 +200,6 @@ export async function renderPostShareCard(p: {
         height: 89, borderRadius: 45, backgroundColor: '#FFFFFF', color: '#111114', fontWeight: 700, fontSize: 40,
         padding: '0 38px', display: 'flex', alignItems: 'center',
       }, 'GET'),
-    ),
-  );
-  return { png: await renderTree(tree, W, H, previewWidth), width: W, height: H };
-}
-
-// ─────────────────────────────── Profile QR 4:5 ───────────────────────────────
-
-export async function renderQrCard(u: {
-  name: string; username: string; avatarUrl?: string | null; url: string;
-}, previewWidth?: number): Promise<{ png: Buffer; width: number; height: number }> {
-  const W = 1080, H = 1350;
-  const { logo } = art();
-  const av = await remoteImage(u.avatarUrl, 300);
-  const svg = await QRCode.toString(u.url, { type: 'svg', errorCorrectionLevel: 'Q', margin: 0, color: { dark: '#111114', light: '#FFFFFF' } });
-  const qr = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
-  const cardW = 840, QR = 520;
-
-  const tree = h('div', {
-    width: W, height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Grotesk',
-    backgroundImage: 'linear-gradient(135deg, #3FA845 0%, #86BD2E 100%)',
-  },
-    h('div', {
-      width: cardW, display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#FFFFFF',
-      borderRadius: 64, padding: '0 60px 52px', marginTop: 90,
-    },
-      h('div', { display: 'flex', marginTop: -90 }, avatar(av, u.name || u.username, 180, '#FFFFFF')),
-      h('div', { fontSize: 56, fontWeight: 700, color: '#000000', marginTop: 22, letterSpacing: -1 }, excerpt(u.name || u.username, 28)),
-      h('div', { fontSize: 38, fontWeight: 500, color: 'rgba(60,60,67,0.7)', marginTop: 4 }, `@${u.username}`),
-      h('div', { display: 'flex', position: 'relative', marginTop: 40, width: QR, height: QR },
-        img(qr, QR, QR),
-        // KChat logo in the middle (error correction Q leaves room for it)
-        h('div', {
-          position: 'absolute', left: QR / 2 - 62, top: QR / 2 - 62, width: 124, height: 124, borderRadius: 30,
-          backgroundColor: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }, img(logo, 104, 104, { borderRadius: 24 })),
-      ),
-      h('div', { display: 'flex', alignItems: 'center', marginTop: 40 },
-        img(logo, 52, 52, { borderRadius: 13 }),
-        h('div', { fontSize: 36, fontWeight: 700, color: '#000000', marginLeft: 16 }, 'Scan to follow on KChat'),
-      ),
     ),
   );
   return { png: await renderTree(tree, W, H, previewWidth), width: W, height: H };

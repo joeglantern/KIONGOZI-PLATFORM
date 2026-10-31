@@ -4,7 +4,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth';
 import UploadService from '../services/UploadService';
 import multer from 'multer';
 import { optimizeUpload } from '../services/ImageOptimizer';
-import { renderQrCard } from '../services/ShareCards2';
+import { renderQrCardArt, qrMatrix, profileQrUrl, isQrTheme, isQrStyle } from '../services/QrCardService';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -303,8 +303,11 @@ router.patch(
   }
 );
 
-// GET /api/v1/social/users/:username/qr-card: the profile's QR card (4:5 PNG, uploaded once per look)
-// → { url, width, height, profile_url }
+// GET /api/v1/social/users/:username/qr-card?theme=coral&style=paper[&render=0]: the profile's cut-paper QR card
+// (4:5 PNG, uploaded once per look). The app draws the card live from `qr` (the module matrix) and the same
+// layout numbers, then asks for the PNG of the theme and style the person picked.
+// render=0 skips the image (the app's first call, so the live card can appear at once).
+// → { url?, width, height, profile_url, theme, style, name, username, avatar_url, qr: string[] }
 const qrCards = new Map<string, { url: string; at: number }>();
 router.get('/users/:username/qr-card', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -319,21 +322,33 @@ router.get('/users/:username/qr-card', optionalAuth, async (req: Request, res: R
         .or(`and(blocker_id.eq.${profile.id},blocked_id.eq.${req.user.id}),and(blocker_id.eq.${req.user.id},blocked_id.eq.${profile.id})`).limit(1);
       if (blocked?.length) { res.status(404).json({ success: false, error: 'User not found' }); return; }
     }
-    const profileUrl = `https://api.kiongozi.org/u/${profile.username}`;
-    // A new name or photo makes a new file; the same look reuses the uploaded one
-    const key = `${profile.username}|${profile.full_name || ''}|${profile.avatar_url || ''}`;
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0;
-    const tag = (hash >>> 0).toString(36);
-    let hit = qrCards.get(key);
-    if (!hit || Date.now() - hit.at > 24 * 3600_000) {
-      const card = await renderQrCard({ name: profile.full_name || profile.username, username: profile.username, avatarUrl: profile.avatar_url, url: profileUrl });
-      const up = await UploadService.uploadFile(card.png, 'image/png', `posts/${profile.id}/qrcard_${tag}.png`);
-      hit = { url: up.url, at: Date.now() };
-      if (qrCards.size > 500) qrCards.delete(qrCards.keys().next().value as string);
-      qrCards.set(key, hit);
+    const theme = isQrTheme(req.query.theme) ? req.query.theme : 'coral';
+    const style = isQrStyle(req.query.style) ? req.query.style : 'paper';
+    const profileUrl = profileQrUrl(profile.username);
+    const out: Record<string, any> = {
+      width: 1080, height: 1350, profile_url: profileUrl, theme, style,
+      name: profile.full_name || profile.username, username: profile.username, avatar_url: profile.avatar_url || null,
+      qr: qrMatrix(profileUrl),
+    };
+    if (req.query.render !== '0') {
+      // A new name, photo, theme or style makes a new file; the same look reuses the uploaded one
+      const key = `${profile.username}|${profile.full_name || ''}|${profile.avatar_url || ''}|${theme}|${style}`;
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0;
+      const tag = (hash >>> 0).toString(36);
+      let hit = qrCards.get(key);
+      if (!hit || Date.now() - hit.at > 24 * 3600_000) {
+        const card = await renderQrCardArt({
+          name: profile.full_name || profile.username, username: profile.username, avatarUrl: profile.avatar_url, url: profileUrl, theme, style,
+        });
+        const up = await UploadService.uploadFile(card.png, 'image/png', `posts/${profile.id}/qrcard_${tag}.png`);
+        hit = { url: up.url, at: Date.now() };
+        if (qrCards.size > 500) qrCards.delete(qrCards.keys().next().value as string);
+        qrCards.set(key, hit);
+      }
+      out.url = hit.url;
     }
-    res.json({ success: true, data: { url: hit.url, width: 1080, height: 1350, profile_url: profileUrl } });
+    res.json({ success: true, data: out });
   } catch (err) {
     console.error('QR card error:', err);
     res.status(500).json({ success: false, error: 'Could not make the QR card' });

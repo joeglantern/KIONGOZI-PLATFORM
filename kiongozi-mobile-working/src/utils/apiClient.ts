@@ -1043,8 +1043,17 @@ class ApiClient {
     return this.request<any>(`/api/v1/baraza/${roomId}/minutes/card`, { method: 'POST', body: JSON.stringify({ preview }) });
   }
   /** Profile QR card PNG: { url, width, height, profile_url } */
-  async getQrCard(username: string) {
-    return this.request<{ url: string; width: number; height: number; profile_url: string }>(`/api/v1/social/users/${encodeURIComponent(username)}/qr-card`, { method: 'GET' });
+  /** Profile QR card: `qr` is the module matrix the app draws live; `url` is the PNG for the theme and style (skipped with render: false) */
+  async getQrCard(username: string, opts: { theme?: string; style?: string; render?: boolean } = {}) {
+    const q = new URLSearchParams();
+    if (opts.theme) q.set('theme', opts.theme);
+    if (opts.style) q.set('style', opts.style);
+    if (opts.render === false) q.set('render', '0');
+    const qs = q.toString();
+    return this.request<{
+      url?: string; width: number; height: number; profile_url: string; theme: string; style: string;
+      name: string; username: string; avatar_url: string | null; qr: string[];
+    }>(`/api/v1/social/users/${encodeURIComponent(username)}/qr-card${qs ? `?${qs}` : ''}`, { method: 'GET' });
   }
   /** Ended barazas a person hosted that have minutes (profile Barazas tab) */
   async getUserBarazas(userId: string, cursor?: string) {
