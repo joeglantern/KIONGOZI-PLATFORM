@@ -407,12 +407,18 @@ function Summary({ s, L, reduce, me, share }: SlideProps) {
   const actionsH = 52 + 44 + Math.max(L.bottom, 16) + 16;
   const cardH = Math.min(560 * k, H - top - actionsH - 12);
   const cardW = W - 48;
-  const tiles = [
-    { n: fmt(s?.likes ?? 0), l: (s?.likes ?? 0) === 1 ? 'like' : 'likes' },
-    { n: `+${fmt(s?.followers ?? 0)}`, l: (s?.followers ?? 0) === 1 ? 'follower' : 'followers' },
-    { n: `${s?.activeDays ?? 0}/7`, l: 'days active' },
-    { n: fmt(s?.barazas ?? 0), l: (s?.barazas ?? 0) === 1 ? 'baraza' : 'barazas' },
+  // Only numbers worth showing: zeros never make the card, best four in this order
+  const pl = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  const cand: { v: number; n: string; l: string }[] = [
+    { v: s?.likes ?? 0, n: fmt(s?.likes ?? 0), l: pl(s?.likes ?? 0, 'like', 'likes') },
+    { v: s?.followers ?? 0, n: `+${fmt(s?.followers ?? 0)}`, l: pl(s?.followers ?? 0, 'follower', 'followers') },
+    { v: (s as any)?.postViews ?? 0, n: fmt((s as any)?.postViews ?? 0), l: pl((s as any)?.postViews ?? 0, 'view', 'views') },
+    { v: s?.comments ?? 0, n: fmt(s?.comments ?? 0), l: pl(s?.comments ?? 0, 'reply', 'replies') },
+    { v: s?.barazas ?? 0, n: fmt(s?.barazas ?? 0), l: pl(s?.barazas ?? 0, 'baraza', 'barazas') },
+    { v: s?.activeDays ?? 0, n: `${s?.activeDays ?? 0}/7`, l: 'days active' },
+    { v: s?.storyViews ?? 0, n: fmt(s?.storyViews ?? 0), l: pl(s?.storyViews ?? 0, 'story view', 'story views') },
   ];
+  const tiles = cand.filter(t => t.v > 0).slice(0, 4);
   const [first, ...restWords] = p.name.split(' ');
   const nameLines = restWords.length ? `${first}\n${restWords.join(' ')}` : p.name;
   const sk = Math.min(1, cardH / 560); // card contents shrink on short phones
@@ -436,6 +442,10 @@ function Summary({ s, L, reduce, me, share }: SlideProps) {
               </Animated.View>
             ))}
           </View>
+          {/* the persona line fills the card so it never looks half empty */}
+          <Text style={{ position: 'absolute', left: 20, right: 20, top: (180 + (tiles.length > 2 ? 2 : tiles.length ? 1 : 0) * 92 + 14) * sk, color: 'rgba(255,255,255,0.9)', fontSize: 16 * Math.max(sk, 0.85), lineHeight: 22 * Math.max(sk, 0.85), fontWeight: '600' }} numberOfLines={4} maxFontSizeMultiplier={1.1}>
+            {p.line}
+          </Text>
           {(s?.topTag || s?.bestDay) ? (
             <Text style={{ position: 'absolute', left: 20, right: 20, bottom: 60 + 26 * sk, color: 'rgba(255,255,255,0.92)', fontSize: 14 }} numberOfLines={2} maxFontSizeMultiplier={1.1}>
               {s?.topTag ? <>Top topic <Text style={{ color: LIME, fontWeight: '800' }}>#{s.topTag.replace(/^#/, '')}</Text></> : null}
