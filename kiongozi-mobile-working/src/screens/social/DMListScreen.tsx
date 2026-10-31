@@ -20,6 +20,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { RowsSkeleton } from '../../components/social/Skeleton';
 import { BottomSheet } from '../../components/social/BottomSheet';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Animated from 'react-native-reanimated';
+import { enterFade } from '../../theme/motion';
 
 const KIONGOZI_AI_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -49,6 +51,21 @@ const isGroup = (c: DMConversation) => (c.participants?.length ?? 0) > 1;
 /** What a group chat is called: the other people's first names */
 function groupName(c: DMConversation) {
   return c.participants.map(p => (p.full_name || p.username || '').split(' ')[0]).filter(Boolean).join(', ');
+}
+
+/** "Followed by @amina and 2 others" for a request */
+function mutualLine(c: DMConversation) {
+  const n = c.mutual_count || 0;
+  if (!n) return 'No followers in common';
+  const who = c.mutual_username ? `@${c.mutual_username}` : 'someone you follow';
+  return n === 1 ? `Followed by ${who}` : `Followed by ${who} and ${n - 1} ${n - 1 === 1 ? 'other' : 'others'}`;
+}
+
+/** "Wanjiru and 2 others" for the Requests row */
+function requestsLine(list: DMConversation[]) {
+  const first = list[0]?.participants?.[0];
+  const name = first?.full_name || first?.username || 'Someone';
+  return list.length === 1 ? name : `${name} and ${list.length - 1} ${list.length === 2 ? 'other' : 'others'}`;
 }
 
 interface UserRow {
@@ -84,6 +101,9 @@ export default function DMListScreen() {
   const [searching, setSearching] = useState(false);
   const [startingFor, setStartingFor] = useState<string | null>(null);
   const [convSheet, setConvSheet] = useState<{ convId: string; isArchived: boolean } | null>(null);
+  // Message requests (people I don't follow) live in their own folder, like Instagram
+  const [showRequests, setShowRequests] = useState(false);
+  const declineRequest = useDMStore(s => s.declineRequest);
 
   useEffect(() => {
     loadPersistedDMState().then(() => fetchConversations());
@@ -146,10 +166,16 @@ export default function DMListScreen() {
   }, [searchQuery, following, searchResults]);
 
   // Filter conversations for main / archived views; pinned chats float to the top
+  const requests = useMemo(() => conversations.filter(c => c.request), [conversations]);
+  const inbox = useMemo(() => conversations.filter(c => !c.request), [conversations]);
+  // The last request handled: back to the inbox
+  useEffect(() => { if (showRequests && !requests.length) setShowRequests(false); }, [showRequests, requests.length]);
+
   const visibleConversations = useMemo(() => {
+    if (showRequests) return requests;
     let list = showArchived
-      ? conversations.filter(c => archivedIds.includes(c.id))
-      : conversations.filter(c => !archivedIds.includes(c.id));
+      ? inbox.filter(c => archivedIds.includes(c.id))
+      : inbox.filter(c => !archivedIds.includes(c.id));
     if (!showArchived && filter === 'unread') list = list.filter(c => c.unread_count > 0);
     if (!showArchived && filter === 'groups') list = list.filter(isGroup);
     const q = listQuery.trim().toLowerCase();
@@ -162,17 +188,72 @@ export default function DMListScreen() {
       if (pinned.length) list = [...pinned, ...list.filter(c => !pinnedIds.includes(c.id))];
     }
     return list;
-  }, [conversations, archivedIds, pinnedIds, showArchived, filter, listQuery]);
+  }, [inbox, requests, showRequests, archivedIds, pinnedIds, showArchived, filter, listQuery]);
 
   const unreadChats = useMemo(
-    () => conversations.filter(c => !archivedIds.includes(c.id) && c.unread_count > 0).length,
-    [conversations, archivedIds]
+    () => inbox.filter(c => !archivedIds.includes(c.id) && c.unread_count > 0).length,
+    [inbox, archivedIds]
   );
 
   const archivedCount = useMemo(
-    () => conversations.filter(c => archivedIds.includes(c.id)).length,
-    [conversations, archivedIds]
+    () => inbox.filter(c => archivedIds.includes(c.id)).length,
+    [inbox, archivedIds]
   );
+
+  // A request row: who, a preview, people in common. Swipe for Delete (the sender isn't told)
+  const renderRequest = useCallback(({ item }: { item: DMConversation }) => {
+    const other: any = item.participants[0];
+    const last = item.last_message;
+    const title = other?.full_name || other?.username || 'Someone';
+    const body = last?.content
+      ? last.content
+      : last?.media_type === 'video' ? 'Sent a video'
+      : last?.media_type === 'image' ? 'Sent a photo'
+      : last?.media_type === 'audio' ? 'Sent a voice note'
+      : 'Sent a message';
+    const mutual = mutualLine(item);
+    return (
+      <Animated.View entering={enterFade()}>
+        <ReanimatedSwipeable
+          friction={1.6} rightThreshold={40} overshootRight={false}
+          renderRightActions={() => (
+            <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); declineRequest(item.id); }}
+              style={[styles.swipeBtn, { backgroundColor: '#FF3B30' }]} accessibilityRole="button" accessibilityLabel="Delete request">
+              <Ionicons name="trash" size={20} color="#fff" />
+              <Text style={styles.swipeText}>Delete</Text>
+            </Pressable>
+          )}
+        >
+          <Pressable
+            style={({ pressed }) => [styles.convRow, pressed && { backgroundColor: T.surface }]}
+            onPressIn={() => { useDMStore.getState().hydrateMessages(item.id); }}
+            onPress={() => navigation.navigate('DMConversation', {
+              conversationId: item.id,
+              participantName: title,
+              participantUsername: other?.username,
+              participantAvatar: other?.avatar_url,
+              participantIsVerified: other?.is_verified,
+            })}
+            accessibilityLabel={`Message request from ${title}. ${body}. ${mutual}`}
+          >
+            <UserAvatar avatarUrl={other?.avatar_url} size={54} name={title} />
+            <View style={styles.convInfo}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={styles.convName} numberOfLines={1}>{title}</Text>
+                {other?.is_verified && <VerifiedBadge size={14} />}
+              </View>
+              <Text style={styles.convLastMsg} numberOfLines={1}>{body}</Text>
+              <Text style={styles.mutualText} numberOfLines={1}>{mutual}</Text>
+            </View>
+            <View style={styles.rightCol}>
+              <Text style={styles.rowTime}>{timeAgo(item.last_message_at)}</Text>
+              <View style={{ height: 20 }} />
+            </View>
+          </Pressable>
+        </ReanimatedSwipeable>
+      </Animated.View>
+    );
+  }, [styles, T, navigation, declineRequest]);
 
   const handleSelectUser = useCallback(async (person: UserRow) => {
     const open = (conversationId: string) => {
@@ -333,7 +414,8 @@ export default function DMListScreen() {
     { id: 'groups', label: 'Groups' },
   ];
 
-  const emptyText = showArchived ? 'No archived chats'
+  const emptyText = showRequests ? 'No message requests'
+    : showArchived ? 'No archived chats'
     : listQuery ? `No chats match "${listQuery}"`
     : filter === 'unread' ? "You're all caught up"
     : filter === 'groups' ? 'No group chats yet'
@@ -345,7 +427,7 @@ export default function DMListScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerRow}>
           <Pressable
-            onPress={() => { if (showArchived) { setShowArchived(false); } else { navigation.goBack(); } }}
+            onPress={() => { if (showRequests) { setShowRequests(false); } else if (showArchived) { setShowArchived(false); } else { navigation.goBack(); } }}
             hitSlop={10}
             style={{ marginRight: 6 }}
             accessibilityRole="button"
@@ -354,9 +436,9 @@ export default function DMListScreen() {
             <Ionicons name="chevron-back" size={26} color={T.text} />
           </Pressable>
           <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3} accessibilityRole="header">
-            {showArchived ? 'Archived' : 'Messages'}
+            {showRequests ? 'Requests' : showArchived ? 'Archived' : 'Messages'}
           </Text>
-          {showArchived ? (
+          {showArchived || showRequests ? (
             <View style={{ width: 36 }} />
           ) : (
             <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={openNewDM} accessibilityRole="button" accessibilityLabel="New message">
@@ -384,7 +466,7 @@ export default function DMListScreen() {
         </View>
       </View>
 
-      {!showArchived && (
+      {!showArchived && !showRequests && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.chips}>
           {chips.map(({ id, label }) => {
             const on = filter === id;
@@ -405,9 +487,31 @@ export default function DMListScreen() {
         <FlatList
           data={visibleConversations}
           keyExtractor={item => item.id}
-          renderItem={renderConversation}
-          ListHeaderComponent={!showArchived && !listQuery && filter === 'all' ? (
+          renderItem={showRequests ? renderRequest : renderConversation}
+          ListHeaderComponent={showRequests ? (
+            <Text style={styles.requestsNote} maxFontSizeMultiplier={1.3}>
+              Messages from people you don't follow. They won't know you've seen them until you accept.
+            </Text>
+          ) : !showArchived && !listQuery && filter === 'all' ? (
             <>
+              {requests.length > 0 && (
+                <Pressable
+                  onPress={() => { Haptics.selectionAsync(); setShowRequests(true); }}
+                  style={({ pressed }) => [styles.archivedRow, pressed && { backgroundColor: T.surface }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Message requests, ${requests.length}`}
+                >
+                  <View style={[styles.archivedIcon, { backgroundColor: T.surface2 }]}>
+                    <Ionicons name="mail-unread-outline" size={22} color={T.textSub} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.archivedText}>Requests</Text>
+                    <Text style={styles.convLastMsg} numberOfLines={1}>{requestsLine(requests)}</Text>
+                  </View>
+                  <Text style={styles.archivedCount}>{requests.length}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
+                </Pressable>
+              )}
               {archivedCount > 0 && (
                 <Pressable
                   onPress={() => { Haptics.selectionAsync(); setShowArchived(true); }}
@@ -439,12 +543,12 @@ export default function DMListScreen() {
             <View style={styles.empty}>
               <View style={styles.emptyIcon}>
                 <Ionicons
-                  name={showArchived ? 'archive-outline' : listQuery || filter === 'unread' ? 'search-outline' : filter === 'groups' ? 'people-outline' : 'chatbubbles-outline'}
+                  name={showRequests ? 'mail-outline' : showArchived ? 'archive-outline' : listQuery || filter === 'unread' ? 'search-outline' : filter === 'groups' ? 'people-outline' : 'chatbubbles-outline'}
                   size={30} color={T.textSub}
                 />
               </View>
               <Text style={styles.emptyText}>{emptyText}</Text>
-              {!showArchived && !listQuery && filter === 'all' && (
+              {!showArchived && !showRequests && !listQuery && filter === 'all' && (
                 <>
                   <Text style={styles.emptySubtext}>Start a conversation with someone you follow.</Text>
                   <TouchableOpacity style={styles.emptyBtn} onPress={openNewDM}>
@@ -598,6 +702,8 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     archivedIcon: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
     archivedText: { flex: 1, fontSize: 16, fontWeight: '600', color: T.text },
     archivedCount: { fontSize: 15, color: T.textMuted, fontVariant: ['tabular-nums'] },
+    requestsNote: { marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 12, borderRadius: 14, backgroundColor: T.surface, color: T.textSub, fontSize: 13.5, lineHeight: 19, overflow: 'hidden' },
+    mutualText: { fontSize: 13, color: T.textMuted },
     convRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12, backgroundColor: T.bg },
     convInfo: { flex: 1, minWidth: 0, gap: 3 },
     rightCol: { alignItems: 'flex-end', gap: 6, minWidth: 44 },

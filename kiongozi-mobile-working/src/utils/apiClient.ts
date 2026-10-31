@@ -936,6 +936,30 @@ class ApiClient {
     return this.request(`/api/v1/dm/conversations/${conversationId}`, { method: 'DELETE' });
   }
 
+  /** Message requests: is this chat a request I got, am I waiting on mine, can I send? */
+  async getDMState(conversationId: string) {
+    return this.request(`/api/v1/dm/conversations/${conversationId}/state`, { method: 'GET' });
+  }
+
+  /** Accept a message request (moves it to the inbox) */
+  async acceptDMRequest(conversationId: string) {
+    return this.request(`/api/v1/dm/conversations/${conversationId}/accept`, { method: 'POST' });
+  }
+
+  /** Delete a message request (hidden; the sender isn't told) */
+  async declineDMRequest(conversationId: string) {
+    return this.request(`/api/v1/dm/conversations/${conversationId}/decline`, { method: 'POST' });
+  }
+
+  /** Who can message me + read receipts */
+  async getDMSettings() {
+    return this.request('/api/v1/dm/settings', { method: 'GET' });
+  }
+
+  async updateDMSettings(patch: { dm_policy?: 'everyone' | 'following' | 'none'; dm_read_receipts?: boolean }) {
+    return this.request('/api/v1/dm/settings', { method: 'PUT', body: JSON.stringify(patch) });
+  }
+
   /** Unsend (delete) a single DM message */
   async deleteDMMessage(conversationId: string, messageId: string) {
     return this.request(`/api/v1/dm/conversations/${conversationId}/messages/${messageId}`, { method: 'DELETE' });

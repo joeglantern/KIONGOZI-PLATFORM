@@ -33,7 +33,7 @@ import { RecapSheet } from '../../components/social/RecapSheet';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { QRCardButton } from '../../components/social/QRCardSheet';
 import { useSocialStore } from '../../stores/socialStore';
-import { Section, Card, Row, Toggle, useKitColors, rise } from '../../components/settings/SettingsKit';
+import { Section, Card, Row, Toggle, Segmented, useKitColors, rise } from '../../components/settings/SettingsKit';
 import Animated from 'react-native-reanimated';
 
 const PUSH_ENABLED_KEY = 'push_notifications_enabled';
@@ -43,6 +43,18 @@ const PRIVACY_POLICY_URL = 'https://chat.kiongozi.org/privacy-policy';
 const TERMS_URL = 'https://chat.kiongozi.org/terms';
 
 type IconName = keyof typeof Ionicons.glyphMap;
+
+type DmPolicy = 'everyone' | 'following' | 'none';
+const DM_POLICY_OPTIONS: { id: DmPolicy; label: string }[] = [
+  { id: 'everyone', label: 'Everyone' },
+  { id: 'following', label: 'Following' },
+  { id: 'none', label: 'No one' },
+];
+const DM_POLICY_SUB: Record<DmPolicy, string> = {
+  everyone: 'Everyone · people you don’t follow land in Requests',
+  following: 'People you follow · no one else can start a chat',
+  none: 'No one · only chats you already have',
+};
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
@@ -142,6 +154,32 @@ export default function SettingsScreen() {
     } finally {
       privacyBusy.current = false;
     }
+  };
+
+  // Who can message me + read receipts: flip at once, back with a toast if the server says no
+  const [dmPolicy, setDmPolicy] = useState<DmPolicy>('everyone');
+  const [readReceipts, setReadReceipts] = useState(true);
+  useEffect(() => {
+    apiClient.getDMSettings().then((r: any) => {
+      if (!r?.success || !r.data) return;
+      if (DM_POLICY_OPTIONS.some(o => o.id === r.data.dm_policy)) setDmPolicy(r.data.dm_policy);
+      setReadReceipts(r.data.dm_read_receipts !== false);
+    }).catch(() => {});
+  }, []);
+  const saveDM = async (patch: { dm_policy?: DmPolicy; dm_read_receipts?: boolean }, rollback: () => void) => {
+    const r: any = await apiClient.updateDMSettings(patch).catch(() => null);
+    if (r?.success) return;
+    rollback();
+    toast("Couldn't save that", { kind: 'error', message: 'Check your connection and try again.' });
+  };
+  const handleDmPolicy = (v: DmPolicy) => {
+    const prev = dmPolicy;
+    setDmPolicy(v);
+    saveDM({ dm_policy: v }, () => setDmPolicy(prev));
+  };
+  const handleReadReceipts = (v: boolean) => {
+    setReadReceipts(v);
+    saveDM({ dm_read_receipts: v }, () => setReadReceipts(!v));
   };
 
   const handleExportData = () => setExportSheet(true);
@@ -294,13 +332,27 @@ export default function SettingsScreen() {
           </Card>
         </Section>
 
-        <Section title="Privacy" order={2}>
+        <Section title="Privacy" order={2} note="Chats you already have keep working whatever you pick for messages.">
           <Card>
             <Row
               icon="lock-closed-outline"
               title="Private account"
               sub={privateAccount ? 'On · you approve new followers' : 'Off · anyone can follow you'}
               right={<Toggle value={privateAccount} onChange={handlePrivateToggle} label="Private account" />}
+            />
+            <Row
+              icon="chatbubble-ellipses-outline"
+              color="#34C759"
+              title="Who can message me"
+              sub={DM_POLICY_SUB[dmPolicy]}
+            />
+            <Segmented options={DM_POLICY_OPTIONS} value={dmPolicy} onChange={handleDmPolicy} label="Who can message me" />
+            <Row
+              icon="checkmark-done-outline"
+              color="#30B0C7"
+              title="Read receipts"
+              sub={readReceipts ? 'On · people see when you’ve read their messages' : 'Off · people won’t see when you’ve read their messages'}
+              right={<Toggle value={readReceipts} onChange={handleReadReceipts} label="Read receipts" />}
             />
             {features.presence && (
               <Row

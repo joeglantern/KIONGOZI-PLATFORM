@@ -35,6 +35,8 @@ import { useThemeStore } from '../../stores/themeStore';
 import { enqueue } from '../../utils/outbox';
 import { ReplyChips } from '../../components/social/ReplyChips';
 import * as Haptics from 'expo-haptics';
+import Reanimated from 'react-native-reanimated';
+import { enterFade } from '../../theme/motion';
 
 // ─── Date label helpers ───────────────────────────────────────────────────────
 
@@ -153,16 +155,26 @@ export default function DMConversationScreen() {
   const [reportTarget, setReportTarget] = useState<{ type: 'user'; id: string; displayName: string } | null>(null);
   const chatMuted = useDMStore(s => s.mutedIds.includes(conversationId));
   const handleLabel = participantUsername ? `@${participantUsername}` : (participantName || 'them');
+  // Message requests: the server says whether this chat is a request I got, or one I'm waiting on
+  const convRequest = useDMStore(s => !!s.conversations.find(c => c.id === conversationId)?.request);
+  const chatState = useDMStore(s => s.chatState[conversationId]);
+  const isRequest = chatState ? chatState.request : convRequest;
+  useEffect(() => { if (!isBot) useDMStore.getState().fetchChatState(conversationId); }, [conversationId, isBot]);
   const doBlock = useCallback(() => {
     if (!participantId) return;
     const id = participantId;
+    // Blocking from a request also clears the request (the sender isn't told)
+    if (isRequest) {
+      useDMStore.setState(s => ({ conversations: s.conversations.filter(c => c.id !== conversationId) }));
+      apiClient.declineDMRequest(conversationId).catch(() => {});
+    }
     // Leave at once; the block goes through in the background (same as the profile screen)
     navigation.goBack();
     const fail = () => toast(`Couldn't block ${handleLabel}`, { kind: 'error', message: 'Check your connection and try again.', duration: 5000 });
     useSocialStore.getState().blockUser(id).then(() => {
       if (!useSocialStore.getState().blockedUserIds.includes(id)) fail();
     }).catch(fail);
-  }, [participantId, navigation, handleLabel]);
+  }, [participantId, navigation, handleLabel, isRequest, conversationId]);
   const isSending = useRef(false); // guard against double-tap
   const flatListRef = useRef<FlatList>(null);
   const sendScale = useRef(new Animated.Value(0)).current;
@@ -226,6 +238,15 @@ export default function DMConversationScreen() {
   }, []);
 
   const conversationMessages = messages[conversationId] || [];
+
+  // My request isn't accepted yet: after the first message (or when their settings say no)
+  // the composer becomes a quiet note. Counted locally too, so it shows the moment I send.
+  const sentMine = useMemo(() => conversationMessages.filter(m => m.sender_id === user?.id && !m._failed).length, [conversationMessages, user?.id]);
+  const locked: { title: string; body: string } | null = !chatState || isBot || isRequest ? null
+    : !chatState.can_send && !chatState.awaiting ? { title: "Can't message", body: chatState.reason || "This person isn't taking new messages right now." }
+    : chatState.awaiting && Math.max(chatState.sent, sentMine) >= chatState.limit
+      ? { title: 'Request sent', body: `You can send more once ${handleLabel} accepts.` }
+      : null;
 
   // Reactions: mine shows at once; same emoji again removes it (see dmStore.reactToMessage)
   const react = useCallback((m: DMMessage, emoji: string | null) => {
@@ -301,6 +322,8 @@ export default function DMConversationScreen() {
 
           appendMessage(conversationId, msg, true);
           apiClient.markDMRead(conversationId);
+          // They replied to my request: it's accepted, the composer comes back
+          if (useDMStore.getState().chatState[conversationId]?.awaiting) useDMStore.getState().fetchChatState(conversationId);
           Haptics.selectionAsync().catch(() => {});
         }
       )
@@ -594,7 +617,7 @@ export default function DMConversationScreen() {
               <UserAvatar avatarUrl={participantAvatar} size={84} name={participantName || participantUsername} />
               <Text style={styles.emptyName}>{participantName || 'Say hello'}</Text>
               {participantUsername ? <Text style={styles.emptyText}>@{participantUsername}</Text> : null}
-              {!isBot && (
+              {!isBot && !locked && !isRequest && (
                 <TouchableOpacity style={styles.waveBtn} onPress={() => setText('👋')} accessibilityLabel="Wave">
                   <Text style={styles.waveText}>👋  Wave</Text>
                 </TouchableOpacity>
@@ -622,8 +645,56 @@ export default function DMConversationScreen() {
           />
         )}
 
-        {/* Input (Kiongozi AI chats too: it replies right here) */}
-        {(
+        {/* A request I got: read it quietly, then Block, Delete or Accept (Instagram) */}
+        {isRequest ? (
+          <Reanimated.View key="request" entering={enterFade()} style={[styles.requestPanel, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
+            <View style={styles.requestWho}>
+              <UserAvatar avatarUrl={participantAvatar} size={40} name={participantName || participantUsername} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.requestTitle} numberOfLines={2} maxFontSizeMultiplier={1.3}>{participantName || handleLabel} wants to message you</Text>
+                <Text style={styles.requestSub} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+                  {chatState?.mutual_count
+                    ? `Followed by ${chatState.mutual_username ? '@' + chatState.mutual_username : 'someone you follow'}${chatState.mutual_count > 1 ? ` and ${chatState.mutual_count - 1} ${chatState.mutual_count === 2 ? 'other' : 'others'}` : ''}`
+                    : 'No followers in common'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.requestNote} maxFontSizeMultiplier={1.3}>
+              Accept to reply and move this chat to your inbox. If you delete it, they won't be told.
+            </Text>
+            <View style={styles.requestBtns}>
+              <Pressable
+                onPress={() => { Haptics.selectionAsync().catch(() => {}); setBlockSheet(true); }}
+                style={({ pressed }) => [styles.requestBtn, { backgroundColor: T.surface2 }, pressed && { opacity: 0.7 }]}
+                accessibilityRole="button" accessibilityLabel={`Block ${handleLabel}`}
+              >
+                <Text style={[styles.requestBtnText, { color: T.error }]}>Block</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { Haptics.selectionAsync().catch(() => {}); useDMStore.getState().declineRequest(conversationId); navigation.goBack(); }}
+                style={({ pressed }) => [styles.requestBtn, { backgroundColor: T.surface2 }, pressed && { opacity: 0.7 }]}
+                accessibilityRole="button" accessibilityLabel="Delete request"
+              >
+                <Text style={styles.requestBtnText}>Delete</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); useDMStore.getState().acceptRequest(conversationId); }}
+                style={({ pressed }) => [styles.requestBtn, { backgroundColor: T.text }, pressed && { opacity: 0.8 }]}
+                accessibilityRole="button" accessibilityLabel="Accept request"
+              >
+                <Text style={[styles.requestBtnText, { color: T.bg }]}>Accept</Text>
+              </Pressable>
+            </View>
+          </Reanimated.View>
+        ) : locked ? (
+          <Reanimated.View key="locked" entering={enterFade()} style={[styles.lockedWrap, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
+            <View style={[styles.lockedCard, { backgroundColor: T.surface }]} accessibilityRole="text" accessibilityLabel={`${locked.title}. ${locked.body}`}>
+              <Text style={styles.lockedTitle} maxFontSizeMultiplier={1.3}>{locked.title}</Text>
+              <Text style={styles.lockedBody} maxFontSizeMultiplier={1.3}>{locked.body}</Text>
+            </View>
+          </Reanimated.View>
+        ) : (
+          /* Input (Kiongozi AI chats too: it replies right here) */
           <View style={[styles.inputBar, { paddingBottom: kbOpen ? 8 : Math.max(insets.bottom, 12) + 4 }]}>
             <ReplyChips
               conversationId={conversationId}
@@ -924,6 +995,21 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     loadOlderBtn: { alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 8, marginTop: 8, marginBottom: 4 },
     loadOlderText: { color: T.accent, fontSize: 14, fontWeight: '600' },
 
+    requestPanel: {
+      paddingHorizontal: 16, paddingTop: 14,
+      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.border, backgroundColor: T.bg,
+    },
+    requestWho: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    requestTitle: { fontSize: 15, fontWeight: '700', color: T.text },
+    requestSub: { fontSize: 13, color: T.textMuted, marginTop: 2 },
+    requestNote: { fontSize: 13, lineHeight: 18, color: T.textSub, marginTop: 10 },
+    requestBtns: { flexDirection: 'row', gap: 8, marginTop: 14 },
+    requestBtn: { flex: 1, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    requestBtnText: { fontSize: 15, fontWeight: '700', color: T.text },
+    lockedWrap: { paddingHorizontal: 16, paddingTop: 10, backgroundColor: T.bg },
+    lockedCard: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center' },
+    lockedTitle: { fontSize: 15, fontWeight: '600', color: T.text },
+    lockedBody: { fontSize: 13, lineHeight: 18, color: T.textMuted, marginTop: 4, textAlign: 'center' },
     inputBar: {
       paddingHorizontal: 10,
       paddingTop: 8,

@@ -153,6 +153,8 @@ function markFailed(job: Job) {
   try {
     const { useDMStore } = require('../stores/dmStore');
     useDMStore.getState().markMessageFailed(job.conversationId, job.tempId);
+    // Refused by a message request rule: the chat shows why instead of the composer
+    useDMStore.getState().fetchChatState(job.conversationId);
   } catch {}
 }
 

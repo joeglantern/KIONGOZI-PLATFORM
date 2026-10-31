@@ -15,6 +15,8 @@ interface NotifyParams {
   title: string;
   message: string;
   data?: Record<string, any>;
+  /** Push without sound (a message request) */
+  silent?: boolean;
   /** @deprecated Pass io via setIo() at startup instead */
   io?: any;
 }
@@ -41,8 +43,8 @@ class NotificationService {
     return count ?? undefined;
   }
 
-  private async push(userId: string, type: NotifyParams['type'], title: string, message: string, data: any) {
-    const silent = type !== 'dm' && isQuietHours();
+  private async push(userId: string, type: NotifyParams['type'], title: string, message: string, data: any, quiet = false) {
+    const silent = quiet || (type !== 'dm' && isQuietHours());
     const suffix = GROUPABLE[type];
     if (!suffix) {
       await sendExpoPush(await this.tokens(userId), title, message, data, { silent, badge: await this.badge(userId) });
@@ -70,7 +72,7 @@ class NotificationService {
     this.io = io;
   }
 
-  async notify({ userId, type, title, message, data = {}, io }: NotifyParams): Promise<void> {
+  async notify({ userId, type, title, message, data = {}, io, silent }: NotifyParams): Promise<void> {
     // Accept io from param (legacy) or fall back to the singleton set at startup
     const ioInstance = io ?? this.io;
     let lastError: unknown;
@@ -107,7 +109,7 @@ class NotificationService {
               if (muteRow) return; // sender is muted — skip push, in-app notification already written
             }
 
-            await this.push(userId, type, title, message, { ...data, type });
+            await this.push(userId, type, title, message, { ...data, type }, !!silent);
           } catch (pushErr) {
             console.error('Push send error:', pushErr);
           }

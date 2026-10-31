@@ -93,6 +93,26 @@ export interface DMConversation {
   last_message?: DMMessage;
   unread_count: number;
   participants: DMParticipant[];
+  /** A message request I got (someone I don't follow): lives in Requests, not the inbox */
+  request?: boolean;
+  /** Requests: people I follow who follow them */
+  mutual_count?: number;
+  mutual_username?: string | null;
+}
+
+/** Message requests, from the server: what the composer of one chat can do */
+export interface DMChatState {
+  /** I got this as a request and haven't accepted it */
+  request: boolean;
+  /** I sent a request they haven't accepted */
+  awaiting: boolean;
+  can_send: boolean;
+  /** Plain words for why not ("@x only gets messages from people they follow") */
+  reason: string | null;
+  limit: number;
+  sent: number;
+  mutual_count: number;
+  mutual_username: string | null;
 }
 
 interface DMState {
@@ -111,7 +131,14 @@ interface DMState {
   drafts: Record<string, string>;
   /** Chats where the other person is typing right now (cleared 4s after the last beat) */
   typing: Record<string, true>;
+  /** Message requests per chat (see DMChatState) */
+  chatState: Record<string, DMChatState>;
 
+  fetchChatState: (conversationId: string) => Promise<void>;
+  /** Accept a request: it moves to the inbox at once, back with a toast if the server says no */
+  acceptRequest: (conversationId: string) => Promise<boolean>;
+  /** Delete a request: gone at once with Undo; the sender isn't told */
+  declineRequest: (conversationId: string) => void;
   setDraft: (conversationId: string, text: string) => void;
   hydrateMessages: (conversationId: string) => Promise<void>;
   fetchConversations: () => Promise<void>;
@@ -149,6 +176,53 @@ export const useDMStore = create<DMState>((set, get) => ({
   showArchived: false,
   drafts: {},
   typing: {},
+  chatState: {},
+
+  fetchChatState: async (conversationId) => {
+    const r: any = await apiClient.getDMState(conversationId).catch(() => null);
+    if (!r?.success || !r.data) return;
+    set(s => ({ chatState: { ...s.chatState, [conversationId]: r.data as DMChatState } }));
+  },
+
+  acceptRequest: async (conversationId) => {
+    const before = { conv: get().conversations.find(c => c.id === conversationId), st: get().chatState[conversationId] };
+    const flip = (request: boolean) => set(s => ({
+      conversations: s.conversations.map(c => (c.id === conversationId ? { ...c, request } : c)),
+      chatState: s.chatState[conversationId] ? { ...s.chatState, [conversationId]: { ...s.chatState[conversationId], request } } : s.chatState,
+    }));
+    flip(false);
+    const r: any = await apiClient.acceptDMRequest(conversationId).catch(() => null);
+    if (r?.success) {
+      persistConvs();
+      get().markRead(conversationId); // now they can see it was read
+      return true;
+    }
+    if (before.conv?.request || before.st?.request) flip(true);
+    toast("Couldn't accept", { kind: 'error', message: 'Check your connection and try again.' });
+    return false;
+  },
+
+  declineRequest: (conversationId) => {
+    const snap = get().conversations.find(c => c.id === conversationId);
+    withUndo('Request deleted', {
+      hide: () => {
+        set(s => ({ conversations: s.conversations.filter(c => c.id !== conversationId) }));
+        persistConvs();
+      },
+      restore: () => {
+        if (!snap) return;
+        set(s => ({
+          conversations: s.conversations.some(c => c.id === conversationId) ? s.conversations
+            : [...s.conversations, snap].sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()),
+        }));
+        persistConvs();
+      },
+      commit: async () => {
+        const r: any = await apiClient.declineDMRequest(conversationId);
+        if (!r?.success && !/not found/i.test(r?.error || '')) throw new Error(r?.error || 'Delete failed');
+      },
+    });
+  },
 
   setDraft: (conversationId, text) => {
     const cur = get().drafts[conversationId] || '';
@@ -436,6 +510,7 @@ export const useDMStore = create<DMState>((set, get) => ({
     showArchived: false,
     drafts: {},
     typing: {},
+    chatState: {},
   })
 }));
 
