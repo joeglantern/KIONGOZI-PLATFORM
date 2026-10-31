@@ -2,7 +2,7 @@
 // count-up numbers and the looping video backgrounds. Everything that moves runs on the UI thread, except the
 // count-up text, which is a short JS tick. Reduce motion keeps the fades and drops the floats and springs.
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, StyleSheet, ImageSourcePropType, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import { View, Text, Image, StyleSheet, ImageSourcePropType, StyleProp, ViewStyle, TextStyle, useWindowDimensions } from 'react-native';
 import Animated, {
   FadeIn, useSharedValue, useAnimatedStyle, withDelay, withSpring, withTiming, withRepeat, withSequence,
   Easing, cancelAnimation, interpolate, Extrapolation,
@@ -155,6 +155,9 @@ export function CountUp({
 /** A full-bleed looping video with its poster until the first frame plays (same idea as OrbVideo) */
 export function LoopVideo({ source, poster, playing }: { source: any; poster: any; playing: boolean }) {
   const [ready, setReady] = useState(false);
+  // explicit size: Android drew a local poster at its own pixel size with absoluteFill + cover
+  const { width: sw, height: sh } = useWindowDimensions();
+  const full = { position: 'absolute' as const, left: 0, top: 0, width: sw, height: sh };
   const player = useVideoPlayer(source, p => { p.loop = true; p.muted = true; });
   const playingRef = useRef(playing);
   playingRef.current = playing;
@@ -167,10 +170,10 @@ export function LoopVideo({ source, poster, playing }: { source: any; poster: an
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Image source={poster} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image source={poster} style={full} resizeMode="cover" />
       <VideoView
         player={player}
-        style={[StyleSheet.absoluteFill, { opacity: ready ? 1 : 0 }]}
+        style={[full, { opacity: ready ? 1 : 0 }]}
         contentFit="cover"
         nativeControls={false}
         allowsFullscreen={false}
