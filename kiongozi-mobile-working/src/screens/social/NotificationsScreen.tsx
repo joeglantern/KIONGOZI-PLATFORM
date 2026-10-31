@@ -466,7 +466,7 @@ export default function NotificationsScreen() {
     return out;
   }, [feed]);
 
-  const { onScroll, refreshControl, bubble, refreshing, onHeaderLayout } = useBubbleRefresh(
+  const { onScroll, refreshControl, bubble, refreshing, onHeaderLayout, listRef } = useBubbleRefresh(
     () => fetchNotifications(true), T.accent, T.surface,
   );
 
@@ -549,6 +549,7 @@ export default function NotificationsScreen() {
         <RowsSkeleton count={7} avatar={44} label="Loading activity" />
       ) : (
         <Animated.SectionList
+          ref={listRef}
           {...TAB_LIST_INSET}
           sections={sections}
           keyExtractor={r => r.key}

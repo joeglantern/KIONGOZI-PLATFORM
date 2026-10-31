@@ -6,6 +6,7 @@ import { supabaseServiceClient } from '../config/supabase';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import MentionService from '../services/MentionService';
 import FeedService, { enrichWithUserState, getPrivateUserIds } from '../services/FeedService';
+import { dropMutedPosts } from '../services/MutedWords';
 import NotificationService from '../services/NotificationService';
 import { Milestones } from '../services/MilestoneService';
 import OpenAI from 'openai';
@@ -50,6 +51,7 @@ router.get('/feed', authenticateToken, async (req: Request, res: Response): Prom
     const cursor = req.query.cursor as string | undefined;
 
     const result = await FeedService.getPersonalizedFeed(userId, limit, cursor);
+    result.data = await dropMutedPosts(result.data, userId);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('Feed error:', err);
@@ -64,6 +66,7 @@ router.get('/explore', optionalAuth, async (req: Request, res: Response): Promis
     const cursor = req.query.cursor as string | undefined;
 
     const result = await FeedService.getExploreFeed(limit, cursor, req.user?.id);
+    result.data = await dropMutedPosts(result.data, req.user?.id);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('Explore error:', err);
@@ -1021,6 +1024,7 @@ router.get('/for-you', authenticateToken, async (req: Request, res: Response): P
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
     const offset = parseInt(req.query.offset as string) || 0;
     const result = await FeedService.getForYouFeed(req.user!.id, limit, offset);
+    result.data = await dropMutedPosts(result.data, req.user!.id);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('For You feed error:', err);

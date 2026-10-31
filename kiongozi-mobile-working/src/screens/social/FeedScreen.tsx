@@ -37,6 +37,7 @@ import { AdCard, Ad } from '../../components/social/AdCard';
 import { usePrefs } from '../../stores/prefsStore';
 import { emitAppEvent } from '../../utils/appEvents';
 import { useBarazaStore } from '../../stores/barazaStore';
+import { CaughtUp, useCaughtUpRows } from '../../components/social/CaughtUp';
 
 // Ads: never in the first 4 posts, then one every 8 (the server also caps per person per day)
 const FIRST_AD_AT = 4;
@@ -216,7 +217,7 @@ export default function FeedScreen() {
     }
   }).current;
 
-  const renderPost = useCallback(({ item }: { item: any }) => item.__ad ? (
+  const renderPost = useCallback(({ item }: { item: any }) => item.__caughtUp ? <CaughtUp text={item.text} /> : item.__ad ? (
     <AdCard
       ad={item.__ad}
       seen={!!seenAds[item.__ad.id]}
@@ -242,6 +243,8 @@ export default function FeedScreen() {
   ), [handlePostPress, handleProfilePress, handleHashtagPress, user?.id, handleDeletePost, seenAds, openAd, dropAd]);
 
   const [activeTab, setActiveTab] = useState(0);
+  // Following gets a "You're all caught up" marker after the posts that are new since the last visit
+  const followingRows = useCaughtUpRows(user?.id, feedPosts, activeTab === 1);
 
   // ── Folding header ──
   // The header floats over both feeds. Scrolling the first `railH` px folds the story rail
@@ -493,9 +496,9 @@ export default function FeedScreen() {
           <Animated.FlatList
             {...TAB_LIST_INSET}
             ref={(r: any) => { listRefs.current[1] = r; }}
-            data={feedPosts}
+            data={followingRows}
             renderItem={renderPost}
-            keyExtractor={(item: Post) => `fw_${item.id}`}
+            keyExtractor={(item: any) => (item.__caughtUp ? 'fw_caught_up' : `fw_${item.id}`)}
             onScroll={onScrollFor(1)}
             onScrollBeginDrag={noteFeedScroll}
             onMomentumScrollEnd={noteFeedScroll}

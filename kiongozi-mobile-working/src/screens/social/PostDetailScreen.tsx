@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { PostCard } from '../../components/social/PostCard';
 import { MutedGate } from '../../components/social/MutedGate';
 import { EditPostModal } from '../../components/social/EditPostModal';
+import { EditedLabel } from '../../components/social/EditedLabel';
 import { HashtagHighlight } from '../../components/social/HashtagHighlight';
 import { UserAvatar } from '../../components/social/UserAvatar';
 import { VerifiedBadge } from '../../components/social/VerifiedBadge';
@@ -316,7 +317,12 @@ export default function PostDetailScreen() {
     if (item._role === 'meta') {
       return (
         <View>
-          {!!metaLine && <Text style={styles.metaLine}>{metaLine}</Text>}
+          {!!metaLine && (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLineText}>{metaLine}</Text>
+              {post && <EditedLabel post={post} style={styles.metaLineText} />}
+            </View>
+          )}
           {!!post?.id && !!user?.id && post.user_id === user.id && (
             <Text onPress={() => { Haptics.selectionAsync().catch(() => {}); setInsightsOpen(true); }} style={[styles.metaLine, { color: T.accentDeep, fontWeight: '600', paddingTop: 6 }]} accessibilityRole="button" suppressHighlighting>
               {views > 0 ? `${fmtCount(views)} ${views === 1 ? 'view' : 'views'} · insights` : 'View insights'}
@@ -561,6 +567,8 @@ function makeStyles(T: Theme) {
     noBorder: { borderBottomWidth: 0 },
 
     metaLine: { fontSize: 14, color: T.textMuted, paddingHorizontal: 16, paddingTop: 10 },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, paddingTop: 10 },
+    metaLineText: { fontSize: 14, color: T.textMuted },
     divider: { height: 1, marginTop: 12, backgroundColor: T.bg === '#000000' ? '#1C1C1E' : '#E5E5EA' },
     repliesRow: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

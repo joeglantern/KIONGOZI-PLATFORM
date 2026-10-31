@@ -651,6 +651,11 @@ class ApiClient {
     });
   }
 
+  /** Edit history of a post: the current text first, then earlier versions, newest first */
+  async getPostEdits(postId: string) {
+    return this.request(`/api/v1/social/posts/${postId}/edits`, { method: 'GET' });
+  }
+
   /** Delete a post */
   async deletePost(postId: string) {
     return this.request(`/api/v1/social/posts/${postId}`, { method: 'DELETE' });
