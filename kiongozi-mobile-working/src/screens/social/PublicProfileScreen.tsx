@@ -191,22 +191,33 @@ export default function PublicProfileScreen() {
       return;
     }
 
-    // Follow / request
+    // Follow / request: flip the button at once (like the big apps), settle with the server after
+    const willRequest = !!profile.is_private;
+    if (willRequest) setProfile((p: any) => p ? { ...p, followRequestStatus: 'pending' } : p);
+    else {
+      setProfile((p: any) => p ? { ...p, isFollowing: true, follower_count: (p.follower_count || 0) + 1, followRequestStatus: null } : p);
+      updateFollowState(username, true);
+    }
+    const undo = () => {
+      setProfile((p: any) => p ? {
+        ...p, isFollowing: false, followRequestStatus: null,
+        follower_count: willRequest ? p.follower_count : Math.max(0, (p.follower_count || 0) - 1),
+      } : p);
+      if (!willRequest) updateFollowState(username, false);
+    };
     try {
       const res = await apiClient.followUser(profile.id);
-      if (res.success) {
-        if ((res as any).status === 'requested') {
-          setProfile((p: any) => p ? { ...p, followRequestStatus: 'pending' } : p);
-        } else {
-          setProfile((p: any) => p ? {
-            ...p, isFollowing: true,
-            follower_count: p.follower_count + 1,
-            followRequestStatus: null
-          } : p);
-          updateFollowState(username, true);
-        }
+      if (!res.success) { undo(); return; }
+      const requested = (res as any).status === 'requested';
+      if (requested && !willRequest) {
+        // it turned out to need approval: show Requested and take back the count
+        setProfile((p: any) => p ? { ...p, isFollowing: false, followRequestStatus: 'pending', follower_count: Math.max(0, (p.follower_count || 0) - 1) } : p);
+        updateFollowState(username, false);
+      } else if (!requested && willRequest) {
+        setProfile((p: any) => p ? { ...p, isFollowing: true, followRequestStatus: null, follower_count: (p.follower_count || 0) + 1 } : p);
+        updateFollowState(username, true);
       }
-    } catch {}
+    } catch { undo(); }
   }, [profile, username, updateFollowState]);
 
   const handleMessage = async () => {
