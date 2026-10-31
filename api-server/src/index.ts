@@ -198,10 +198,11 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
       target: {
         namespace: 'android_app',
         package_name: 'com.kiongozi.mobile',
-        // Get fingerprint from: eas credentials --platform android
-        // or Play Console → App Integrity → App signing certificate
+        // Play app signing key (Play Console → Deep links / App integrity). Public by design.
+        // ANDROID_SHA256_FINGERPRINT can add more (e.g. the upload key for sideloaded test builds).
         sha256_cert_fingerprints: [
-          process.env.ANDROID_SHA256_FINGERPRINT || 'REPLACE_WITH_SHA256_FINGERPRINT',
+          '6E:92:9B:FF:69:AE:E5:19:F9:74:02:F2:34:24:90:16:E4:DE:42:27:9D:E7:75:DD:4B:8E:6D:4A:A8:31:D1:27',
+          ...(process.env.ANDROID_SHA256_FINGERPRINT ? process.env.ANDROID_SHA256_FINGERPRINT.split(',').map(s => s.trim()).filter(Boolean) : []),
         ],
       },
     },
