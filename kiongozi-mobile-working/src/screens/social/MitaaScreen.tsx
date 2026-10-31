@@ -176,24 +176,28 @@ export default function MitaaScreen() {
       {/* Where you are: the street, your place on it, and what's below */}
       {street && size && !comments && (
         <View style={[styles.header, { paddingTop: insets.top + 6 }]} pointerEvents="box-none">
-          <Animated.View key={street.key} entering={FadeInDown.duration(220)} style={styles.pillWrap} pointerEvents="none">
-            <View style={styles.pill}>
-              <Text style={styles.pillTitle} numberOfLines={1}>{street.title}</Text>
-            </View>
-            <Dots count={street.clips.length} at={at} />
-          </Animated.View>
+          <View style={styles.bar} pointerEvents="box-none">
+          {/* Centred plain title like the big apps, the street you're on and your place on it under it */}
+          <View style={styles.titleWrap} pointerEvents="none">
+            <Text style={styles.title} accessibilityRole="header">Mitaa</Text>
+            <Animated.View key={street.key} entering={FadeInDown.duration(220)} style={styles.titleSub}>
+              <Text style={styles.streetName} numberOfLines={1}>{street.title}</Text>
+              <Dots count={street.clips.length} at={at} />
+            </Animated.View>
+          </View>
           <View style={styles.actions}>
-            <Pressable onPress={toggleSound} style={styles.round} hitSlop={8} accessibilityLabel={muted ? 'Sound on' : 'Sound off'}>
-              <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={19} color="#fff" />
+            <Pressable onPress={toggleSound} style={styles.quiet} hitSlop={8} accessibilityLabel={muted ? 'Sound on' : 'Sound off'}>
+              <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={22} color="#fff" style={styles.iconShadow} />
             </Pressable>
-            <Pressable onPress={() => useClipStore.getState().openComposer()} style={[styles.round, { backgroundColor: HONEY }]} hitSlop={8} accessibilityLabel="Post a clip">
-              <Ionicons name="add" size={22} color="#1A1206" />
+            <Pressable onPress={() => useClipStore.getState().openComposer()} style={styles.quiet} hitSlop={8} accessibilityLabel="Post a clip">
+              <Ionicons name="add" size={28} color="#fff" style={styles.iconShadow} />
             </Pressable>
+          </View>
           </View>
         </View>
       )}
       {next && size && !comments && (
-        <View style={[styles.nextHint, { top: insets.top + 60 }]} pointerEvents="none">
+        <View style={[styles.nextHint, { top: insets.top + 80 }]} pointerEvents="none">
           <Ionicons name="chevron-down" size={13} color="rgba(255,255,255,0.7)" />
           <Text style={styles.nextText} numberOfLines={1}>{next.title}</Text>
         </View>
@@ -312,12 +316,14 @@ function Dots({ count, at }: { count: number; at: number }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
-  header: { position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 14 },
-  pillWrap: { alignItems: 'flex-start' },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 34, borderRadius: 17, paddingHorizontal: 14, backgroundColor: 'rgba(0,0,0,0.42)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.18)', maxWidth: 240 },
-  pillTitle: { color: '#fff', fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.3, flexShrink: 1 },
-  pillCount: { color: 'rgba(255,255,255,0.6)', fontSize: 12.5, fontVariant: ['tabular-nums'], fontWeight: '600' },
-  dots: { flexDirection: 'row', gap: 4, marginTop: 7, marginLeft: 14 },
+  header: { position: 'absolute', left: 0, right: 0, top: 0 },
+  bar: { height: 40 },
+  titleWrap: { position: 'absolute', left: 90, right: 90, top: 9, alignItems: 'center' },
+  title: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: -0.4, lineHeight: 22, textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
+  titleSub: { alignItems: 'center', marginTop: 1 },
+  streetName: { color: 'rgba(255,255,255,0.75)', fontSize: 12.5, fontWeight: '600', textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 4, maxWidth: 200 },
+  iconShadow: { textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 6 },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.35)' },
   dotOn: { width: 14, backgroundColor: HONEY },
   dotEdge: { width: 3, height: 3, marginTop: 1 },
@@ -326,8 +332,8 @@ const styles = StyleSheet.create({
   endTitle: { color: '#fff', fontSize: 19, fontFamily: 'SpaceGrotesk_700Bold', textAlign: 'center', letterSpacing: -0.3 },
   endRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   endSub: { color: 'rgba(255,255,255,0.7)', fontSize: 14.5, fontWeight: '600', textAlign: 'center' },
-  actions: { flexDirection: 'row', gap: 10 },
-  round: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.42)', alignItems: 'center', justifyContent: 'center' },
+  actions: { position: 'absolute', right: 6, top: 0, flexDirection: 'row', alignItems: 'center', gap: 2 },
+  quiet: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   nextHint: { position: 'absolute', left: 16, flexDirection: 'row', alignItems: 'center', gap: 3, opacity: 0.85 },
   nextText: { color: 'rgba(255,255,255,0.7)', fontSize: 12.5, fontWeight: '600', maxWidth: 200 },
   coach: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' },

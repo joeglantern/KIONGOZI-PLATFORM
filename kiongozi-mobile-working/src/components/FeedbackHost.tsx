@@ -64,8 +64,9 @@ function ToastView() {
   const bar = useAnimatedStyle(() => ({ width: `${left.value * 100}%` }));
   if (!shown) return null;
 
-  const icon = shown.kind === 'error' ? 'alert-circle' : shown.kind === 'success' ? 'checkmark-circle' : null;
-  const iconColor = shown.kind === 'error' ? '#FF6B5E' : '#5CB85C';
+  const icon = shown.icon ?? (shown.kind === 'error' ? 'alert-circle' : shown.kind === 'success' ? 'checkmark-circle' : null);
+  // A custom icon (the repost loop) is the repost green; the kind icons keep their colours
+  const iconColor = shown.icon ? (shown.kind === 'error' ? '#FF6B5E' : '#86BD2E') : shown.kind === 'error' ? '#FF6B5E' : '#5CB85C';
   const bg = isDark ? '#2C2C2E' : '#1C1C1E';
 
   const dismiss = () => {

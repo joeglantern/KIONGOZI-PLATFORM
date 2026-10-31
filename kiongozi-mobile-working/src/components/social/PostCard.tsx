@@ -8,7 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { Post } from '../../stores/socialStore';
 import { FeedStoryAvatar } from '../stories/FeedStoryAvatar';
 import { UserAvatar } from './UserAvatar';
-import { HashtagHighlight } from './HashtagHighlight';
+import { HashtagHighlight, LinkPills } from './HashtagHighlight';
 import { MediaViewerModal, MediaItem, PostContext } from './MediaViewerModal';
 import QuotePostModal from './QuotePostModal';
 import apiClient from '../../utils/apiClient';
@@ -356,7 +356,7 @@ export function PostCard({
       Animated.spring(repostSpin, { toValue: 2, useNativeDriver: true, damping: 9, stiffness: 140 }),
     ]).start(() => repostSpin.setValue(0));
     toggleInteraction(activePost.id, 'repost', true);
-    toast('Reposted to your profile', { kind: 'success', action: { label: 'Undo', onPress: () => toggleInteraction(activePost.id, 'repost', false) } });
+    toast('Reposted to your profile', { kind: 'success', icon: 'repeat', action: { label: 'Undo', onPress: () => toggleInteraction(activePost.id, 'repost', false) } });
   }, [activePost.id, repostSpin]);
 
   const doUnrepost = useCallback(async () => {
@@ -495,12 +495,13 @@ export function PostCard({
               style={styles.repostBanner}
               onPress={() => post.profiles?.username && onProfilePress?.(post.profiles.username)}
             >
-              <RepostLoop size={13} on={false} color={T.textMuted} onColor={T.textMuted} />
+              <RepostLoop size={14} on={false} color={T.textMuted} onColor={T.textMuted} />
               <Text style={styles.repostBannerText} numberOfLines={1} maxFontSizeMultiplier={1.3}>{(() => {
-                // "Amina and 2 others reposted" (one card, all the reposters)
-                const others = ((activePost as any).recentReposters || []).filter((u: any) => u?.id && u.id !== post.user_id).length;
+                // "Amina and 2 others reposted" (one card, all the reposters), the name in bold
+                const others = (activePost.recentReposters || []).filter(u => u?.id && u.id !== post.user_id).length;
                 const extra = Math.max(others, (activePost.repost_count || 1) - 1);
-                return extra > 0 ? `${post.profiles?.full_name || post.profiles?.username} and ${extra} other${extra === 1 ? '' : 's'} reposted` : `${post.profiles?.full_name || post.profiles?.username} reposted`;
+                const who = post.profiles?.full_name || post.profiles?.username;
+                return <><Text style={styles.repostBannerName}>{who}</Text>{extra > 0 ? ` and ${extra} other${extra === 1 ? '' : 's'} reposted` : ' reposted'}</>;
               })()}</Text>
             </TouchableOpacity>
           )}
@@ -548,6 +549,7 @@ export function PostCard({
               onTextLayout={!measured ? handleTextLayout : undefined}
               onMentionPress={handleMentionPress}
               onHashtagPress={onHashtagPress}
+              pillLinks
             />
             {isTruncated && !expanded && (
               <TouchableOpacity onPress={() => setExpanded(true)}>
@@ -572,6 +574,9 @@ export function PostCard({
                   </Text>
                 </TouchableOpacity>
             )}
+
+            {/* Baraza links as "Open the minutes" pills */}
+            <LinkPills content={activePost.content} />
 
             {/* Media */}
             {activePost.post_media && activePost.post_media.length > 0 && (
@@ -792,14 +797,18 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     repostBanner: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 6,
       marginBottom: 4,
     },
     repostBannerText: {
-      fontSize: 12.5,
+      fontSize: 13,
       color: T.textMuted,
-      fontWeight: '500',
+      fontWeight: '400',
       flexShrink: 1,
+    },
+    repostBannerName: {
+      color: T.text,
+      fontWeight: '700',
     },
     header: {
       flexDirection: 'row',

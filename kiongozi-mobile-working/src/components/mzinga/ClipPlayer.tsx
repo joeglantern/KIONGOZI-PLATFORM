@@ -3,7 +3,7 @@
 // Tap = pause, double-tap = like (heart where your finger is; keep tapping for more hearts),
 // hold on the right edge = 2x speed, hold anywhere else = clip options (report, speed, copy link).
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, StyleSheet, Pressable, FlatList, Image, Share, useWindowDimensions, Platform, ViewToken, AppState } from 'react-native';
+import { Modal, View, Text, StyleSheet, Pressable, FlatList, Image, Share, useWindowDimensions, Platform, ViewToken, AppState, Animated as RNAnimated } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, withDelay, withRepeat, cancelAnimation, interpolate, runOnJS, Extrapolation,
   FadeIn, FadeOut, Easing,
@@ -23,7 +23,7 @@ import { storyNav } from '../stories/storyAssets';
 import { useVideoThumb } from '../social/media';
 import { setFeedPaused } from '../social/videoPlayback';
 import { UserAvatar } from '../social/UserAvatar';
-import { RepostLoop } from '../social/RepostLoop';
+import { RepostLoop, RollingCount } from '../social/RepostLoop';
 import { ClipComments } from './ClipComments';
 import { useSafeAreaInsets as useInsets } from 'react-native-safe-area-context';
 import { BottomSheet, SheetAction } from '../social/BottomSheet';
@@ -32,9 +32,10 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useFollowState, toggleFollow } from '../../stores/followSync';
 import { useMitaaStore } from '../../stores/mitaaStore';
-import { appAlert } from '../../utils/alert';
+import { toast as appToast } from '../../utils/alert';
 
 const HONEY = '#F2B544';
+const REPOST_GREEN = '#86BD2E';
 const CLAMP = Extrapolation.CLAMP;
 const fmt = (n: number) => { const s = (v: number, u: string) => `${v.toFixed(1).replace(/\.0$/, '')}${u}`; return n >= 1e6 ? s(n / 1e6, 'M') : n >= 1e3 ? s(n / 1e3, 'K') : String(n); };
 
@@ -264,7 +265,8 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
     if (buffering) pulse.value = withRepeat(withSequence(withTiming(1, { duration: 520 }), withTiming(0, { duration: 520 })), -1);
     else { cancelAnimation(pulse); pulse.value = withTiming(0, { duration: 160 }); }
   }, [buffering, pulse]);
-  const trackStyle = useAnimatedStyle(() => ({ backgroundColor: `rgba(255,255,255,${0.22 + pulse.value * 0.4})` }));
+  // Grabbed: the track lightens to 0.3 so the honey fill and the thumb stand out
+  const trackStyle = useAnimatedStyle(() => ({ backgroundColor: `rgba(255,255,255,${0.22 + scrub.value * 0.08 + pulse.value * 0.4})` }));
 
   const retry = () => {
     if (!player) return;
@@ -281,6 +283,23 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
     setHearts(h => [...h.slice(-6), { id, x, y }]);
   };
   const dropHeart = useCallback((id: number) => setHearts(h => h.filter(k => k.id !== id)), []);
+
+  // Repost from the rail: flips at once (interactionSync settles it), loop spins a half turn
+  const reposted = inter?.isReposted ?? !!post.isReposted;
+  const reposts = inter?.repost_count ?? post.repost_count ?? 0;
+  const repostSpin = useRef(new RNAnimated.Value(0)).current;
+  const repost = () => {
+    const next = !reposted;
+    Haptics.impactAsync(next ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (next) {
+      RNAnimated.sequence([
+        RNAnimated.timing(repostSpin, { toValue: 1, duration: 0, useNativeDriver: true }),
+        RNAnimated.spring(repostSpin, { toValue: 2, useNativeDriver: true, damping: 9, stiffness: 140 }),
+      ]).start(() => repostSpin.setValue(0));
+    }
+    toggleInteraction(post.id, 'repost', next);
+    if (next) appToast('Reposted', { icon: 'repeat', action: { label: 'Undo', onPress: () => toggleInteraction(post.id, 'repost', false) } });
+  };
 
   const like = (force?: boolean) => {
     toggleInteraction(post.id, 'like', force ? true : undefined);
@@ -375,7 +394,8 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
     opacity: scrub.value,
     transform: [{ translateX: progress.value * trackW - 8 }, { scale: 0.4 + scrub.value * 0.6 }],
   }));
-  const chromeFade = useAnimatedStyle(() => ({ opacity: 1 - scrub.value }));
+  // Scrubbing dims the rail and caption to a quarter so the picture and the time read, without losing your place
+  const chromeFade = useAnimatedStyle(() => ({ opacity: 1 - scrub.value * 0.75 }));
 
   const go = (screen: string, params: any) => {
     const nav = storyNav.current;
@@ -468,7 +488,7 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
   const bar = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
   const caption = post.content?.trim();
   // Someone you follow reposted this clip (the feed sends recent reposters)
-  const reposter = ((post as any).recentReposters || []).find((u: any) => u?.id && u.id !== post.user_id);
+  const reposter = (post.recentReposters || []).find(u => u?.id && u.id !== post.user_id && u.id !== myId);
 
   return (
     <View style={{ width: W, height: H, backgroundColor: '#000' }}>
@@ -544,8 +564,13 @@ export const ClipItem = React.memo(function ClipItem({ post, W, H, state, muted,
         </View>
         <RailBtn icon={liked ? 'heart' : 'heart-outline'} color={liked ? '#FF3B5C' : '#fff'} label={likes ? fmt(likes) : 'Like'} onPress={() => like()} a11y={liked ? 'Unlike' : 'Like'} />
         <RailBtn icon="chatbubble-outline" label={post.comment_count ? fmt(post.comment_count) : 'Comment'} onPress={onComments} a11y="Comments" />
-        <RailBtn icon="paper-plane-outline" label="Share" onPress={share} a11y="Share" />
-        <RailBtn icon="ellipsis-horizontal" onPress={() => setSheet('options')} a11y="More options" />
+        <RailBtn
+          icon={<RepostLoop size={30} on={reposted} spin={repostSpin} color="#fff" onColor={REPOST_GREEN} />}
+          label={<RollingCount value={reposts} text={reposts ? fmt(reposts) : 'Repost'} style={[styles.railLabel, reposted && { color: REPOST_GREEN }]} />}
+          onPress={repost}
+          a11y={reposted ? 'Undo repost' : 'Repost'}
+        />
+        <RailBtn icon="share-outline" label="Share" onPress={share} a11y="Share" />
       </Animated.View>
 
       {/* Who and what */}
@@ -631,7 +656,8 @@ function Heart({ id, x, y, onDone }: { id: number; x: number; y: number; onDone:
   );
 }
 
-function RailBtn({ icon, label, onPress, color = '#fff', a11y }: { icon: any; label?: string; onPress: () => void; color?: string; a11y: string }) {
+/** `icon` is an Ionicons name or a ready node (the repost loop); `label` a string or a node (a rolling count) */
+function RailBtn({ icon, label, onPress, color = '#fff', a11y }: { icon: any; label?: React.ReactNode; onPress: () => void; color?: string; a11y: string }) {
   const s = useSharedValue(1);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return (
@@ -641,8 +667,8 @@ function RailBtn({ icon, label, onPress, color = '#fff', a11y }: { icon: any; la
       accessibilityRole="button"
       accessibilityLabel={a11y}
     >
-      <Animated.View style={st}><Ionicons name={icon} size={30} color={color} /></Animated.View>
-      {label ? <Text style={styles.railLabel}>{label}</Text> : null}
+      <Animated.View style={st}>{typeof icon === 'string' ? <Ionicons name={icon as any} size={30} color={color} /> : icon}</Animated.View>
+      {typeof label === 'string' ? <Text style={styles.railLabel}>{label}</Text> : label ? <View>{label}</View> : null}
     </Pressable>
   );
 }
@@ -723,7 +749,7 @@ const styles = StyleSheet.create({
   shadeBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 280 },
   top: { position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 },
   topBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  brand: { color: '#fff', fontSize: 17, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.3 },
+  brand: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: -0.4, textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 6 },
   rail: { position: 'absolute', right: 10, alignItems: 'center', gap: 18 },
   railAvatar: { borderWidth: 2, borderColor: '#fff', borderRadius: 26, padding: 2, marginBottom: 4 },
   // 20px honey circle centred on the avatar's bottom edge (avatar is 52 wide with 4 of margin under it)

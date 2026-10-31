@@ -14,6 +14,8 @@ export type ToastItem = {
   kind: 'info' | 'error' | 'success';
   action?: { label: string; onPress: () => void };
   duration: number;
+  /** An Ionicons name drawn in green at the left instead of the kind's icon (e.g. 'repeat' after a repost) */
+  icon?: string;
 };
 
 export type SheetItem = {
@@ -83,12 +85,13 @@ export function appSheet(opts: { title: string; message?: string; buttons: Alert
 }
 
 /** Short message at the bottom of the screen, with an optional action like "Undo" */
-export function toast(title: string, opts: { message?: string; kind?: ToastItem['kind']; action?: ToastItem['action']; duration?: number } = {}) {
+export function toast(title: string, opts: { message?: string; kind?: ToastItem['kind']; action?: ToastItem['action']; duration?: number; icon?: string } = {}) {
   useFeedback.getState().showToast({
     title,
     message: opts.message,
     kind: opts.kind ?? 'info',
     action: opts.action,
+    icon: opts.icon,
     duration: opts.duration ?? (opts.action ? 6000 : 3200),
   });
 }
