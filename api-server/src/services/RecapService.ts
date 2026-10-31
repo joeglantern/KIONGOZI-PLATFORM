@@ -15,6 +15,11 @@ export type WeekStats = {
   activeDays: number; streak: number;
   topPost: { id: string; content: string; likes: number } | null;
   topTag: string | null;
+  /** who liked and replied to you most this week (Wrapped's "your top fan") */
+  topFan?: { id: string; username: string; full_name: string | null; avatar_url: string | null; count: number } | null;
+  barazas?: number;
+  /** your best day of the week by activity on your posts, e.g. "Friday" */
+  bestDay?: string | null;
 };
 
 const dayKey = (d: string | Date) => new Date(d).toISOString().slice(0, 10);
@@ -69,7 +74,37 @@ export async function weekStats(userId: string): Promise<WeekStats> {
     activeDays: Math.min(7, weekDays), streak: streakInfo.streak,
     topPost: top ? { id: top.id, content: top.content, likes: top.like_count || 0 } : null,
     topTag,
+    ...(await wrappedExtras(userId, ids, sinceIso)),
   };
+}
+
+/** The personal bits for the Wrapped-style story: top fan, barazas joined, best day. */
+async function wrappedExtras(userId: string, ids: string[], sinceIso: string) {
+  try {
+    const [{ data: likers }, { data: repliers }, { count: barazas }] = await Promise.all([
+      ids.length ? db.from('post_likes').select('user_id, created_at').in('post_id', ids).neq('user_id', userId).gte('created_at', sinceIso).limit(2000) : Promise.resolve({ data: [] } as any),
+      ids.length ? db.from('posts').select('user_id, created_at').in('parent_post_id', ids).neq('user_id', userId).gte('created_at', sinceIso).limit(2000) : Promise.resolve({ data: [] } as any),
+      db.from('baraza_participants').select('room_id', { count: 'exact', head: true }).eq('user_id', userId).gte('joined_at', sinceIso),
+    ]);
+    const score = new Map<string, number>();
+    const byDay = new Map<number, number>();
+    for (const r of [...(likers || []), ...(repliers || [])] as any[]) {
+      score.set(r.user_id, (score.get(r.user_id) || 0) + 1);
+      const d = new Date(new Date(r.created_at).getTime() + 3 * 3600_000).getUTCDay(); // Nairobi time
+      byDay.set(d, (byDay.get(d) || 0) + 1);
+    }
+    const best = [...score.entries()].sort((a, b) => b[1] - a[1])[0];
+    let topFan = null;
+    if (best && best[1] >= 2) {
+      const { data: p } = await db.from('profiles').select('id, username, full_name, avatar_url').eq('id', best[0]).maybeSingle();
+      if (p) topFan = { ...(p as any), count: best[1] };
+    }
+    const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const bd = [...byDay.entries()].sort((a, b) => b[1] - a[1])[0];
+    return { topFan, barazas: barazas || 0, bestDay: bd ? DAYS[bd[0]] : null };
+  } catch {
+    return { topFan: null, barazas: 0, bestDay: null };
+  }
 }
 
 // ── Street-art look: hand-sprayed pieces made with gpt-image-1.5 (assets/recap), composed here.
