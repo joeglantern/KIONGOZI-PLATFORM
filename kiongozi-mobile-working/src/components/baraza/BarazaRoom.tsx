@@ -2,8 +2,8 @@
 // inside a ring of beads that go dark as their turn runs; everyone else is seated in an arc
 // below, hands up are a numbered queue, and captions run under the speaker.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Alert, AppState, useWindowDimensions, ActivityIndicator } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut, ZoomIn, LinearTransition, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
+import { View, Text, StyleSheet, Pressable, ScrollView, Alert, AppState, useWindowDimensions, ActivityIndicator, Image } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeOut, ZoomIn, LinearTransition, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -428,11 +428,17 @@ function Live({ state }: { state: BarazaState }) {
         <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }}>
           <Text style={[styles.title, { color: t.ink }]} numberOfLines={1}>{room.title}</Text>
           <View style={styles.metaRow}>
-            <View style={[styles.liveDot, { backgroundColor: t.danger }]} />
-            <Text style={[styles.meta, { color: t.sub }]}>Live · {state.count} listening</Text>
-            <View style={[styles.recPill, { backgroundColor: t.soft }]}>
-              <View style={[styles.recDotSm, { backgroundColor: t.danger }]} />
-              <Text style={[styles.recText, { color: t.sub }]}>Recorded</Text>
+            <View style={[styles.metaChip, { backgroundColor: t.soft }]} accessibilityLabel="Live now">
+              <LiveIcon />
+              <Text style={[styles.metaText, { color: t.danger }]}>Live</Text>
+            </View>
+            <View style={[styles.metaChip, { backgroundColor: t.soft }]} accessibilityLabel={`${state.count} listening`}>
+              <Image source={ART.iconListen} style={styles.metaIcon} fadeDuration={0} />
+              <Text style={[styles.metaText, { color: t.ink }]}>{state.count}</Text>
+            </View>
+            <View style={[styles.metaChip, { backgroundColor: t.soft }]} accessibilityLabel="Recorded for minutes">
+              <Image source={ART.iconRecorded} style={styles.metaIcon} fadeDuration={0} />
+              <Text style={[styles.metaText, { color: t.sub }]}>Minutes</Text>
             </View>
           </View>
         </View>
@@ -457,7 +463,7 @@ function Live({ state }: { state: BarazaState }) {
               style={[styles.speakerFrame, { backgroundColor: t.card, shadowColor: t.dark ? '#000' : '#6B4A1F' }]}>
               <UserAvatar avatarUrl={holder.avatar_url ?? undefined} name={holder.full_name || holder.username} size={SPEAKER} />
             </Pressable>
-            <View style={styles.stickSlot} pointerEvents="none">
+            <View style={styles.stickSlot} pointerEvents="box-none">
               <TalkingStick height={STICK_H} level={level} holderKey={room.holder_id} t={t} late={late} />
             </View>
           </Animated.View>
@@ -641,12 +647,23 @@ function Notice({ icon, title, text, onClose }: { icon: keyof typeof Ionicons.gl
   );
 }
 
+/** The painted "live" ember, breathing softly. */
+function LiveIcon() {
+  const b = useSharedValue(0);
+  useEffect(() => { b.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }), -1, true); }, [b]);
+  const st = useAnimatedStyle(() => ({ transform: [{ scale: 0.9 + b.value * 0.18 }], opacity: 0.75 + b.value * 0.25 }));
+  return <Animated.Image source={ART.iconLive} fadeDuration={0} style={[styles.metaIcon, st]} />;
+}
+
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   round: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
   title: { fontSize: 18, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: -0.3 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 6 },
+  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingLeft: 5, paddingRight: 9, borderRadius: 12 },
+  metaIcon: { width: 17, height: 17 },
+  metaText: { fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
   liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
   meta: { fontSize: 12, fontVariant: ['tabular-nums'] },
   recPill: { flexDirection: 'row', alignItems: 'center', marginLeft: 8, paddingHorizontal: 7, height: 18, borderRadius: 9 },
@@ -655,7 +672,7 @@ const styles = StyleSheet.create({
   turnLen: { fontSize: 13, fontWeight: '800' },
 
   speakerFrame: { borderRadius: 999, padding: 4, shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 6 },
-  stickSlot: { position: 'absolute', right: -6, bottom: -40 },
+  stickSlot: { position: 'absolute', right: -27, bottom: -40 },
   speakerName: { fontSize: 21, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 14, letterSpacing: -0.3, maxWidth: '80%' },
   speakerSub: { fontSize: 13.5, marginTop: 2, fontVariant: ['tabular-nums'] },
   captions: { minHeight: 74, marginTop: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingVertical: 12 },

@@ -5,7 +5,7 @@ import React, { useEffect, useMemo } from 'react';
 import { View, Text, Image, StyleSheet, Pressable, Modal, useWindowDimensions } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, withSpring, withDelay,
-  Easing, SharedValue, interpolate, Extrapolation, FadeIn, FadeOut, SlideInDown, SlideOutDown,
+  Easing, SharedValue, interpolate, useDerivedValue, Extrapolation, FadeIn, FadeOut, SlideInDown, SlideOutDown,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,19 @@ export const ART = {
   ],
   hand: require('../../../assets/baraza/hand.png'),
   empty: require('../../../assets/baraza/stage_empty.png'),
+  stickAnim: require('../../../assets/baraza/stick_anim.webp'),
+  iconLive: require('../../../assets/baraza/icon_live.png'),
+  iconListen: require('../../../assets/baraza/icon_listen.png'),
+  iconRecorded: require('../../../assets/baraza/icon_recorded.png'),
+  cover: require('../../../assets/baraza/cover.jpg'),
+};
+
+// The stick's shake, painted then animated (Higgsfield, Kling 3.0), cut out frame by frame.
+// 61 frames at 12fps in a 10-column sheet; frames 0-13 are the stick at rest.
+const SPRITE = {
+  n: 60, cols: 10, rows: 7, fw: 171, fh: 420, ms: 5000,
+  restTop: 0.0234, restBottom: 0.9968, restCx: 0.526,
+  shakeFrom: 14, shakeTo: 46,
 };
 
 const STICK_RATIO = 1 / 6; // width / height of stick.png (a slender carved staff)
@@ -84,6 +97,36 @@ function Ember({ i, level, t }: { i: number; level: SharedValue<number>; t: Bara
   );
 }
 
+/** A twinkling spark that circles the stick's head like it is enchanted. */
+function OrbitSpark({ i, n, radius, level, burst, t }: {
+  i: number; n: number; radius: number; level: SharedValue<number>; burst: SharedValue<number>; t: BarazaTheme;
+}) {
+  const a = useSharedValue(0);
+  const tw = useSharedValue(0);
+  useEffect(() => {
+    a.value = withRepeat(withTiming(1, { duration: 5200 + i * 700, easing: Easing.linear }), -1, false);
+    tw.value = withDelay(i * 330, withRepeat(withTiming(1, { duration: 900 + i * 170, easing: Easing.inOut(Easing.sin) }), -1, true));
+  }, [a, tw, i]);
+  const size = 9 + (i % 3) * 3;
+  const st = useAnimatedStyle(() => {
+    const ang = (a.value + i / n) * Math.PI * 2 * (i % 2 ? -1 : 1);
+    const r = radius * (1 + burst.value * 0.9 + level.value * 0.25);
+    return {
+      opacity: (0.35 + tw.value * 0.65) * (0.55 + Math.min(1, level.value * 1.5) * 0.45 + burst.value * 0.5),
+      transform: [
+        { translateX: Math.cos(ang) * r },
+        { translateY: Math.sin(ang) * r * 0.55 },
+        { scale: 0.6 + tw.value * 0.6 + burst.value * 0.8 },
+        { rotate: `${a.value * 360}deg` },
+      ],
+    };
+  });
+  return (
+    <Animated.Image source={ART.embers[(i + 1) % 3]} fadeDuration={0}
+      style={[{ position: 'absolute', width: size, height: size, tintColor: t.glow }, st]} />
+  );
+}
+
 /**
  * The talking stick, held by whoever has the floor. `level` (0..1) is how loud they are right
  * now; `holderKey` changes when it is passed, which plays the fly-in.
@@ -92,13 +135,42 @@ export function TalkingStick({ height, level, holderKey, t, late }: {
   height: number; level: SharedValue<number>; holderKey: string | null; t: BarazaTheme; late?: boolean;
 }) {
   const w = height * STICK_RATIO;
+  // The painted shake (animated in Higgsfield) plays from a sprite sheet: one image, no flicker
+  const FH = height / (SPRITE.restBottom - SPRITE.restTop);
+  const FW = FH * (SPRITE.fw / SPRITE.fh);
   const sway = useSharedValue(0);
   const arrive = useSharedValue(1);
   const shake = useSharedValue(0);
+  const prog = useSharedValue(0);   // frame position in the shake loop
+  const tapBurst = useSharedValue(0);
+
+  const loop = () => withRepeat(withSequence(
+    withTiming(0, { duration: 0 }),
+    withTiming(SPRITE.n, { duration: SPRITE.ms, easing: Easing.linear }),
+  ), -1, false);
 
   useEffect(() => {
+    prog.value = loop();
     sway.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [sway]);
+  }, []);
+
+  // Tap it: jump straight to the shake, with a flare of sparkles
+  const tap = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    const from = SPRITE.shakeFrom;
+    prog.value = withSequence(
+      withTiming(from, { duration: 0 }),
+      withTiming(SPRITE.n, { duration: ((SPRITE.n - from) / SPRITE.n) * SPRITE.ms, easing: Easing.linear }),
+      loop(),
+    );
+    tapBurst.value = withSequence(withTiming(1, { duration: 160 }), withTiming(0, { duration: 1000, easing: Easing.out(Easing.quad) }));
+  };
+
+  // Sparkles flare while the stick is shaking
+  const burst = useDerivedValue(() => Math.max(
+    tapBurst.value,
+    interpolate(prog.value, [SPRITE.shakeFrom - 1, SPRITE.shakeFrom + 4, SPRITE.shakeTo], [0, 1, 0], Extrapolation.CLAMP),
+  ));
 
   // Passed on: it flies in from above with a spin and lands with a little squash
   useEffect(() => {
@@ -130,24 +202,43 @@ export function TalkingStick({ height, level, holderKey, t, late }: {
     };
   });
 
+  const spriteStyle = useAnimatedStyle(() => {
+    const i = Math.min(SPRITE.n - 1, Math.floor(prog.value));
+    return {
+      transform: [
+        { translateX: -(i % SPRITE.cols) * FW },
+        { translateY: -Math.floor(i / SPRITE.cols) * FH },
+      ],
+    };
+  });
+
   const rest = t.dark ? 0.42 : 0.18; // on night rooms the dark wood needs a little light to read
   const glowStyle = useAnimatedStyle(() => ({
-    opacity: rest + level.value * (0.93 - rest),
-    transform: [{ scale: 0.75 + level.value * 0.9 + (sway.value - 0.5) * 0.06 }],
+    opacity: Math.min(1, rest + level.value * (0.93 - rest) + burst.value * 0.45),
+    transform: [{ scale: 0.75 + level.value * 0.9 + (sway.value - 0.5) * 0.06 + burst.value * 0.4 }],
   }));
 
-  // Light and embers ride with the stick, centred on the carved head near the top of the art
+  // Light, embers and sparkles sit on the carved head near the top of the art
   const G = height * 0.62;
-  const headY = height * 0.07;
+  const cx = FW * SPRITE.restCx;
+  const headY = FH * SPRITE.restTop + height * 0.06;
   return (
-    <Animated.View pointerEvents="none" style={[{ width: w, height }, stickStyle]}>
-      <Animated.Image source={ART.glow} fadeDuration={0}
-        style={[{ position: 'absolute', left: w / 2 - G / 2, top: headY - G / 2, width: G, height: G, tintColor: late ? t.danger : t.glow }, glowStyle]} />
-      <View style={{ position: 'absolute', left: w / 2, top: headY, width: 0, height: 0, alignItems: 'center', justifyContent: 'center' }}>
-        {Array.from({ length: 8 }, (_, i) => <Ember key={i} i={i} level={level} t={t} />)}
-      </View>
-      <Image source={ART.stick} fadeDuration={0} resizeMode="contain" style={{ width: w, height }} />
-    </Animated.View>
+    <Pressable onPress={tap} hitSlop={20} accessibilityRole="button" accessibilityLabel="The talking stick">
+      <Animated.View style={[{ width: FW, height: FH }, stickStyle]}>
+        <Animated.Image source={ART.glow} fadeDuration={0}
+          style={[{ position: 'absolute', left: cx - G / 2, top: headY - G / 2, width: G, height: G, tintColor: late ? t.danger : t.glow }, glowStyle]} />
+        <View pointerEvents="none" style={{ position: 'absolute', left: cx, top: headY, width: 0, height: 0, alignItems: 'center', justifyContent: 'center' }}>
+          {Array.from({ length: 8 }, (_, i) => <Ember key={i} i={i} level={level} t={t} />)}
+        </View>
+        <View style={{ width: FW, height: FH, overflow: 'hidden' }}>
+          <Animated.Image source={ART.stickAnim} fadeDuration={0}
+            style={[{ width: FW * SPRITE.cols, height: FH * SPRITE.rows }, spriteStyle]} />
+        </View>
+        <View pointerEvents="none" style={{ position: 'absolute', left: cx, top: headY, width: 0, height: 0, alignItems: 'center', justifyContent: 'center' }}>
+          {Array.from({ length: 5 }, (_, i) => <OrbitSpark key={i} i={i} n={5} radius={w * 1.25} level={level} burst={burst} t={t} />)}
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 
