@@ -11,12 +11,16 @@ import { UserAvatar } from '../social/UserAvatar';
 import { NoiseOverlay } from '../social/NoiseOverlay';
 import { HONEY, INK, Stick, PillButton } from './barazaUi';
 import { useBT } from './barazaTheme';
+import { useAuthStore } from '../../stores/authStore';
 
 export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: string; onClose: () => void; justEnded?: boolean }) {
   const th = useBT();
   const insets = useSafeAreaInsets();
   const [m, setM] = useState<BarazaMinutes | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const meId = useAuthStore(s => s.user?.id);
+  const [posting, setPosting] = useState(false);
+  const [postErr, setPostErr] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -41,6 +45,19 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
     const res = await barazaApi(`/ahadi/${id}`, 'PATCH', { done });
     if (!res.success) setM(cur => cur && { ...cur, ahadi: cur.ahadi.map(a => (a.id === id ? { ...a, done: !done } : a)) });
   };
+
+  // The host decides whether the minutes go on their profile; nothing is posted on its own
+  const share = async () => {
+    if (posting) return;
+    setPosting(true); setPostErr(null);
+    const res = await barazaApi<{ post_id: string }>(`/${roomId}/minutes/post`, 'POST');
+    setPosting(false);
+    if (res.success && res.data) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setM(cur => cur && { ...cur, room: { ...cur.room, minutes_post_id: res.data!.post_id } });
+    } else setPostErr(res.error || 'Could not post the minutes');
+  };
+  const isHost = !!m && m.room.host_id === meId;
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top + 8 }}>
@@ -108,7 +125,16 @@ export function BarazaMinutesView({ roomId, onClose, justEnded }: { roomId: stri
             )}
             {!m.key_points.length && !m.ahadi.length && !m.summary ? <Text style={styles.muted}>Nothing was recorded.</Text> : null}
           </Animated.View>
-          {m.room.minutes_post_id ? <Text style={[styles.foot, { color: th.faint }]}>Also posted as a thread on @{m.host?.username}'s profile.</Text> : null}
+          {m.room.minutes_post_id ? (
+            <Text style={[styles.foot, { color: th.faint }]}>Posted as a thread on @{m.host?.username}'s profile.</Text>
+          ) : isHost && (m.summary || m.key_points.length > 0) ? (
+            <View style={{ marginTop: 18 }}>
+              <PillButton label={posting ? 'Posting…' : 'Post to my profile'} icon="share-outline" tone="honey" onPress={share} disabled={posting} />
+              <Text style={[styles.foot, { color: postErr ? th.danger : th.faint }]}>
+                {postErr || 'Only people who were here can see these minutes until you post them.'}
+              </Text>
+            </View>
+          ) : null}
         </ScrollView>
       )}
       {status !== 'ready' && m ? (

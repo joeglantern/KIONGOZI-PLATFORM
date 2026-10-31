@@ -572,27 +572,8 @@ async function buildMinutes(roomId: string) {
     await db.from('baraza_ahadi').insert(ahadi.map(a => ({ room_id: roomId, ...a, remind_at: a.user_id ? remindAt : null })));
   }
 
-  // The host posts the minutes as a thread: headline + summary, then key points, then Ahadi
-  let postId: string | null = null;
-  if (turns.length) {
-    const link = `${SHARE_BASE}/api/v1/baraza/${roomId}/share`;
-    const head = `Baraza minutes: ${room.title}`;
-    const room4summary = 280 - head.length - link.length - 4;
-    const sum = summary.length > room4summary ? `${summary.slice(0, Math.max(0, room4summary - 1))}…` : summary;
-    const { data: main } = await db.from('posts').insert({ user_id: room.host_id, content: `${head}\n\n${sum}\n\n${link}`.slice(0, 280), visibility: 'public' })
-      .select('id').single();
-    postId = main?.id || null;
-    if (postId) {
-      const parts = [
-        ...pack('Key points', keyPoints.map(k => `• ${k.text}${k.by_user_id ? ` (${handle(byId.get(k.by_user_id))})` : ''}`)),
-        ...pack('Ahadi', ahadi.map(a => `☐ ${a.user_id ? handle(byId.get(a.user_id)) : a.who_name || 'Someone'}: ${a.text}`)),
-      ].slice(0, 8);
-      for (const content of parts) {
-        await db.from('posts').insert({ user_id: room.host_id, content, parent_post_id: postId, visibility: 'public' });
-      }
-    }
-  }
-  await mutate(roomId, () => ({ minutes_status: 'ready', minutes_post_id: postId }));
+  // Minutes stay private to the room until the host chooses to post them (POST /:id/minutes/post)
+  await mutate(roomId, () => ({ minutes_status: 'ready', minutes_post_id: null }));
 
   // Everyone who was there hears about it
   if (!turns.length) return;
@@ -602,8 +583,64 @@ async function buildMinutes(roomId: string) {
   const { data: tokens } = await db.from('push_tokens').select('token').in('user_id', ids);
   await sendExpoPush((tokens || []).map((t: any) => t.token), 'Minutes are ready',
     `"${room.title}": the summary, key points and Ahadi are up.`,
-    { type: 'baraza_minutes', baraza_id: roomId, ...(postId ? { post_id: postId } : {}) }).catch(() => {});
+    { type: 'baraza_minutes', baraza_id: roomId }).catch(() => {});
 }
+
+/** Posts the minutes on the host's profile as a thread: headline + summary, then key points, then Ahadi. */
+async function postMinutes(room: Room): Promise<string | null> {
+  const [{ data: m }, { data: ah }] = await Promise.all([
+    db.from('baraza_minutes').select('summary, key_points').eq('room_id', room.id).maybeSingle(),
+    db.from('baraza_ahadi').select('user_id, who_name, text').eq('room_id', room.id).order('created_at'),
+  ]);
+  if (!m) return null;
+  const summary = String((m as any).summary || '');
+  const keyPoints: { text: string; by_user_id: string | null }[] = (m as any).key_points || [];
+  const ahadi: any[] = ah || [];
+  const byId = await profiles([room.host_id, ...keyPoints.map(k => k.by_user_id).filter(Boolean) as string[], ...ahadi.map(a => a.user_id).filter(Boolean)]);
+
+  const link = `${SHARE_BASE}/api/v1/baraza/${room.id}/share`;
+  const head = `Baraza minutes: ${room.title}`;
+  const room4summary = 280 - head.length - link.length - 4;
+  const sum = summary.length > room4summary ? `${summary.slice(0, Math.max(0, room4summary - 1))}…` : summary;
+  const { data: main } = await db.from('posts').insert({ user_id: room.host_id, content: `${head}\n\n${sum}\n\n${link}`.slice(0, 280), visibility: 'public' })
+    .select('id').single();
+  const postId: string | null = main?.id || null;
+  if (postId) {
+    const parts = [
+      ...pack('Key points', keyPoints.map(k => `• ${k.text}${k.by_user_id ? ` (${handle(byId.get(k.by_user_id))})` : ''}`)),
+      ...pack('Ahadi', ahadi.map(a => `☐ ${a.user_id ? handle(byId.get(a.user_id)) : a.who_name || 'Someone'}: ${a.text}`)),
+    ].slice(0, 8);
+    for (const content of parts) {
+      await db.from('posts').insert({ user_id: room.host_id, content, parent_post_id: postId, visibility: 'public' });
+    }
+  }
+  return postId;
+}
+
+const posting = new Set<string>();
+
+// POST /:id/minutes/post — the host chooses to share the minutes on their profile
+router.post('/:id/minutes/post', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const room = await getRoom(req.params.id);
+    if (!room || room.host_id !== req.user!.id) { fail(res, 403, 'Only the host can post the minutes'); return; }
+    if (room.minutes_post_id) { res.json({ success: true, data: { post_id: room.minutes_post_id } }); return; }
+    if (room.minutes_status !== 'ready') { fail(res, 409, 'The minutes are not ready yet'); return; }
+    // a double tap can't post twice
+    if (posting.has(room.id)) { fail(res, 409, 'Already posting'); return; }
+    posting.add(room.id);
+    let postId: string | null = null;
+    try {
+      postId = await postMinutes(room).catch(e => { console.error('Baraza post minutes error:', e); return null; });
+      if (postId) await mutate(room.id, () => ({ minutes_post_id: postId }));
+    } finally { posting.delete(room.id); }
+    if (!postId) { fail(res, 500, 'Could not post the minutes'); return; }
+    res.json({ success: true, data: { post_id: postId } });
+  } catch (err) {
+    console.error('Baraza post minutes error:', err);
+    fail(res, 500, 'Could not post the minutes');
+  }
+});
 
 // GET /:id/minutes
 router.get('/:id/minutes', authenticateToken, async (req: Request, res: Response): Promise<void> => {
