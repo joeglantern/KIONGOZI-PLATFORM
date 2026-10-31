@@ -7,6 +7,7 @@
 // The server owns who holds the stick, when a turn ends and the queue order. Every change bumps
 // baraza_rooms.version, which is the realtime ping the app listens for (it then refetches state).
 import { Router, Request, Response } from 'express';
+import { isCounty } from '../utils/kenyaCounties';
 import OpenAI, { toFile } from 'openai';
 import { supabaseServiceClient as db } from '../config/supabase';
 import { authenticateToken } from '../middleware/auth';
@@ -51,7 +52,7 @@ async function blockedBetween(a: string, b: string) {
 /** People in the room right now (seen recently, not left, not removed). */
 async function present(roomId: string) {
   const { data } = await db.from('baraza_participants')
-    .select('user_id, role, hand_raised_at, spoke, joined_at')
+    .select('user_id, role, hand_raised_at, spoke, joined_at, from_county')
     .eq('room_id', roomId).eq('removed', false).is('left_at', null).gt('last_seen_at', cutoff())
     .order('joined_at', { ascending: true }).limit(500);
   return (data || []) as any[];
@@ -137,17 +138,30 @@ async function stateFor(room: Room, userId: string) {
     db.from('baraza_segments').select('seq').eq('room_id', room.id).order('seq', { ascending: false }).limit(1),
   ]);
   const ids = [room.host_id, ...(room.holder_id ? [room.holder_id] : []), ...people.slice(0, 120).map(p => p.user_id)];
-  const byId = await profiles(ids);
+  const shown = people.slice(0, 120);
+  const [byId, { data: follows }] = await Promise.all([
+    profiles(ids),
+    db.from('follows').select('following_id').eq('follower_id', userId).in('following_id', shown.map(p => p.user_id)),
+  ]);
+  const followed = new Set((follows || []).map((f: any) => f.following_id));
   const queue = queueOf(people, room.holder_id);
   const me: any = mine;
+  const myRow = people.find(p => p.user_id === userId);
+  // where people are listening from (only those who chose to share), biggest first
+  const places = new Map<string, number>();
+  for (const p of people) if (p.from_county) places.set(p.from_county, (places.get(p.from_county) || 0) + 1);
   return {
     room: { ...room, prev_holder_id: undefined, prev_turn_ended_at: undefined },
     host: byId.get(room.host_id) || null,
     holder: room.holder_id ? byId.get(room.holder_id) || null : null,
-    people: people.slice(0, 120).map(p => ({ user_id: p.user_id, role: p.role, hand_raised_at: p.hand_raised_at, spoke: p.spoke, profile: byId.get(p.user_id) || null })),
+    people: shown.map(p => ({
+      user_id: p.user_id, role: p.role, hand_raised_at: p.hand_raised_at, spoke: p.spoke, profile: byId.get(p.user_id) || null,
+      from: p.from_county || null, joined_at: p.joined_at, following: followed.has(p.user_id),
+    })),
+    places: [...places.entries()].sort((a, b) => b[1] - a[1]).map(([county, n]) => ({ county, n })),
     queue: queue.map(p => p.user_id),
     count: people.length,
-    me: me ? { role: me.role, hand_raised_at: me.hand_raised_at, removed: me.removed, joined: !me.left_at && !me.removed } : null,
+    me: me ? { role: me.role, hand_raised_at: me.hand_raised_at, removed: me.removed, joined: !me.left_at && !me.removed, from: myRow?.from_county || null } : null,
     latest_seq: last?.[0]?.seq ?? 0,
     server_now: new Date().toISOString(),
   };
@@ -280,6 +294,23 @@ async function liveMember(roomId: string, userId: string) {
   const member: any = data && !data.removed && !data.left_at ? data : null;
   return { room, member };
 }
+
+// POST /:id/from { county | null } — show (or hide) which county you're listening from
+router.post('/:id/from', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const county = req.body?.county ?? null;
+    if (county !== null && !isCounty(county)) { fail(res, 400, 'Pick a county from the list'); return; }
+    if (!UUID.test(req.params.id)) { fail(res, 404, 'Baraza not found'); return; }
+    const { error } = await db.from('baraza_participants').update({ from_county: county })
+      .eq('room_id', req.params.id).eq('user_id', userId);
+    if (error) throw error;
+    res.json({ success: true, data: { from: county } });
+  } catch (err) {
+    console.error('Baraza from error:', err);
+    fail(res, 500, 'Could not save that');
+  }
+});
 
 // POST /:id/hand { up } — raise or lower your hand (keeps your place if already up)
 router.post('/:id/hand', authenticateToken, async (req: Request, res: Response): Promise<void> => {
