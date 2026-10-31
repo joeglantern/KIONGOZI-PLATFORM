@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { deletePostWithUndo, hideFromList } from '../../utils/deletePost';
 import {
+  StatusBar,
   View, Text, StyleSheet, Pressable,
   ActivityIndicator, Animated, Share,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -396,6 +397,14 @@ export default function PublicProfileScreen() {
   const openFollowList = (initialTab: 'followers' | 'following') =>
     navigation.navigate('FollowList', { userId: profile.id, username: profile.username, initialTab });
 
+  // Light clock and battery over a photo cover, dark once the solid bar has taken over
+  const isFocusedForBar = useIsFocused();
+  const [barDark, setBarDark] = useState(!profile?.banner_url);
+  useEffect(() => {
+    const id = scrollY.addListener(({ value }) => setBarDark(!profile?.banner_url || value > 150));
+    return () => scrollY.removeListener(id);
+  }, [scrollY, profile?.banner_url]);
+
   const ListHeader = (
     <ProfileHeader
       scrollY={scrollY}
@@ -477,6 +486,7 @@ export default function PublicProfileScreen() {
         }
       />
 
+      {isFocusedForBar ? <StatusBar barStyle={barDark ? (T.bg === '#000000' ? 'light-content' : 'dark-content') : 'light-content'} animated /> : null}
       <ProfileChrome
         scrollY={scrollY}
         insetTop={insets.top}

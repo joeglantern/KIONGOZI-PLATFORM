@@ -27,6 +27,7 @@ import { useTheme } from '../../hooks/useTheme';
 
 type Theme = ReturnType<typeof useTheme>;
 const RECENTS_KEY = 'explore_recent_searches';
+const todayLabel = () => new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 /** Full number with thousands separators: 1204 → "1,204" */
 const commas = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const fmt = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K` : String(n));
@@ -334,9 +335,12 @@ export default function ExploreScreen() {
               <Ionicons name="chevron-back" size={26} color={T.text} />
             </Pressable>
           )}
-          <Text style={[styles.headerTitle, { flex: 1 }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dateLine} maxFontSizeMultiplier={1.3}>{todayLabel()}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>Explore</Text>
+          </View>
           <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('FindFriends')} accessibilityLabel="Find friends">
-            <Ionicons name="person-add-outline" size={20} color={T.text} />
+            <Ionicons name="person-add-outline" size={18} color={T.text} />
           </Pressable>
         </View>
         <View style={styles.searchRow}>
@@ -508,13 +512,14 @@ export default function ExploreScreen() {
 function makeStyles(T: Theme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
-    header: { paddingHorizontal: 16, paddingBottom: 10, backgroundColor: T.bg, gap: 12 },
-    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    headerTitle: { fontSize: 30, color: T.text, letterSpacing: -0.8, fontFamily: 'SpaceGrotesk_700Bold' },
-    iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
+    header: { paddingHorizontal: 20, paddingBottom: 10, backgroundColor: T.bg, gap: 10 },
+    headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 2 },
+    headerTitle: { fontSize: 34, lineHeight: 41, color: T.text, letterSpacing: 0.37, fontWeight: '800' },
+    dateLine: { fontSize: 13, fontWeight: '600', color: T.textSub, letterSpacing: -0.08, textTransform: 'uppercase' },
+    iconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
     searchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: T.surface2, borderRadius: 22, height: 44, paddingHorizontal: 16, gap: 10 },
-    searchInput: { flex: 1, fontSize: 15, color: T.text, paddingVertical: 0 },
+    searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: T.surface2, borderRadius: 11, height: 38, paddingHorizontal: 10, gap: 6 },
+    searchInput: { flex: 1, fontSize: 17, color: T.text, paddingVertical: 0 },
     cancel: { color: T.text, fontSize: 15, fontWeight: '600' },
 
     block: { paddingHorizontal: 16, paddingTop: 10 },
