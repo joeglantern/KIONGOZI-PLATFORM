@@ -25,8 +25,8 @@ export const isQrTheme = (t: any): t is QrThemeId => typeof t === 'string' && t 
 export const isQrStyle = (s: any): s is QrStyle => s === 'paper' || s === 'brush';
 
 /** What the code opens. The one place the profile link format lives (the app takes it from this API). */
-export const PROFILE_QR_BASE = 'https://api.kiongozi.org/u/';
-export const profileQrUrl = (username: string) => `${PROFILE_QR_BASE}${encodeURIComponent(username)}`;
+export const PROFILE_QR_BASE = 'https://api.kiongozi.org/@';
+export const profileQrUrl = (username: string) => `${PROFILE_QR_BASE}${encodeURIComponent(username.toLowerCase())}`;
 
 const W = 1080, H = 1350;
 const INK = '#1B1712', CARD = '#FBF7EE';
