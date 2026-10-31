@@ -160,10 +160,10 @@ function PaperCard({ children, style, rot = -3, delay, reduce, tint, h }: { chil
         <View style={h ? { height: h } : null} pointerEvents="box-none"
           onLayout={e => { const { width, height } = e.nativeEvent.layout; if (!sz || Math.abs(sz.w - width) > 1 || Math.abs(sz.h - height) > 1) setSz({ w: width, h: height }); }}>
           {sz ? (
-            <>
+            <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: sz.w, height: sz.h }}>
               <Image source={PAPER.patch} style={{ position: 'absolute', left: 6, top: 9, width: sz.w, height: sz.h, tintColor: INK, opacity: 0.2 }} resizeMode="stretch" fadeDuration={0} />
               <Image source={PAPER.patch} style={[{ position: 'absolute', left: 0, top: 0, width: sz.w, height: sz.h }, tint ? { tintColor: tint } : null]} resizeMode="stretch" fadeDuration={0} />
-            </>
+            </View>
           ) : null}
           {children}
         </View>

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Image, Share, Animated, ActivityIndicator, Modal, Platform, ScrollView, useWindowDimensions, InteractionManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore } from '../../stores/themeStore';
@@ -193,38 +194,57 @@ export function isShowable(post: any): boolean {
   return !!(p?.content?.trim() || p?.post_media?.length);
 }
 
-/** The quoted post inside a quote: a hairline box with a small author row and the text. */
-function QuoteBox({ post, styles, onProfilePress }: { post: Post; styles: ReturnType<typeof makeStyles>; onProfilePress?: (username: string) => void }) {
+/**
+ * The quoted post inside a quote, the way X does it: the whole box opens the quoted post, and its
+ * picture or video runs edge to edge along the bottom of the box at its own shape (portrait clips
+ * crop to 4:5). Tapping the media opens it full screen with the quoted post's own actions.
+ */
+function QuoteBox({ post, styles, onProfilePress, onOpen, onOpenMedia }: {
+  post: Post; styles: ReturnType<typeof makeStyles>; onProfilePress?: (username: string) => void;
+  onOpen: () => void; onOpenMedia: () => void;
+}) {
   const p = post.profiles;
-  const first = [...(post.post_media ?? [])].sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))[0];
-  const thumb = first ? ((first.media_type === 'video' ? first.thumbnail_url : first.url) || null) : null;
+  const first: any = [...(post.post_media ?? [])].sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))[0];
+  const isVideo = first?.media_type === 'video';
+  const thumb = first ? ((isVideo ? first.thumbnail_url : first.url) || null) : null;
+  const raw = first?.width && first?.height ? first.width / first.height : isVideo ? 9 / 16 : 1.5;
+  const ratio = Math.max(0.8, Math.min(isVideo ? 1.78 : 1.91, raw));
+  const dur = isVideo && first?.duration_seconds ? `${Math.floor(first.duration_seconds / 60)}:${String(Math.round(first.duration_seconds % 60)).padStart(2, '0')}` : null;
+  const more = (post.post_media?.length ?? 0) - 1;
   return (
-    <View style={styles.quoteBox}>
-      <TouchableOpacity
-        style={styles.quoteHead}
-        onPress={p?.username ? () => onProfilePress?.(p.username) : undefined}
-        activeOpacity={0.7}
-        disabled={!p?.username}
-      >
-        <UserAvatar avatarUrl={p?.avatar_url} size={20} isBot={!!p?.is_bot} name={p?.full_name || p?.username} />
-        <Text style={styles.quoteName} numberOfLines={1} maxFontSizeMultiplier={1.3}>{p?.full_name || p?.username}</Text>
-        {!!p?.is_verified && <VerifiedBadge size={13} />}
-        {!!p?.username && <Text style={styles.quoteHandle} numberOfLines={1} maxFontSizeMultiplier={1.3}>@{p.username} · {timeAgo(post.created_at)}</Text>}
-      </TouchableOpacity>
-      {!!post.content?.trim() && (
-        <Text style={styles.quoteText} numberOfLines={5} maxFontSizeMultiplier={1.4}>{post.content}</Text>
-      )}
+    <Pressable onPress={onOpen} style={({ pressed }) => [styles.quoteBox, thumb ? styles.quoteBoxMedia : null, pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Open the quoted post">
+      <View style={thumb ? styles.quoteInner : null}>
+        <TouchableOpacity
+          style={styles.quoteHead}
+          onPress={p?.username ? () => onProfilePress?.(p.username) : undefined}
+          activeOpacity={0.7}
+          disabled={!p?.username}
+        >
+          <UserAvatar avatarUrl={p?.avatar_url} size={20} isBot={!!p?.is_bot} name={p?.full_name || p?.username} />
+          <Text style={styles.quoteName} numberOfLines={1} maxFontSizeMultiplier={1.3}>{p?.full_name || p?.username}</Text>
+          {!!p?.is_verified && <VerifiedBadge size={13} />}
+          {!!p?.username && <Text style={styles.quoteHandle} numberOfLines={1} maxFontSizeMultiplier={1.3}>@{p.username} · {timeAgo(post.created_at)}</Text>}
+        </TouchableOpacity>
+        {!!post.content?.trim() && (
+          <Text style={styles.quoteText} numberOfLines={thumb ? 3 : 5} maxFontSizeMultiplier={1.4}>{post.content}</Text>
+        )}
+      </View>
       {thumb && (
-        <View style={styles.quoteThumb}>
-          <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          {first?.media_type === 'video' && (
-            <View style={styles.quotePlay}>
-              <Ionicons name="play" size={14} color="#fff" style={{ marginLeft: 2 }} />
+        <Pressable onPress={onOpenMedia} style={[styles.quoteMedia, { aspectRatio: ratio }]} accessibilityRole="button" accessibilityLabel={isVideo ? 'Play the video' : 'Open the photo'}>
+          <Image source={{ uri: thumb }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          {isVideo && (
+            <View style={styles.quotePlayWrap} pointerEvents="none">
+              <View style={styles.quotePlay}><Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 3 }} /></View>
             </View>
           )}
-        </View>
+          {(isVideo || more > 0) && (
+            <View style={styles.quoteChip} pointerEvents="none">
+              <Text style={styles.quoteChipText}>{isVideo ? (dur || 'Video') : `+${more}`}</Text>
+            </View>
+          )}
+        </Pressable>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -434,6 +454,30 @@ export function PostCard({
     media_type: m.media_type,
   }));
 
+  // The quoted post's own media viewer, and where tapping the quote goes
+  const navigation = useNavigation<any>();
+  const [quoteViewer, setQuoteViewer] = useState(false);
+  const openQuoted = useCallback(() => {
+    if (!quoted) return;
+    Haptics.selectionAsync().catch(() => {});
+    try { navigation.navigate('PostDetail', { postId: quoted.id }); } catch { onPress?.(); }
+  }, [quoted?.id, navigation, onPress]);
+  const qi = quoted ? postInteractions[quoted.id] : undefined;
+  const quotedMedia: MediaItem[] = (quoted?.post_media ?? []).slice(0, 4).map(m => ({ id: m.id, url: m.url, media_type: m.media_type }));
+  const quotedContext: PostContext | undefined = quoted ? {
+    post: quoted,
+    isLiked: qi?.isLiked ?? quoted.isLiked ?? false,
+    likeCount: qi?.like_count ?? quoted.like_count ?? 0,
+    isBookmarked: qi?.isBookmarked ?? quoted.isBookmarked ?? false,
+    repostCount: qi?.repost_count ?? quoted.repost_count ?? 0,
+    commentCount: quoted.comment_count,
+    onLike: () => toggleInteraction(quoted.id, 'like'),
+    onRepost: () => toggleInteraction(quoted.id, 'repost'),
+    onBookmark: () => toggleInteraction(quoted.id, 'bookmark' as any),
+    onReply: () => { setQuoteViewer(false); setTimeout(() => { try { navigation.navigate('PostDetail', { postId: quoted.id, focusReply: true }); } catch {} }, 250); },
+    onShare: () => {},
+  } : undefined;
+
   const openViewer = useCallback((index: number) => {
     setViewerIndex(index);
     setViewerVisible(true);
@@ -605,7 +649,7 @@ export function PostCard({
             )}
 
             {/* Quote: the original post in a hairline box */}
-            {quoted && <QuoteBox post={quoted} styles={styles} onProfilePress={onProfilePress} />}
+            {quoted && <QuoteBox post={quoted} styles={styles} onProfilePress={onProfilePress} onOpen={openQuoted} onOpenMedia={() => setQuoteViewer(true)} />}
           </Pressable>
 
           {/* Actions: reply · repost · like spread across, share + bookmark grouped at the right */}
@@ -685,6 +729,17 @@ export function PostCard({
         caption={activePost.content}
         postContext={viewerPostContext}
       />
+
+      {quoted && quotedMedia.length > 0 && (
+        <MediaViewerModal
+          visible={quoteViewer}
+          onClose={() => setQuoteViewer(false)}
+          media={quotedMedia}
+          initialIndex={0}
+          caption={quoted.content}
+          postContext={quotedContext}
+        />
+      )}
 
       {/* Quote post modal */}
       <QuotePostModal
@@ -866,8 +921,14 @@ function makeStyles(T: ReturnType<typeof import('../../hooks/useTheme').useTheme
     quoteName: { fontSize: 14, fontWeight: '700', color: T.text, flexShrink: 1 },
     quoteHandle: { fontSize: 14, color: T.textSub, flexShrink: 2 },
     quoteText: { fontSize: 14.5, lineHeight: 20, color: T.textSub },
-    quoteThumb: { marginTop: 8, borderRadius: 10, overflow: 'hidden', aspectRatio: 1.78, backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' },
-    quotePlay: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+    // with media: no padding on the box, the text gets its own and the media runs to the edges
+    quoteBoxMedia: { paddingVertical: 0, paddingHorizontal: 0, overflow: 'hidden' },
+    quoteInner: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10 },
+    quoteMedia: { width: '100%', backgroundColor: T.surface2, borderTopWidth: 0.5, borderTopColor: T.border },
+    quotePlayWrap: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+    quotePlay: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' },
+    quoteChip: { position: 'absolute', left: 8, bottom: 8, paddingHorizontal: 7, height: 22, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' },
+    quoteChipText: { color: '#fff', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
     // Action row: reply, repost, like spread with space-between; share + bookmark grouped at the right
     actions: {
       flexDirection: 'row',
