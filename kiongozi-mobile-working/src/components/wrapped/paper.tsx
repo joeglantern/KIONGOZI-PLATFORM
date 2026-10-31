@@ -97,7 +97,7 @@ export function Boil({ children, style, reduce, amp = 1.6, fps = 8, drift = 0, s
     const y = frame === 2 ? -0.8 : 0.4;
     return { transform: [{ translateX: x }, { translateY: y - b.value * drift }, { rotate: `${r}deg` }] };
   });
-  return <Animated.View style={[style, st]}>{children}</Animated.View>;
+  return <Animated.View style={[style, st]} pointerEvents="box-none">{children}</Animated.View>;
 }
 
 /** A cut-paper picture with a crisp shadow that follows its edge */
@@ -174,7 +174,7 @@ export function BrushMark({ source, w, h, x, y, delay, reduce, rot = 0, opacity 
 export function Grain({ opacity = 0.55 }: { opacity?: number }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Image source={PAPER.grain} style={[StyleSheet.absoluteFill, { opacity }]} resizeMode="repeat" fadeDuration={0} />
+      <Image source={PAPER.grain} style={[StyleSheet.absoluteFill, { opacity }]} resizeMode="cover" fadeDuration={0} />
     </View>
   );
 }

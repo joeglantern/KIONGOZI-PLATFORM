@@ -151,11 +151,11 @@ function Avatar({ uri, size, name, radius }: { uri?: string | null; size: number
 }
 
 /** A piece of torn cream paper with something on it (post, photo), slapped down at an angle */
-function PaperCard({ children, style, rot = -3, delay, reduce, tint }: { children: React.ReactNode; style?: any; rot?: number; delay: number; reduce: boolean; tint?: string }) {
+function PaperCard({ children, style, rot = -3, delay, reduce, tint, h }: { children: React.ReactNode; style?: any; rot?: number; delay: number; reduce: boolean; tint?: string; h?: number }) {
   return (
-    <Animated.View entering={slap(delay, reduce, rot)} style={[style, { transform: [{ rotate: `${rot}deg` }] }]}>
-      <Boil reduce={reduce} amp={0.5} drift={2}>
-        <View>
+    <Animated.View entering={slap(delay, reduce, rot)} style={[style, { transform: [{ rotate: `${rot}deg` }] }]} pointerEvents="box-none">
+      <Boil reduce={reduce} amp={0.5} drift={2} style={h ? { height: h } : null}>
+        <View style={h ? { height: h, overflow: 'visible' } : null} pointerEvents="box-none">
           <Image source={PAPER.patch} style={[StyleSheet.absoluteFill, { left: 6, top: 9, right: -6, bottom: -9, tintColor: INK, opacity: 0.2 }]} resizeMode="stretch" fadeDuration={0} />
           <Image source={PAPER.patch} style={[StyleSheet.absoluteFill, tint ? { tintColor: tint } : null]} resizeMode="stretch" fadeDuration={0} />
           {children}
@@ -447,7 +447,7 @@ function Summary({ s, L, reduce, me, share }: SlideProps) {
   const tileW = (cardW - 48 - 12) / 2;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <PaperCard delay={120} reduce={reduce} rot={-2} tint={VIOLET} style={{ position: 'absolute', left: 24, right: 24, top, height: cardH }}>
+      <PaperCard delay={120} reduce={reduce} rot={-2} tint={VIOLET} h={cardH} style={{ position: 'absolute', left: 24, right: 24, top, height: cardH }}>
         <View pointerEvents="none" style={{ height: cardH }}>
           <View style={{ position: 'absolute', right: 18 * sk, top: 18 * sk, width: 120 * sk, height: 120 * sk * AR.trophy }}>
             <Piece source={PAPER.trophy} w={120 * sk} h={120 * sk * AR.trophy} x={0} y={0} rot={8} delay={460} reduce={reduce} amp={1.2} drift={2} />
